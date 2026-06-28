@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support
+    url: https://github.com/ocque41/psicoayuda/blob/main/SUPPORT.md
+    about: Read support expectations before opening an issue.
