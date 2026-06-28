@@ -26,7 +26,10 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build --webpack",
+    "build:cloudflare": "PSICOAYUDA_DB_TARGET=cloudflare opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare build && wrangler dev",
+    "deploy": "PSICOAYUDA_DB_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
@@ -35,8 +38,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@radix-ui/react-slot": "1.2.4",
     "@libsql/client": "^0.15.15",
+    "@opennextjs/cloudflare": "^1.20.1",
+    "@radix-ui/react-slot": "1.2.4",
     "better-auth": "1.6.22",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -46,10 +50,12 @@
     "react-dom": "19.2.7",
     "server-only": "^0.0.1",
     "tailwind-merge": "3.4.0",
+    "wrangler": "^4.105.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
+    "@cloudflare/workers-types": "^4.20260627.1",
     "@tailwindcss/postcss": "4.3.1",
     "@types/node": "^20",
     "@types/react": "^19",

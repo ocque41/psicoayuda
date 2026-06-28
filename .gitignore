@@ -1,4 +1,6 @@
 .next
+.open-next
+.wrangler
 node_modules
 local.db
 local.db-*
@@ -6,3 +8,7 @@ local.db-*
 *.tsbuildinfo
 _references/
 goal.md
+google-cloud-sdk/
+.google-oauth-client.json
+.google-oauth-credential.json
+.cloudflare-secret-*.txt

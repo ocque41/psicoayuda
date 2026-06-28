@@ -2,7 +2,15 @@
   "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!node_modules", "!.next", "!_references", "!drizzle"]
+    "includes": [
+      "**",
+      "!node_modules",
+      "!.next",
+      "!.open-next",
+      "!_references",
+      "!drizzle",
+      "!google-cloud-sdk"
+    ]
   },
   "formatter": {
     "enabled": true,

@@ -136,13 +136,39 @@ assignments.
 
 ## Cloudflare D1 notes
 
-Cloudflare Workers should not rely on a local SQLite file because it is not
-persistent there. For Cloudflare, use D1 with a `DB` binding and adapt the
-database client for Drizzle D1 after verifying Better Auth adapter compatibility.
+The app can run on Cloudflare Workers through OpenNext and D1. The live worker
+is configured as:
 
-This MVP does not include OpenNext Cloudflare or Wrangler dependencies yet. That
-keeps the local SQLite app simple and avoids adding deployment risk before D1
-auth behavior is tested.
+- Worker: `ayudapsicologicavenezuela`
+- URL: `https://ayudapsicologicavenezuela.ocque41.workers.dev`
+- D1 binding: `DB`
+- D1 database: `ayudapsicologicavenezuela-db`
+
+Cloudflare uses `PSICOAYUDA_DB_TARGET=cloudflare`, which makes the Drizzle
+client talk to D1 instead of the local SQLite file. Local development continues
+to use `DATABASE_URL=file:./local.db`.
+
+Apply migrations to D1 with Wrangler when schema changes:
+
+```bash
+pnpm wrangler d1 migrations apply ayudapsicologicavenezuela-db --remote
+```
+
+Production secrets are stored with Wrangler secrets, not in Git:
+
+```bash
+pnpm wrangler secret put BETTER_AUTH_SECRET
+pnpm wrangler secret put GOOGLE_CLIENT_ID
+pnpm wrangler secret put GOOGLE_CLIENT_SECRET
+pnpm wrangler secret put ADMIN_EMAILS
+```
+
+For Google sign-in, use a Google OAuth Web Client whose client ID ends in
+`.apps.googleusercontent.com`. Add this authorized redirect URI:
+
+```text
+https://ayudapsicologicavenezuela.ocque41.workers.dev/api/auth/callback/google
+```
 
 ## Commands
 
@@ -150,6 +176,8 @@ auth behavior is tested.
 pnpm lint
 pnpm test
 pnpm build
+pnpm build:cloudflare
+pnpm deploy
 pnpm db:push
 pnpm db:seed
 ```
