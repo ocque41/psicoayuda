@@ -30,6 +30,7 @@ pnpm dev
 - [ ] Public safety copy is still accurate.
 - [ ] No secrets, local databases, or `.env` files are committed.
 - [ ] `pnpm lint` passes.
+- [ ] `pnpm secret:scan` passes.
 - [ ] `pnpm test` passes.
 - [ ] `pnpm build` passes.
 - [ ] New behavior is documented if developers need to know it.

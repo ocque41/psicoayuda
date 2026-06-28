@@ -29,3 +29,5 @@ Include:
 - Do not add analytics or third-party trackers without a privacy review.
 - Do not expose professional private contact details publicly.
 - Do not add emergency phone numbers unless they are verified and sourced.
+- Run `pnpm secret:scan` before pushing changes that touch config,
+  deployment, auth, or docs.

@@ -34,6 +34,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Secret scan
+        run: pnpm secret:scan
+
       - name: Test
         run: pnpm test
 

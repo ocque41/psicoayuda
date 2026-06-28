@@ -32,6 +32,7 @@
     "deploy": "PSICOAYUDA_DB_TARGET=cloudflare opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "biome check",
+    "secret:scan": "node scripts/secret-scan.mjs",
     "format": "biome format --write",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
