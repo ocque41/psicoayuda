@@ -25,6 +25,12 @@ export const auth = betterAuth({
     provider: "sqlite",
     schema,
   }),
+  // Login dinámico: Google O correo+contraseña (como Fiverr y similares).
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true,
+    minPasswordLength: 8,
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",

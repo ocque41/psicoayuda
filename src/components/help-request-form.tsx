@@ -116,15 +116,16 @@ export function HelpRequestForm() {
       </div>
 
       <div className="field">
-        <label htmlFor={ids.email}>¿A qué correo te escribimos? *</label>
+        <label htmlFor={ids.email}>Tu correo (opcional)</label>
         <p className="hint" id={ids.emailHint}>
-          Solo lo usamos para que una persona voluntaria te responda.
+          Si lo dejas, una persona voluntaria puede escribirte. Si prefieres no
+          darlo, también puedes{" "}
+          <a href="/profesionales">hablar por chat con un profesional</a>.
         </p>
         <input
           id={ids.email}
           name="email"
           type="email"
-          required
           autoComplete="email"
           aria-describedby={ids.emailHint}
         />
@@ -133,7 +134,7 @@ export function HelpRequestForm() {
       <div className="checks">
         <label>
           <input name="consentContact" type="checkbox" required />
-          Sí, quiero que una persona voluntaria me contacte por este correo.
+          Sí, quiero que el equipo de Nido me acompañe con esta solicitud.
         </label>
       </div>
       <p className="hint" style={{ marginTop: "-6px" }}>

@@ -44,23 +44,30 @@ async function getRequesterHash() {
   return createHash("sha256").update(`${getAuthSecret()}:${ip}`).digest("hex");
 }
 
-async function isRateLimited(email: string, requesterHash?: string) {
+async function isRateLimited(
+  email: string | undefined,
+  requesterHash?: string,
+) {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const filters = requesterHash
-    ? or(
-        and(
-          eq(helpRequests.email, email),
-          gte(helpRequests.createdAt, oneHourAgo),
-        ),
-        and(
-          eq(helpRequests.requesterHash, requesterHash),
-          gte(helpRequests.createdAt, oneHourAgo),
-        ),
-      )
-    : and(
-        eq(helpRequests.email, email),
+  const conditions = [];
+  if (email) {
+    conditions.push(
+      and(eq(helpRequests.email, email), gte(helpRequests.createdAt, oneHourAgo)),
+    );
+  }
+  if (requesterHash) {
+    conditions.push(
+      and(
+        eq(helpRequests.requesterHash, requesterHash),
         gte(helpRequests.createdAt, oneHourAgo),
-      );
+      ),
+    );
+  }
+  // Sin correo ni IP no podemos limitar por estos ejes; no bloqueamos.
+  if (conditions.length === 0) return false;
+
+  const filters =
+    conditions.length === 1 ? conditions[0] : or(...conditions);
 
   const [row] = await db
     .select({ total: count() })
@@ -92,7 +99,7 @@ export async function createHelpRequest(
   const id = newId("req");
   await db.insert(helpRequests).values({
     id,
-    email: parsed.data.email,
+    email: parsed.data.email ?? "",
     language: parsed.data.language,
     country: parsed.data.country || "Venezuela",
     state: parsed.data.state,

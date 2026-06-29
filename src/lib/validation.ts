@@ -23,7 +23,15 @@ const optionalNumber = z.preprocess(
 );
 
 export const helpRequestSchema = z.object({
-  email: z.email("Escribe un correo válido.").trim().toLowerCase(),
+  // Opcional: quien pide ayuda puede dejar correo para que le escriban, o no
+  // darlo y hablar por chat con un profesional. Vacío o ausente = sin correo.
+  email: z
+    .email("Escribe un correo válido.")
+    .trim()
+    .toLowerCase()
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => value || undefined),
   language: z.enum(languages),
   country: z.string().trim().max(80).default("Venezuela"),
   state: optionalText,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GoogleSignInButton } from "@/components/google-sign-in";
+import { AuthPanel } from "@/components/auth-panel";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
@@ -44,14 +44,10 @@ export default async function ProPage() {
           </p>
         ) : (
           <div className="signin">
-            <GoogleSignInButton />
-            <p className="hint">
-              Entras con Google solo para verificar tu identidad profesional. No
-              publicamos nada en tu nombre.
-            </p>
-            <p className="muted">
-              Completar tu perfil toma unos 4 minutos. Después decides a cuántas
-              personas acompañar y puedes pausar cuando quieras.
+            <AuthPanel />
+            <p className="muted auth-foot">
+              Entras solo para verificar tu identidad profesional; no publicamos
+              nada en tu nombre. Completar tu perfil toma unos 4 minutos.
             </p>
           </div>
         )}

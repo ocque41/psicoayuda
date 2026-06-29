@@ -126,10 +126,48 @@ textarea {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--foreground);
   text-decoration: none;
+}
+
+.brand-flag {
+  display: block;
+  flex: none;
+  width: 26px;
+  height: 17px;
+  border-radius: 2.5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent, #1f6f64);
+}
+
+.reactions {
+  margin: 16px 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+}
+
+.safety-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent, #1f6f64);
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  font-size: 0.95rem;
 }
 
 .nav {
@@ -436,6 +474,60 @@ legend {
 .pro-card-actions {
   margin-top: auto;
   padding-top: 8px;
+}
+
+/* ---- Panel de acceso profesional (Google + correo/contraseña) ---- */
+.signin {
+  max-width: 420px;
+}
+
+.auth-panel .button {
+  width: 100%;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 18px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-toggle {
+  margin: 16px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.auth-toggle button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 650;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.auth-toggle button:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.auth-foot {
+  margin-top: 14px;
+  max-width: 420px;
+  font-size: 0.9rem;
 }
 
 .button {
