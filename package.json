@@ -58,7 +58,7 @@
     "@biomejs/biome": "2.2.0",
     "@cloudflare/workers-types": "^4.20260627.1",
     "@tailwindcss/postcss": "4.3.1",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "0.31.10",
