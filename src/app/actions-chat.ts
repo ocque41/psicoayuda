@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { conversations, professionals, seekerSessions } from "@/db/schema";
+import { getAuthSecret } from "@/lib/auth-secret";
 import { newId, nowIso } from "@/lib/ids";
 import { mintSeekerToken, SEEKER_COOKIE } from "@/lib/seeker-token";
 
@@ -18,9 +19,7 @@ async function getRequesterHash() {
     requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     requestHeaders.get("x-real-ip");
   if (!ip) return undefined;
-  return createHash("sha256")
-    .update(`${process.env.BETTER_AUTH_SECRET ?? "local"}:${ip}`)
-    .digest("hex");
+  return createHash("sha256").update(`${getAuthSecret()}:${ip}`).digest("hex");
 }
 
 async function isOpenRateLimited(requesterHash?: string) {
@@ -92,12 +91,16 @@ export async function createConversation(formData: FormData) {
     expiresAt: new Date(now + TOKEN_TTL_MS),
   });
 
-  const secret =
-    process.env.BETTER_AUTH_SECRET ??
-    "psicoayuda-local-development-secret-change-me";
   const token = mintSeekerToken(
-    { sid, conversationId, helpRequestId, role: "seeker", iat: now, exp: now + TOKEN_TTL_MS },
-    secret,
+    {
+      sid,
+      conversationId,
+      helpRequestId,
+      role: "seeker",
+      iat: now,
+      exp: now + TOKEN_TTL_MS,
+    },
+    getAuthSecret(),
   );
 
   const cookieStore = await cookies();

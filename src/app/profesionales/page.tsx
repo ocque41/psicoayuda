@@ -36,9 +36,9 @@ export default async function ProfesionalesPage() {
         {professionals.length === 0 ? (
           <div className="card">
             <p>
-              Aún estamos sumando voluntarios verificados. Mientras tanto, puedes{" "}
-              <Link href="/ayuda">dejar tu solicitud</Link> y una persona del
-              equipo te contactará por correo.
+              Aún estamos sumando voluntarios verificados. Mientras tanto,
+              puedes <Link href="/ayuda">dejar tu solicitud</Link> y una persona
+              del equipo te contactará por correo.
             </p>
           </div>
         ) : (

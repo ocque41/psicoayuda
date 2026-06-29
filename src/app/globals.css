@@ -12,9 +12,11 @@
   --accent: #2f7a5b;
   --accent-strong: #245f47;
   --accent-soft: #e6f1ea;
-  /* Acción humana principal (terracota cálida) */
-  --human: #c2603d;
-  --human-strong: #a64e30;
+  /* Acción humana principal (terracota cálida).
+     AA WCAG 2.2: #b65334 da 4.91:1 con texto blanco (texto normal >=4.5:1);
+     #8a3d28 da 7.56:1 para hover y para texto terracota sobre crema. */
+  --human: #b65334;
+  --human-strong: #8a3d28;
   --success: #2f7a5b;
   --danger: #9a3b2e;
 
@@ -36,7 +38,8 @@
   --radius-pill: 999px;
 
   /* ---- Sombras difusas ---- */
-  --shadow-sm: 0 1px 2px rgba(43, 39, 35, 0.04), 0 2px 8px rgba(43, 39, 35, 0.05);
+  --shadow-sm:
+    0 1px 2px rgba(43, 39, 35, 0.04), 0 2px 8px rgba(43, 39, 35, 0.05);
   --shadow: 0 4px 16px rgba(43, 39, 35, 0.07), 0 1px 3px rgba(43, 39, 35, 0.05);
   --shadow-focus: 0 0 0 3px var(--accent-soft);
 
@@ -46,8 +49,9 @@
   --step-2: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
 
   /* Hanken Grotesk (next/font) con fallback de sistema robusto */
-  --font-sans: var(--font-hanken), system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  --font-sans:
+    var(--font-hanken), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 
 * {
@@ -190,6 +194,21 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.faq {
+  display: grid;
+  gap: 14px;
+}
+
+.faq .card h3 {
+  margin-top: 0;
+  font-size: var(--step-1);
+}
+
+.faq .card p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
 .card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -226,6 +245,19 @@ legend {
 
 .muted {
   color: var(--muted);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Texto introductorio bajo un <legend> en formularios por secciones */
+.field-help {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0 0 var(--space-4);
 }
 
 /* Franja de confianza: gratis / confidencial / sin cuenta / verificados */
@@ -293,6 +325,117 @@ legend {
   color: var(--muted);
   font-size: 0.95rem;
   max-width: 640px;
+}
+
+/* ---- Feed público de profesionales (/profesionales) ---- */
+.pro-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.pro-card-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.pro-card-head h3 {
+  margin: 0;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pro-loc {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 650;
+  margin: 0 0 12px;
+}
+
+.badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-available,
+.badge-fast {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.badge-soon {
+  background: #f6e7df;
+  color: var(--human-strong);
+}
+
+.badge-new,
+.badge-unavailable {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.chips li {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.chips li.chip-strong {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.pro-langs {
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+}
+
+.pro-bio {
+  margin: 0 0 12px;
+}
+
+.pro-card-actions {
+  margin-top: auto;
+  padding-top: 8px;
 }
 
 .button {

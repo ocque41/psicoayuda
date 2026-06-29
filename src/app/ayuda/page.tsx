@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
+
+export const metadata: Metadata = {
+  title: "Pedir ayuda psicológica gratis",
+  description:
+    "Pide apoyo psicológico gratuito y confidencial en Venezuela. Completa el formulario en menos de un minuto, sin crear cuenta, y una persona voluntaria te escribirá.",
+  alternates: { canonical: "/ayuda" },
+  openGraph: {
+    title: "Pedir ayuda psicológica gratis | Nido",
+    description:
+      "Pide apoyo psicológico gratuito y confidencial en Venezuela. Sin crear cuenta. Una persona voluntaria revisará tu mensaje.",
+    url: "/ayuda",
+  },
+};
 
 export default function HelpPage() {
   return (
@@ -19,8 +33,8 @@ export default function HelpPage() {
         <EmergencyNotice />
         <HelpRequestForm />
         <p className="reassurance">
-          Detrás de Nido hay psicólogas y psicólogos voluntarios reales que
-          dan su tiempo para acompañar a personas como tú.
+          Detrás de Nido hay psicólogas y psicólogos voluntarios reales que dan
+          su tiempo para acompañar a personas como tú.
         </p>
       </div>
     </section>

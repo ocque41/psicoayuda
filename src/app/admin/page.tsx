@@ -1,4 +1,5 @@
 import { desc } from "drizzle-orm";
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   adminAnonymizeHelpRequest,
@@ -11,6 +12,11 @@ import { helpRequests, professionals } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
 import { needLabels } from "@/lib/constants";
 import { suggestProfessionalsForRequest } from "@/lib/matching";
+
+export const metadata: Metadata = {
+  title: "Administración",
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminPage() {
   const admin = await requireAdmin();

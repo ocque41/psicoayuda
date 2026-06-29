@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ProfessionalOnboardingForm } from "@/components/professional-onboarding-form";
 import { getServerSession } from "@/lib/auth-server";
+
+export const metadata: Metadata = {
+  title: "Onboarding profesional",
+  robots: { index: false, follow: false },
+};
 
 export default async function ProOnboardingPage() {
   const session = await getServerSession();

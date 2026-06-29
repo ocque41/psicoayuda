@@ -12,6 +12,7 @@ declare global {
     PRIVACY_CONTACT_EMAIL?: string;
     CONTACT_FROM_EMAIL?: string;
     NOTIFICATION_EMAIL?: string;
+    RESEND_API_KEY?: string;
   }
 }
 

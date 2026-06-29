@@ -80,3 +80,76 @@ export async function assignRequestToProfessional(input: {
     return { ok: true as const };
   });
 }
+
+/**
+ * Cierra las asignaciones activas de una solicitud y libera capacidad del
+ * profesional (currentActiveRequests, con piso en 0). Idempotente: solo toca
+ * asignaciones en estado "assigned". Se invoca al cerrar/anonimizar.
+ */
+export async function releaseAssignmentsForRequest(helpRequestId: string) {
+  return db.transaction(async (tx) => {
+    const active = await tx.query.assignments.findMany({
+      where: and(
+        eq(assignments.helpRequestId, helpRequestId),
+        eq(assignments.status, "assigned"),
+      ),
+    });
+
+    const timestamp = nowIso();
+    for (const assignment of active) {
+      await tx
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(eq(assignments.id, assignment.id));
+      await tx
+        .update(professionals)
+        .set({
+          currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+          updatedAt: timestamp,
+        })
+        .where(eq(professionals.id, assignment.professionalId));
+    }
+
+    return active.length;
+  });
+}
+
+/**
+ * Al suspender/rechazar a un profesional: cierra sus asignaciones activas,
+ * devuelve esas solicitudes a "new" para que puedan reasignarse y pone su
+ * capacidad consumida a 0. Evita que personas queden silenciosamente huérfanas.
+ */
+export async function releaseProfessionalAssignments(professionalId: string) {
+  return db.transaction(async (tx) => {
+    const active = await tx.query.assignments.findMany({
+      where: and(
+        eq(assignments.professionalId, professionalId),
+        eq(assignments.status, "assigned"),
+      ),
+    });
+
+    const timestamp = nowIso();
+    for (const assignment of active) {
+      await tx
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(eq(assignments.id, assignment.id));
+      await tx
+        .update(helpRequests)
+        .set({ status: "new", updatedAt: timestamp })
+        .where(
+          and(
+            eq(helpRequests.id, assignment.helpRequestId),
+            eq(helpRequests.status, "assigned"),
+          ),
+        );
+    }
+
+    await tx
+      .update(professionals)
+      .set({ currentActiveRequests: 0, updatedAt: timestamp })
+      .where(eq(professionals.id, professionalId));
+
+    return active.length;
+  });
+}

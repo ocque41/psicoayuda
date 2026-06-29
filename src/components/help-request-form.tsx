@@ -178,9 +178,9 @@ export function HelpRequestForm() {
           >
             Usar mi ubicación
           </button>
-          <p className="hint" role="status" aria-live="polite">
+          <output className="hint" aria-live="polite">
             {locationMessage}
-          </p>
+          </output>
         </div>
       </details>
 

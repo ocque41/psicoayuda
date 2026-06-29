@@ -66,8 +66,6 @@ function isAllowedOrigin(request: Request, env: Env): boolean {
   }
 }
 
-const FALLBACK_SECRET = "psicoayuda-local-development-secret-change-me";
-
 /**
  * Construye el onBeforeConnect de partyserver capturando `env` por closure
  * (la firma de partyserver no recibe env). Valida Origin (anti-CSWSH), autoriza
@@ -81,7 +79,10 @@ export function makeOnBeforeConnect(env: Env) {
     if (!isAllowedOrigin(request, env)) {
       return new Response("Forbidden origin", { status: 403 });
     }
-    const secret = env.BETTER_AUTH_SECRET ?? FALLBACK_SECRET;
+    const secret = env.BETTER_AUTH_SECRET;
+    if (!secret) {
+      return new Response("Server misconfigured", { status: 500 });
+    }
     const decision = authorizeConnection(
       request.headers.get("Cookie"),
       lobby.name,

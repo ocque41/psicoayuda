@@ -50,8 +50,21 @@ export async function suggestProfessionalsForRequest(helpRequestId: string) {
 
   if (!request) return [];
 
+  // Proyección explícita: nunca traemos email, userId, licencia ni notas de
+  // contacto a este camino, cuyo único consumidor público es /ayuda/gracias.
+  // Así la PII del profesional no puede filtrarse aunque cambie el render.
   const candidates = await db
-    .select()
+    .select({
+      id: professionals.id,
+      displayName: professionals.displayName,
+      fullName: professionals.fullName,
+      languages: professionals.languages,
+      supportAreas: professionals.supportAreas,
+      shortBio: professionals.shortBio,
+      crisisExperience: professionals.crisisExperience,
+      currentActiveRequests: professionals.currentActiveRequests,
+      maxActiveRequests: professionals.maxActiveRequests,
+    })
     .from(professionals)
     .where(
       and(

@@ -37,7 +37,10 @@ describe("seeker token", () => {
 
   it("rechaza cuerpo manipulado (cambia conversationId)", () => {
     const token = mintSeekerToken(payload(), SECRET);
-    const evil = mintSeekerToken(payload({ conversationId: "conv_evil" }), SECRET);
+    const evil = mintSeekerToken(
+      payload({ conversationId: "conv_evil" }),
+      SECRET,
+    );
     const [, sig] = token.split(".");
     const [evilBody] = evil.split(".");
     expect(verifySeekerToken(`${evilBody}.${sig}`, SECRET, NOW)).toBeNull();

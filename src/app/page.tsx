@@ -1,14 +1,20 @@
 import Link from "next/link";
+import { HomeJsonLd } from "@/components/structured-data";
+import { HOME_FAQ } from "@/lib/site";
 
 export default function HomePage() {
   return (
     <>
       <section className="hero">
         <div className="container">
-          <h1>¿Estás pasando por un momento difícil? No tienes que atravesarlo en silencio.</h1>
+          <h1>
+            Ayuda psicológica gratis, confidencial y a distancia en Venezuela
+          </h1>
           <p className="lead">
-            Te ayudamos a conectar, gratis y a distancia, con psicólogas y
-            psicólogos voluntarios. Sin crear cuenta y sin coste.
+            ¿Estás pasando por un momento difícil? No tienes que atravesarlo en
+            silencio. En Nido te conectamos, sin coste y sin crear cuenta, con
+            psicólogas y psicólogos voluntarios verificados que acompañan a
+            personas en toda Venezuela.
           </p>
           <ul className="trust-strip" aria-label="Garantías">
             <li>Gratis, siempre</li>
@@ -26,6 +32,28 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Cómo pedir apoyo psicológico en 3 pasos</h2>
+          <ol className="steps">
+            <li>
+              <strong>Cuéntanos cómo estás.</strong> Completa un formulario
+              breve en menos de un minuto. No necesitas cuenta, nombre ni
+              ubicación exacta.
+            </li>
+            <li>
+              <strong>Una persona voluntaria te lee.</strong> Un psicólogo o
+              psicóloga voluntaria verificada revisa tu solicitud.
+            </li>
+            <li>
+              <strong>Te escriben a tu correo.</strong> Te acompañan a
+              distancia, de forma gratuita y confidencial.
+            </li>
+          </ol>
+        </div>
+      </section>
+
       <section className="section">
         <div className="container grid grid-2">
           <article className="card">
@@ -55,6 +83,34 @@ export default function HomePage() {
           </article>
         </div>
       </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Apoyo psicológico para toda Venezuela, esté donde estés</h2>
+          <p>
+            Como la atención es en línea, la ayuda llega a cualquier estado:
+            Caracas, Maracaibo, Valencia, Barquisimeto, Maracay, Ciudad Guayana
+            y el resto del país. También acompañamos a personas venezolanas en
+            el exterior. Solo necesitas un correo electrónico para empezar.
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Preguntas frecuentes sobre la ayuda psicológica gratuita</h2>
+          <div className="faq">
+            {HOME_FAQ.map((item) => (
+              <article className="card" key={item.question}>
+                <h3>{item.question}</h3>
+                <p>{item.answer}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <HomeJsonLd />
     </>
   );
 }

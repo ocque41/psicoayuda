@@ -21,7 +21,9 @@ describe("parseClientFrame", () => {
 
   it("rechaza send vacío o sin clientMsgId", () => {
     expect(frame({ type: "send", clientMsgId: "c1", content: "" })).toBeNull();
-    expect(frame({ type: "send", clientMsgId: "c1", content: "   " })).toBeNull();
+    expect(
+      frame({ type: "send", clientMsgId: "c1", content: "   " }),
+    ).toBeNull();
     expect(frame({ type: "send", content: "hola" })).toBeNull();
   });
 

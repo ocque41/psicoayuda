@@ -88,7 +88,6 @@ export function isAvailableNow(pro: {
   maxActiveRequests: number;
 }): boolean {
   return (
-    pro.acceptingRequests &&
-    pro.currentActiveRequests < pro.maxActiveRequests
+    pro.acceptingRequests && pro.currentActiveRequests < pro.maxActiveRequests
   );
 }

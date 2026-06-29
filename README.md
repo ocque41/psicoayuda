@@ -1,293 +1,328 @@
 # Nido
 
 [![CI](https://github.com/ocque41/psicoayuda/actions/workflows/ci.yml/badge.svg)](https://github.com/ocque41/psicoayuda/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/Licencia-MIT-1f6f64.svg)](LICENSE)
+[![Hecho con Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=next.js)](https://nextjs.org)
 
-Nido is a small Spanish-first web app for connecting people affected by
-tragedy in Venezuela with verified volunteer psychology professionals who can
-offer free remote support.
+> **English-speaking contributor?** Nido is a Spanish-first, non-profit project. The app, docs, and most issues are written in Spanish, but contributions and questions in English are very welcome. Jump straight to **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to set up the project and open a pull request, and see the **["Contribuir desde Venezuela y el mundo"](#contribuir-desde-venezuela-y-el-mundo)** section below — you do not need to read Spanish fluently to help.
 
-It is intentionally low-feature. It is not a paid product, a therapy
-marketplace, a chat app, a video platform, a ratings system, or an AI therapist.
-The core job is CONNECT: intake, professional onboarding, verification, simple
-assignment, and contact handoff.
+---
 
-## Safety notice
+**Nido** conecta, de forma gratuita y a distancia, a personas en Venezuela que necesitan apoyo psicológico con profesionales de la psicología que se ofrecen como voluntarios y han sido **verificados** por el equipo.
 
-Nido does not replace emergency services, medical care, diagnosis, or
-treatment. It does not guarantee availability or real-time response. If someone
-is in immediate danger, they should call local emergency services or seek
-in-person help now.
+Pedir ayuda por primera vez es un acto de coraje. Nido intenta estar a la altura de ese momento: el flujo es **calmado**, pide **solo los datos mínimos**, no exige crear una cuenta y es honesto sobre lo que puede y no puede hacer. No es un producto comercial, ni un marketplace de terapia, ni un chat, ni una videollamada, ni un sistema de reseñas, ni un "terapeuta de IA". Su único trabajo es **CONECTAR**: recibir la solicitud, dar de alta y verificar a profesionales voluntarios, sugerir una coincidencia sencilla al coordinador y entregar el contacto.
 
-The app avoids collecting more data than needed. It does not ask people
-requesting help for national ID, documents, full address, or long trauma
-stories.
+Está pensado para funcionar bien con conectividad cara y dispositivos modestos: cero imágenes pesadas, cero fuentes web, mayoría de Server Components y despliegue en el edge de Cloudflare.
 
-## Current MVP
+---
 
-- Public help request flow without accounts.
-- Optional browser location with manual city/state/country fallback.
-- Google sign-in for professional volunteers through Better Auth.
-- Professional onboarding with pending verification.
-- Admin verification through `ADMIN_EMAILS`.
-- Admin request status updates, match suggestions, manual assignment, and CSV
-  export.
-- Remote-first matching suggestions for approved, accepting, remote
-  professionals under capacity.
-- Transactional assignment with duplicate and capacity guards.
-- Audit log entries for professional approval, rejection, suspension, request
-  assignment, request closure, and request data anonymization.
-- Basic public anti-spam guard on `/ayuda` using email and hashed requester IP
-  throttling.
+## ⚠️ Aviso importante: Nido no es un servicio de emergencia
 
-## Tech stack
+**Nido no reemplaza a los servicios de emergencia, ni a la atención médica, ni al diagnóstico o tratamiento profesional.** No garantiza disponibilidad ni respuesta en tiempo real.
 
-- Next.js 16, React 19, TypeScript.
-- Better Auth with Google provider.
-- Drizzle ORM.
-- Local SQLite through libSQL.
-- Tailwind v4 with a minimal shadcn-style component pattern.
-- Vitest and Biome.
+**Si tú u otra persona están en peligro inmediato, busca ayuda presencial ahora mismo** o llama a los servicios de emergencia locales. Nido revisa las solicitudes periódicamente y un profesional voluntario puede tardar en responder; no es un canal para crisis que requieren atención inmediata.
 
-## Routes
+La aplicación recoge deliberadamente la menor cantidad de datos posible. **No** pide cédula, documentos, dirección completa ni relatos largos de la situación a quien solicita ayuda.
 
-- `/`: landing page.
-- `/ayuda`: public help request form.
-- `/ayuda/gracias`: request confirmation and safe suggestions.
-- `/recursos`: emergency notice and placeholder for verified resources.
-- `/privacidad`: Spanish privacy policy.
-- `/terminos`: Spanish terms of service.
-- `/pro`: professional Google sign-in.
-- `/pro/onboarding`: professional onboarding.
-- `/pro/dashboard`: professional status and assigned requests.
-- `/admin`: coordinator dashboard.
-- `/admin/export`: protected CSV export.
+---
 
-## Local setup
+## Tabla de contenidos
 
-Requirements:
+- [Características principales](#características-principales)
+- [Stack técnico](#stack-técnico)
+- [Arquitectura a alto nivel](#arquitectura-a-alto-nivel)
+- [Empezar](#empezar)
+- [Variables de entorno](#variables-de-entorno)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Contribuir desde Venezuela y el mundo](#contribuir-desde-venezuela-y-el-mundo)
+- [Cómo contribuir y flujo de PR](#cómo-contribuir-y-flujo-de-pr)
+- [Límites duros de producto: qué NO construir](#límites-duros-de-producto-qué-no-construir)
+- [Documentación y enlaces](#documentación-y-enlaces)
+- [Licencia](#licencia)
 
-- Node.js 22 or newer.
-- pnpm 11.7 or newer.
+---
+
+## Características principales
+
+- **Solicitar ayuda sin cuenta.** Cualquier persona puede pedir apoyo desde `/ayuda` sin registrarse ni iniciar sesión. Se piden solo datos mínimos (correo de contacto, idioma, tipo de apoyo, urgencia y ubicación opcional).
+- **Ubicación opcional.** Geolocalización del navegador opcional, con alternativa manual de ciudad/estado/país. Lo que no quieras compartir, lo dejas en blanco.
+- **Inicio de sesión solo para profesionales.** Los profesionales voluntarios entran con Google (Better Auth). **Quien pide ayuda nunca crea cuenta ni usa el login de Google.**
+- **Verificación de profesionales.** Onboarding con estado `pendiente de verificación`; un coordinador aprueba, rechaza o suspende. Los profesionales no ven solicitudes ni reciben asignaciones hasta ser aprobados.
+- **Panel de coordinación (`/admin`).** Triaje de solicitudes, sugerencias de coincidencia, asignación manual y exportación CSV, todo restringido por `ADMIN_EMAILS`.
+- **Coincidencia remota y sencilla.** Sugiere profesionales aprobados, que aceptan solicitudes, remotos y por debajo de su capacidad. No hay ranking por popularidad.
+- **Asignación segura.** La asignación corre dentro de una transacción con guardas contra duplicados y contra exceder la capacidad del profesional.
+- **Registro de auditoría.** Se registran aprobaciones, rechazos, suspensiones, asignaciones, cierres, anonimizaciones y exportaciones.
+- **Anti-spam básico.** Límite simple en `/ayuda`: no más de 3 solicitudes recientes por correo o por IP del solicitante (hasheada con el secreto de la app, nunca se almacena la IP en claro).
+- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría).
+- **Copy honesto y trauma-informed.** Cabeceras de seguridad, recursos verificados y textos que nunca prometen disponibilidad inmediata.
+
+---
+
+## Stack técnico
+
+| Capa | Tecnología |
+|---|---|
+| Framework | **Next.js 16** (App Router, React 19, Server Components) |
+| Lenguaje | **TypeScript** |
+| Estilos | **Tailwind CSS v4** (configuración CSS-first con `@theme`) |
+| Autenticación | **better-auth** (Google OAuth, solo para profesionales) |
+| Base de datos / ORM | **Drizzle ORM** sobre **libSQL** (SQLite local) y **Cloudflare D1** en producción |
+| Validación | **Zod** |
+| Despliegue | **Cloudflare Workers** vía **@opennextjs/cloudflare** + **Wrangler** |
+| Lint / Formato | **Biome** |
+| Tests | **Vitest** |
+| Gestor de paquetes | **pnpm 11.7.0** |
+| Runtime | **Node.js 22** |
+
+---
+
+## Arquitectura a alto nivel
+
+Nido es intencionadamente pequeño. La mayor parte de la lógica vive en Server Components y Server Actions; el JavaScript de cliente se mantiene al mínimo.
+
+```
+Persona en crisis ──▶  /ayuda  ──▶  Server Action (valida con Zod)
+   (sin cuenta)                          │
+                                         ▼
+                                   help_requests  ──▶  Registro de auditoría
+                                         │
+Profesional ──▶ /pro (Google) ──▶ onboarding ──▶ pendiente de verificación
+   voluntario                                          │
+                                                       ▼
+Coordinador ──▶ /admin ──▶ aprueba/rechaza/suspende profesionales
+ (ADMIN_EMAILS)     │
+                    └──▶ asigna solicitud (transacción con guardas) ──▶ handoff por correo
+```
+
+**Flujo de datos**
+
+1. Una persona envía `/ayuda` sin cuenta; la solicitud se valida con Zod y se guarda en `help_requests`.
+2. Un profesional inicia sesión con Google y completa el onboarding (queda en `pendiente de verificación`).
+3. Los administradores listados en `ADMIN_EMAILS` aprueban, rechazan o suspenden profesionales.
+4. Los administradores asignan solicitudes a profesionales aprobados, que aceptan, remotos y por debajo de su capacidad.
+
+**Seguridad de la asignación.** La asignación corre dentro de una transacción de base de datos: comprueba duplicados, incrementa la carga activa solo si el profesional es elegible y está por debajo de su capacidad, crea la asignación, marca la solicitud como asignada y escribe un registro de auditoría. Un índice único (`assignments_request_professional_unique`) impide asignaciones duplicadas solicitud/profesional.
+
+**Aislamiento de datos.** Quien pide ayuda no tiene cuenta ni endpoints propios; sus datos solo los ven un administrador (`requireAdmin`) o el profesional **asignado** (panel acotado por `userId → professional.id → assignments`). Más detalle en [docs/SECURITY.md](docs/SECURITY.md).
+
+**Base de datos.** En desarrollo se usa SQLite local a través de libSQL (`DATABASE_URL=file:./local.db`). En Cloudflare Workers se usa D1; `NIDO_DB_TARGET=cloudflare` hace que el cliente de Drizzle hable con D1 en vez del fichero SQLite local. Tablas principales: tablas de Better Auth (user/session/account/verification), `professionals`, `help_requests`, `assignments` y `audit_logs`.
+
+Para más profundidad: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** y **[docs/SAFETY.md](docs/SAFETY.md)**.
+
+### Rutas principales
+
+| Ruta | Descripción |
+|---|---|
+| `/` | Página de inicio. |
+| `/ayuda` | Formulario público de solicitud de ayuda (sin cuenta). |
+| `/ayuda/gracias` | Confirmación de la solicitud y salidas seguras. |
+| `/recursos` | Aviso de emergencia y recursos verificados. |
+| `/emergencia` | Aviso de emergencia. |
+| `/pro` | Inicio de sesión de profesionales con Google. |
+| `/pro/onboarding` | Onboarding del profesional. |
+| `/pro/dashboard` | Estado del profesional y solicitudes asignadas. |
+| `/admin` | Panel del coordinador (restringido por `ADMIN_EMAILS`). |
+| `/privacidad`, `/terminos` | Política de privacidad y términos (en español). |
+| `/quienes-somos`, `/como-funciona`, `/transparencia`, `/seguridad` | Páginas informativas. |
+
+---
+
+## Empezar
+
+### Requisitos previos
+
+- **Node.js 22** o superior.
+- **pnpm 11.7.0** (recomendado activarlo con Corepack para fijar la versión exacta):
 
 ```bash
+corepack enable
+corepack prepare pnpm@11.7.0 --activate
+```
+
+### Instalación y arranque
+
+```bash
+# 1. Instala dependencias (versión exacta del lockfile)
 pnpm install
+
+# 2. Crea tu archivo de entorno local
 cp .env.example .env
+
+# 3. Aplica el esquema a la base de datos SQLite local
 pnpm db:push
+
+# 4. (Opcional) Carga datos de ejemplo para desarrollo
 pnpm db:seed
+
+# 5. Arranca el servidor de desarrollo
 pnpm dev
 ```
 
-Open `http://localhost:3000`.
+Abre **http://localhost:3000**.
 
-## Environment variables
+> Para que el inicio de sesión real de profesionales funcione necesitas configurar `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (ver más abajo). El código incluye un valor de respaldo local solo para que los comandos de desarrollo funcionen antes de la primera configuración; en producción **debe** usarse un secreto largo y privado.
 
-Required for real auth:
+### Scripts disponibles
 
-```bash
-BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=http://localhost:3000
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-ADMIN_EMAILS=admin@example.com
-DATABASE_URL=file:./local.db
-ABUSE_CONTACT_EMAIL=reportes@example.com
-PRIVACY_CONTACT_EMAIL=privacidad@example.com
+Todos los scripts del proyecto, tal cual existen en `package.json`:
+
+| Script | Qué hace |
+|---|---|
+| `pnpm dev` | Servidor de desarrollo (Next.js con Turbopack). |
+| `pnpm build` | Build de producción. |
+| `pnpm start` | Sirve el build de producción. |
+| `pnpm lint` | Comprueba lint y formato con Biome (`biome check`). |
+| `pnpm format` | Formatea el código con Biome (`biome format --write`). |
+| `pnpm test` | Ejecuta la suite de tests con Vitest. |
+| `pnpm db:push` | Aplica el esquema de Drizzle a la base de datos. |
+| `pnpm db:seed` | Carga datos de ejemplo locales. |
+| `pnpm secret:scan` | Escanea el repositorio en busca de secretos antes de hacer push. |
+
+> El proyecto también incluye scripts de despliegue a Cloudflare (`build:cloudflare`, `preview`, `deploy`). Son para el mantenedor del despliegue; para contribuir no los necesitas.
+
+---
+
+## Variables de entorno
+
+Copia `.env.example` a `.env` y rellena los valores. Resumen de cada variable:
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `BETTER_AUTH_SECRET` | Sí (en producción) | Secreto largo y aleatorio para firmar sesiones. En producción debe estar configurado; existe un respaldo local solo para desarrollo. |
+| `BETTER_AUTH_URL` | Sí | URL base de la app para Better Auth (p. ej. `http://localhost:3000`). |
+| `NEXT_PUBLIC_SITE_URL` | Sí | URL canónica pública (sin barra final). Se usa para metadatos SEO, `sitemap.xml`, `robots.txt`, canonical y datos estructurados. |
+| `GOOGLE_SITE_VERIFICATION` | No | Token de Google Search Console (método "etiqueta HTML"). Vacío = no se emite la meta. |
+| `GOOGLE_CLIENT_ID` | Sí (para login real) | Client ID de OAuth de Google (Web Client, termina en `.apps.googleusercontent.com`). |
+| `GOOGLE_CLIENT_SECRET` | Sí (para login real) | Client Secret de OAuth de Google. |
+| `ADMIN_EMAILS` | Sí (para `/admin`) | Lista de correos de administradores separados por comas. Solo estos usuarios ven datos de administración. |
+| `DATABASE_URL` | Sí (local) | Cadena de conexión SQLite local, p. ej. `file:./local.db`. |
+| `ABUSE_CONTACT_EMAIL` | Recomendada | Correo público de contacto para reportes de abuso. |
+| `PRIVACY_CONTACT_EMAIL` | Recomendada | Correo público de contacto de privacidad (se muestra en `/privacidad`). |
+| `NIDO_DB_TARGET` | No | `cloudflare` para que Drizzle use D1 en vez del fichero SQLite local. Vacío en desarrollo. |
+| `CLOUDFLARE_ACCOUNT_ID` | No | Configuración de despliegue en Cloudflare D1. |
+| `CLOUDFLARE_DATABASE_ID` | No | Configuración de despliegue en Cloudflare D1. |
+| `CLOUDFLARE_D1_TOKEN` | No | Token de acceso a Cloudflare D1. |
+| `RESEND_API_KEY` | No | Clave de Resend para enviar correos desde el Worker. Si está vacía, el envío de correo se omite en silencio. |
+| `CONTACT_FROM_EMAIL` | No | Remitente verificado en Resend, p. ej. `"Nido <avisos@tudominio.com>"`. |
+| `NOTIFICATION_EMAIL` | No | Correo que recibe avisos de notificación. |
+
+> **Nunca** subas tu `.env`, bases de datos SQLite locales, logs ni exportaciones al repositorio. Los secretos de producción se guardan como secretos de Cloudflare con `wrangler secret put`, no en Git.
+
+---
+
+## Estructura del proyecto
+
+```
+psicoayuda/
+├── src/
+│   ├── app/              # Rutas (App Router) y Server Actions
+│   │   ├── ayuda/        # Flujo público de solicitud de ayuda (sin cuenta)
+│   │   ├── pro/          # Login, onboarding y panel de profesionales
+│   │   ├── admin/        # Panel del coordinador (restringido por ADMIN_EMAILS)
+│   │   ├── recursos/     # Recursos verificados y avisos de crisis
+│   │   └── api/auth/     # Handler de Better Auth
+│   ├── components/       # Componentes de UI y formularios (mínimos)
+│   ├── db/               # Esquema y cliente de Drizzle
+│   └── lib/              # Auth, acceso admin, validación, matching, asignación, notificaciones
+├── scripts/
+│   ├── seed.ts           # Datos de ejemplo para desarrollo local
+│   └── secret-scan.mjs   # Escáner de secretos usado por `pnpm secret:scan`
+├── docs/                 # ARCHITECTURE, SAFETY, SECURITY, UX_BRAINSTORM y más
+├── .github/workflows/    # ci.yml
+├── .env.example
+└── package.json
 ```
 
-Optional:
+---
 
-```bash
-CLOUDFLARE_ACCOUNT_ID=
-CLOUDFLARE_DATABASE_ID=
-CLOUDFLARE_D1_TOKEN=
-ABUSE_CONTACT_EMAIL=
-PRIVACY_CONTACT_EMAIL=
-CONTACT_FROM_EMAIL=
-NOTIFICATION_EMAIL=
-```
+## Contribuir desde Venezuela y el mundo
 
-`BETTER_AUTH_SECRET` must be a long private value in production. The code has a
-local fallback only so development commands work before first configuration.
+Nido nace **para Venezuela**, y por eso queremos que también se construya, en buena medida, **desde Venezuela**. Si eres desarrolladora o desarrollador venezolano —dentro del país o en la diáspora— este proyecto es tuyo. Nadie entiende mejor el contexto real de quien va a usar Nido: la conectividad cara, los dispositivos modestos, el español de aquí, lo que de verdad significa pedir ayuda en este momento. Esa cercanía es exactamente lo que hace mejor al producto.
 
-## Admin access
+**Por qué importa tu aporte:**
 
-Admins are signed-in Google users whose email appears in `ADMIN_EMAILS`:
+- **Conoces al usuario.** Sabes cómo suena un copy que acompaña en lugar de uno que suena a trámite. Una sola frase mejor puede cambiar cómo se siente alguien que pide ayuda por primera vez.
+- **Conoces la red.** Sabes lo que pesa cada KB y cada recarga cuando los datos son caros. Tus decisiones técnicas tienen un impacto humano directo.
+- **Conoces los recursos.** Puedes ayudar a verificar y curar recursos reales y de confianza (líneas de apoyo, organizaciones) para `/recursos` y `/emergencia`.
 
-```bash
-ADMIN_EMAILS=one@example.com,two@example.com
-```
+No necesitas ser experto en todo el stack. Hay formas valiosas de ayudar para cualquier nivel:
 
-Non-admin users cannot see admin data.
+- Mejorar el copy en español manteniendo claros los límites de seguridad.
+- Añadir tests enfocados a validación, matching y asignación.
+- Mejorar la accesibilidad y la usabilidad en móvil y con poca señal.
+- Reportar y verificar recursos de crisis fiables (con fuente documentada).
+- Documentar pasos de despliegue verificados.
 
-## Professional verification and conduct
+Y si estás aprendiendo a programar: las issues marcadas como buenas primeras contribuciones son un excelente punto de partida. Pregunta sin miedo, en español o en inglés. **Aquí se construye con cuidado, no con prisa.**
 
-Google sign-in is only for professional volunteers. People requesting help do
-not create accounts and never use Google login.
+---
 
-Professional flow:
+## Cómo contribuir y flujo de PR
 
-```text
-Google signup
-→ onboarding
-→ pending_verification
-→ admin approval, rejection, or suspension
-```
+Antes de empezar, lee **[CONTRIBUTING.md](CONTRIBUTING.md)**, **[docs/SAFETY.md](docs/SAFETY.md)** y **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. Para cambios grandes, abre primero una issue.
 
-New professionals are not active immediately. They cannot see help requests or
-receive assignments until an admin approves them. Suspended or rejected
-professionals are also blocked from seeing assigned request details.
+Flujo de trabajo:
 
-During onboarding, professionals must accept that the service is free, they will
-not capture paid clients, they will keep confidentiality, Nido does not
-guarantee emergency response, and they will work only inside their professional
-competence.
+1. **Fork** del repositorio a tu cuenta.
+2. Crea una **rama** descriptiva: `git checkout -b mejora/copy-confirmacion`.
+3. Haz tus **commits** pequeños y claros; mantén el copy de cara al usuario en español.
+4. Ejecuta las comprobaciones en local antes de subir:
+   ```bash
+   pnpm lint
+   pnpm secret:scan
+   pnpm test
+   pnpm build
+   ```
+5. **Push** de tu rama a tu fork.
+6. Abre un **Pull Request** contra `main` describiendo el cambio y por qué respeta los límites de producto.
+7. Espera a que el **CI esté en verde**. El workflow [`ci.yml`](.github/workflows/ci.yml) corre en cada push y PR: `pnpm install --frozen-lockfile` → `db:push` → `lint` → `secret:scan` → `test` → `build`.
+8. **Review** del mantenedor; aplica los cambios sugeridos.
+9. **Merge** una vez aprobado.
 
-## Privacy, retention, and deletion
+Checklist rápido del PR (detalle completo en [CONTRIBUTING.md](CONTRIBUTING.md)):
 
-Public privacy and terms pages live at `/privacidad` and `/terminos`. Both use
-the Spanish Q2 policy text and display configured contact emails.
+- [ ] El cambio se mantiene dentro del alcance **CONNECT**.
+- [ ] El copy público de seguridad sigue siendo preciso.
+- [ ] No se suben secretos, bases de datos locales ni `.env`.
+- [ ] `pnpm lint`, `pnpm secret:scan`, `pnpm test` y `pnpm build` pasan.
 
-Retention defaults:
+---
 
-- Close inactive requests after 30 days.
-- Delete or anonymize requests after 90 days unless minimal records are needed
-  for safety, abuse prevention, or legal reasons.
+## Límites duros de producto: qué NO construir
 
-Admins can anonymize a help request from `/admin`. The action removes contact
-and location details, closes the request, clears the requester hash, and writes
-an audit log entry.
+Estos límites existen por **privacidad y seguridad** de personas vulnerables. Las contribuciones que los crucen no se aceptarán, por buena que sea la intención:
 
-## Anti-spam
+- ❌ **Sin pagos.** Nido es y será gratuito; los voluntarios no captan clientes de pago.
+- ❌ **Sin chat in-app con desconocidos.** No es una plataforma de mensajería con extraños.
+- ❌ **Sin videollamadas.**
+- ❌ **Sin ratings ni reseñas.** Nada de ranking por popularidad. El "score" de coincidencia es una heurística interna para el coordinador, no un ranking público.
+- ❌ **Sin "terapeuta de IA"** ni respuestas automáticas que simulen atención psicológica.
+- ❌ **Sin matching complejo.** Coincidencia simple, remota y verificable.
+- ❌ **Sin cuentas para quien pide ayuda.** El solicitante nunca se registra ni usa Google login.
+- ❌ **Sin recoger más que los datos mínimos.** Nada de cédula, documentos, dirección completa ni relatos largos de la situación.
+- ❌ **Sin prometer disponibilidad o respuesta inmediata / de emergencia.** El copy debe ser siempre honesto.
+- ❌ **Sin teléfonos de emergencia no verificados** ni afirmaciones médicas. `/recursos` solo publica recursos **verificados y con fuente documentada**.
 
-The public `/ayuda` form applies a basic MVP rate limit: no more than 3 recent
-requests per email or hashed requester IP per hour. The hash uses the app secret
-so raw IP addresses are not stored.
+---
 
-Turnstile is not wired yet because the current Q2 scope can be served by the
-simple rate limit. Add it later if public abuse exceeds the basic throttle.
+## Documentación y enlaces
 
-## Remaining work
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — cómo contribuir (setup, estilo de código, checklist de PR).
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — código de conducta de la comunidad.
+- **[SECURITY.md](SECURITY.md)** — política de seguridad y reporte responsable de vulnerabilidades.
+- **[docs/SAFETY.md](docs/SAFETY.md)** — principios de seguridad y límites del producto.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — arquitectura técnica en detalle.
+- **[docs/SECURITY.md](docs/SECURITY.md)** — auditoría de seguridad y aislamiento de datos.
+- **[docs/UX_BRAINSTORM.md](docs/UX_BRAINSTORM.md)** — misión, principios de diseño y backlog de UX.
 
-- Configure real public values for `ABUSE_CONTACT_EMAIL` and
-  `PRIVACY_CONTACT_EMAIL` before broad public launch.
-- Add Cloudflare Turnstile if the basic email/IP-hash throttle is not enough.
+---
 
-## Database
+## Licencia
 
-Local development uses SQLite:
+Distribuido bajo la **Licencia MIT**. Consulta **[LICENSE](LICENSE)**.
 
-```bash
-pnpm db:push
-pnpm db:seed
-```
+Al contribuir, aceptas que tu contribución se licencia bajo la Licencia MIT.
 
-Main tables:
+---
 
-- Better Auth user/session/account/verification tables.
-- `professionals`
-- `help_requests`
-- `assignments`
-- `audit_logs`
-
-Assignment uses a transaction. It only increments active load and creates an
-assignment when the professional is approved, accepting requests, remote, and
-under capacity. A unique index prevents duplicate request/professional
-assignments.
-
-## Cloudflare D1 notes
-
-The app can run on Cloudflare Workers through OpenNext and D1. The live worker
-is configured as:
-
-- Worker: `nido-venezuela`
-- URL: `https://nido-venezuela.workers.dev`
-- D1 binding: `DB`
-- D1 database: `nido-venezuela-db`
-
-Cloudflare uses `NIDO_DB_TARGET=cloudflare`, which makes the Drizzle
-client talk to D1 instead of the local SQLite file. Local development continues
-to use `DATABASE_URL=file:./local.db`.
-
-Apply migrations to D1 with Wrangler when schema changes:
-
-```bash
-pnpm wrangler d1 migrations apply nido-venezuela-db --remote
-```
-
-Production secrets are stored with Wrangler secrets, not in Git:
-
-```bash
-pnpm wrangler secret put BETTER_AUTH_SECRET
-pnpm wrangler secret put GOOGLE_CLIENT_ID
-pnpm wrangler secret put GOOGLE_CLIENT_SECRET
-pnpm wrangler secret put ADMIN_EMAILS
-pnpm wrangler secret put ABUSE_CONTACT_EMAIL
-pnpm wrangler secret put PRIVACY_CONTACT_EMAIL
-```
-
-For Google sign-in, use a Google OAuth Web Client whose client ID ends in
-`.apps.googleusercontent.com`. Add this authorized redirect URI:
-
-```text
-https://nido-venezuela.workers.dev/api/auth/callback/google
-```
-
-Request only these Google OAuth scopes:
-
-```text
-openid
-email
-profile
-```
-
-Do not request Gmail, Drive, Calendar, Contacts, or Google location scopes.
-
-## Commands
-
-```bash
-pnpm lint
-pnpm test
-pnpm build
-pnpm build:cloudflare
-pnpm deploy
-pnpm db:push
-pnpm db:seed
-```
-
-CI runs install, schema push, lint, tests, and build.
-
-## Contributing
-
-Pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md),
-[docs/SAFETY.md](docs/SAFETY.md), and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-before opening a PR.
-
-Good first contributions:
-
-- Improve Spanish copy while keeping the safety boundaries clear.
-- Add focused tests for validation, matching, and assignment behavior.
-- Improve admin usability without adding heavy UI.
-- Document verified deployment steps.
-
-Please do not add payments, chat, video, ratings, reviews, AI therapist
-features, complex matching, unverified emergency phone numbers, or medical
-claims.
-
-## Reference repos used during implementation
-
-The implementation was informed by:
-
-- `glenntws/nextjs-betterauth-boilerplate`: Next.js, Better Auth, and Drizzle
-  pattern.
-- `rizbud/express-sqlite-booking-system`: transaction/capacity idea for safe
-  assignment.
-- `peterhaupt/psychotherapy-matching-frontend`: admin workflow inspiration.
-
-No large source code blocks were copied from these projects. If you want to
-inspect them locally, clone them into `_references/`; that folder is ignored by
-Git.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+> _"No tienes que pasar por esto solo/a."_ — Gracias por ayudar a que Nido exista. 🕊️

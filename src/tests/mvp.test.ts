@@ -42,6 +42,7 @@ describe("Nido MVP smoke checks", () => {
     });
 
     expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
     expect(parsed.data.lat).toBeUndefined();
     expect(parsed.data.lng).toBeUndefined();
   });

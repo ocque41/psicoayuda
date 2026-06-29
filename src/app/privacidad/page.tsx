@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+
+export const metadata: Metadata = {
+  title: "Política de Privacidad",
+  description:
+    "Cómo Nido recopila, usa y protege los datos de quienes piden ayuda y de los profesionales voluntarios. Pedimos la mínima información necesaria.",
+  alternates: { canonical: "/privacidad" },
+};
 
 export default function PrivacyPage() {
   const privacyEmail = getPrivacyContactEmail();
@@ -10,11 +18,11 @@ export default function PrivacyPage() {
         <h1>Política de Privacidad</h1>
         <p className="muted">Última actualización: 29 de junio de 2026</p>
         <p>
-          Nido es una plataforma gratuita para conectar personas que
-          necesitan apoyo psicológico remoto con profesionales voluntarios
-          verificados. Nido no es un servicio de emergencias, no reemplaza
-          atención médica, no garantiza disponibilidad inmediata y no ofrece
-          diagnóstico ni tratamiento médico por sí mismo.
+          Nido es una plataforma gratuita para conectar personas que necesitan
+          apoyo psicológico remoto con profesionales voluntarios verificados.
+          Nido no es un servicio de emergencias, no reemplaza atención médica,
+          no garantiza disponibilidad inmediata y no ofrece diagnóstico ni
+          tratamiento médico por sí mismo.
         </p>
 
         <section className="card">
@@ -137,6 +145,11 @@ export default function PrivacyPage() {
             abuso o razones legales.
           </p>
           <p>
+            Tienes derecho a solicitar, en cualquier momento, acceder a los
+            datos que guardamos sobre ti, corregirlos o pedir que los
+            eliminemos. Atenderemos tu solicitud por correo.
+          </p>
+          <p>
             Una persona puede pedir eliminación de sus datos escribiendo a:{" "}
             <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
           </p>
@@ -156,21 +169,27 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>8. Menores de edad</h2>
+          <h2>8. Niñas, niños y adolescentes</h2>
           <p>
-            Nido no está diseñada como servicio dirigido a menores. Si una
-            persona menor de edad necesita ayuda, debe buscar apoyo de un adulto
-            responsable, servicios locales de emergencia o instituciones
-            competentes.
+            Si eres menor de edad, también mereces ayuda y eres bienvenido/a.
+            Cuando sea posible, te animamos a apoyarte en una persona adulta de
+            confianza. Y si estás en peligro ahora mismo, no esperes: revisa las{" "}
+            <a href="/emergencia">líneas de ayuda inmediata</a>, donde hay
+            recursos con atención especial a niñas, niños y adolescentes.
+          </p>
+          <p className="hint">
+            El tratamiento de datos de personas menores de edad y la actuación
+            ante situaciones de riesgo (en línea con la LOPNNA) están pendientes
+            de revisión por un profesional del derecho en Venezuela.
           </p>
         </section>
 
         <section className="card">
           <h2>9. Emergencias</h2>
           <p>
-            Nido no atiende emergencias en tiempo real. Si una persona
-            está en peligro inmediato, debe llamar a emergencias locales o
-            buscar ayuda presencial inmediata.
+            Nido no atiende emergencias en tiempo real. Si una persona está en
+            peligro inmediato, debe llamar a emergencias locales o buscar ayuda
+            presencial inmediata.
           </p>
         </section>
 

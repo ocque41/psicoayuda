@@ -274,9 +274,7 @@ export const responseSamples = sqliteTable(
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
     responseDeltaMs: integer("response_delta_ms"),
-    answered: integer("answered", { mode: "boolean" })
-      .default(false)
-      .notNull(),
+    answered: integer("answered", { mode: "boolean" }).default(false).notNull(),
     sampledAt: integer("sampled_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [

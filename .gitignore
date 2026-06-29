@@ -1,6 +1,7 @@
 .next
 .open-next
 .wrangler
+.claude/
 node_modules
 local.db
 local.db-*

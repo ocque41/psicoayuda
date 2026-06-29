@@ -8,7 +8,12 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditLogs, helpRequests, professionals } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
-import { assignRequestToProfessional } from "@/lib/assignment";
+import {
+  assignRequestToProfessional,
+  releaseAssignmentsForRequest,
+  releaseProfessionalAssignments,
+} from "@/lib/assignment";
+import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
 import {
@@ -36,9 +41,7 @@ async function getRequesterHash() {
 
   if (!ip) return undefined;
 
-  return createHash("sha256")
-    .update(`${process.env.BETTER_AUTH_SECRET ?? "local"}:${ip}`)
-    .digest("hex");
+  return createHash("sha256").update(`${getAuthSecret()}:${ip}`).digest("hex");
 }
 
 async function isRateLimited(email: string, requesterHash?: string) {
@@ -218,6 +221,12 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
     .set(updates)
     .where(eq(professionals.id, professionalId));
 
+  // Al suspender/rechazar, libera capacidad y devuelve sus solicitudes a la
+  // cola para reasignación: nadie queda huérfano y los cupos no se pierden.
+  if (status === "suspended" || status === "rejected") {
+    await releaseProfessionalAssignments(professionalId);
+  }
+
   await db.insert(auditLogs).values({
     id: newId("log"),
     actorEmail: admin.email,
@@ -243,6 +252,8 @@ export async function adminUpdateHelpRequestStatus(formData: FormData) {
     .where(eq(helpRequests.id, requestId));
 
   if (status === "closed") {
+    // Cerrar libera la capacidad consumida del profesional asignado.
+    await releaseAssignmentsForRequest(requestId);
     await db.insert(auditLogs).values({
       id: newId("log"),
       actorEmail: admin.email,
@@ -287,12 +298,16 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
   const timestamp = nowIso();
 
+  // Cierra y libera la capacidad de cualquier asignación activa antes de anonimizar.
+  await releaseAssignmentsForRequest(requestId);
+
   // Retention default: close inactive requests after 30 days and anonymize
   // after 90 days unless safety or legal reasons require minimal records.
   await db
     .update(helpRequests)
     .set({
-      email: `anon-${requestId}@nido.local`,
+      // Token aleatorio: sin enlace residual al id de la solicitud original.
+      email: `anon-${newId("anon")}@nido.local`,
       country: null,
       state: null,
       city: null,

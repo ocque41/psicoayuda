@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FocusHeading } from "@/components/focus-heading";
 import { ProfessionalCard } from "@/components/professional-card";
 import { suggestProfessionalsForRequest } from "@/lib/matching";
+
+export const metadata: Metadata = {
+  title: "Recibimos tu mensaje",
+  robots: { index: false, follow: true },
+};
 
 export default async function ThanksPage({
   searchParams,
@@ -26,8 +32,8 @@ export default async function ThanksPage({
             escribirá a tu correo.
           </li>
           <li>
-            Suele tomar unas horas, no es inmediato; revisa también tu carpeta de
-            spam.
+            Suele tomar unas horas, no es inmediato; revisa también tu carpeta
+            de spam.
           </li>
         </ol>
         <p className="muted">

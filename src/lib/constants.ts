@@ -23,18 +23,16 @@ export const needLabels: Record<(typeof needCategories)[number], string> = {
 
 // Etiquetas cálidas para la persona que pide ayuda (mismas keys que needLabels).
 // Preguntan por la persona, no por el dato, y dejan salidas de baja exposición.
-export const needSeekerLabels: Record<
-  (typeof needCategories)[number],
-  string
-> = {
-  ansiedad_panico: "Ansiedad o pánico",
-  duelo: "Duelo o una pérdida",
-  estres_agudo: "Estrés que me supera",
-  perdida_vivienda: "Pérdida de vivienda",
-  familia_ninos: "Algo con mi familia o mis hijos",
-  orientacion_general: "No sé / solo necesito hablar",
-  otro: "Prefiero no decirlo ahora",
-};
+export const needSeekerLabels: Record<(typeof needCategories)[number], string> =
+  {
+    ansiedad_panico: "Ansiedad o pánico",
+    duelo: "Duelo o una pérdida",
+    estres_agudo: "Estrés que me supera",
+    perdida_vivienda: "Pérdida de vivienda",
+    familia_ninos: "Algo con mi familia o mis hijos",
+    orientacion_general: "No sé / solo necesito hablar",
+    otro: "Prefiero no decirlo ahora",
+  };
 
 // Urgencia en lenguaje vivencial, no clínico: no obliga a autodiagnosticarse.
 export const urgencyLabels: Record<(typeof urgencyLevels)[number], string> = {
