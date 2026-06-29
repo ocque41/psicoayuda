@@ -117,6 +117,14 @@ export const professionals = sqliteTable(
     currentActiveRequests: integer("current_active_requests")
       .default(0)
       .notNull(),
+    // Caché del algoritmo de tiempo de respuesta (la rellena el recompute).
+    responseBucket: text("response_bucket"),
+    responseMedianMs: integer("response_median_ms"),
+    responseSampleSize: integer("response_sample_size").default(0).notNull(),
+    responseAnsweredRatio: real("response_answered_ratio"),
+    responseComputedAt: integer("response_computed_at", {
+      mode: "timestamp_ms",
+    }),
     conductAcceptedAt: text("conduct_accepted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -202,5 +210,82 @@ export const auditLogs = sqliteTable(
   },
   (table) => [
     index("audit_logs_entity_idx").on(table.entityType, table.entityId),
+  ],
+);
+
+// ---- Chat en tiempo real (Durable Objects). El contenido de los mensajes vive
+// en el SQLite del DO; aquí va solo el espejo en D1 para feed, autorización y
+// métricas de tiempo de respuesta. ----
+
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    id: text("id").primaryKey(),
+    helpRequestId: text("help_request_id").references(() => helpRequests.id, {
+      onDelete: "set null",
+    }),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    seekerSid: text("seeker_sid").notNull(),
+    status: text("status").default("open").notNull(),
+    firstSeekerMsgAt: integer("first_seeker_msg_at", { mode: "timestamp_ms" }),
+    firstProReplyAt: integer("first_pro_reply_at", { mode: "timestamp_ms" }),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    closedAt: text("closed_at"),
+    anonymizedAt: text("anonymized_at"),
+  },
+  (table) => [
+    index("conversations_professional_idx").on(table.professionalId),
+    index("conversations_help_request_idx").on(table.helpRequestId),
+    index("conversations_status_created_idx").on(table.status, table.createdAt),
+  ],
+);
+
+export const seekerSessions = sqliteTable(
+  "seeker_sessions",
+  {
+    sid: text("sid").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    requesterHash: text("requester_hash"),
+    role: text("role").default("seeker").notNull(),
+    issuedAt: integer("issued_at", { mode: "timestamp_ms" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("seeker_sessions_conversation_idx").on(table.conversationId),
+    index("seeker_sessions_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const responseSamples = sqliteTable(
+  "response_samples",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    responseDeltaMs: integer("response_delta_ms"),
+    answered: integer("answered", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    sampledAt: integer("sampled_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("response_samples_conversation_unique").on(
+      table.conversationId,
+    ),
+    index("response_samples_professional_sampled_idx").on(
+      table.professionalId,
+      table.sampledAt,
+    ),
   ],
 );
