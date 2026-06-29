@@ -8,6 +8,7 @@ export default defineConfig({
       "**/.next/**",
       "**/_references/**",
       "**/.claude/**",
+      "**/*.workers.test.ts",
     ],
   },
   resolve: {

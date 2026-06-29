@@ -31,5 +31,12 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "_references", "custom-worker.ts", ".open-next"]
+  "exclude": [
+    "node_modules",
+    "_references",
+    "custom-worker.ts",
+    ".open-next",
+    "test",
+    "vitest.workers.config.ts"
+  ]
 }
