@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nido-chat-test",
+  "main": "test/chat-worker.ts",
+  "compatibility_date": "2026-06-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "Conversation", "class_name": "Conversation" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+  "vars": {
+    "BETTER_AUTH_SECRET": "test-secret",
+    "BETTER_AUTH_URL": "http://127.0.0.1:9",
+    "INTERNAL_NOTIFY_SECRET": "test-secret"
+  }
+}
