@@ -1,9 +1,9 @@
-# PsicoAyuda
+# Nido
 
 [![CI](https://github.com/ocque41/psicoayuda/actions/workflows/ci.yml/badge.svg)](https://github.com/ocque41/psicoayuda/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-PsicoAyuda is a small Spanish-first web app for connecting people affected by
+Nido is a small Spanish-first web app for connecting people affected by
 tragedy in Venezuela with verified volunteer psychology professionals who can
 offer free remote support.
 
@@ -14,7 +14,7 @@ assignment, and contact handoff.
 
 ## Safety notice
 
-PsicoAyuda does not replace emergency services, medical care, diagnosis, or
+Nido does not replace emergency services, medical care, diagnosis, or
 treatment. It does not guarantee availability or real-time response. If someone
 is in immediate danger, they should call local emergency services or seek
 in-person help now.
@@ -139,7 +139,7 @@ receive assignments until an admin approves them. Suspended or rejected
 professionals are also blocked from seeing assigned request details.
 
 During onboarding, professionals must accept that the service is free, they will
-not capture paid clients, they will keep confidentiality, PsicoAyuda does not
+not capture paid clients, they will keep confidentiality, Nido does not
 guarantee emergency response, and they will work only inside their professional
 competence.
 
@@ -200,19 +200,19 @@ assignments.
 The app can run on Cloudflare Workers through OpenNext and D1. The live worker
 is configured as:
 
-- Worker: `ayudapsicologicavenezuela`
-- URL: `https://ayudapsicologicavenezuela.ocque41.workers.dev`
+- Worker: `nido-venezuela`
+- URL: `https://nido-venezuela.workers.dev`
 - D1 binding: `DB`
-- D1 database: `ayudapsicologicavenezuela-db`
+- D1 database: `nido-venezuela-db`
 
-Cloudflare uses `PSICOAYUDA_DB_TARGET=cloudflare`, which makes the Drizzle
+Cloudflare uses `NIDO_DB_TARGET=cloudflare`, which makes the Drizzle
 client talk to D1 instead of the local SQLite file. Local development continues
 to use `DATABASE_URL=file:./local.db`.
 
 Apply migrations to D1 with Wrangler when schema changes:
 
 ```bash
-pnpm wrangler d1 migrations apply ayudapsicologicavenezuela-db --remote
+pnpm wrangler d1 migrations apply nido-venezuela-db --remote
 ```
 
 Production secrets are stored with Wrangler secrets, not in Git:
@@ -230,7 +230,7 @@ For Google sign-in, use a Google OAuth Web Client whose client ID ends in
 `.apps.googleusercontent.com`. Add this authorized redirect URI:
 
 ```text
-https://ayudapsicologicavenezuela.ocque41.workers.dev/api/auth/callback/google
+https://nido-venezuela.workers.dev/api/auth/callback/google
 ```
 
 Request only these Google OAuth scopes:

@@ -1,6 +1,6 @@
 # Security Policy
 
-PsicoAyuda handles sensitive contact requests. Treat privacy and safety issues
+Nido handles sensitive contact requests. Treat privacy and safety issues
 as security issues.
 
 ## Supported versions

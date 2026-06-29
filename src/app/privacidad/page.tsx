@@ -10,9 +10,9 @@ export default function PrivacyPage() {
         <h1>Política de Privacidad</h1>
         <p className="muted">Última actualización: 29 de junio de 2026</p>
         <p>
-          PsicoAyuda es una plataforma gratuita para conectar personas que
+          Nido es una plataforma gratuita para conectar personas que
           necesitan apoyo psicológico remoto con profesionales voluntarios
-          verificados. PsicoAyuda no es un servicio de emergencias, no reemplaza
+          verificados. Nido no es un servicio de emergencias, no reemplaza
           atención médica, no garantiza disponibilidad inmediata y no ofrece
           diagnóstico ni tratamiento médico por sí mismo.
         </p>
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
         <section className="card">
           <h2>4. Quién puede ver los datos</h2>
           <ul>
-            <li>Administradores o coordinadores de PsicoAyuda.</li>
+            <li>Administradores o coordinadores de Nido.</li>
             <li>
               Profesionales voluntarios aprobados, solo cuando una solicitud les
               sea asignada o sugerida.
@@ -158,7 +158,7 @@ export default function PrivacyPage() {
         <section className="card">
           <h2>8. Menores de edad</h2>
           <p>
-            PsicoAyuda no está diseñada como servicio dirigido a menores. Si una
+            Nido no está diseñada como servicio dirigido a menores. Si una
             persona menor de edad necesita ayuda, debe buscar apoyo de un adulto
             responsable, servicios locales de emergencia o instituciones
             competentes.
@@ -168,7 +168,7 @@ export default function PrivacyPage() {
         <section className="card">
           <h2>9. Emergencias</h2>
           <p>
-            PsicoAyuda no atiende emergencias en tiempo real. Si una persona
+            Nido no atiende emergencias en tiempo real. Si una persona
             está en peligro inmediato, debe llamar a emergencias locales o
             buscar ayuda presencial inmediata.
           </p>

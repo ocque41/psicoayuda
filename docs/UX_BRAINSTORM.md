@@ -1,4 +1,4 @@
-# Brainstorm UI/UX — PsicoAyuda
+# Brainstorm UI/UX — Nido
 
 > Documento consolidado de diseño de producto a partir de 9 análisis (3 personas + 6 dimensiones transversales). Todo lo aquí propuesto vive **dentro de los límites duros de producto**: sin pagos, chat, videollamadas, ratings/reseñas, "terapeuta IA", matching complejo, teléfonos no verificados, ni más datos que los mínimos.
 
@@ -6,7 +6,7 @@
 
 ## 1. Resumen ejecutivo
 
-PsicoAyuda hace lo correcto en lo esencial —datos mínimos, copy honesto sobre no-emergencias, base legal sólida y un stack ligero ideal para conectividad cara (cero imágenes, cero fuentes web, edge en Cloudflare)— pero hoy se **ve y se siente como un wireframe**: un solo `globals.css` a mano, Arial del sistema, una única `.card`, sin jerarquía, sin estados de foco, sin feedback de carga y con estados internos crudos (`pending_verification`, `new`) mostrados al usuario. La tensión central es brutal: es un **producto de crisis para personas vulnerables**, pero la interfaz transmite la frialdad de un formulario administrativo y abandona al usuario justo en los momentos de máxima carga emocional (tras enviar, en errores, esperando contacto).
+Nido hace lo correcto en lo esencial —datos mínimos, copy honesto sobre no-emergencias, base legal sólida y un stack ligero ideal para conectividad cara (cero imágenes, cero fuentes web, edge en Cloudflare)— pero hoy se **ve y se siente como un wireframe**: un solo `globals.css` a mano, Arial del sistema, una única `.card`, sin jerarquía, sin estados de foco, sin feedback de carga y con estados internos crudos (`pending_verification`, `new`) mostrados al usuario. La tensión central es brutal: es un **producto de crisis para personas vulnerables**, pero la interfaz transmite la frialdad de un formulario administrativo y abandona al usuario justo en los momentos de máxima carga emocional (tras enviar, en errores, esperando contacto).
 
 Hay además **dos fugas de privacidad reales** que contradicen los propios límites del producto, y un **bug operativo** (la urgencia "alta" no dispara nada para nadie). Los cinco movimientos de mayor palanca, casi todos quick wins:
 

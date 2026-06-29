@@ -5,7 +5,7 @@ import { drizzle as drizzleProxy } from "drizzle-orm/sqlite-proxy";
 import * as schema from "@/db/schema";
 
 const databaseUrl = process.env.DATABASE_URL ?? "file:./local.db";
-const cloudflareTarget = process.env.PSICOAYUDA_DB_TARGET === "cloudflare";
+const cloudflareTarget = process.env.NIDO_DB_TARGET === "cloudflare";
 
 type LibsqlClient = {
   execute(input: { sql: string; args: unknown[] }): Promise<{

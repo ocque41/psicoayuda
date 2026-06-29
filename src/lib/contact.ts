@@ -1,6 +1,6 @@
 import "server-only";
 
-const fallbackEmail = "contacto@psicoayuda.example";
+const fallbackEmail = "contacto@nido.example";
 
 export function getPrivacyContactEmail() {
   return process.env.PRIVACY_CONTACT_EMAIL || fallbackEmail;

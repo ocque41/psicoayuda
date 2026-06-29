@@ -10,7 +10,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   secret:
     process.env.BETTER_AUTH_SECRET ??
-    "psicoayuda-local-development-secret-change-me",
+    "nido-local-development-secret-change-me",
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema,
@@ -22,7 +22,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [nextCookies()],
-  appName: "PsicoAyuda",
+  appName: "Nido",
   telemetry: {
     enabled: false,
   },

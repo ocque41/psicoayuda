@@ -5,18 +5,20 @@ export default function HomePage() {
     <>
       <section className="hero">
         <div className="container">
-          <h1>
-            Conectamos personas afectadas con profesionales voluntarios de apoyo
-            psicológico.
-          </h1>
-          <p className="muted" style={{ maxWidth: 720, fontSize: "1.15rem" }}>
-            PsicoAyuda no reemplaza emergencias ni atención médica. Ayuda a
-            conectar rápidamente con profesionales voluntarios disponibles de
-            forma remota.
+          <h1>¿Estás pasando por un momento difícil? No tienes que atravesarlo en silencio.</h1>
+          <p className="lead">
+            Te ayudamos a conectar, gratis y a distancia, con psicólogas y
+            psicólogos voluntarios. Sin crear cuenta y sin coste.
           </p>
+          <ul className="trust-strip" aria-label="Garantías">
+            <li>Gratis, siempre</li>
+            <li>Confidencial</li>
+            <li>Sin crear cuenta</li>
+            <li>Voluntarios verificados</li>
+          </ul>
           <p>
-            <Link className="button" href="/ayuda">
-              Pedir ayuda
+            <Link className="button human" href="/ayuda">
+              Quiero que me acompañen
             </Link>{" "}
             <Link className="button secondary" href="/pro">
               Soy profesional voluntario/a
@@ -27,17 +29,28 @@ export default function HomePage() {
       <section className="section">
         <div className="container grid grid-2">
           <article className="card">
-            <h2>Para personas</h2>
+            <h2>Si necesitas apoyo</h2>
             <p>
-              Puedes enviar una solicitud con tu correo. La ubicación es
-              opcional. No necesitas crear cuenta.
+              Cuéntanos cómo estás en menos de un minuto. No necesitas cuenta ni
+              dar tu ubicación. Una persona voluntaria revisará tu mensaje y te
+              escribirá a tu correo.
+            </p>
+            <p>
+              <Link className="button human" href="/ayuda">
+                Pedir apoyo ahora
+              </Link>
             </p>
           </article>
           <article className="card">
-            <h2>Para profesionales</h2>
+            <h2>Si quieres ayudar</h2>
             <p>
-              Entra con Google, completa tus datos y espera verificación de un
-              coordinador antes de recibir solicitudes.
+              Atiendes en remoto, gratis, con el número de personas que tú
+              decidas. Tú pones los límites; nosotros coordinamos y verificamos.
+            </p>
+            <p>
+              <Link className="button secondary" href="/pro">
+                Quiero ayudar
+              </Link>
             </p>
           </article>
         </div>

@@ -18,9 +18,9 @@ export default function ResourcesPage() {
           {/* TODO: Insertar recursos de emergencia y apoyo en Venezuela solo después de verificarlos. */}
         </div>
         <div className="card">
-          <h2>Qué hace PsicoAyuda</h2>
+          <h2>Qué hace Nido</h2>
           <p>
-            PsicoAyuda ayuda a conectar solicitudes con profesionales
+            Nido ayuda a conectar solicitudes con profesionales
             voluntarios verificados. No atiende emergencias en tiempo real y no
             reemplaza atención médica presencial.
           </p>
@@ -28,7 +28,7 @@ export default function ResourcesPage() {
         <div className="card">
           <h2>Menores de edad</h2>
           <p>
-            PsicoAyuda no está diseñada como servicio dirigido a menores. Si una
+            Nido no está diseñada como servicio dirigido a menores. Si una
             persona menor de edad necesita ayuda, debe buscar apoyo de un adulto
             responsable, servicios locales de emergencia o instituciones
             competentes.

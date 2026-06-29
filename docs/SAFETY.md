@@ -1,6 +1,6 @@
 # Safety Notes
 
-PsicoAyuda is a connector. It is not a medical treatment platform and not an
+Nido is a connector. It is not a medical treatment platform and not an
 emergency response system.
 
 ## Product boundaries

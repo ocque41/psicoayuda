@@ -6,7 +6,7 @@ const allowedValues = new Set([
   "file:./local.db",
   "http://localhost:3000",
   "ci-local-secret-change-me",
-  "psicoayuda-local-development-secret-change-me",
+  "nido-local-development-secret-change-me",
 ]);
 
 const allowedFiles = new Set(["pnpm-lock.yaml"]);

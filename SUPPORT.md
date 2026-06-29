@@ -1,6 +1,6 @@
 # Support
 
-PsicoAyuda is open-source software, not an emergency service.
+Nido is open-source software, not an emergency service.
 
 If you are using the app and are in immediate danger, call local emergency
 services or seek in-person help now. This repository cannot provide emergency

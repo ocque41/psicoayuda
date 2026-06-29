@@ -292,7 +292,7 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   await db
     .update(helpRequests)
     .set({
-      email: `anon-${requestId}@psicoayuda.local`,
+      email: `anon-${requestId}@nido.local`,
       country: null,
       state: null,
       city: null,

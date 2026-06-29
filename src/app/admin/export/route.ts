@@ -51,7 +51,7 @@ export async function GET() {
   return new NextResponse(body, {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": "attachment; filename=psicoayuda-solicitudes.csv",
+      "content-disposition": "attachment; filename=nido-solicitudes.csv",
     },
   });
 }

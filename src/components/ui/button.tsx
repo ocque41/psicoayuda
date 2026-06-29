@@ -4,14 +4,16 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 font-bold text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-60",
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border px-[22px] py-3 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-60",
   {
     variants: {
       variant: {
         default:
-          "border-[#1f6f64] bg-[#1f6f64] text-white hover:bg-[#15524a] focus-visible:outline-[#1f6f64]",
+          "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)] hover:border-[var(--accent-strong)] focus-visible:outline-[var(--accent)]",
         secondary:
-          "border-[#1f6f64] bg-transparent text-[#1f6f64] hover:bg-[#eef8f5] focus-visible:outline-[#1f6f64]",
+          "border-[var(--accent)] bg-transparent text-[var(--accent)] hover:bg-[var(--accent-soft)] focus-visible:outline-[var(--accent)]",
+        human:
+          "border-[var(--human)] bg-[var(--human)] text-white hover:bg-[var(--human-strong)] hover:border-[var(--human-strong)] focus-visible:outline-[var(--human)]",
       },
     },
     defaultVariants: {

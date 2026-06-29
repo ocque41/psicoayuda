@@ -11,22 +11,22 @@ export default function TermsPage() {
         <h1>Términos de Servicio</h1>
         <p className="muted">Última actualización: 29 de junio de 2026</p>
         <p>
-          Estos términos regulan el uso de PsicoAyuda, una plataforma gratuita
+          Estos términos regulan el uso de Nido, una plataforma gratuita
           que conecta personas que solicitan apoyo psicológico remoto con
           profesionales voluntarios verificados.
         </p>
-        <p>Al usar PsicoAyuda, aceptas estos términos.</p>
+        <p>Al usar Nido, aceptas estos términos.</p>
 
         <section className="card">
           <h2>1. Naturaleza del servicio</h2>
           <p>
-            PsicoAyuda es una plataforma de conexión y coordinación. No es un
+            Nido es una plataforma de conexión y coordinación. No es un
             servicio de emergencias, no es un hospital, no es una clínica, no
             garantiza atención inmediata y no reemplaza diagnóstico, tratamiento
             médico, psicoterapia formal ni atención presencial.
           </p>
           <p>
-            PsicoAyuda no cobra a las personas que solicitan ayuda ni a los
+            Nido no cobra a las personas que solicitan ayuda ni a los
             profesionales voluntarios por participar en la plataforma.
           </p>
         </section>
@@ -38,7 +38,7 @@ export default function TermsPage() {
             ayuda presencial ahora.
           </p>
           <p>
-            PsicoAyuda no debe usarse para situaciones que requieran respuesta
+            Nido no debe usarse para situaciones que requieran respuesta
             inmediata, rescate, protección física, atención médica urgente o
             intervención de emergencia.
           </p>
@@ -50,7 +50,7 @@ export default function TermsPage() {
           <ul>
             <li>Proporcionas un correo electrónico de contacto válido.</li>
             <li>
-              Entiendes que PsicoAyuda intentará conectarte con un profesional
+              Entiendes que Nido intentará conectarte con un profesional
               voluntario disponible.
             </li>
             <li>
@@ -78,7 +78,7 @@ export default function TermsPage() {
             </li>
             <li>Solo ofrecerán apoyo dentro de sus competencias.</li>
             <li>
-              No cobrarán por los contactos recibidos a través de PsicoAyuda.
+              No cobrarán por los contactos recibidos a través de Nido.
             </li>
             <li>
               No usarán la plataforma para captar clientes pagos, hacer
@@ -88,7 +88,7 @@ export default function TermsPage() {
             <li>Cumplirán las leyes y normas profesionales aplicables.</li>
           </ul>
           <p>
-            PsicoAyuda puede aprobar, rechazar, suspender o eliminar cuentas
+            Nido puede aprobar, rechazar, suspender o eliminar cuentas
             profesionales a su criterio, especialmente si hay dudas sobre
             identidad, credenciales, conducta o seguridad.
           </p>
@@ -102,7 +102,7 @@ export default function TermsPage() {
             idoneidad para cada situación.
           </p>
           <p>
-            PsicoAyuda puede revisar credenciales manualmente y solicitar
+            Nido puede revisar credenciales manualmente y solicitar
             información adicional antes de aprobar a un profesional.
           </p>
         </section>
@@ -110,7 +110,7 @@ export default function TermsPage() {
         <section className="card">
           <h2>6. Uso prohibido</h2>
           <ul>
-            <li>Cobrar a personas contactadas mediante PsicoAyuda.</li>
+            <li>Cobrar a personas contactadas mediante Nido.</li>
             <li>Usar la plataforma para fraude, abuso, acoso o explotación.</li>
             <li>Suplantar identidad.</li>
             <li>Enviar información falsa.</li>
@@ -122,7 +122,7 @@ export default function TermsPage() {
               Extraer, copiar o publicar datos personales de la plataforma.
             </li>
             <li>
-              Presentar PsicoAyuda como servicio oficial de emergencia si no lo
+              Presentar Nido como servicio oficial de emergencia si no lo
               es.
             </li>
           </ul>
@@ -131,8 +131,8 @@ export default function TermsPage() {
         <section className="card">
           <h2>7. Limitación de responsabilidad</h2>
           <p>
-            PsicoAyuda se ofrece de buena fe como herramienta gratuita de
-            conexión. En la medida permitida por la ley, PsicoAyuda no se hace
+            Nido se ofrece de buena fe como herramienta gratuita de
+            conexión. En la medida permitida por la ley, Nido no se hace
             responsable por falta de disponibilidad, retrasos, errores,
             interrupciones, decisiones de profesionales, resultados de
             conversaciones o acciones tomadas fuera de la plataforma.
@@ -154,7 +154,7 @@ export default function TermsPage() {
         <section className="card">
           <h2>9. Cambios al servicio</h2>
           <p>
-            Podemos modificar, pausar o cerrar PsicoAyuda si es necesario por
+            Podemos modificar, pausar o cerrar Nido si es necesario por
             razones técnicas, de seguridad, legales, operativas o de
             sostenibilidad.
           </p>

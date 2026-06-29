@@ -1,6 +1,6 @@
 # Architecture
 
-PsicoAyuda is a small Next.js app. It is designed to stay simple and easy to
+Nido is a small Next.js app. It is designed to stay simple and easy to
 run locally.
 
 ## Main parts

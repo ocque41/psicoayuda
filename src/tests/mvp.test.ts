@@ -27,7 +27,7 @@ function scoreForTest(professional: {
   return score;
 }
 
-describe("PsicoAyuda MVP smoke checks", () => {
+describe("Nido MVP smoke checks", () => {
   it("allows a help request with email and no location", () => {
     const parsed = helpRequestSchema.safeParse({
       email: "persona@example.com",

@@ -1,6 +1,6 @@
 # Code of Conduct
 
-We want PsicoAyuda to be a respectful and useful project for people building
+We want Nido to be a respectful and useful project for people building
 safety-minded software.
 
 ## Expected behavior

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ayudapsicologicavenezuela",
+  "name": "nido-venezuela",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,13 +12,13 @@
     "enabled": true
   },
   "vars": {
-    "BETTER_AUTH_URL": "https://ayudapsicologicavenezuela.ocque41.workers.dev",
-    "PSICOAYUDA_DB_TARGET": "cloudflare"
+    "BETTER_AUTH_URL": "https://nido-venezuela.workers.dev",
+    "NIDO_DB_TARGET": "cloudflare"
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "ayudapsicologicavenezuela-db",
+      "database_name": "nido-venezuela-db",
       "database_id": "b91d3879-2106-4f34-a49c-f8377adb149e",
       "migrations_dir": "drizzle"
     }

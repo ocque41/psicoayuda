@@ -157,11 +157,11 @@ export function ProfessionalOnboardingForm({
           <label>
             <input name="conductFreeService" type="checkbox" required />
             Acepto que el servicio es gratuito para las personas contactadas
-            mediante PsicoAyuda.
+            mediante Nido.
           </label>
           <label>
             <input name="conductNoClientCapture" type="checkbox" required />
-            Acepto no usar PsicoAyuda para captar clientes pagos ni hacer
+            Acepto no usar Nido para captar clientes pagos ni hacer
             publicidad engañosa.
           </label>
           <label>
@@ -174,7 +174,7 @@ export function ProfessionalOnboardingForm({
               type="checkbox"
               required
             />
-            Entiendo que PsicoAyuda no garantiza respuesta de emergencia.
+            Entiendo que Nido no garantiza respuesta de emergencia.
           </label>
           <label>
             <input name="conductCompetence" type="checkbox" required />

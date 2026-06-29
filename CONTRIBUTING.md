@@ -1,6 +1,6 @@
-# Contributing to PsicoAyuda
+# Contributing to Nido
 
-Thank you for considering a contribution. PsicoAyuda is intentionally small:
+Thank you for considering a contribution. Nido is intentionally small:
 it connects people requesting help with verified volunteer professionals. The
 best contributions keep that scope clear, safe, and fast.
 

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report something broken in PsicoAyuda
+about: Report something broken in Nido
 labels: bug
 ---
 

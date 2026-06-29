@@ -14,7 +14,7 @@ Describe the smallest useful version.
 
 ## Scope check
 
-- [ ] This keeps PsicoAyuda focused on CONNECT.
+- [ ] This keeps Nido focused on CONNECT.
 - [ ] This does not add payments, chat, video, ratings, reviews, or AI therapist features.
 - [ ] This does not add unverified emergency phone numbers or medical claims.
 
