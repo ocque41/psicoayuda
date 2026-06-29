@@ -52,8 +52,8 @@ async function runD1Query(
   }
 
   if (method === "get") {
-    const row = await statement.first();
-    return { rows: row ? [row] : [] };
+    const rows = await statement.raw();
+    return { rows: rows[0] as unknown[] };
   }
 
   if (method === "run") {
@@ -61,8 +61,7 @@ async function runD1Query(
     return { rows: [] };
   }
 
-  const result = await statement.all();
-  return { rows: result.results ?? [] };
+  return { rows: await statement.raw() };
 }
 
 async function runLocalQuery(
@@ -82,10 +81,17 @@ async function runLocalQuery(
   }
 
   if (method === "get") {
-    return { rows: result.rows.slice(0, 1) };
+    const [row] = result.rows;
+    return {
+      rows: (row
+        ? result.columns.map((column) => row[column])
+        : undefined) as unknown[],
+    };
   }
 
-  return { rows: result.rows };
+  return {
+    rows: result.rows.map((row) => result.columns.map((column) => row[column])),
+  };
 }
 
 export const db: AppDatabase = drizzleProxy(
