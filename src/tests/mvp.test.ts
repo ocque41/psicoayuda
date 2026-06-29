@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   helpRequestSchema,
@@ -145,5 +147,32 @@ describe("PsicoAyuda MVP smoke checks", () => {
         )
         .map((candidate) => candidate.id),
     ).toEqual(["ok"]);
+  });
+
+  it("keeps Better Auth session and account timestamps defaulted for D1", () => {
+    const schema = readFileSync(
+      join(process.cwd(), "src/db/schema.ts"),
+      "utf8",
+    );
+    const sessionUpdatedAt = schema.match(
+      /export const session[\s\S]*?updatedAt:[\s\S]*?\.default\(sql`\(cast\(unixepoch\('subsecond'\) \* 1000 as integer\)\)`\)/,
+    );
+    const accountUpdatedAt = schema.match(
+      /export const account[\s\S]*?updatedAt:[\s\S]*?\.default\(sql`\(cast\(unixepoch\('subsecond'\) \* 1000 as integer\)\)`\)/,
+    );
+
+    expect(sessionUpdatedAt).not.toBeNull();
+    expect(accountUpdatedAt).not.toBeNull();
+  });
+
+  it("includes a D1 migration for auth timestamp defaults", () => {
+    const migration = readFileSync(
+      join(process.cwd(), "drizzle/0001_hot_luke_cage.sql"),
+      "utf8",
+    );
+
+    expect(migration).toContain("CREATE TABLE `__new_account`");
+    expect(migration).toContain("CREATE TABLE `__new_session`");
+    expect(migration.match(/`updated_at` integer DEFAULT/g)).toHaveLength(2);
   });
 });
