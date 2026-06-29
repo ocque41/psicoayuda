@@ -8,6 +8,8 @@ declare global {
     GOOGLE_CLIENT_ID?: string;
     GOOGLE_CLIENT_SECRET?: string;
     ADMIN_EMAILS?: string;
+    ABUSE_CONTACT_EMAIL?: string;
+    PRIVACY_CONTACT_EMAIL?: string;
     CONTACT_FROM_EMAIL?: string;
     NOTIFICATION_EMAIL?: string;
   }

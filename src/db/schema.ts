@@ -117,6 +117,7 @@ export const professionals = sqliteTable(
     currentActiveRequests: integer("current_active_requests")
       .default(0)
       .notNull(),
+    conductAcceptedAt: text("conduct_accepted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -147,12 +148,19 @@ export const helpRequests = sqliteTable(
     consentContact: integer("consent_contact", { mode: "boolean" })
       .default(false)
       .notNull(),
+    requesterHash: text("requester_hash"),
+    anonymizedAt: text("anonymized_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     index("help_requests_status_idx").on(table.status),
     index("help_requests_created_at_idx").on(table.createdAt),
+    index("help_requests_email_created_idx").on(table.email, table.createdAt),
+    index("help_requests_requester_hash_created_idx").on(
+      table.requesterHash,
+      table.createdAt,
+    ),
   ],
 );
 

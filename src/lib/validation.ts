@@ -6,6 +6,10 @@ const checkboxBoolean = z.preprocess(
   z.boolean(),
 );
 
+const requiredCheckbox = checkboxBoolean.refine((value) => value, {
+  message: "Debes aceptar este punto para continuar.",
+});
+
 const optionalText = z
   .string()
   .trim()
@@ -50,6 +54,11 @@ export const professionalSchema = z.object({
   shortBio: z.string().trim().max(600).optional(),
   acceptingRequests: checkboxBoolean.default(false),
   maxActiveRequests: z.coerce.number().int().min(1).max(10),
+  conductFreeService: requiredCheckbox,
+  conductNoClientCapture: requiredCheckbox,
+  conductConfidentiality: requiredCheckbox,
+  conductNoEmergencyGuarantee: requiredCheckbox,
+  conductCompetence: requiredCheckbox,
 });
 
 export const statusSchema = z.enum(["new", "contacted", "assigned", "closed"]);

@@ -1,6 +1,7 @@
 import { desc } from "drizzle-orm";
 import Link from "next/link";
 import {
+  adminAnonymizeHelpRequest,
   adminAssignRequest,
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
@@ -140,6 +141,13 @@ export default async function AdminPage() {
                   </select>{" "}
                   <button className="button secondary" type="submit">
                     Cambiar estado
+                  </button>
+                </form>
+
+                <form action={adminAnonymizeHelpRequest}>
+                  <input name="requestId" type="hidden" value={request.id} />
+                  <button className="button secondary" type="submit">
+                    Anonimizar datos
                   </button>
                 </form>
 

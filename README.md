@@ -35,6 +35,10 @@ stories.
 - Remote-first matching suggestions for approved, accepting, remote
   professionals under capacity.
 - Transactional assignment with duplicate and capacity guards.
+- Audit log entries for professional approval, rejection, suspension, request
+  assignment, request closure, and request data anonymization.
+- Basic public anti-spam guard on `/ayuda` using email and hashed requester IP
+  throttling.
 
 ## Tech stack
 
@@ -51,8 +55,8 @@ stories.
 - `/ayuda`: public help request form.
 - `/ayuda/gracias`: request confirmation and safe suggestions.
 - `/recursos`: emergency notice and placeholder for verified resources.
-- `/privacidad`: privacy summary.
-- `/terminos`: terms.
+- `/privacidad`: Spanish privacy policy.
+- `/terminos`: Spanish terms of service.
 - `/pro`: professional Google sign-in.
 - `/pro/onboarding`: professional onboarding.
 - `/pro/dashboard`: professional status and assigned requests.
@@ -87,6 +91,8 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 ADMIN_EMAILS=admin@example.com
 DATABASE_URL=file:./local.db
+ABUSE_CONTACT_EMAIL=reportes@example.com
+PRIVACY_CONTACT_EMAIL=privacidad@example.com
 ```
 
 Optional:
@@ -95,6 +101,8 @@ Optional:
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_DATABASE_ID=
 CLOUDFLARE_D1_TOKEN=
+ABUSE_CONTACT_EMAIL=
+PRIVACY_CONTACT_EMAIL=
 CONTACT_FROM_EMAIL=
 NOTIFICATION_EMAIL=
 ```
@@ -111,6 +119,59 @@ ADMIN_EMAILS=one@example.com,two@example.com
 ```
 
 Non-admin users cannot see admin data.
+
+## Professional verification and conduct
+
+Google sign-in is only for professional volunteers. People requesting help do
+not create accounts and never use Google login.
+
+Professional flow:
+
+```text
+Google signup
+→ onboarding
+→ pending_verification
+→ admin approval, rejection, or suspension
+```
+
+New professionals are not active immediately. They cannot see help requests or
+receive assignments until an admin approves them. Suspended or rejected
+professionals are also blocked from seeing assigned request details.
+
+During onboarding, professionals must accept that the service is free, they will
+not capture paid clients, they will keep confidentiality, PsicoAyuda does not
+guarantee emergency response, and they will work only inside their professional
+competence.
+
+## Privacy, retention, and deletion
+
+Public privacy and terms pages live at `/privacidad` and `/terminos`. Both use
+the Spanish Q2 policy text and display configured contact emails.
+
+Retention defaults:
+
+- Close inactive requests after 30 days.
+- Delete or anonymize requests after 90 days unless minimal records are needed
+  for safety, abuse prevention, or legal reasons.
+
+Admins can anonymize a help request from `/admin`. The action removes contact
+and location details, closes the request, clears the requester hash, and writes
+an audit log entry.
+
+## Anti-spam
+
+The public `/ayuda` form applies a basic MVP rate limit: no more than 3 recent
+requests per email or hashed requester IP per hour. The hash uses the app secret
+so raw IP addresses are not stored.
+
+Turnstile is not wired yet because the current Q2 scope can be served by the
+simple rate limit. Add it later if public abuse exceeds the basic throttle.
+
+## Remaining work
+
+- Configure real public values for `ABUSE_CONTACT_EMAIL` and
+  `PRIVACY_CONTACT_EMAIL` before broad public launch.
+- Add Cloudflare Turnstile if the basic email/IP-hash throttle is not enough.
 
 ## Database
 
@@ -161,6 +222,8 @@ pnpm wrangler secret put BETTER_AUTH_SECRET
 pnpm wrangler secret put GOOGLE_CLIENT_ID
 pnpm wrangler secret put GOOGLE_CLIENT_SECRET
 pnpm wrangler secret put ADMIN_EMAILS
+pnpm wrangler secret put ABUSE_CONTACT_EMAIL
+pnpm wrangler secret put PRIVACY_CONTACT_EMAIL
 ```
 
 For Google sign-in, use a Google OAuth Web Client whose client ID ends in
@@ -169,6 +232,16 @@ For Google sign-in, use a Google OAuth Web Client whose client ID ends in
 ```text
 https://ayudapsicologicavenezuela.ocque41.workers.dev/api/auth/callback/google
 ```
+
+Request only these Google OAuth scopes:
+
+```text
+openid
+email
+profile
+```
+
+Do not request Gmail, Drive, Calendar, Contacts, or Google location scopes.
 
 ## Commands
 

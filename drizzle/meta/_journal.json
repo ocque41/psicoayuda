@@ -15,6 +15,13 @@
       "when": 1782691549089,
       "tag": "0001_hot_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782692231100,
+      "tag": "0002_real_famine",
+      "breakpoints": true
     }
   ]
 }

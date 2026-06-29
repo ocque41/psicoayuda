@@ -132,7 +132,7 @@ export function HelpRequestForm() {
       <div className="checks">
         <label>
           <input name="consentContact" type="checkbox" required />
-          Acepto que PsicoAyuda use este correo para coordinar contacto con un
+          Acepto que PsicoAyuda use estos datos para intentar conectarme con un
           profesional voluntario.
         </label>
       </div>

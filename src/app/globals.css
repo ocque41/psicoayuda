@@ -59,6 +59,17 @@ textarea {
   gap: 12px;
 }
 
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 20px 0;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
 .hero,
 .section {
   padding: 48px 0;
@@ -172,6 +183,19 @@ h1 {
 
 h2 {
   margin-top: 0;
+}
+
+.legal {
+  display: grid;
+  gap: 16px;
+}
+
+.legal h2 {
+  margin: 0;
+}
+
+.legal ul {
+  margin-top: 8px;
 }
 
 @media (max-width: 640px) {

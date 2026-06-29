@@ -70,7 +70,7 @@ export async function assignRequestToProfessional(input: {
     await tx.insert(auditLogs).values({
       id: newId("log"),
       actorEmail: input.actorEmail,
-      action: "assign_request",
+      action: "request_assignment",
       entityType: "help_request",
       entityId: input.helpRequestId,
       metadata: JSON.stringify({ professionalId: input.professionalId }),

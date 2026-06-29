@@ -28,6 +28,28 @@ export default async function ProDashboardPage() {
     );
   }
 
+  if (professional.status !== "approved") {
+    return (
+      <section className="section">
+        <div className="container">
+          <h1>Dashboard profesional</h1>
+          <div className="card">
+            <p>
+              Estado de verificación: <strong>{professional.status}</strong>
+            </p>
+            <p>
+              Tu perfil todavía no está aprobado. No puedes ver solicitudes ni
+              recibir asignaciones hasta que un administrador lo apruebe.
+            </p>
+            <Link className="button secondary" href="/pro/onboarding">
+              Actualizar onboarding
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const assigned = await db
     .select({
       request: helpRequests,

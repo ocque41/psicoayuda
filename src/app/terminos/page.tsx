@@ -1,23 +1,176 @@
+import Link from "next/link";
+import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+
 export default function TermsPage() {
+  const contactEmail = getPrivacyContactEmail();
+  const abuseEmail = getAbuseContactEmail();
+
   return (
     <section className="section">
-      <div className="container">
-        <h1>Términos</h1>
-        <div className="card">
+      <div className="container legal">
+        <h1>Términos de Servicio</h1>
+        <p className="muted">Última actualización: 29 de junio de 2026</p>
+        <p>
+          Estos términos regulan el uso de PsicoAyuda, una plataforma gratuita
+          que conecta personas que solicitan apoyo psicológico remoto con
+          profesionales voluntarios verificados.
+        </p>
+        <p>Al usar PsicoAyuda, aceptas estos términos.</p>
+
+        <section className="card">
+          <h2>1. Naturaleza del servicio</h2>
           <p>
-            PsicoAyuda es un servicio gratuito de conexión con profesionales
-            voluntarios. No garantiza disponibilidad ni respuesta inmediata.
+            PsicoAyuda es una plataforma de conexión y coordinación. No es un
+            servicio de emergencias, no es un hospital, no es una clínica, no
+            garantiza atención inmediata y no reemplaza diagnóstico, tratamiento
+            médico, psicoterapia formal ni atención presencial.
           </p>
           <p>
-            No es un servicio de emergencia y no reemplaza diagnóstico,
-            tratamiento ni atención médica. Las personas profesionales son
-            responsables de sus credenciales y conducta.
+            PsicoAyuda no cobra a las personas que solicitan ayuda ni a los
+            profesionales voluntarios por participar en la plataforma.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>2. Emergencias</h2>
+          <p>
+            Si estás en peligro inmediato, llama a emergencias locales o busca
+            ayuda presencial ahora.
           </p>
           <p>
-            El equipo administrador puede rechazar, suspender o eliminar cuentas
-            no verificadas o inseguras.
+            PsicoAyuda no debe usarse para situaciones que requieran respuesta
+            inmediata, rescate, protección física, atención médica urgente o
+            intervención de emergencia.
           </p>
-        </div>
+        </section>
+
+        <section className="card">
+          <h2>3. Personas que solicitan ayuda</h2>
+          <p>Al enviar una solicitud, declaras que:</p>
+          <ul>
+            <li>Proporcionas un correo electrónico de contacto válido.</li>
+            <li>
+              Entiendes que PsicoAyuda intentará conectarte con un profesional
+              voluntario disponible.
+            </li>
+            <li>
+              Entiendes que no hay garantía de respuesta inmediata ni de
+              disponibilidad.
+            </li>
+            <li>
+              Aceptas que un coordinador o profesional aprobado pueda
+              contactarte usando la información proporcionada.
+            </li>
+          </ul>
+          <p>
+            No debes enviar información falsa, abusiva, amenazante o que ponga
+            en riesgo a otras personas.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>4. Profesionales voluntarios</h2>
+          <p>Los profesionales que se registran declaran que:</p>
+          <ul>
+            <li>La información enviada es verdadera.</li>
+            <li>
+              Sus credenciales, licencia o formación profesional son reales.
+            </li>
+            <li>Solo ofrecerán apoyo dentro de sus competencias.</li>
+            <li>
+              No cobrarán por los contactos recibidos a través de PsicoAyuda.
+            </li>
+            <li>
+              No usarán la plataforma para captar clientes pagos, hacer
+              publicidad engañosa o aprovecharse de personas vulnerables.
+            </li>
+            <li>Mantendrán confidencialidad sobre la información recibida.</li>
+            <li>Cumplirán las leyes y normas profesionales aplicables.</li>
+          </ul>
+          <p>
+            PsicoAyuda puede aprobar, rechazar, suspender o eliminar cuentas
+            profesionales a su criterio, especialmente si hay dudas sobre
+            identidad, credenciales, conducta o seguridad.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>5. Verificación</h2>
+          <p>
+            La verificación de profesionales reduce riesgos, pero no garantiza
+            calidad, disponibilidad, resultados, conducta profesional ni
+            idoneidad para cada situación.
+          </p>
+          <p>
+            PsicoAyuda puede revisar credenciales manualmente y solicitar
+            información adicional antes de aprobar a un profesional.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>6. Uso prohibido</h2>
+          <ul>
+            <li>Cobrar a personas contactadas mediante PsicoAyuda.</li>
+            <li>Usar la plataforma para fraude, abuso, acoso o explotación.</li>
+            <li>Suplantar identidad.</li>
+            <li>Enviar información falsa.</li>
+            <li>
+              Usar datos de personas solicitantes para publicidad, venta,
+              campañas políticas, spam o fines ajenos al apoyo solicitado.
+            </li>
+            <li>
+              Extraer, copiar o publicar datos personales de la plataforma.
+            </li>
+            <li>
+              Presentar PsicoAyuda como servicio oficial de emergencia si no lo
+              es.
+            </li>
+          </ul>
+        </section>
+
+        <section className="card">
+          <h2>7. Limitación de responsabilidad</h2>
+          <p>
+            PsicoAyuda se ofrece de buena fe como herramienta gratuita de
+            conexión. En la medida permitida por la ley, PsicoAyuda no se hace
+            responsable por falta de disponibilidad, retrasos, errores,
+            interrupciones, decisiones de profesionales, resultados de
+            conversaciones o acciones tomadas fuera de la plataforma.
+          </p>
+          <p>
+            Nada en estos términos excluye responsabilidades que no puedan
+            excluirse legalmente.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>8. Privacidad</h2>
+          <p>
+            El uso de datos personales se describe en la{" "}
+            <Link href="/privacidad">Política de Privacidad</Link>.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>9. Cambios al servicio</h2>
+          <p>
+            Podemos modificar, pausar o cerrar PsicoAyuda si es necesario por
+            razones técnicas, de seguridad, legales, operativas o de
+            sostenibilidad.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>10. Contacto</h2>
+          <p>
+            Para preguntas sobre estos términos, escribe a:{" "}
+            <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+          </p>
+          <p>
+            Para reportar abuso o uso indebido, escribe a:{" "}
+            <a href={`mailto:${abuseEmail}`}>{abuseEmail}</a>.
+          </p>
+        </section>
       </div>
     </section>
   );

@@ -1,7 +1,9 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, count, eq, gte, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditLogs, helpRequests, professionals } from "@/db/schema";
@@ -24,6 +26,47 @@ function formEntries(formData: FormData) {
   return Object.fromEntries(formData.entries());
 }
 
+async function getRequesterHash() {
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for");
+  const ip =
+    requestHeaders.get("cf-connecting-ip") ||
+    forwardedFor?.split(",")[0]?.trim() ||
+    requestHeaders.get("x-real-ip");
+
+  if (!ip) return undefined;
+
+  return createHash("sha256")
+    .update(`${process.env.BETTER_AUTH_SECRET ?? "local"}:${ip}`)
+    .digest("hex");
+}
+
+async function isRateLimited(email: string, requesterHash?: string) {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const filters = requesterHash
+    ? or(
+        and(
+          eq(helpRequests.email, email),
+          gte(helpRequests.createdAt, oneHourAgo),
+        ),
+        and(
+          eq(helpRequests.requesterHash, requesterHash),
+          gte(helpRequests.createdAt, oneHourAgo),
+        ),
+      )
+    : and(
+        eq(helpRequests.email, email),
+        gte(helpRequests.createdAt, oneHourAgo),
+      );
+
+  const [row] = await db
+    .select({ total: count() })
+    .from(helpRequests)
+    .where(filters);
+
+  return (row?.total ?? 0) >= 3;
+}
+
 export async function createHelpRequest(
   _prevState: unknown,
   formData: FormData,
@@ -31,6 +74,15 @@ export async function createHelpRequest(
   const parsed = helpRequestSchema.safeParse(formEntries(formData));
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Error" };
+  }
+
+  const requesterHash = await getRequesterHash();
+  if (await isRateLimited(parsed.data.email, requesterHash)) {
+    return {
+      ok: false,
+      message:
+        "Recibimos varias solicitudes recientes con este correo o conexión. Intenta más tarde.",
+    };
   }
 
   const timestamp = nowIso();
@@ -48,6 +100,7 @@ export async function createHelpRequest(
     needCategory: parsed.data.needCategory,
     urgency: parsed.data.urgency,
     consentContact: parsed.data.consentContact,
+    requesterHash,
     status: "new",
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -100,6 +153,7 @@ export async function saveProfessionalOnboarding(
     shortBio: parsed.data.shortBio,
     acceptingRequests: parsed.data.acceptingRequests,
     maxActiveRequests: parsed.data.maxActiveRequests,
+    conductAcceptedAt: timestamp,
     updatedAt: timestamp,
   };
 
@@ -131,7 +185,12 @@ export async function updateProfessionalAvailability(formData: FormData) {
       acceptingRequests: formData.get("acceptingRequests") === "on",
       updatedAt: nowIso(),
     })
-    .where(eq(professionals.userId, session.user.id));
+    .where(
+      and(
+        eq(professionals.userId, session.user.id),
+        eq(professionals.status, "approved"),
+      ),
+    );
 
   revalidatePath("/pro/dashboard");
 }
@@ -143,16 +202,26 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   const professionalId = String(formData.get("professionalId") ?? "");
   const status = professionalStatusSchema.parse(formData.get("status"));
   const timestamp = nowIso();
+  const actionByStatus = {
+    pending_verification: "professional_pending_verification",
+    approved: "professional_approval",
+    rejected: "professional_rejection",
+    suspended: "professional_suspension",
+  } as const;
+  const updates =
+    status === "approved"
+      ? { status, updatedAt: timestamp }
+      : { status, acceptingRequests: false, updatedAt: timestamp };
 
   await db
     .update(professionals)
-    .set({ status, updatedAt: timestamp })
+    .set(updates)
     .where(eq(professionals.id, professionalId));
 
   await db.insert(auditLogs).values({
     id: newId("log"),
     actorEmail: admin.email,
-    action: `professional_${status}`,
+    action: actionByStatus[status],
     entityType: "professional",
     entityId: professionalId,
     createdAt: timestamp,
@@ -167,10 +236,22 @@ export async function adminUpdateHelpRequestStatus(formData: FormData) {
 
   const requestId = String(formData.get("requestId") ?? "");
   const status = statusSchema.parse(formData.get("status"));
+  const timestamp = nowIso();
   await db
     .update(helpRequests)
-    .set({ status, updatedAt: nowIso() })
+    .set({ status, updatedAt: timestamp })
     .where(eq(helpRequests.id, requestId));
+
+  if (status === "closed") {
+    await db.insert(auditLogs).values({
+      id: newId("log"),
+      actorEmail: admin.email,
+      action: "request_closure",
+      entityType: "help_request",
+      entityId: requestId,
+      createdAt: timestamp,
+    });
+  }
 
   revalidatePath("/admin");
 }
@@ -195,6 +276,45 @@ export async function adminAssignRequest(formData: FormData) {
       await notifyProfessionalAssignment(professional.contactEmail);
     }
   }
+
+  revalidatePath("/admin");
+}
+
+export async function adminAnonymizeHelpRequest(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const timestamp = nowIso();
+
+  // Retention default: close inactive requests after 30 days and anonymize
+  // after 90 days unless safety or legal reasons require minimal records.
+  await db
+    .update(helpRequests)
+    .set({
+      email: `anon-${requestId}@psicoayuda.local`,
+      country: null,
+      state: null,
+      city: null,
+      lat: null,
+      lng: null,
+      locationConsent: false,
+      consentContact: false,
+      requesterHash: null,
+      status: "closed",
+      anonymizedAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .where(eq(helpRequests.id, requestId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: "data_anonymization",
+    entityType: "help_request",
+    entityId: requestId,
+    createdAt: timestamp,
+  });
 
   revalidatePath("/admin");
 }

@@ -68,9 +68,27 @@ describe("PsicoAyuda MVP smoke checks", () => {
       acceptingRequests: "on",
       crisisExperience: "on",
       maxActiveRequests: "3",
+      conductFreeService: "on",
+      conductNoClientCapture: "on",
+      conductConfidentiality: "on",
+      conductNoEmergencyGuarantee: "on",
+      conductCompetence: "on",
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it("requires professional conduct acceptance", () => {
+    const parsed = professionalSchema.safeParse({
+      fullName: "Ana Perez",
+      licenseNumber: "CRED-1",
+      licenseCountry: "Venezuela",
+      languages: ["es"],
+      supportAreas: ["duelo"],
+      maxActiveRequests: "3",
+    });
+
+    expect(parsed.success).toBe(false);
   });
 
   it("scores language, support area, crisis experience, and lower load", () => {
@@ -174,5 +192,23 @@ describe("PsicoAyuda MVP smoke checks", () => {
     expect(migration).toContain("CREATE TABLE `__new_account`");
     expect(migration).toContain("CREATE TABLE `__new_session`");
     expect(migration.match(/`updated_at` integer DEFAULT/g)).toHaveLength(2);
+  });
+
+  it("keeps Q2 audit action names stable", () => {
+    const actions = readFileSync(
+      join(process.cwd(), "src/app/actions.ts"),
+      "utf8",
+    );
+    const assignment = readFileSync(
+      join(process.cwd(), "src/lib/assignment.ts"),
+      "utf8",
+    );
+
+    expect(actions).toContain("professional_approval");
+    expect(actions).toContain("professional_rejection");
+    expect(actions).toContain("professional_suspension");
+    expect(actions).toContain("request_closure");
+    expect(actions).toContain("data_anonymization");
+    expect(assignment).toContain("request_assignment");
   });
 });

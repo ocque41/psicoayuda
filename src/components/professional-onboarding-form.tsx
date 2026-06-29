@@ -151,6 +151,38 @@ export function ProfessionalOnboardingForm({
         </label>
       </div>
 
+      <fieldset className="card">
+        <legend>Acuerdo de conducta profesional *</legend>
+        <div className="checks">
+          <label>
+            <input name="conductFreeService" type="checkbox" required />
+            Acepto que el servicio es gratuito para las personas contactadas
+            mediante PsicoAyuda.
+          </label>
+          <label>
+            <input name="conductNoClientCapture" type="checkbox" required />
+            Acepto no usar PsicoAyuda para captar clientes pagos ni hacer
+            publicidad engañosa.
+          </label>
+          <label>
+            <input name="conductConfidentiality" type="checkbox" required />
+            Acepto mantener confidencialidad sobre la información recibida.
+          </label>
+          <label>
+            <input
+              name="conductNoEmergencyGuarantee"
+              type="checkbox"
+              required
+            />
+            Entiendo que PsicoAyuda no garantiza respuesta de emergencia.
+          </label>
+          <label>
+            <input name="conductCompetence" type="checkbox" required />
+            Acepto trabajar solo dentro de mi competencia profesional.
+          </label>
+        </div>
+      </fieldset>
+
       {state && !state.ok ? <p role="alert">{state.message}</p> : null}
       <button className="button" disabled={pending} type="submit">
         {pending ? "Guardando..." : "Enviar para verificación"}
