@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nido-venezuela",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -13,6 +13,8 @@
   },
   "vars": {
     "BETTER_AUTH_URL": "https://nido-venezuela.workers.dev",
+    "NEXT_PUBLIC_SITE_URL": "https://nido-venezuela.workers.dev",
+    "GOOGLE_SITE_VERIFICATION": "",
     "NIDO_DB_TARGET": "cloudflare"
   },
   "d1_databases": [
@@ -22,5 +24,9 @@
       "database_id": "b91d3879-2106-4f34-a49c-f8377adb149e",
       "migrations_dir": "drizzle"
     }
-  ]
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "Conversation", "class_name": "Conversation" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }]
 }

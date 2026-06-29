@@ -80,3 +80,66 @@ export function verifySeekerToken(
 
   return payload;
 }
+
+// ---- Token simétrico para el PROFESIONAL ----
+// El profesional ya está autenticado (better-auth); cuando abre /c/<id> se le
+// mintea un token firmado igual que al seeker, para que onBeforeConnect autorice
+// por HMAC sin tener que llamar a better-auth dentro del Worker.
+
+export const PRO_COOKIE = "nido_pro";
+
+export type ProTokenPayload = {
+  professionalId: string;
+  conversationId: string;
+  role: "professional";
+  iat: number;
+  exp: number;
+};
+
+export function mintProfessionalToken(
+  payload: ProTokenPayload,
+  secret: string,
+): string {
+  const body = base64url(Buffer.from(JSON.stringify(payload), "utf8"));
+  return `${body}.${sign(body, secret)}`;
+}
+
+export function verifyProfessionalToken(
+  token: string,
+  secret: string,
+  nowMs: number,
+): ProTokenPayload | null {
+  if (typeof token !== "string") return null;
+  const dot = token.indexOf(".");
+  if (dot <= 0 || dot === token.length - 1) return null;
+
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = sign(body, secret);
+
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return null;
+  }
+
+  let payload: ProTokenPayload;
+  try {
+    payload = JSON.parse(base64urlToBuffer(body).toString("utf8"));
+  } catch {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object") return null;
+  if (
+    payload.role !== "professional" ||
+    typeof payload.professionalId !== "string" ||
+    typeof payload.conversationId !== "string" ||
+    typeof payload.exp !== "number" ||
+    payload.exp < nowMs
+  ) {
+    return null;
+  }
+
+  return payload;
+}
