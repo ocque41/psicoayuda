@@ -10,10 +10,21 @@ import { SITE_URL } from "@/lib/site";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
-// Solo se aceptan callbacks/peticiones desde nuestros propios orígenes.
+// Solo se aceptan callbacks/peticiones desde nuestros propios orígenes. En
+// desarrollo aceptamos cualquier puerto de localhost, porque `next dev` puede
+// arrancar en 3000, 3100, etc.; si el puerto no coincide con el baseURL,
+// better-auth rechaza el login con INVALID_ORIGIN. En producción solo se
+// confía en la URL configurada y el dominio público.
+const devOrigins =
+  process.env.NODE_ENV === "production"
+    ? []
+    : ["http://localhost:*", "http://127.0.0.1:*"];
+
 const trustedOrigins = Array.from(
   new Set(
-    [baseURL, SITE_URL].filter((value): value is string => Boolean(value)),
+    [baseURL, SITE_URL, ...devOrigins].filter((value): value is string =>
+      Boolean(value),
+    ),
   ),
 );
 
