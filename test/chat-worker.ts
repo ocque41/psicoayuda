@@ -3,7 +3,7 @@
 // re-exporta Conversation para que workerd lo instancie. Además captura en
 // memoria las llamadas internas del DO (email / muestra de tiempo de respuesta)
 // para poder afirmarlas desde el script e2e.
-import { getServerByName, routePartykitRequest } from "partyserver";
+import { routePartykitRequest } from "partyserver";
 import { makeOnBeforeConnect } from "../src/server/auth-gate";
 import { Conversation } from "../src/server/conversation";
 import type { Env } from "../src/server/types";
@@ -23,12 +23,12 @@ export default {
     if (url.pathname === "/__nido-calls") {
       return Response.json(recorded);
     }
-    // Espejo del borrado de producción: golpea el DO por getServerByName (misma
-    // derivación de id que el WebSocket) y vacía su SQLite.
+    // Espejo EXACTO del borrado de producción (chat-admin.ts): direcciona el DO
+    // por idFromName(room) y vacía su SQLite. Misma derivación que el WebSocket.
     if (url.pathname === "/__purge") {
       const room = url.searchParams.get("room");
       if (!room) return new Response("room required", { status: 400 });
-      const stub = await getServerByName(env.Conversation, room);
+      const stub = env.Conversation.get(env.Conversation.idFromName(room));
       const purged = await stub.fetch("https://do/purge", {
         method: "POST",
         headers: { "x-nido-internal": "test-secret" },
