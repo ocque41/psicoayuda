@@ -69,7 +69,7 @@ export default async function HomePage() {
               </div>
               <p>
                 <Link className="button secondary" href="/profesionales">
-                  Ver todas las personas voluntarias
+                  Ver y buscar todas las personas voluntarias
                 </Link>
               </p>
             </>
