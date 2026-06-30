@@ -28,5 +28,10 @@
   "durable_objects": {
     "bindings": [{ "name": "Conversation", "class_name": "Conversation" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+  "triggers": {
+    // Retención diaria (03:00 UTC): cierra solicitudes inactivas a 30 días y
+    // anonimiza a 90 días (ver custom-worker.ts `scheduled()`).
+    "crons": ["0 3 * * *"]
+  }
 }

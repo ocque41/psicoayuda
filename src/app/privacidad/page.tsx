@@ -39,11 +39,23 @@ export default function PrivacyPage() {
             <li>Categoría general de necesidad.</li>
             <li>Nivel de urgencia indicado por la persona.</li>
             <li>Fecha y hora de la solicitud.</li>
+            <li>
+              El contenido de tus conversaciones por chat con un profesional. Se
+              transmite cifrado y se guarda mientras la conversación está activa
+              para que puedas retomarla; se elimina al anonimizar la solicitud.
+            </li>
+            <li>
+              Un identificador técnico derivado de tu dirección IP (un código no
+              reversible, no tu IP en claro), usado solo para prevenir abuso y
+              limitar solicitudes repetidas.
+            </li>
           </ul>
           <p>
             No pedimos documento de identidad, dirección exacta, historia
-            clínica, diagnóstico, información de pago ni relatos detallados
-            sobre la situación vivida.
+            clínica, diagnóstico ni información de pago. El formulario no te
+            pide relatos detallados; lo que decidas escribir dentro del chat se
+            guarda como parte de esa conversación privada entre tú y el
+            profesional.
           </p>
         </section>
 
@@ -139,10 +151,12 @@ export default function PrivacyPage() {
             obligaciones legales si aplican.
           </p>
           <p>
-            Por defecto, las solicitudes inactivas deben cerrarse después de 30
-            días y eliminarse o anonimizarse después de 90 días, salvo que sea
-            necesario conservar registros mínimos por seguridad, prevención de
-            abuso o razones legales.
+            De forma automática, las solicitudes inactivas se cierran después de
+            30 días y se anonimizan después de 90 días, salvo que sea necesario
+            conservar registros mínimos por seguridad, prevención de abuso o
+            razones legales. Al anonimizar, eliminamos el contenido del chat,
+            desvinculamos la conversación de la persona y borramos el código
+            derivado de la IP.
           </p>
           <p>
             Tienes derecho a solicitar, en cualquier momento, acceder a los

@@ -37,8 +37,14 @@ jobs:
       - name: Secret scan
         run: pnpm secret:scan
 
+      - name: Typecheck worker (deploy path)
+        run: pnpm typecheck:worker
+
       - name: Test
         run: pnpm test
+
+      - name: Test chat Durable Object (Workers runtime)
+        run: pnpm test:workers
 
       - name: Build
         run: pnpm build

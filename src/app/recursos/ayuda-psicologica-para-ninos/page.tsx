@@ -136,8 +136,8 @@ export default function Page() {
             <h3>¿Nido da terapia por chat o videollamada?</h3>
             <p>
               Nido conecta con profesionales voluntarios que acompañan a
-              distancia. No ofrecemos terapia dentro de la app, ni chat, ni
-              videollamadas, ni respuestas automáticas.
+              distancia. Hay un chat privado para conocerse y hablar, pero no es
+              terapia continua ni videollamadas, ni hay respuestas automáticas.
             </p>
           </div>
         </div>

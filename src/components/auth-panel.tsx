@@ -66,12 +66,18 @@ export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
     setError("");
     setGoogleLoading(true);
     try {
-      await authClient.signIn.social({
+      const res = await authClient.signIn.social({
         provider: "google",
         callbackURL: CALLBACK_URL,
       });
-      // Redirige a Google; si volvemos aquí es porque algo falló.
+      // En éxito redirige a Google; si volvemos aquí con error (p. ej. proveedor
+      // no configurado), lo mostramos en vez de dejar "Conectando…" colgado.
       setGoogleLoading(false);
+      if (res?.error) {
+        setError(
+          "No pudimos conectar con Google. Intenta de nuevo o entra con tu correo.",
+        );
+      }
     } catch {
       setGoogleLoading(false);
       setError("No pudimos conectar con Google. Intenta de nuevo.");

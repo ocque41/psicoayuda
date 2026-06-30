@@ -1,7 +1,11 @@
 import "server-only";
 
 import { sendEmail } from "@/lib/email";
-import { buildNewMessageEmail } from "@/lib/email-templates";
+import {
+  buildApprovalEmail,
+  buildNewMessageEmail,
+  buildNewOfferEmail,
+} from "@/lib/email-templates";
 
 function appBaseUrl() {
   return (process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(
@@ -12,6 +16,10 @@ function appBaseUrl() {
 
 export function conversationUrl(conversationId: string) {
   return `${appBaseUrl()}/c/${conversationId}`;
+}
+
+function dashboardUrl() {
+  return `${appBaseUrl()}/pro/dashboard`;
 }
 
 /**
@@ -121,4 +129,44 @@ export async function notifySeekerOfferAccepted(input: {
   `;
 
   return sendEmail({ to: input.seekerEmail, subject, html, text });
+}
+
+/** Avisa a un profesional recién OFERTADO en una difusión ("enviar a todos"). */
+export async function notifyProfessionalNewOffer(input: {
+  professionalEmail: string;
+  professionalName?: string | null;
+  needLabel?: string;
+  urgencyLabel?: string;
+}) {
+  if (!input.professionalEmail) return;
+  const mail = buildNewOfferEmail({
+    dashboardUrl: dashboardUrl(),
+    professionalName: input.professionalName,
+    needLabel: input.needLabel,
+    urgencyLabel: input.urgencyLabel,
+  });
+  return sendEmail({
+    to: input.professionalEmail,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
+}
+
+/** Avisa a un profesional de que su perfil fue APROBADO. */
+export async function notifyProfessionalApproved(input: {
+  professionalEmail: string;
+  professionalName?: string | null;
+}) {
+  if (!input.professionalEmail) return;
+  const mail = buildApprovalEmail({
+    dashboardUrl: dashboardUrl(),
+    professionalName: input.professionalName,
+  });
+  return sendEmail({
+    to: input.professionalEmail,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
 }

@@ -5,7 +5,11 @@ import {
   PRO_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
-import { authorizeConnection, seekerSessionAllows } from "@/server/auth-gate";
+import {
+  authorizeConnection,
+  makeOnBeforeConnect,
+  seekerSessionAllows,
+} from "@/server/auth-gate";
 
 const SECRET = "test-secret";
 const NOW = 1000;
@@ -126,5 +130,72 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
         now,
       ),
     ).toBe(false);
+  });
+});
+
+describe("makeOnBeforeConnect (guard de Origin)", () => {
+  // env sin DB: el kill-switch de sesión es best-effort y permite, así que estos
+  // tests aíslan el comportamiento del guard de Origin.
+  const env = {
+    // Literal allowlisted en scripts/secret-scan.mjs (no es un secreto real).
+    BETTER_AUTH_SECRET: "test-secret",
+    BETTER_AUTH_URL: "https://nido.example",
+  };
+  const lobby = { party: "conversation", name: CONV };
+  // makeOnBeforeConnect usa Date.now() real, así que el token necesita una
+  // expiración real en el futuro.
+  function freshSeekerCookie() {
+    const now = Date.now();
+    const token = mintSeekerToken(
+      {
+        sid: "seek_1",
+        conversationId: CONV,
+        role: "seeker",
+        iat: now,
+        exp: now + 3_600_000,
+      },
+      SECRET,
+    );
+    return `${SEEKER_COOKIE}=${token}`;
+  }
+  function upgrade(headers: Record<string, string>) {
+    return new Request("https://nido.example/parties/conversation/conv_1", {
+      headers: { Upgrade: "websocket", ...headers },
+    });
+  }
+
+  it("autoriza cuando el Origin coincide con BETTER_AUTH_URL", async () => {
+    const result = await makeOnBeforeConnect(env)(
+      upgrade({ Origin: "https://nido.example", Cookie: freshSeekerCookie() }),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+    expect((result as Request).headers.get("x-nido-role")).toBe("seeker");
+  });
+
+  it("autoriza cuando falta el header Origin (upgrade same-origin)", async () => {
+    const result = await makeOnBeforeConnect(env)(
+      upgrade({ Cookie: freshSeekerCookie() }),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+  });
+
+  it("rechaza con 403 cuando el Origin no coincide (anti-CSWSH)", async () => {
+    const result = await makeOnBeforeConnect(env)(
+      upgrade({ Origin: "https://evil.example", Cookie: freshSeekerCookie() }),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
+  });
+
+  it("rechaza con 403 sin token aunque el Origin sea válido", async () => {
+    const result = await makeOnBeforeConnect(env)(
+      upgrade({ Origin: "https://nido.example" }),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
   });
 });

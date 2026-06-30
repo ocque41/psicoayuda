@@ -77,9 +77,12 @@ export default function Page() {
             </p>
             <p>
               <strong>Nosotros nos comprometemos a:</strong> pedir la mínima
-              información necesaria, no vender datos y no guardar el contenido
-              de lo que conversen. Lo que ocurre fuera de la app, fuera se
-              queda.
+              información necesaria y no vender datos. El chat de Nido se
+              guarda, cifrado en tránsito, solo mientras la conversación está
+              activa para que la persona pueda retomarla, y se elimina al
+              anonimizar la solicitud (ver la{" "}
+              <a href="/privacidad">política de privacidad</a>). Lo que ocurra
+              por fuera de la app, fuera se queda.
             </p>
           </article>
 

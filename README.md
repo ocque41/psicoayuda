@@ -173,12 +173,45 @@ Todos los scripts del proyecto, tal cual existen en `package.json`:
 | `pnpm start` | Sirve el build de producción. |
 | `pnpm lint` | Comprueba lint y formato con Biome (`biome check`). |
 | `pnpm format` | Formatea el código con Biome (`biome format --write`). |
-| `pnpm test` | Ejecuta la suite de tests con Vitest. |
-| `pnpm db:push` | Aplica el esquema de Drizzle a la base de datos. |
+| `pnpm test` | Ejecuta la suite de tests unitarios con Vitest. |
+| `pnpm test:workers` | Prueba de integración del chat (Durable Object) dentro de workerd/miniflare. |
+| `pnpm typecheck:worker` | Typecheck del camino real de despliegue (`custom-worker.ts` + `src/server/*`). |
+| `pnpm db:push` | Aplica el esquema de Drizzle a la base de datos local. |
+| `pnpm db:migrate:remote` | Aplica las migraciones D1 a la base de datos de producción (`wrangler d1 migrations apply ... --remote`). |
 | `pnpm db:seed` | Carga datos de ejemplo locales. |
 | `pnpm secret:scan` | Escanea el repositorio en busca de secretos antes de hacer push. |
 
 > El proyecto también incluye scripts de despliegue a Cloudflare (`build:cloudflare`, `preview`, `deploy`). Son para el mantenedor del despliegue; para contribuir no los necesitas.
+
+---
+
+## Despliegue a producción (Cloudflare)
+
+El chat en tiempo real y la autenticación dependen de que estos pasos estén
+hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
+
+1. **Aplica el esquema a D1 (obligatorio):** `opennextjs-cloudflare deploy` **no**
+   migra la base de datos. Ejecuta `pnpm db:migrate:remote` (o `wrangler d1
+   migrations apply nido-venezuela-db --remote`) antes/junto al primer deploy y
+   tras cada cambio de esquema. Sin tablas en D1, auth y conversaciones fallan.
+2. **Configura los secretos del Worker** con `wrangler secret put`:
+   - `BETTER_AUTH_SECRET` — obligatorio (firma de sesiones/tokens). La app falla
+     en cerrado en producción si falta.
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — login de profesionales.
+   - `ADMIN_EMAILS` — acceso a `/admin`.
+   - `RESEND_API_KEY` + `CONTACT_FROM_EMAIL` — **necesarios para el chat**: el
+     solicitante recibe el enlace de acceso por correo cuando un profesional
+     acepta. Sin ellos, esa persona no puede entrar a la conversación.
+   - `INTERNAL_NOTIFY_SECRET` — opcional pero recomendado (RPC interno del chat y
+     cron de retención); si falta, cae a `BETTER_AUTH_SECRET`.
+3. **Alinea `BETTER_AUTH_URL` / `NEXT_PUBLIC_SITE_URL`** (en `wrangler.jsonc`
+   `vars`) con el **dominio real** que sirve la app. El guard de Origin del
+   WebSocket acepta el `Origin` que coincide con ese host o con el `Host` de la
+   request; si apuntan a un dominio distinto del que ven los usuarios, las
+   conexiones del chat se rechazan.
+4. **Cron de retención:** `wrangler.jsonc` define un cron diario que cierra
+   solicitudes inactivas a 30 días y las anonimiza a 90 (borra el transcript del
+   chat). Se ejecuta solo en el Worker desplegado.
 
 ---
 
@@ -202,9 +235,10 @@ Copia `.env.example` a `.env` y rellena los valores. Resumen de cada variable:
 | `CLOUDFLARE_ACCOUNT_ID` | No | Configuración de despliegue en Cloudflare D1. |
 | `CLOUDFLARE_DATABASE_ID` | No | Configuración de despliegue en Cloudflare D1. |
 | `CLOUDFLARE_D1_TOKEN` | No | Token de acceso a Cloudflare D1. |
-| `RESEND_API_KEY` | No | Clave de Resend para enviar correos desde el Worker. Si está vacía, el envío de correo se omite en silencio. |
-| `CONTACT_FROM_EMAIL` | No | Remitente verificado en Resend, p. ej. `"Nido <avisos@tudominio.com>"`. |
-| `NOTIFICATION_EMAIL` | No | Correo que recibe avisos de notificación. |
+| `RESEND_API_KEY` | Sí (para el chat) | Clave de Resend para enviar correos desde el Worker. Sin ella, el solicitante no recibe el enlace de acceso al chat cuando un profesional acepta. Si está vacía, el envío se omite en silencio. |
+| `CONTACT_FROM_EMAIL` | Sí (para el chat) | Remitente verificado en Resend, p. ej. `"Nido <avisos@tudominio.com>"`. |
+| `NOTIFICATION_EMAIL` | No | Correo del equipo que recibe el aviso de nuevas solicitudes. |
+| `INTERNAL_NOTIFY_SECRET` | Recomendada | Secreto del RPC interno DO→Next y del cron de retención. Si está vacío, cae a `BETTER_AUTH_SECRET`. |
 
 > **Nunca** subas tu `.env`, bases de datos SQLite locales, logs ni exportaciones al repositorio. Los secretos de producción se guardan como secretos de Cloudflare con `wrangler secret put`, no en Git.
 

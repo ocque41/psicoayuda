@@ -9,7 +9,6 @@ import { db } from "@/db";
 import {
   assignments,
   auditLogs,
-  conversations,
   helpRequests,
   professionals,
 } from "@/db/schema";
@@ -21,14 +20,15 @@ import {
 } from "@/lib/assignment";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
-import { purgeConversationMessages } from "@/lib/chat-admin";
 import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
   notifyAdminHelpRequest,
+  notifyProfessionalApproved,
   notifyProfessionalAssignment,
 } from "@/lib/notifications";
 import { offerRequestToProfessionals } from "@/lib/offers";
+import { anonymizeHelpRequest } from "@/lib/retention";
 import {
   helpRequestSchema,
   professionalSchema,
@@ -305,6 +305,20 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
     await releaseProfessionalAssignments(professionalId);
   }
 
+  // Al aprobar, avisamos al profesional por correo (best-effort) — el panel ya
+  // le prometía "te avisaremos por correo".
+  if (status === "approved") {
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.id, professionalId),
+    });
+    if (pro?.email) {
+      await notifyProfessionalApproved({
+        professionalEmail: pro.email,
+        professionalName: pro.displayName ?? pro.fullName,
+      });
+    }
+  }
+
   await db.insert(auditLogs).values({
     id: newId("log"),
     actorEmail: admin.email,
@@ -374,57 +388,11 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   if (!admin) redirect("/pro");
 
   const requestId = String(formData.get("requestId") ?? "");
-  const timestamp = nowIso();
+  if (!requestId) redirect("/admin");
 
-  // Cierra y libera la capacidad de cualquier asignación activa antes de anonimizar.
-  await releaseAssignmentsForRequest(requestId);
-
-  // Borrado REAL del contenido del chat: el mensaje a mensaje solo vive en el
-  // SQLite del Durable Object, así que anonimizar el espejo en D1 no basta.
-  // Vaciamos cada DO y marcamos las conversaciones como anonimizadas.
-  const convs = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(eq(conversations.helpRequestId, requestId));
-  for (const conversation of convs) {
-    await purgeConversationMessages(conversation.id);
-  }
-  if (convs.length > 0) {
-    await db
-      .update(conversations)
-      .set({ status: "closed", anonymizedAt: timestamp, updatedAt: timestamp })
-      .where(eq(conversations.helpRequestId, requestId));
-  }
-
-  // Retention default: close inactive requests after 30 days and anonymize
-  // after 90 days unless safety or legal reasons require minimal records.
-  await db
-    .update(helpRequests)
-    .set({
-      // Token aleatorio: sin enlace residual al id de la solicitud original.
-      email: `anon-${newId("anon")}@nido.local`,
-      country: null,
-      state: null,
-      city: null,
-      lat: null,
-      lng: null,
-      locationConsent: false,
-      consentContact: false,
-      requesterHash: null,
-      status: "closed",
-      anonymizedAt: timestamp,
-      updatedAt: timestamp,
-    })
-    .where(eq(helpRequests.id, requestId));
-
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: admin.email,
-    action: "data_anonymization",
-    entityType: "help_request",
-    entityId: requestId,
-    createdAt: timestamp,
-  });
+  // Anonimización end-to-end (solicitud + conversaciones + transcript del DO +
+  // sesiones del seeker), compartida con el cron de retención.
+  await anonymizeHelpRequest(requestId, admin.email);
 
   revalidatePath("/admin");
 }
