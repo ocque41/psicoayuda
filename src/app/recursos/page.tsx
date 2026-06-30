@@ -95,6 +95,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/ataque-de-panico-que-hacer">
+                Ataque de pánico: qué hacer en el momento
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
