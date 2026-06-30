@@ -522,7 +522,7 @@ legend {
 
 .pro-card-actions {
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 14px;
 }
 
 /* ---- Panel de acceso profesional (Google + correo/contraseña) ---- */
@@ -634,6 +634,16 @@ legend {
 
 .button.block {
   width: 100%;
+}
+
+/* Filas de botones dentro de un párrafo: las separa entre sí y del texto, y
+   evita que queden pegadas al envolverse en pantallas estrechas. */
+p:has(> .button) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: var(--space-5);
 }
 
 .button:disabled {
