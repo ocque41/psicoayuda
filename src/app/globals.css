@@ -194,6 +194,31 @@ textarea {
   margin-top: var(--space-5, 20px);
 }
 
+/* Difundir / elegir profesionales (Pedir ayuda) y aceptar ofertas (panel) */
+.offer-form {
+  margin: var(--space-4) 0 var(--space-6);
+}
+
+.offer-list {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.offer-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.offer-option input {
+  margin-top: 4px;
+  flex: none;
+}
+
 .nav {
   display: flex;
   align-items: center;

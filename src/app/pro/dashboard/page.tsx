@@ -3,10 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updateProfessionalAvailability } from "@/app/actions";
+import { acceptRequestOffer } from "@/app/actions-offers";
 import { db } from "@/db";
 import { assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
-import { needLabels, urgencyLabels } from "@/lib/constants";
+import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
+import { pendingOffersForProfessional } from "@/lib/offers";
 
 export const metadata: Metadata = {
   title: "Panel profesional",
@@ -36,7 +38,12 @@ const requestStatusLabels: Record<string, string> = {
   closed: "Cerrada",
 };
 
-export default async function ProDashboardPage() {
+export default async function ProDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ oferta?: string }>;
+}) {
+  const { oferta } = await searchParams;
   const session = await getServerSession();
   if (!session?.user?.id) redirect("/pro");
 
@@ -94,6 +101,8 @@ export default async function ProDashboardPage() {
       ),
     );
 
+  const offers = await pendingOffersForProfessional(professional.id);
+
   return (
     <section className="section">
       <div className="container">
@@ -124,6 +133,53 @@ export default async function ProDashboardPage() {
             </button>
           </form>
         </div>
+
+        {oferta ? (
+          <p className="form-error" role="alert">
+            {oferta === "cupo"
+              ? "Llegaste a tu cupo de personas. Libera un caso o súbelo en tu perfil para aceptar más."
+              : "Esa solicitud ya no está disponible (otra persona la tomó primero)."}
+          </p>
+        ) : null}
+
+        <h2 id="chats">Solicitudes para ti</h2>
+        <p className="muted">
+          Personas que pidieron apoyo y te lo enviaron. Solo ves el tipo de
+          apoyo y la urgencia; al aceptar se abre el chat y recibes su contacto.
+        </p>
+        {offers.length > 0 ? (
+          <ul className="offer-list">
+            {offers.map((o) => (
+              <li key={o.assignmentId} className="card">
+                <p style={{ margin: "0 0 8px" }}>
+                  <strong>
+                    {needLabels[o.needCategory as keyof typeof needLabels] ??
+                      o.needCategory}
+                  </strong>{" "}
+                  ·{" "}
+                  {urgencyLabels[o.urgency as keyof typeof urgencyLabels] ??
+                    o.urgency}
+                  {o.language
+                    ? ` · ${languageLabels[o.language as keyof typeof languageLabels] ?? o.language}`
+                    : ""}
+                  {o.state ? ` · ${o.state}` : ""}
+                </p>
+                <form action={acceptRequestOffer}>
+                  <input
+                    type="hidden"
+                    name="assignmentId"
+                    value={o.assignmentId}
+                  />
+                  <button type="submit" className="button human">
+                    Aceptar y abrir chat
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No tienes solicitudes nuevas por ahora.</p>
+        )}
 
         <h2>Personas que acompañas</h2>
         <div className="table-wrap">

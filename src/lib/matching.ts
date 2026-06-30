@@ -43,6 +43,43 @@ export function scoreProfessional(
   return score;
 }
 
+const MAX_SUGGESTIONS = 3;
+
+/**
+ * Ranks an already-fetched pool of candidate professionals against a single
+ * request. Pure and in-memory: callers that need suggestions for many requests
+ * (e.g. the admin dashboard) can fetch the eligible pool once and score every
+ * request against it, instead of issuing a professionals query per request.
+ */
+export function rankProfessionalsForRequest<
+  T extends Pick<
+    ProfessionalRow,
+    | "languages"
+    | "supportAreas"
+    | "crisisExperience"
+    | "currentActiveRequests"
+    | "maxActiveRequests"
+  >,
+>(
+  candidates: T[],
+  request: Pick<HelpRequestRow, "language" | "needCategory" | "urgency">,
+  limit = MAX_SUGGESTIONS,
+) {
+  return candidates
+    .map((professional) => ({
+      professional,
+      score: scoreProfessional(professional, request),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (
+        a.professional.currentActiveRequests -
+        b.professional.currentActiveRequests
+      );
+    })
+    .slice(0, limit);
+}
+
 export async function suggestProfessionalsForRequest(helpRequestId: string) {
   const request = await db.query.helpRequests.findFirst({
     where: eq(helpRequests.id, helpRequestId),
@@ -78,17 +115,5 @@ export async function suggestProfessionalsForRequest(helpRequestId: string) {
       ),
     );
 
-  return candidates
-    .map((professional) => ({
-      professional,
-      score: scoreProfessional(professional, request),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return (
-        a.professional.currentActiveRequests -
-        b.professional.currentActiveRequests
-      );
-    })
-    .slice(0, 3);
+  return rankProfessionalsForRequest(candidates, request);
 }
