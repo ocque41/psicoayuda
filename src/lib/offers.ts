@@ -109,45 +109,62 @@ export async function acceptOffer(input: {
   actorEmail: string;
 }): Promise<AcceptOfferResult> {
   const now = Date.now();
-  return db.transaction(async (tx) => {
-    const offer = await tx.query.assignments.findFirst({
-      where: and(
+  const timestamp = nowIso();
+
+  // D1 no soporta transacciones por SQL (ver assignment.ts): usamos dos puertas
+  // atómicas + compensación. (1) Reclamar la oferta marcándola "accepted" SOLO si
+  // sigue "offered" (gana exactamente uno, incluso ante doble clic / carrera).
+  const claimed = await db
+    .update(assignments)
+    .set({ status: "accepted", updatedAt: timestamp })
+    .where(
+      and(
         eq(assignments.id, input.assignmentId),
         eq(assignments.professionalId, input.professionalId),
         eq(assignments.status, "offered"),
       ),
+    )
+    .returning({
+      id: assignments.id,
+      helpRequestId: assignments.helpRequestId,
     });
-    if (!offer) return { ok: false as const, reason: "not_found" as const };
+  const offer = claimed[0];
+  if (!offer) return { ok: false as const, reason: "not_found" as const };
 
-    // Reserva cupo solo si el profesional sigue elegible y por debajo del máximo.
-    const reserved = await tx
-      .update(professionals)
-      .set({
-        currentActiveRequests: sql`${professionals.currentActiveRequests} + 1`,
-        updatedAt: nowIso(),
-      })
-      .where(
-        and(
-          eq(professionals.id, input.professionalId),
-          eq(professionals.status, "approved"),
-          eq(professionals.acceptingRequests, true),
-          sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
-        ),
-      )
-      .returning({ id: professionals.id });
-    if (reserved.length === 0) {
-      return { ok: false as const, reason: "capacity_or_status" as const };
-    }
+  // (2) Reserva cupo solo si el profesional sigue elegible y por debajo del
+  // máximo. Si no hay cupo, devuelve la oferta a "offered" para que otro acepte.
+  const reserved = await db
+    .update(professionals)
+    .set({
+      currentActiveRequests: sql`${professionals.currentActiveRequests} + 1`,
+      updatedAt: nowIso(),
+    })
+    .where(
+      and(
+        eq(professionals.id, input.professionalId),
+        eq(professionals.status, "approved"),
+        eq(professionals.acceptingRequests, true),
+        sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
+      ),
+    )
+    .returning({ id: professionals.id });
+  if (reserved.length === 0) {
+    await db
+      .update(assignments)
+      .set({ status: "offered", updatedAt: nowIso() })
+      .where(eq(assignments.id, offer.id));
+    return { ok: false as const, reason: "capacity_or_status" as const };
+  }
 
-    const timestamp = nowIso();
-    const request = await tx.query.helpRequests.findFirst({
+  try {
+    const request = await db.query.helpRequests.findFirst({
       where: eq(helpRequests.id, offer.helpRequestId),
     });
 
     // Conversación + sesión del seeker (sin cookie: el seeker llega por correo).
     const conversationId = newId("conv");
     const sid = newId("seek");
-    await tx.insert(conversations).values({
+    await db.insert(conversations).values({
       id: conversationId,
       helpRequestId: offer.helpRequestId,
       professionalId: input.professionalId,
@@ -156,7 +173,7 @@ export async function acceptOffer(input: {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    await tx.insert(seekerSessions).values({
+    await db.insert(seekerSessions).values({
       sid,
       conversationId,
       requesterHash: request?.requesterHash ?? null,
@@ -165,12 +182,8 @@ export async function acceptOffer(input: {
       expiresAt: new Date(now + TOKEN_TTL_MS),
     });
 
-    // Esta oferta -> aceptada; las hermanas (otras de la misma solicitud) cierran.
-    await tx
-      .update(assignments)
-      .set({ status: "accepted", updatedAt: timestamp })
-      .where(eq(assignments.id, offer.id));
-    await tx
+    // Las ofertas hermanas (otras de la misma solicitud) se cierran.
+    await db
       .update(assignments)
       .set({ status: "closed", updatedAt: timestamp })
       .where(
@@ -180,12 +193,12 @@ export async function acceptOffer(input: {
           ne(assignments.id, offer.id),
         ),
       );
-    await tx
+    await db
       .update(helpRequests)
       .set({ status: "assigned", updatedAt: timestamp })
       .where(eq(helpRequests.id, offer.helpRequestId));
 
-    await tx.insert(auditLogs).values({
+    await db.insert(auditLogs).values({
       id: newId("log"),
       actorEmail: input.actorEmail,
       action: "offer_accepted",
@@ -216,7 +229,21 @@ export async function acceptOffer(input: {
       seekerToken,
       seekerEmail: request?.email ?? null,
     };
-  });
+  } catch (error) {
+    // Algo falló tras reclamar+reservar: compensa cupo y devuelve la oferta.
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+        updatedAt: nowIso(),
+      })
+      .where(eq(professionals.id, input.professionalId));
+    await db
+      .update(assignments)
+      .set({ status: "offered", updatedAt: nowIso() })
+      .where(eq(assignments.id, offer.id));
+    throw error;
+  }
 }
 
 /** Ofertas pendientes ("offered") visibles para un profesional, con datos mínimos. */
