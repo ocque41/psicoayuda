@@ -5,7 +5,7 @@ import {
   PRO_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
-import { authorizeConnection } from "@/server/auth-gate";
+import { authorizeConnection, seekerSessionAllows } from "@/server/auth-gate";
 
 const SECRET = "test-secret";
 const NOW = 1000;
@@ -76,5 +76,55 @@ describe("authorizeConnection", () => {
     expect(
       authorizeConnection("nido_seeker=garbage; x=1", CONV, SECRET, NOW),
     ).toBeNull();
+  });
+});
+
+describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
+  const now = 1000;
+
+  it("permite cuando no hay fila (se apoya en el token ya validado)", () => {
+    expect(seekerSessionAllows(null, now)).toBe(true);
+  });
+
+  it("permite sesión vigente y conversación abierta", () => {
+    expect(
+      seekerSessionAllows(
+        { revoked_at: null, expires_at: now + 1000, status: "open" },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("bloquea sesión revocada", () => {
+    expect(
+      seekerSessionAllows(
+        { revoked_at: now - 1, expires_at: now + 1000, status: "open" },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("bloquea sesión expirada", () => {
+    expect(
+      seekerSessionAllows(
+        { revoked_at: null, expires_at: now, status: "open" },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("bloquea conversación cerrada o anonimizada", () => {
+    expect(
+      seekerSessionAllows(
+        { revoked_at: null, expires_at: now + 1000, status: "closed" },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      seekerSessionAllows(
+        { revoked_at: null, expires_at: now + 1000, status: "anonymized" },
+        now,
+      ),
+    ).toBe(false);
   });
 });
