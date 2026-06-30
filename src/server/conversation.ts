@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import {
   type Connection,
   type ConnectionContext,
@@ -315,6 +316,50 @@ export class Conversation extends Server<Env> {
       }
     }
     return false;
+  }
+
+  // Solo llamadas internas de confianza (mismo Worker, vía binding del DO) con
+  // el secreto compartido. Hash a longitud fija => comparación constante.
+  private internalAuthorized(request: Request): boolean {
+    const provided = request.headers.get("x-nido-internal");
+    const expected =
+      this.env.INTERNAL_NOTIFY_SECRET ?? this.env.BETTER_AUTH_SECRET;
+    if (!provided || !expected) return false;
+    const a = createHash("sha256").update(provided).digest();
+    const b = createHash("sha256").update(expected).digest();
+    return timingSafeEqual(a, b);
+  }
+
+  /**
+   * Endpoint HTTP del DO (no-WebSocket). Soporta `POST …/purge`: borra TODO el
+   * contenido del chat de su SQLite co-localizado. Es la pieza que faltaba para
+   * honrar de verdad la promesa de borrado/anonimización de la política de
+   * privacidad (el espejo en D1 se anonimiza aparte). Protegido por secreto.
+   */
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname.endsWith("/purge")) {
+      if (!this.internalAuthorized(request)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      const sql = this.ctx.storage.sql;
+      sql.exec(`DELETE FROM messages`);
+      sql.exec(`DELETE FROM meta`);
+      this.lastSeq = 0;
+      this.firstSeekerMsgAt = null;
+      this.firstProReplyAt = null;
+      this.lastNotifyAt = 0;
+      // Cierra las conexiones vivas: ya no hay contenido que servir.
+      for (const connection of this.getConnections()) {
+        try {
+          connection.close(1000, "purged");
+        } catch {
+          // best-effort
+        }
+      }
+      return Response.json({ ok: true, purged: true });
+    }
+    return new Response("Not found", { status: 404 });
   }
 
   // RPC best-effort al endpoint interno de Next (donde vive el email/D1 con

@@ -246,6 +246,27 @@ async function main() {
     },
   );
 
+  await check("purga borra el contenido del chat (privacidad)", async () => {
+    const conv = cid("conv_purge");
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    seeker.send({ type: "send", clientMsgId: "s1", content: "dato sensible" });
+    await seeker.waitFor("ack");
+    seeker.close();
+
+    // Purga vía el binding del DO (igual que la anonimización en producción).
+    const res = await fetch(`http://127.0.0.1:${PORT}/__purge?room=${conv}`, {
+      method: "POST",
+    });
+    assert.equal(res.status, 200);
+
+    // Una nueva conexión NO debe ver ningún mensaje: el SQLite del DO quedó vacío.
+    const again = await open(conv, seekerCookie(conv));
+    const hist = await again.waitFor("history");
+    assert.equal(hist.messages.length, 0);
+    again.close();
+  });
+
   await check("rate-limit anti-flood por conexión", async () => {
     const conv = cid("conv_flood");
     const seeker = await open(conv, seekerCookie(conv));
