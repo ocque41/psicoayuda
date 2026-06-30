@@ -129,8 +129,18 @@ textarea {
 .brand {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   flex: none;
   text-decoration: none;
+}
+
+.brand-flag {
+  display: block;
+  flex: none;
+  width: 26px;
+  height: 17px;
+  border-radius: 2.5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .brand-logo {
