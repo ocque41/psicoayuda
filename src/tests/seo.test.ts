@@ -181,3 +181,22 @@ describe("SEO — archivos de metadatos requeridos", () => {
     }
   });
 });
+
+describe("SEO — migas de pan (BreadcrumbList)", () => {
+  it("emite datos estructurados BreadcrumbList desde una única fuente", () => {
+    const component = read("src/components/breadcrumbs.tsx");
+    expect(component).toContain('"@type": "BreadcrumbList"');
+    expect(component).toContain('"@type": "ListItem"');
+  });
+
+  it("añade migas a las páginas de recursos de cola larga", () => {
+    for (const file of [
+      "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",
+      "src/app/recursos/apoyo-emocional-anonimo/page.tsx",
+      "src/app/recursos/ayuda-psicologica-para-ninos/page.tsx",
+      "src/app/recursos/venezolanos-en-el-exterior/page.tsx",
+    ]) {
+      expect(read(file)).toContain("<Breadcrumbs");
+    }
+  });
+});

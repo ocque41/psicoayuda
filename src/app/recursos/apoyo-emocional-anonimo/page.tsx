@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
@@ -13,6 +14,15 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <Breadcrumbs
+          trail={[
+            { name: "Recursos", path: "/recursos" },
+            {
+              name: "Apoyo emocional anónimo",
+              path: "/recursos/apoyo-emocional-anonimo",
+            },
+          ]}
+        />
         <h1>Apoyo emocional gratis y anónimo, sin dar tu nombre</h1>
         <p className="lead">
           Si te frena la vergüenza o el miedo a que te identifiquen, respira:

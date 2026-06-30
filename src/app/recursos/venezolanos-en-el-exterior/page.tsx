@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
@@ -13,6 +14,15 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <Breadcrumbs
+          trail={[
+            { name: "Recursos", path: "/recursos" },
+            {
+              name: "Venezolanos en el exterior",
+              path: "/recursos/venezolanos-en-el-exterior",
+            },
+          ]}
+        />
         <h1>Apoyo psicológico para venezolanos en el exterior</h1>
 
         <p className="lead">

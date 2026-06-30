@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
@@ -14,6 +15,15 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <Breadcrumbs
+          trail={[
+            { name: "Recursos", path: "/recursos" },
+            {
+              name: "Ayuda para niños y adolescentes",
+              path: "/recursos/ayuda-psicologica-para-ninos",
+            },
+          ]}
+        />
         <h1>
           Ayuda psicológica gratis para niñas, niños y adolescentes en Venezuela
         </h1>

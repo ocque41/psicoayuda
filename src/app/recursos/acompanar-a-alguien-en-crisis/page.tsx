@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
@@ -13,6 +14,15 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <Breadcrumbs
+          trail={[
+            { name: "Recursos", path: "/recursos" },
+            {
+              name: "Acompañar a alguien en crisis",
+              path: "/recursos/acompanar-a-alguien-en-crisis",
+            },
+          ]}
+        />
         <h1>Cómo acompañar a alguien que está pasando por un mal momento</h1>
         <p className="lead">
           Cuando alguien que quieres está triste, con angustia, en duelo o con
