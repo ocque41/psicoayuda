@@ -34,28 +34,48 @@ function parseJsonList(value: string): string[] {
  * ni userId. Orden: disponibles (aceptando + con cupo) primero.
  */
 export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
-  const rows = await db
-    .select({
-      id: professionals.id,
-      fullName: professionals.fullName,
-      displayName: professionals.displayName,
-      city: professionals.city,
-      country: professionals.country,
-      languages: professionals.languages,
-      supportAreas: professionals.supportAreas,
-      shortBio: professionals.shortBio,
-      crisisExperience: professionals.crisisExperience,
-      acceptingRequests: professionals.acceptingRequests,
-      currentActiveRequests: professionals.currentActiveRequests,
-      maxActiveRequests: professionals.maxActiveRequests,
-    })
-    .from(professionals)
-    .where(
-      and(
-        eq(professionals.status, "approved"),
-        eq(professionals.remoteAvailable, true),
-      ),
-    );
+  // Resiliente: si la DB no está disponible (p. ej. prerender en build sin el
+  // binding D1), devolvemos lista vacía en vez de romper. En runtime se llena.
+  let rows: Array<{
+    id: string;
+    fullName: string;
+    displayName: string | null;
+    city: string | null;
+    country: string | null;
+    languages: string;
+    supportAreas: string;
+    shortBio: string | null;
+    crisisExperience: boolean;
+    acceptingRequests: boolean;
+    currentActiveRequests: number;
+    maxActiveRequests: number;
+  }> = [];
+  try {
+    rows = await db
+      .select({
+        id: professionals.id,
+        fullName: professionals.fullName,
+        displayName: professionals.displayName,
+        city: professionals.city,
+        country: professionals.country,
+        languages: professionals.languages,
+        supportAreas: professionals.supportAreas,
+        shortBio: professionals.shortBio,
+        crisisExperience: professionals.crisisExperience,
+        acceptingRequests: professionals.acceptingRequests,
+        currentActiveRequests: professionals.currentActiveRequests,
+        maxActiveRequests: professionals.maxActiveRequests,
+      })
+      .from(professionals)
+      .where(
+        and(
+          eq(professionals.status, "approved"),
+          eq(professionals.remoteAvailable, true),
+        ),
+      );
+  } catch {
+    return [];
+  }
 
   const mapped: FeedProfessional[] = rows.map((r) => ({
     id: r.id,

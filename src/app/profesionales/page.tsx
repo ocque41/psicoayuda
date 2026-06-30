@@ -4,7 +4,9 @@ import { EmergencyNotice } from "@/components/emergency-notice";
 import { getFeedProfessionals } from "@/lib/feed";
 import { FeedProfessionalCard } from "./professional-card";
 
-export const dynamic = "force-dynamic";
+// Lista pública (verificados, sin datos confidenciales): se cachea en el edge y
+// se revalida cada 60s. Mucho mejor TTFB/LCP en móvil que renderizar por request.
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Psicólogas y psicólogos voluntarios disponibles",

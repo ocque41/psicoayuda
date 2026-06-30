@@ -170,6 +170,30 @@ textarea {
   font-size: 0.95rem;
 }
 
+/* Banda destacada de captación: psicólogos voluntarios y fundaciones aliadas */
+.join-cta {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg, 20px);
+  background: var(--accent-soft, #e6f1ea);
+  padding: var(--space-8, 32px);
+  box-shadow: var(--shadow-sm);
+}
+
+.join-cta h2 {
+  margin-top: 4px;
+}
+
+.join-cta p {
+  max-width: 680px;
+}
+
+.join-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: var(--space-5, 20px);
+}
+
 .nav {
   display: flex;
   align-items: center;
@@ -815,5 +839,85 @@ h3 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Ajustes móvil-first (útil y rápido en pantallas pequeñas).
+   No alteran el diseño desktop salvo +4px en el tap de la nav.
+   ============================================================ */
+
+/* Red de seguridad contra scroll lateral y palabras largas.
+   overflow-x: clip (no hidden) NO crea contenedor de scroll, así
+   que la topbar sticky sigue funcionando. */
+html {
+  overflow-x: clip;
+}
+
+body {
+  overflow-wrap: break-word;
+}
+
+.button,
+.pro-card h3,
+.pro-bio,
+.pro-loc,
+.chips li,
+.footer-links a {
+  overflow-wrap: anywhere;
+}
+
+/* Tap target base de los enlaces de nav (32px -> 44px de alto efectivo) */
+.nav-links a {
+  padding: 10px 8px;
+}
+
+@media (max-width: 640px) {
+  .nav {
+    padding: 8px 0;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 4px 16px;
+    justify-content: flex-start;
+  }
+
+  .nav-links a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* Menos scroll: padding vertical 48px -> 32px en móvil */
+  .hero,
+  .section {
+    padding: var(--space-8) 0;
+  }
+
+  .hero {
+    padding-bottom: var(--space-6);
+  }
+
+  /* Una sola columna garantizada para el pulgar */
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Recuperar ancho útil donde hay padding sobre padding */
+  .join-cta {
+    padding: var(--space-5);
+  }
+
+  form.card fieldset.card {
+    padding: var(--space-4);
+  }
+
+  /* Toggle de auth (Entrar / Crear cuenta) cómodo de tocar */
+  .auth-toggle button {
+    min-height: 44px;
+    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
   }
 }
