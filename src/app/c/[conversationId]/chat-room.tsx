@@ -164,6 +164,7 @@ export function ChatRoom({
     let cancelled = false;
     let attempts = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let heartbeat: ReturnType<typeof setInterval> | undefined;
 
     async function connect() {
       if (cancelled) return;
@@ -201,6 +202,13 @@ export function ChatRoom({
             } satisfies ClientFrame),
           );
         }
+        // Latido: un "sync" periódico mantiene viva la conexión a través de
+        // proxies/NAT (clave en redes móviles inestables) y, de paso, recupera
+        // cualquier mensaje que se haya perdido.
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = setInterval(() => {
+          sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+        }, 30000);
       };
 
       ws.onmessage = (event) => handleFrame(event.data);
@@ -215,6 +223,7 @@ export function ChatRoom({
 
       ws.onclose = () => {
         if (cancelled) return;
+        if (heartbeat) clearInterval(heartbeat);
         setConn("offline");
         const base = Math.min(15000, 500 * 2 ** attempts);
         const delay = base / 2 + Math.random() * (base / 2);
@@ -228,6 +237,7 @@ export function ChatRoom({
     return () => {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (heartbeat) clearInterval(heartbeat);
       try {
         wsRef.current?.close();
       } catch {
@@ -242,6 +252,18 @@ export function ChatRoom({
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [confirmed, pending, otherTyping]);
+
+  // Al volver a la pestaña, pedir de inmediato lo que se haya perdido mientras
+  // estuvo en segundo plano (en vez de esperar al próximo latido).
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [sendRaw]);
 
   const sendTyping = useCallback(
     (isTyping: boolean) => {
@@ -271,6 +293,17 @@ export function ChatRoom({
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     sendTyping(false);
     sendRaw({ type: "send", clientMsgId, content });
+  }
+
+  function retry(clientMsgId: string) {
+    const item = pendingRef.current.find((x) => x.clientMsgId === clientMsgId);
+    if (item) {
+      sendRaw({
+        type: "send",
+        clientMsgId: item.clientMsgId,
+        content: item.content,
+      });
+    }
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -367,7 +400,18 @@ export function ChatRoom({
                   {p.content}
                 </div>
                 <div className={styles.meta}>
-                  <span>{conn === "online" ? "Enviando…" : "En espera"}</span>
+                  <span>
+                    {conn === "online"
+                      ? "Enviando…"
+                      : "Sin conexión · se enviará al reconectar"}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.retry}
+                    onClick={() => retry(p.clientMsgId)}
+                  >
+                    Reintentar
+                  </button>
                 </div>
               </div>
             </div>
