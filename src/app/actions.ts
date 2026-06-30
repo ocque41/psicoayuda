@@ -52,7 +52,10 @@ async function isRateLimited(
   const conditions = [];
   if (email) {
     conditions.push(
-      and(eq(helpRequests.email, email), gte(helpRequests.createdAt, oneHourAgo)),
+      and(
+        eq(helpRequests.email, email),
+        gte(helpRequests.createdAt, oneHourAgo),
+      ),
     );
   }
   if (requesterHash) {
@@ -66,8 +69,7 @@ async function isRateLimited(
   // Sin correo ni IP no podemos limitar por estos ejes; no bloqueamos.
   if (conditions.length === 0) return false;
 
-  const filters =
-    conditions.length === 1 ? conditions[0] : or(...conditions);
+  const filters = conditions.length === 1 ? conditions[0] : or(...conditions);
 
   const [row] = await db
     .select({ total: count() })

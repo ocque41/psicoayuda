@@ -11,7 +11,9 @@ type Mode = "signin" | "signup";
 
 function translateError(error: { code?: string; message?: string } | null) {
   const code = error?.code ?? "";
-  if (/INVALID_EMAIL_OR_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIALS/.test(code)) {
+  if (
+    /INVALID_EMAIL_OR_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIALS/.test(code)
+  ) {
     return "Correo o contraseña incorrectos.";
   }
   if (/USER_ALREADY_EXISTS|EXISTING/.test(code)) {
@@ -154,13 +156,13 @@ export function AuthPanel() {
             type="password"
             required
             minLength={8}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            autoComplete={
+              mode === "signup" ? "new-password" : "current-password"
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {mode === "signup" && (
-            <p className="hint">Al menos 8 caracteres.</p>
-          )}
+          {mode === "signup" && <p className="hint">Al menos 8 caracteres.</p>}
         </div>
 
         {error ? (
