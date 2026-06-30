@@ -61,3 +61,33 @@ conocer el secreto no permite forjar una sesión existente.
   ventana (el límite por IP ya frena la rotación de email en producción).
 - Bajo riesgo, solo nota: `/ayuda/gracias` es un oráculo de existencia de IDs
   (mitigado por UUID); huecos del `secret-scan.mjs`.
+
+## Actualización 0.2.0 (2026-06-30) — segunda pasada
+
+Segunda auditoría (bugs / incompletos / seguridad / privacidad / flujos / CI /
+chat en producción). Corregido en esta versión:
+
+- **Transacciones en D1 (bloqueante de producción).** `acceptOffer`, la
+  asignación de admin y las rutinas de liberación usaban `db.transaction()` del
+  sqlite-proxy, que emite `BEGIN/COMMIT` por sentencia; **D1 los rechaza**, así
+  que esos flujos lanzaban en producción. Reescritos como secuencias con guardas
+  atómicas de una sola sentencia + compensación.
+- **Kill-switch del WebSocket (C1).** `onBeforeConnect` solo validaba el token
+  HMAC; un enlace de seeker filtrado servía 72h sin forma de revocarlo. Ahora,
+  con binding D1, valida la sesión del seeker (revocada/expirada/cerrada → 403).
+  Cerrar o anonimizar una conversación revoca la sesión. Defensivo (falla en
+  abierto si no hay fila / error de DB) para no tumbar el chat vivo.
+- **Retención (#10), ahora cumplida en parte.** El contenido del chat solo vive
+  en el SQLite del Durable Object; anonimizar el espejo en D1 lo dejaba intacto.
+  La anonimización ahora **vacía el DO** (purga verificada e2e). *(Falta el cron
+  de ciclo de vida 30/90 días.)*
+- **Secreto interno (H2).** La comparación de `x-nido-internal` ahora hashea
+  ambos lados a 32 bytes y usa `timingSafeEqual` incondicional (sin oráculo de
+  longitud).
+- **Fuga de cupo (#4, más profunda).** Las liberaciones solo contemplaban
+  `assigned`; las solicitudes aceptadas vía oferta (`accepted`) nunca liberaban
+  cupo. Ahora ambas; suspender a un pro cierra sus conversaciones y reencola.
+
+Siguen pendientes: cron de retención 30/90, Turnstile/CAPTCHA en `/ayuda`, token
+de propiedad para la difusión, reserva de cupo en el chat directo, y el test del
+pool de Workers (incompatible con Vitest 4; el e2e con wrangler dev lo cubre).
