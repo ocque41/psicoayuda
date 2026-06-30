@@ -17,6 +17,10 @@ export type FeedProfessional = {
   // Público por diseño: la ficha funciona como directorio (libro amarillo). Se
   // muestra como botón de WhatsApp/llamada. Null si el profesional no lo dio.
   phone: string | null;
+  // Público por diseño (libro amarillo): se muestra como link `mailto:` junto al
+  // teléfono. Es el correo de la cuenta, no el `contactEmail` de coordinación
+  // (ese sigue siendo interno: "no se comparte con las personas").
+  email: string;
   crisisExperience: boolean;
   acceptingRequests: boolean;
   currentActiveRequests: number;
@@ -34,8 +38,9 @@ function parseJsonList(value: string): string[] {
 
 /**
  * Feed público: SOLO profesionales verificados (status='approved') y remotos.
- * Devuelve únicamente columnas públicas — nunca email, licencia, contactEmail
- * ni userId. Orden: disponibles (aceptando + con cupo) primero.
+ * Devuelve únicamente columnas públicas — el email de la cuenta sí es público
+ * (libro amarillo), pero nunca licencia, contactEmail ni userId. Orden:
+ * disponibles (aceptando + con cupo) primero.
  */
 export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
   // Resiliente: si la DB no está disponible (p. ej. prerender en build sin el
@@ -51,6 +56,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     shortBio: string | null;
     photo: string | null;
     phone: string | null;
+    email: string;
     crisisExperience: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
@@ -69,6 +75,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         shortBio: professionals.shortBio,
         photo: professionals.photo,
         phone: professionals.phone,
+        email: professionals.email,
         crisisExperience: professionals.crisisExperience,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
@@ -100,6 +107,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     shortBio: r.shortBio,
     photo: r.photo,
     phone: r.phone,
+    email: r.email,
     crisisExperience: r.crisisExperience,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,

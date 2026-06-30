@@ -95,25 +95,35 @@ export function FeedProfessionalCard({
       ) : null}
 
       <div className="pro-card-actions">
-        {intlPhone ? (
-          <div className="pro-contact">
-            <a
-              className="button human block"
-              href={`https://wa.me/${intlPhone}?text=${waText}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Escribir por WhatsApp · {professional.phone}
-            </a>
-            <a
-              className="muted"
-              href={`tel:+${intlPhone}`}
-              style={{ display: "inline-block", marginTop: "6px" }}
-            >
-              o llamar al {professional.phone}
-            </a>
-          </div>
-        ) : null}
+        <div className="pro-contact">
+          {intlPhone ? (
+            <>
+              <a
+                className="button human block"
+                href={`https://wa.me/${intlPhone}?text=${waText}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Escribir por WhatsApp · {professional.phone}
+              </a>
+              <a
+                className="muted"
+                href={`tel:+${intlPhone}`}
+                style={{ display: "inline-block", marginTop: "6px" }}
+              >
+                o llamar al {professional.phone}
+              </a>
+            </>
+          ) : null}
+          <a
+            className="muted"
+            href={`mailto:${professional.email}`}
+            style={{ display: "block", marginTop: "6px" }}
+          >
+            {intlPhone ? "o escribir a " : "Escribir a "}
+            {professional.email}
+          </a>
+        </div>
 
         {available ? (
           intlPhone ? (
