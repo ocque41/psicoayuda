@@ -31,6 +31,12 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Medida de lectura cómoda: evita líneas larguísimas en escritorio */
+  --measure: 42rem;
 
   /* ---- Radios ---- */
   --radius-sm: 10px;
@@ -113,7 +119,7 @@ textarea {
 }
 
 .container {
-  width: min(100% - 32px, 1040px);
+  width: min(100% - 48px, 1040px);
   margin: 0 auto;
 }
 
@@ -160,16 +166,16 @@ textarea {
 }
 
 .reactions {
-  margin: 16px 0;
+  margin: var(--space-5) 0;
   padding-left: 1.1rem;
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
   max-width: 640px;
 }
 
 .safety-note {
-  margin-top: 16px;
-  padding: 12px 14px;
+  margin-top: var(--space-5);
+  padding: 14px 16px;
   border-left: 3px solid var(--accent, #1f6f64);
   background: rgba(0, 0, 0, 0.03);
   border-radius: 6px;
@@ -196,8 +202,8 @@ textarea {
 .join-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: var(--space-5, 20px);
+  gap: 14px;
+  margin-top: var(--space-6, 24px);
 }
 
 /* Difundir / elegir profesionales (Pedir ayuda) y aceptar ofertas (panel) */
@@ -227,8 +233,8 @@ textarea {
 
 .form-actions {
   display: grid;
-  gap: 10px;
-  margin-top: var(--space-5);
+  gap: 12px;
+  margin-top: var(--space-6);
 }
 
 .nav {
@@ -271,11 +277,11 @@ textarea {
 
 .hero,
 .section {
-  padding: var(--space-12) 0;
+  padding: var(--space-16) 0;
 }
 
 .hero {
-  padding-bottom: var(--space-8);
+  padding-bottom: var(--space-12);
 }
 
 .lead {
@@ -286,7 +292,7 @@ textarea {
 
 .grid {
   display: grid;
-  gap: 16px;
+  gap: var(--space-6);
 }
 
 .grid-2 {
@@ -295,7 +301,7 @@ textarea {
 
 .faq {
   display: grid;
-  gap: 14px;
+  gap: var(--space-5);
 }
 
 .faq .card h3 {
@@ -312,7 +318,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: var(--space-6);
+  padding: var(--space-8);
   box-shadow: var(--shadow-sm);
 }
 
@@ -332,9 +338,9 @@ legend {
   border-radius: var(--radius);
   background: var(--surface-soft);
   color: var(--foreground);
-  padding: 14px 16px;
+  padding: 16px 18px;
   display: flex;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: var(--space-6);
 }
 
@@ -362,11 +368,11 @@ legend {
 /* Franja de confianza: gratis / confidencial / sin cuenta / verificados */
 .trust-strip {
   list-style: none;
-  margin: 0 0 var(--space-6);
+  margin: var(--space-5) 0 var(--space-8);
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 20px;
+  gap: 12px 22px;
 }
 
 .trust-strip li {
@@ -386,10 +392,10 @@ legend {
 /* Lista numerada "Qué sigue ahora" */
 .steps {
   list-style: none;
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-8);
   padding: 0;
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
   counter-reset: step;
 }
 
@@ -654,9 +660,9 @@ legend {
 p:has(> .button) {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
 }
 
 .button:disabled {
@@ -849,12 +855,39 @@ h1 {
 
 h2 {
   margin-top: 0;
+  margin-bottom: var(--space-4);
   font-size: var(--step-2);
   font-weight: 650;
 }
 
 h3 {
+  margin-bottom: var(--space-3);
   font-weight: 650;
+}
+
+/* Ritmo vertical de prosa. El preflight de Tailwind pone a 0 los márgenes de
+   bloque, pero el diseño asume que los párrafos llevan aire (de ahí overrides
+   como `.faq .card p { margin-bottom: 0 }` y los `style={{ margin: 0 }}` de los
+   avisos). Lo restauramos en un sitio; lo que deba ir pegado lo fuerza su
+   propia clase (.hint, .eyebrow…) o un style inline. */
+p {
+  margin: 0 0 var(--space-5);
+}
+
+/* Aire antes de un subtítulo que abre una subsección dentro del contenido
+   corrido. Se excluye el primero de la sección y, al exigir hijo directo de
+   .container, no afecta a los encabezados de tarjetas ni banners (que ya se
+   colocan con su propio espaciado). */
+.container > :is(h2, h3):not(:first-child) {
+  margin-top: var(--space-10);
+}
+
+/* Ancho de lectura cómodo para el texto suelto en una columna: aporta espacio
+   en blanco y evita líneas interminables en escritorio. Las tarjetas y rejillas
+   no tienen <p>/<ol> como hijos directos de .container, así que no se afectan. */
+.container > p,
+.container > ol {
+  max-width: var(--measure);
 }
 
 .legal {
@@ -937,14 +970,14 @@ body {
     min-height: 44px;
   }
 
-  /* Menos scroll: padding vertical 48px -> 32px en móvil */
+  /* Menos scroll en móvil, pero conservando aire entre secciones */
   .hero,
   .section {
-    padding: var(--space-8) 0;
+    padding: var(--space-10) 0;
   }
 
   .hero {
-    padding-bottom: var(--space-6);
+    padding-bottom: var(--space-8);
   }
 
   /* Una sola columna garantizada para el pulgar */
