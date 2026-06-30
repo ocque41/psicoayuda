@@ -25,7 +25,11 @@ export function AlliedResources() {
                   {link.url.startsWith("/") ? (
                     <Link href={link.url}>{link.name}</Link>
                   ) : (
-                    <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       {link.name} ↗
                     </a>
                   )}

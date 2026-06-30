@@ -106,7 +106,10 @@ export const ALLIED_CATEGORIES: readonly AlliedCategory[] = [
   {
     title: "Mascotas",
     links: [
-      { name: "HuellasCan — Terremoto", url: "https://huellascan.com/terremoto" },
+      {
+        name: "HuellasCan — Terremoto",
+        url: "https://huellascan.com/terremoto",
+      },
     ],
   },
   {
