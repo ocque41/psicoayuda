@@ -8,7 +8,10 @@ import { db } from "@/db";
 import { assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
 import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
-import { pendingOffersForProfessional } from "@/lib/offers";
+import {
+  conversationsForProfessional,
+  pendingOffersForProfessional,
+} from "@/lib/offers";
 
 export const metadata: Metadata = {
   title: "Panel profesional",
@@ -102,6 +105,7 @@ export default async function ProDashboardPage({
     );
 
   const offers = await pendingOffersForProfessional(professional.id);
+  const chats = await conversationsForProfessional(professional.id);
 
   return (
     <section className="section">
@@ -142,7 +146,7 @@ export default async function ProDashboardPage({
           </p>
         ) : null}
 
-        <h2 id="chats">Solicitudes para ti</h2>
+        <h2 id="bandeja">Solicitudes para ti</h2>
         <p className="muted">
           Personas que pidieron apoyo y te lo enviaron. Solo ves el tipo de
           apoyo y la urgencia; al aceptar se abre el chat y recibes su contacto.
@@ -179,6 +183,35 @@ export default async function ProDashboardPage({
           </ul>
         ) : (
           <p className="muted">No tienes solicitudes nuevas por ahora.</p>
+        )}
+
+        <h2 id="chats">Tus conversaciones</h2>
+        {chats.length > 0 ? (
+          <ul className="offer-list">
+            {chats.map((c) => (
+              <li key={c.conversationId} className="card">
+                <p style={{ margin: "0 0 8px" }}>
+                  <strong>
+                    {needLabels[c.needCategory as keyof typeof needLabels] ??
+                      c.needCategory ??
+                      "Conversación"}
+                  </strong>
+                  {c.urgency
+                    ? ` · ${urgencyLabels[c.urgency as keyof typeof urgencyLabels] ?? c.urgency}`
+                    : ""}
+                  {c.status !== "open" ? " · cerrada" : ""}
+                </p>
+                <Link className="button human" href={`/c/${c.conversationId}`}>
+                  Abrir chat
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">
+            Aún no tienes conversaciones abiertas. Cuando alguien te escriba o
+            aceptes una solicitud, aparecerán aquí.
+          </p>
         )}
 
         <h2>Personas que acompañas</h2>

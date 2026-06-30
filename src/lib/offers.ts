@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   assignments,
@@ -239,4 +239,20 @@ export async function pendingOffersForProfessional(professionalId: string) {
       ),
     );
   return rows;
+}
+
+/** Conversaciones del profesional (su bandeja de chats), más recientes primero. */
+export async function conversationsForProfessional(professionalId: string) {
+  return db
+    .select({
+      conversationId: conversations.id,
+      status: conversations.status,
+      createdAt: conversations.createdAt,
+      needCategory: helpRequests.needCategory,
+      urgency: helpRequests.urgency,
+    })
+    .from(conversations)
+    .leftJoin(helpRequests, eq(conversations.helpRequestId, helpRequests.id))
+    .where(eq(conversations.professionalId, professionalId))
+    .orderBy(desc(conversations.createdAt));
 }

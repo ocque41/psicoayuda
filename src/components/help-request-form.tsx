@@ -213,14 +213,31 @@ export function HelpRequestForm({
         </p>
       ) : null}
 
-      <button
-        className="button human block"
-        disabled={pending}
-        aria-busy={pending}
-        type="submit"
-      >
-        {pending ? "Enviando tu mensaje…" : "Enviar y que me contacten"}
-      </button>
+      <div className="form-actions">
+        <button
+          className="button human block"
+          name="enviarATodos"
+          value="1"
+          disabled={pending}
+          aria-busy={pending}
+          type="submit"
+        >
+          {pending ? "Enviando…" : "Enviar a todos los profesionales"}
+        </button>
+        <button
+          className="button secondary block"
+          disabled={pending}
+          aria-busy={pending}
+          type="submit"
+        >
+          Enviar y elegir a quién después
+        </button>
+      </div>
+      <p className="hint">
+        “Enviar a todos” difunde tu solicitud a todas las personas disponibles y
+        te escribe la primera que pueda. Con datos mínimos; tu correo solo lo ve
+        quien la acepte.
+      </p>
     </form>
   );
 }

@@ -20,11 +20,13 @@ import {
 } from "@/lib/assignment";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
+import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
   notifyAdminHelpRequest,
   notifyProfessionalAssignment,
 } from "@/lib/notifications";
+import { offerRequestToProfessionals } from "@/lib/offers";
 import {
   helpRequestSchema,
   professionalSchema,
@@ -161,6 +163,18 @@ export async function createHelpRequest(
   }
 
   await notifyAdminHelpRequest(id);
+
+  // Atajo "Enviar a todos": difunde la solicitud a todos los profesionales
+  // disponibles y lleva directo a la confirmación.
+  if (formData.get("enviarATodos")) {
+    const feed = await getFeedProfessionals();
+    const sent = await offerRequestToProfessionals(
+      id,
+      feed.map((person) => person.id),
+    );
+    redirect(`/ayuda/gracias?solicitud=${id}&enviado=${sent}`);
+  }
+
   redirect(`/ayuda/gracias?solicitud=${id}`);
 }
 
