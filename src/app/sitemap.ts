@@ -45,6 +45,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
     },
     {
+      path: "/recursos/insomnio-como-dormir-mejor",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/recursos/acompanar-a-alguien-en-crisis",
       priority: 0.6,
       changeFrequency: "monthly",

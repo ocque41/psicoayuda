@@ -100,6 +100,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/insomnio-como-dormir-mejor">
+                Insomnio: cómo dormir mejor cuando la mente no para
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
