@@ -72,21 +72,16 @@ export default function ResourcesPage() {
 
         <div className="card">
           <h2>Guías de apoyo</h2>
-          <p>Lecturas breves y cálidas para distintos momentos:</p>
+          <p>
+            Lecturas breves y cálidas, escritas con cuidado, para distintos
+            momentos.
+          </p>
+
+          <h3>Cómo te sientes</h3>
           <ul>
-            <li>
-              <Link href="/recursos/psicologo-online-gratis-venezuela">
-                Psicólogo online gratis en Venezuela: cómo empezar
-              </Link>
-            </li>
             <li>
               <Link href="/recursos/ansiedad-despues-del-terremoto">
                 Ansiedad y miedo después del terremoto: qué hacer
-              </Link>
-            </li>
-            <li>
-              <Link href="/recursos/duelo-perdida-de-un-ser-querido">
-                Duelo: cómo sobrellevar la pérdida de un ser querido
               </Link>
             </li>
             <li>
@@ -120,13 +115,31 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
-              <Link href="/recursos/acompanar-a-alguien-en-crisis">
-                Cómo acompañar a alguien que está pasando por un mal momento
+              <Link href="/recursos/duelo-perdida-de-un-ser-querido">
+                Duelo: cómo sobrellevar la pérdida de un ser querido
+              </Link>
+            </li>
+          </ul>
+
+          <h3>Cómo conseguir apoyo</h3>
+          <ul>
+            <li>
+              <Link href="/recursos/psicologo-online-gratis-venezuela">
+                Psicólogo online gratis en Venezuela: cómo empezar
               </Link>
             </li>
             <li>
               <Link href="/recursos/apoyo-emocional-anonimo">
                 Apoyo emocional gratis y anónimo, sin dar tu nombre
+              </Link>
+            </li>
+          </ul>
+
+          <h3>Acompañar y situaciones concretas</h3>
+          <ul>
+            <li>
+              <Link href="/recursos/acompanar-a-alguien-en-crisis">
+                Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
             </li>
             <li>
