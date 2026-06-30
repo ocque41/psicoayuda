@@ -48,17 +48,18 @@ export default function Page() {
 
         <h2>De dónde venimos</h2>
         <p>
-          {SITE_NAME} surgió al ver dos realidades que casi nunca se encuentran.
-          Por un lado, personas que cargan en silencio con la ansiedad, el
-          duelo, la migración de un ser querido, el miedo o el cansancio, y que
-          no saben a quién acudir o sienten que no pueden pagarlo. Por el otro,
-          profesionales de la psicología con vocación de servicio que quieren
-          ayudar y no siempre encuentran un canal seguro para hacerlo.
+          {SITE_NAME} nace de dos amigos venezolanos que comparten una misma
+          impotencia: ver lo que atraviesa el país sin poder cambiarlo de un día
+          para otro. Con el tiempo llegamos a una convicción: buena parte de ese
+          dolor también es salud mental desatendida. El trauma que nadie
+          acompaña se vuelve resentimiento, y ese resentimiento, multiplicado,
+          nos hace más daño como sociedad.
         </p>
         <p>
-          Decidimos juntar esas dos manos. No para reemplazar a nadie, sino para
-          abrir una puerta más: una entrada amable, gratuita y sin estigma hacia
-          el apoyo psicológico.
+          Por eso abrimos esta puerta: para que quienes cargan ese peso tengan
+          dónde poner lo que sienten y empezar a sanar. Cuidar las emociones no
+          lo resuelve todo, pero es una manera concreta de empezar a
+          reconstruir, primero por dentro.
         </p>
 
         <h2>Quién coordina y cómo nos gobernamos</h2>

@@ -8,7 +8,7 @@
 
 const RAW_SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-  "https://nido-venezuela.workers.dev";
+  "https://ayudamental-venezuela.ocque41.workers.dev";
 
 /** URL canónica de producción, sin barra final. */
 export const SITE_URL = RAW_SITE_URL.replace(/\/+$/, "");

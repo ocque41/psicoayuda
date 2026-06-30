@@ -20,7 +20,7 @@ export default async function AppleIcon() {
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        background: "#2f7a5b",
+        background: "#ffffff",
       }}
     >
       {/* biome-ignore lint/performance/noImgElement: next/og solo soporta <img> */}

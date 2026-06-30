@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "nido-venezuela",
+  "name": "ayudamental-venezuela",
   "main": "custom-worker.ts",
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,8 +12,8 @@
     "enabled": true
   },
   "vars": {
-    "BETTER_AUTH_URL": "https://nido-venezuela.workers.dev",
-    "NEXT_PUBLIC_SITE_URL": "https://nido-venezuela.workers.dev",
+    "BETTER_AUTH_URL": "https://ayudamental-venezuela.ocque41.workers.dev",
+    "NEXT_PUBLIC_SITE_URL": "https://ayudamental-venezuela.ocque41.workers.dev",
     "GOOGLE_SITE_VERIFICATION": "",
     "NIDO_DB_TARGET": "cloudflare"
   },
