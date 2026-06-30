@@ -9,7 +9,7 @@ export default function HomePage() {
         <div className="container">
           <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
           <h1>
-            Apoyo psicológico gratis para quienes vivieron los terremotos en
+            Ayuda psicológica gratis para quienes vivieron los terremotos en
             Venezuela
           </h1>
           <p className="lead">

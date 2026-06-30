@@ -25,7 +25,7 @@ export const SITE_LANG = "es";
  * "ayuda psicológica venezuela" sin perder calidez.
  */
 export const SITE_TITLE_DEFAULT =
-  "Apoyo psicológico gratis tras el terremoto en Venezuela | Nido";
+  "Ayuda psicológica gratis tras el terremoto en Venezuela | Nido";
 
 /** Plantilla de título para páginas internas. */
 export const SITE_TITLE_TEMPLATE = "%s | Nido";

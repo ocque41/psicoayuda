@@ -7,6 +7,8 @@ const allowedValues = new Set([
   "http://localhost:3000",
   "ci-local-secret-change-me",
   "nido-local-development-secret-change-me",
+  // Placeholder usado solo en los tests del worker de chat (no es un secreto real).
+  "test-secret",
 ]);
 
 const allowedFiles = new Set(["pnpm-lock.yaml"]);
