@@ -8,6 +8,7 @@ import {
 import {
   authorizeConnection,
   makeOnBeforeConnect,
+  professionalConnectionAllows,
   seekerSessionAllows,
 } from "@/server/auth-gate";
 
@@ -129,6 +130,45 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
         { revoked_at: null, expires_at: now + 1000, status: "anonymized" },
         now,
       ),
+    ).toBe(false);
+  });
+});
+
+describe("professionalConnectionAllows (kill-switch del profesional)", () => {
+  it("permite cuando no hay fila (se apoya en el token ya validado)", () => {
+    expect(professionalConnectionAllows(null)).toBe(true);
+  });
+
+  it("permite conversación abierta y profesional activo", () => {
+    expect(
+      professionalConnectionAllows({
+        conversation_status: "open",
+        professional_status: "approved",
+      }),
+    ).toBe(true);
+  });
+
+  it("bloquea conversación cerrada o anonimizada", () => {
+    expect(
+      professionalConnectionAllows({
+        conversation_status: "closed",
+        professional_status: "approved",
+      }),
+    ).toBe(false);
+    expect(
+      professionalConnectionAllows({
+        conversation_status: "anonymized",
+        professional_status: "approved",
+      }),
+    ).toBe(false);
+  });
+
+  it("bloquea profesional suspendido", () => {
+    expect(
+      professionalConnectionAllows({
+        conversation_status: "open",
+        professional_status: "suspended",
+      }),
     ).toBe(false);
   });
 });
