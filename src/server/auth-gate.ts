@@ -79,6 +79,32 @@ export function seekerSessionAllows(
   return true;
 }
 
+export type ProfessionalSessionRow = {
+  conversation_status: string | null;
+  professional_status: string | null;
+};
+
+/**
+ * Decisión PURA del kill-switch del profesional. La fila viene de D1.
+ * - Sin fila: permitimos (el token HMAC ya pasó; la fila puede faltar en tests).
+ * - Con fila: fuera si la conversación está cerrada/anonimizada o si la cuenta
+ *   del profesional está suspendida (un suspendido con cookie válida de 72h
+ *   podía reconectar — el rol profesional no tenía kill-switch en D1).
+ */
+export function professionalConnectionAllows(
+  row: ProfessionalSessionRow | null,
+): boolean {
+  if (!row) return true;
+  if (
+    row.conversation_status === "closed" ||
+    row.conversation_status === "anonymized"
+  ) {
+    return false;
+  }
+  if (row.professional_status === "suspended") return false;
+  return true;
+}
+
 /**
  * Comprueba la vigencia de la sesión del seeker contra D1. Best-effort: si no hay
  * binding D1 (tests) o la consulta falla, NO bloqueamos (nos apoyamos en el
@@ -104,6 +130,35 @@ async function seekerSessionActive(
       .bind(sid, conversationId)
       .first()) as SeekerSessionRow | null;
     return seekerSessionAllows(row, nowMs);
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Kill-switch del profesional contra D1: la conversación debe seguir abierta y la
+ * cuenta no estar suspendida. Best-effort: sin binding D1 (tests) o ante un fallo
+ * transitorio, NO bloqueamos (nos apoyamos en el token ya validado).
+ */
+async function professionalSessionActive(
+  env: Env,
+  professionalId: string,
+  conversationId: string,
+): Promise<boolean> {
+  const database = env.DB;
+  if (!database) return true;
+  try {
+    const row = (await database
+      .prepare(
+        `SELECT c.status AS conversation_status, p.status AS professional_status
+         FROM conversations c
+         LEFT JOIN professionals p ON p.id = ?
+         WHERE c.id = ?
+         LIMIT 1`,
+      )
+      .bind(professionalId, conversationId)
+      .first()) as ProfessionalSessionRow | null;
+    return professionalConnectionAllows(row);
   } catch {
     return true;
   }
@@ -166,12 +221,19 @@ export function makeOnBeforeConnect(env: Env) {
     if (!decision) {
       return new Response("Unauthorized", { status: 403 });
     }
-    // Kill-switch real para el seeker: además del token, exigimos que su sesión
-    // siga vigente en D1 (no revocada/expirada y conversación abierta). El
-    // profesional es dueño autenticado, no necesita esta comprobación.
+    // Kill-switch real en D1 (el token HMAC por sí solo no basta). El seeker debe
+    // tener su sesión vigente (no revocada/expirada, conversación abierta); el
+    // profesional, la conversación abierta y su cuenta no suspendida. Sin esto un
+    // socket revocado seguía vivo y un profesional suspendido podía reconectar.
     if (
       decision.role === "seeker" &&
       !(await seekerSessionActive(env, decision.id, lobby.name, now))
+    ) {
+      return new Response("Session revoked", { status: 403 });
+    }
+    if (
+      decision.role === "professional" &&
+      !(await professionalSessionActive(env, decision.id, lobby.name))
     ) {
       return new Response("Session revoked", { status: 403 });
     }

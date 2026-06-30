@@ -39,13 +39,33 @@ export async function anonymizeHelpRequest(
     .select({ id: conversations.id })
     .from(conversations)
     .where(eq(conversations.helpRequestId, requestId));
+  let allPurged = true;
   for (const conversation of convs) {
-    await purgeConversationMessages(conversation.id);
+    const purged = await purgeConversationMessages(conversation.id);
+    if (!purged) allPurged = false;
     await db
       .update(seekerSessions)
       .set({ requesterHash: null, revokedAt: new Date() })
       .where(eq(seekerSessions.conversationId, conversation.id));
   }
+
+  // BUG-D: si el transcript del DO (el PII más sensible, que SOLO vive ahí) no se
+  // pudo borrar, NO marcamos nada como anonimizado ni tocamos
+  // help_requests.updatedAt — así el cron (isNull(anonymizedAt) + updatedAt
+  // antiguo) lo reintenta en la próxima pasada en vez de abandonar el transcript
+  // para siempre mientras afirma que se anonimizó. Dejamos rastro del fallo.
+  if (!allPurged) {
+    await db.insert(auditLogs).values({
+      id: newId("log"),
+      actorEmail,
+      action: "data_anonymization_failed",
+      entityType: "help_request",
+      entityId: requestId,
+      createdAt: timestamp,
+    });
+    return { ok: false as const };
+  }
+
   if (convs.length > 0) {
     await db
       .update(conversations)
@@ -80,6 +100,8 @@ export async function anonymizeHelpRequest(
     entityId: requestId,
     createdAt: timestamp,
   });
+
+  return { ok: true as const };
 }
 
 /**
@@ -101,8 +123,15 @@ export async function runRetention(now: number = Date.now()) {
         lt(helpRequests.updatedAt, anonymizeCutoff),
       ),
     );
+  let anonymized = 0;
+  const anonymizeFailed = new Set<string>();
   for (const request of toAnonymize) {
-    await anonymizeHelpRequest(request.id, null);
+    const result = await anonymizeHelpRequest(request.id, null);
+    if (result.ok) {
+      anonymized += 1;
+    } else {
+      anonymizeFailed.add(request.id);
+    }
   }
 
   // 2) Cierra solicitudes inactivas > 30 días aún abiertas (y no anonimizadas).
@@ -117,6 +146,12 @@ export async function runRetention(now: number = Date.now()) {
       ),
     );
   for (const request of toClose) {
+    // No cierres (ni bumpees updatedAt de) una solicitud cuya anonimización
+    // acaba de fallar en el paso 1: déjala intacta para que el paso 1 la
+    // reintente en la próxima pasada. Si la cerráramos aquí, su updatedAt nuevo
+    // la sacaría ~90 días de la ventana de anonimización (el transcript del DO
+    // sobreviviría todo ese tiempo mientras decimos que se anonimizó).
+    if (anonymizeFailed.has(request.id)) continue;
     await releaseAssignmentsForRequest(request.id);
     await db
       .update(helpRequests)
@@ -124,5 +159,5 @@ export async function runRetention(now: number = Date.now()) {
       .where(eq(helpRequests.id, request.id));
   }
 
-  return { anonymized: toAnonymize.length, closed: toClose.length };
+  return { anonymized, closed: toClose.length };
 }

@@ -36,3 +36,33 @@ export async function purgeConversationMessages(
     return false;
   }
 }
+
+/**
+ * Corta las conexiones WebSocket vivas de un chat SIN borrar su contenido (a
+ * diferencia de purge). Lo usan el cierre de solicitud y la suspensión de un
+ * profesional para hacer efectivo el kill-switch: el chequeo de sesión en D1
+ * solo se evalúa al CONECTAR y, con hibernación del Durable Object, un socket ya
+ * abierto sobrevivía. Best-effort y silencioso (en local/sin binding del DO no
+ * rompe el flujo de cierre).
+ */
+export async function disconnectConversationSockets(
+  conversationId: string,
+): Promise<boolean> {
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const namespace = (env as { Conversation?: DurableObjectNamespace })
+      .Conversation;
+    const secret =
+      process.env.INTERNAL_NOTIFY_SECRET ?? process.env.BETTER_AUTH_SECRET;
+    if (!namespace || !secret) return false;
+
+    const stub = namespace.get(namespace.idFromName(conversationId));
+    const response = await stub.fetch("https://do/disconnect", {
+      method: "POST",
+      headers: { "x-nido-internal": secret },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

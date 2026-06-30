@@ -10,6 +10,7 @@ import {
   professionals,
   seekerSessions,
 } from "@/db/schema";
+import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
 
 // Estados de asignación que consumen cupo del profesional. "accepted" lo crea el
@@ -43,6 +44,11 @@ async function closeConversations(
       .update(seekerSessions)
       .set({ revokedAt })
       .where(eq(seekerSessions.conversationId, conversation.id));
+    // Corta el WebSocket vivo en el Durable Object. El kill-switch de D1 solo se
+    // evalúa al CONECTAR y, con hibernación, un socket ya abierto sobrevivía a
+    // cerrar/suspender (seguía pudiendo chatear). Best-effort (no rompe el cierre
+    // en local/sin binding del DO).
+    await disconnectConversationSockets(conversation.id);
   }
   return rows.length;
 }
@@ -116,10 +122,46 @@ export async function assignRequestToProfessional(input: {
     return { ok: false as const, reason: "duplicate" as const };
   }
 
-  await db
+  // BUG-B: reclama la solicitud de forma atómica. Solo "gana" si sigue
+  // reclamable (new/offered). Si otro flujo (una oferta ya aceptada) la tomó,
+  // deshacemos la asignación y el cupo: nunca dos profesionales en una solicitud.
+  const claimedRequest = await db
     .update(helpRequests)
     .set({ status: "assigned", updatedAt: timestamp })
-    .where(eq(helpRequests.id, input.helpRequestId));
+    .where(
+      and(
+        eq(helpRequests.id, input.helpRequestId),
+        inArray(helpRequests.status, ["new", "offered"]),
+      ),
+    )
+    .returning({ id: helpRequests.id });
+
+  if (claimedRequest.length === 0) {
+    await db
+      .update(assignments)
+      .set({ status: "closed", updatedAt: nowIso() })
+      .where(eq(assignments.id, inserted[0].id));
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+        updatedAt: nowIso(),
+      })
+      .where(eq(professionals.id, input.professionalId));
+    return { ok: false as const, reason: "already_assigned" as const };
+  }
+
+  // Con la solicitud ya asignada, cierra cualquier oferta hermana pendiente para
+  // que nadie más pueda aceptarla (cierra el doble binding admin vs oferta).
+  await db
+    .update(assignments)
+    .set({ status: "closed", updatedAt: timestamp })
+    .where(
+      and(
+        eq(assignments.helpRequestId, input.helpRequestId),
+        eq(assignments.status, "offered"),
+      ),
+    );
 
   await db.insert(auditLogs).values({
     id: newId("log"),
@@ -150,17 +192,28 @@ export async function releaseAssignmentsForRequest(helpRequestId: string) {
 
   const timestamp = nowIso();
   for (const assignment of active) {
-    await db
+    // Cierra la asignación SOLO si sigue activa, y libera cupo SOLO si este
+    // llamador la cerró de verdad: evita el doble decremento de cupo cuando dos
+    // liberaciones concurrentes (p.ej. cerrar + anonimizar) pisan la misma fila.
+    const closed = await db
       .update(assignments)
       .set({ status: "closed", updatedAt: timestamp })
-      .where(eq(assignments.id, assignment.id));
-    await db
-      .update(professionals)
-      .set({
-        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-        updatedAt: timestamp,
-      })
-      .where(eq(professionals.id, assignment.professionalId));
+      .where(
+        and(
+          eq(assignments.id, assignment.id),
+          inArray(assignments.status, [...ACTIVE_ASSIGNMENT_STATES]),
+        ),
+      )
+      .returning({ id: assignments.id });
+    if (closed.length > 0) {
+      await db
+        .update(professionals)
+        .set({
+          currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+          updatedAt: timestamp,
+        })
+        .where(eq(professionals.id, assignment.professionalId));
+    }
   }
 
   const openConversations = await db
