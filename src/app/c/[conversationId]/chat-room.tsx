@@ -37,7 +37,10 @@ function formatTime(ms: number): string {
   }
 }
 
-function mergeBySeq(prev: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+function mergeBySeq(
+  prev: ChatMessage[],
+  incoming: ChatMessage[],
+): ChatMessage[] {
   if (incoming.length === 0) return prev;
   const bySeq = new Map<number, ChatMessage>();
   for (const m of prev) bySeq.set(m.seq, m);
@@ -405,10 +408,9 @@ export function ChatRoom({
       </div>
 
       <p className={styles.safety}>
-        Conversación privada entre ustedes dos. Por tu seguridad, evita compartir
-        datos que te identifiquen (dirección exacta, documentos). Si estás en
-        peligro ahora,{" "}
-        <a href="/emergencia">mira qué hacer</a>.
+        Conversación privada entre ustedes dos. Por tu seguridad, evita
+        compartir datos que te identifiquen (dirección exacta, documentos). Si
+        estás en peligro ahora, <a href="/emergencia">mira qué hacer</a>.
       </p>
     </>
   );
