@@ -271,8 +271,11 @@ export function ProfessionalOnboardingForm({
           }}
         >
           <legend style={{ fontWeight: 600, margin: "0 0 6px", padding: 0 }}>
-            Áreas de apoyo *
+            Áreas de especialización *
           </legend>
+          <p className="hint" style={{ margin: "0 0 8px" }}>
+            Marca aquello en lo que tienes más experiencia.
+          </p>
           <div className="checks">
             {needCategories.map((value) => (
               <label key={value}>

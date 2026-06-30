@@ -17,21 +17,20 @@ export const needCategories = [
 export const urgencyLevels = ["baja", "media", "alta"] as const;
 export const languages = ["es", "en", "other"] as const;
 
-// Etiquetas por ESPECIALIDAD: las ve el profesional al elegir sus áreas y se
-// usan en los filtros y las tarjetas del feed público.
-// Etiquetas enfocadas en LO QUE LE SUCEDIÓ a la persona (situación/evento), no en
-// categorías clínicas genéricas. Cortas para servir también de "chip" en la
-// tarjeta del feed. Las claves no cambian (no rompe datos ni emparejamiento).
+// Etiquetas por ESPECIALIDAD del profesional: las ve al elegir sus áreas en el
+// alta y se usan en los filtros y las tarjetas del feed público (lo que el pro
+// "domina"). Nombres profesionales y cortos para servir de "chip" en la tarjeta.
+// Las claves no cambian (no rompe datos ni emparejamiento).
 export const needLabels: Record<(typeof needCategories)[number], string> = {
-  infancia_adolescencia: "Algo en la niñez o adolescencia",
-  familia_pareja: "Una ruptura o un conflicto de pareja o familia",
-  duelo: "Una pérdida o un duelo",
-  ansiedad_depresion: "Ansiedad o tristeza que no se va",
-  trauma_crisis: "Vivió algo muy fuerte o violento",
-  adicciones: "Consumo o una adicción",
-  autoestima: "Un golpe a la autoestima",
-  orientacion_general: "Un momento difícil, necesita hablar",
-  otro: "Otra situación",
+  infancia_adolescencia: "Terapia infantil y adolescente",
+  familia_pareja: "Terapia familiar y de pareja",
+  duelo: "Duelo y pérdidas",
+  ansiedad_depresion: "Ansiedad y depresión",
+  trauma_crisis: "Trauma y crisis",
+  adicciones: "Adicciones",
+  autoestima: "Autoestima y desarrollo personal",
+  orientacion_general: "Orientación y acompañamiento general",
+  otro: "Otras áreas",
 };
 
 // Etiquetas cálidas para la persona que pide ayuda (mismas keys que needLabels).
