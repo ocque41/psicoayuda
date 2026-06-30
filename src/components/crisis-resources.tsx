@@ -3,9 +3,9 @@
  *  - `variant="callout"`: aviso compacto para incrustar en /ayuda, /gracias…
  *  - `variant="full"`: listado completo para /emergencia y /recursos.
  *
- * Usa el azul tinta de seguridad (--safety) en estilos en línea para no
- * depender de cambios en globals.css y mantenerse sereno (sin rojo de alarma).
- * El verde de marca es para ACCIÓN; el azul es para SEGURIDAD/derivación.
+ * Usa un verde suave de marca en estilos en línea para no depender de cambios
+ * en globals.css y mantenerse sereno (sin rojo de alarma). El verde es el único
+ * color de acento de la marca.
  */
 
 import {
@@ -16,9 +16,9 @@ import {
   type SupportResource,
 } from "@/lib/resources";
 
-const SAFETY = "#1b3a63";
-const SAFETY_SOFT = "#eaf1f9";
-const SAFETY_BORDER = "#c9d8ec";
+const SAFETY = "#245f47";
+const SAFETY_SOFT = "#e6f1ea";
+const SAFETY_BORDER = "#c5ddc5";
 
 function ResourceCard({ resource }: { resource: SupportResource }) {
   return (

@@ -61,8 +61,8 @@
   padding: 8px 16px;
   font-size: 0.85rem;
   text-align: center;
-  background: #fff7ed;
-  color: #8a3d28;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
   border-bottom: 1px solid var(--border);
 }
 
