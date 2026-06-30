@@ -124,9 +124,14 @@ export async function runRetention(now: number = Date.now()) {
       ),
     );
   let anonymized = 0;
+  const anonymizeFailed = new Set<string>();
   for (const request of toAnonymize) {
     const result = await anonymizeHelpRequest(request.id, null);
-    if (result.ok) anonymized += 1;
+    if (result.ok) {
+      anonymized += 1;
+    } else {
+      anonymizeFailed.add(request.id);
+    }
   }
 
   // 2) Cierra solicitudes inactivas > 30 días aún abiertas (y no anonimizadas).
@@ -141,6 +146,12 @@ export async function runRetention(now: number = Date.now()) {
       ),
     );
   for (const request of toClose) {
+    // No cierres (ni bumpees updatedAt de) una solicitud cuya anonimización
+    // acaba de fallar en el paso 1: déjala intacta para que el paso 1 la
+    // reintente en la próxima pasada. Si la cerráramos aquí, su updatedAt nuevo
+    // la sacaría ~90 días de la ventana de anonimización (el transcript del DO
+    // sobreviviría todo ese tiempo mientras decimos que se anonimizó).
+    if (anonymizeFailed.has(request.id)) continue;
     await releaseAssignmentsForRequest(request.id);
     await db
       .update(helpRequests)

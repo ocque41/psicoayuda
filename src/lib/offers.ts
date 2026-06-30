@@ -230,9 +230,14 @@ export async function acceptOffer(input: {
           updatedAt: nowIso(),
         })
         .where(eq(professionals.id, input.professionalId));
+      // La solicitud ya la tomó otro flujo (admin u otra oferta): esta oferta
+      // nunca podrá ganar, así que la CERRAMOS. Devolverla a "offered" la
+      // resucitaría como oferta fantasma en el panel del profesional (re-aparece
+      // y nunca se puede aceptar). Esto es distinto del catch de más abajo, donde
+      // el batch atómico revirtió todo y la solicitud sí vuelve a ser reclamable.
       await db
         .update(assignments)
-        .set({ status: "offered", updatedAt: nowIso() })
+        .set({ status: "closed", updatedAt: nowIso() })
         .where(eq(assignments.id, offer.id));
       return { ok: false as const, reason: "capacity_or_status" as const };
     }
