@@ -51,7 +51,15 @@ function GoogleMark() {
   );
 }
 
-export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
+export function AuthPanel({
+  callbackURL = CALLBACK_URL,
+  defaultMode = "signin",
+  googleEnabled = false,
+}: {
+  callbackURL?: string;
+  defaultMode?: Mode;
+  googleEnabled?: boolean;
+}) {
   const router = useRouter();
   const ids = useId();
   const [mode, setMode] = useState<Mode>(defaultMode);
@@ -68,7 +76,7 @@ export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
     try {
       const res = await authClient.signIn.social({
         provider: "google",
-        callbackURL: CALLBACK_URL,
+        callbackURL,
       });
       // En éxito redirige a Google; si volvemos aquí con error (p. ej. proveedor
       // no configurado), lo mostramos en vez de dejar "Conectando…" colgado.
@@ -95,7 +103,7 @@ export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
               email,
               password,
               name: name.trim() || email,
-              callbackURL: CALLBACK_URL,
+              callbackURL,
             })
           : await authClient.signIn.email({ email, password });
 
@@ -104,7 +112,7 @@ export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
         setPending(false);
         return;
       }
-      router.push(CALLBACK_URL);
+      router.push(callbackURL);
       router.refresh();
     } catch {
       setError("Algo falló de nuestro lado. Intenta de nuevo en un momento.");
@@ -116,18 +124,22 @@ export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
 
   return (
     <div className="card auth-panel">
-      <button
-        type="button"
-        className="button secondary block"
-        onClick={withGoogle}
-        disabled={busy}
-        aria-busy={googleLoading}
-      >
-        {!googleLoading && <GoogleMark />}
-        {googleLoading ? "Conectando con Google…" : "Continuar con Google"}
-      </button>
+      {googleEnabled ? (
+        <>
+          <button
+            type="button"
+            className="button secondary block"
+            onClick={withGoogle}
+            disabled={busy}
+            aria-busy={googleLoading}
+          >
+            {!googleLoading && <GoogleMark />}
+            {googleLoading ? "Conectando con Google…" : "Continuar con Google"}
+          </button>
 
-      <div className="auth-divider">o con tu correo</div>
+          <div className="auth-divider">o con tu correo</div>
+        </>
+      ) : null}
 
       <form onSubmit={onSubmit}>
         {mode === "signup" && (

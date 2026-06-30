@@ -9,8 +9,10 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpengraphImage() {
-  const svg = await readFile(join(process.cwd(), "src/app/icon.svg"), "utf8");
-  const mark = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+  const logo = await readFile(
+    join(process.cwd(), "public/brand/nido-logo-800.png"),
+  );
+  const mark = `data:image/png;base64,${logo.toString("base64")}`;
 
   return new ImageResponse(
     <div
@@ -28,10 +30,7 @@ export default async function OpengraphImage() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
         {/* biome-ignore lint/performance/noImgElement: next/og solo soporta <img> */}
-        <img src={mark} width={72} height={72} alt="" />
-        <span style={{ fontSize: 40, fontWeight: 700, color: "#2f7a5b" }}>
-          Nido
-        </span>
+        <img src={mark} width={190} height={99} alt="" />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>

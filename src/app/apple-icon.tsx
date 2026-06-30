@@ -7,10 +7,12 @@ export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 export const alt = "Nido";
 
-// Reutiliza la marca vectorial del favicon (sin texto, no requiere fuente).
+// Reutiliza el icono de marca en alta resolución.
 export default async function AppleIcon() {
-  const svg = await readFile(join(process.cwd(), "src/app/icon.svg"), "utf8");
-  const src = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+  const icon = await readFile(
+    join(process.cwd(), "public/brand/nido-icon-180.png"),
+  );
+  const src = `data:image/png;base64,${icon.toString("base64")}`;
 
   return new ImageResponse(
     <div

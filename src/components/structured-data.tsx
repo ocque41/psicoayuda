@@ -31,7 +31,10 @@ const organizationNode: Json = {
   name: SITE_NAME,
   alternateName: "PsicoAyuda",
   url: SITE_URL,
-  logo: { "@type": "ImageObject", url: absoluteUrl("/icon.svg") },
+  logo: {
+    "@type": "ImageObject",
+    url: absoluteUrl("/brand/nido-icon-512.png"),
+  },
   image: absoluteUrl("/opengraph-image"),
   description: SITE_DESCRIPTION,
   email: SITE_CONTACT_EMAIL || undefined,

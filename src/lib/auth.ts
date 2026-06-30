@@ -28,6 +28,18 @@ const trustedOrigins = Array.from(
   ),
 );
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+const socialProviders =
+  googleClientId && googleClientSecret
+    ? {
+        google: {
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
+    : {};
+
 export const auth = betterAuth({
   baseURL,
   secret: getAuthSecret(),
@@ -42,12 +54,7 @@ export const auth = betterAuth({
     autoSignIn: true,
     minPasswordLength: 8,
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    },
-  },
+  socialProviders,
   // Limita intentos de login/callback (defensa básica contra fuerza bruta y
   // enumeración). En Workers es por isolate; reforzar con KV/WAF en producción.
   rateLimit: {

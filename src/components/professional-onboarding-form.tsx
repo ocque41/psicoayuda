@@ -43,7 +43,7 @@ export function ProfessionalOnboardingForm({
 
   return (
     <form action={action} className="card" aria-busy={pending}>
-      <p className="muted">Tu cuenta de Google: {email}</p>
+      <p className="muted">Tu cuenta: {email}</p>
 
       <fieldset className="card">
         <legend>Quién eres</legend>

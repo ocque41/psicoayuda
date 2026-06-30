@@ -128,20 +128,15 @@ textarea {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--foreground);
+  flex: none;
   text-decoration: none;
 }
 
-.brand-flag {
+.brand-logo {
   display: block;
   flex: none;
-  width: 26px;
-  height: 17px;
-  border-radius: 2.5px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  width: 116px;
+  height: auto;
 }
 
 .eyebrow {

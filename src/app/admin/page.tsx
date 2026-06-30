@@ -7,9 +7,11 @@ import {
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
 } from "@/app/actions";
+import { AuthPanel } from "@/components/auth-panel";
 import { db } from "@/db";
 import { helpRequests, professionals } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
+import { getServerSession } from "@/lib/auth-server";
 import { needLabels } from "@/lib/constants";
 import { rankProfessionalsForRequest } from "@/lib/matching";
 
@@ -28,11 +30,39 @@ export default async function AdminPage({
 }) {
   const admin = await requireAdmin();
   if (!admin) {
+    const session = await getServerSession();
+    const googleEnabled = Boolean(
+      process.env.GOOGLE_CLIENT_ID?.trim() &&
+        process.env.GOOGLE_CLIENT_SECRET?.trim(),
+    );
+
     return (
       <section className="section">
         <div className="container">
           <h1>Admin</h1>
-          <p>No tienes acceso a esta página.</p>
+          {session?.user?.email ? (
+            <div className="card">
+              <p>
+                La cuenta <strong>{session.user.email}</strong> no tiene acceso
+                de administración.
+              </p>
+              <p className="muted">
+                Entra con una cuenta autorizada: ocquema@gmail.com o
+                martinezra@gmail.com.
+              </p>
+            </div>
+          ) : (
+            <div className="signin">
+              <p className="lead">
+                Entra con una cuenta administradora para revisar solicitudes,
+                aprobar profesionales y asignar acompañamientos.
+              </p>
+              <AuthPanel callbackURL="/admin" googleEnabled={googleEnabled} />
+              <p className="muted auth-foot">
+                Cuentas autorizadas: ocquema@gmail.com y martinezra@gmail.com.
+              </p>
+            </div>
+          )}
         </div>
       </section>
     );

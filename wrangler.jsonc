@@ -20,6 +20,7 @@
     "BETTER_AUTH_URL": "https://saludmental-venezuela.com",
     "NEXT_PUBLIC_SITE_URL": "https://saludmental-venezuela.com",
     "GOOGLE_SITE_VERIFICATION": "",
+    "ADMIN_EMAILS": "ocquema@gmail.com,martinezra@gmail.com",
     "NIDO_DB_TARGET": "cloudflare"
   },
   "d1_databases": [

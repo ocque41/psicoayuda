@@ -24,6 +24,10 @@ export default async function ProPage({
   const session = await getServerSession();
   const { modo } = await searchParams;
   const defaultMode = modo === "registro" ? "signup" : "signin";
+  const googleEnabled = Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim(),
+  );
 
   return (
     <section className="section">
@@ -51,10 +55,13 @@ export default async function ProPage({
           </p>
         ) : (
           <div className="signin">
-            <AuthPanel defaultMode={defaultMode} />
+            <AuthPanel
+              defaultMode={defaultMode}
+              googleEnabled={googleEnabled}
+            />
             <p className="muted auth-foot">
-              Entras solo para verificar tu identidad profesional; no publicamos
-              nada en tu nombre. Completar tu perfil toma unos 4 minutos.
+              Entras solo para crear tu perfil profesional; no publicamos nada
+              en tu nombre. Completar tu perfil toma unos 4 minutos.
             </p>
           </div>
         )}
