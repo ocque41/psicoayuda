@@ -78,6 +78,7 @@ describe("SEO — sitemap.xml", () => {
       "/",
       "/ayuda",
       "/recursos",
+      "/recursos/psicologo-online-gratis-venezuela",
       "/pro",
       "/privacidad",
       "/terminos",
@@ -191,6 +192,7 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
 
   it("añade migas a las páginas de recursos de cola larga", () => {
     for (const file of [
+      "src/app/recursos/psicologo-online-gratis-venezuela/page.tsx",
       "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",
       "src/app/recursos/apoyo-emocional-anonimo/page.tsx",
       "src/app/recursos/ayuda-psicologica-para-ninos/page.tsx",

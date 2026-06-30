@@ -20,6 +20,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
     { path: "/recursos", priority: 0.8, changeFrequency: "weekly" },
     {
+      path: "/recursos/psicologo-online-gratis-venezuela",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/recursos/acompanar-a-alguien-en-crisis",
       priority: 0.6,
       changeFrequency: "monthly",

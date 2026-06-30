@@ -75,6 +75,11 @@ export default function ResourcesPage() {
           <p>Lecturas breves y cálidas para distintos momentos:</p>
           <ul>
             <li>
+              <Link href="/recursos/psicologo-online-gratis-venezuela">
+                Psicólogo online gratis en Venezuela: cómo empezar
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
