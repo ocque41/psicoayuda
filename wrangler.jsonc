@@ -2,8 +2,13 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ayudamental-venezuela",
   "main": "custom-worker.ts",
+  "workers_dev": false,
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "saludmental-venezuela.com", "custom_domain": true },
+    { "pattern": "www.saludmental-venezuela.com", "custom_domain": true }
+  ],
   "assets": {
     "binding": "ASSETS",
     "directory": ".open-next/assets"
@@ -12,8 +17,8 @@
     "enabled": true
   },
   "vars": {
-    "BETTER_AUTH_URL": "https://ayudamental-venezuela.ocque41.workers.dev",
-    "NEXT_PUBLIC_SITE_URL": "https://ayudamental-venezuela.ocque41.workers.dev",
+    "BETTER_AUTH_URL": "https://saludmental-venezuela.com",
+    "NEXT_PUBLIC_SITE_URL": "https://saludmental-venezuela.com",
     "GOOGLE_SITE_VERIFICATION": "",
     "NIDO_DB_TARGET": "cloudflare"
   },

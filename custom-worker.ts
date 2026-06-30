@@ -23,6 +23,12 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.hostname === "www.saludmental-venezuela.com") {
+      url.hostname = "saludmental-venezuela.com";
+      return Response.redirect(url.toString(), 308);
+    }
+
     const routed = await routePartykitRequest(request, env, {
       prefix: "parties",
       onBeforeConnect: makeOnBeforeConnect(env),
