@@ -428,8 +428,3 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
 
   revalidatePath("/admin");
 }
-
-export async function adminExportCsv() {
-  const admin = await requireAdmin();
-  if (!admin) redirect("/pro");
-}
