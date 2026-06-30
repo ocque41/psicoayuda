@@ -98,6 +98,8 @@ export class Conversation extends Server<Env> {
     this.lastSeq = Number(maxRow.m ?? 0);
     this.firstSeekerMsgAt = this.readMeta("first_seeker_msg_at");
     this.firstProReplyAt = this.readMeta("first_pro_reply_at");
+    // Persistido: tras hibernar, no reabrir la ventana de anti-spam de email.
+    this.lastNotifyAt = this.readMeta("last_notify_at") ?? 0;
   }
 
   private readMeta(key: string): number | null {
@@ -288,6 +290,7 @@ export class Conversation extends Server<Env> {
       const now = Date.now();
       if (now - this.lastNotifyAt >= NOTIFY_DEBOUNCE_MS) {
         this.lastNotifyAt = now;
+        this.writeMeta("last_notify_at", now);
         void this.callInternal("notify-message");
       }
     }

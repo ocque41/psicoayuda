@@ -73,7 +73,11 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
           eq(professionals.remoteAvailable, true),
         ),
       );
-  } catch {
+  } catch (error) {
+    // En build/prerender (sin binding D1) la lista vacía es lo correcto. Pero un
+    // fallo en runtime no debe enmascararse como "no hay profesionales": al
+    // menos lo dejamos en los logs/observabilidad para poder verlo.
+    console.error("getFeedProfessionals failed", error);
     return [];
   }
 

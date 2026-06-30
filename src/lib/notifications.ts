@@ -14,16 +14,48 @@ export function conversationUrl(conversationId: string) {
   return `${appBaseUrl()}/c/${conversationId}`;
 }
 
+/**
+ * Avisa al buzón de coordinación (NOTIFICATION_EMAIL) de que entró una nueva
+ * solicitud, con un enlace a /admin. SIN PII: el correo solo dice que hay algo
+ * que revisar; los datos viven tras el panel gateado por ADMIN_EMAILS.
+ */
 export async function notifyAdminHelpRequest(_helpRequestId: string) {
-  if (!process.env.NOTIFICATION_EMAIL) return;
-  // Email provider is intentionally not wired in the MVP.
-  // Configure this when a concrete provider is selected.
+  const to = process.env.NOTIFICATION_EMAIL;
+  if (!to) return;
+  const adminUrl = `${appBaseUrl()}/admin`;
+  const text = [
+    "Entró una nueva solicitud de apoyo en Nido.",
+    "",
+    `Revísala en el panel: ${adminUrl}`,
+    "",
+    "Por privacidad no incluimos datos de la persona en este correo.",
+  ].join("\n");
+  return sendEmail({
+    to,
+    subject: "Nueva solicitud de apoyo — Nido",
+    html: `<p>Entró una nueva solicitud de apoyo en Nido.</p><p><a href="${adminUrl}">Revísala en el panel</a>.</p><p>Por privacidad no incluimos datos de la persona en este correo.</p>`,
+    text,
+  });
 }
 
-export async function notifyProfessionalAssignment(_professionalEmail: string) {
-  if (!process.env.CONTACT_FROM_EMAIL) return;
-  // Email provider is intentionally not wired in the MVP.
-  // Configure this when a concrete provider is selected.
+/**
+ * Avisa a un profesional de que un coordinador le asignó una solicitud, con un
+ * enlace a su panel. SIN datos de la persona (los ve dentro del panel).
+ */
+export async function notifyProfessionalAssignment(professionalEmail: string) {
+  if (!professionalEmail) return;
+  const dashboardUrl = `${appBaseUrl()}/pro/dashboard`;
+  const text = [
+    "Te asignaron una nueva solicitud de apoyo en Nido.",
+    "",
+    `Entra a tu panel para verla: ${dashboardUrl}`,
+  ].join("\n");
+  return sendEmail({
+    to: professionalEmail,
+    subject: "Te asignaron una solicitud — Nido",
+    html: `<p>Te asignaron una nueva solicitud de apoyo en Nido.</p><p><a href="${dashboardUrl}">Entra a tu panel para verla</a>.</p>`,
+    text,
+  });
 }
 
 /**

@@ -106,6 +106,17 @@ export async function createHelpRequest(
     };
   }
 
+  // "Enviar a todos" difunde la solicitud y, como el solicitante no tiene
+  // sesión, el correo es la ÚNICA vía para avisarle cuando alguien acepte.
+  // Exigirlo aquí evita un callejón sin salida silencioso.
+  if (formData.get("enviarATodos") && !parsed.data.email) {
+    return {
+      ok: false,
+      message:
+        "Para “enviar a todos” necesitamos tu correo: es donde te avisaremos cuando alguien acepte. Agrégalo arriba, o habla directo por chat con un profesional.",
+    };
+  }
+
   const timestamp = nowIso();
   const id = newId("req");
   await db.insert(helpRequests).values({
