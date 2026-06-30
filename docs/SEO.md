@@ -9,6 +9,28 @@ hacer** (dominio, verificación, enlaces). El ranking #1 depende sobre todo de l
 
 ---
 
+## 🚀 Acción inmediata: 3 pasos para empezar a rankear
+
+El SEO en código está **completo y verificado**. Para que Google lo vea y empieces a
+posicionar, haz esto **en orden** (sin el paso 1, los demás no sirven):
+
+1. **Desplegar.** Fusiona el PR de SEO y publica:
+   ```
+   git checkout main && git pull
+   pnpm deploy        # desde WSL/Linux/CI; en Windows nativo activa "Modo Desarrollador"
+   ```
+   Comprueba: `https://saludmental-venezuela.com/sitemap.xml` debe abrir y mostrar el
+   dominio propio.
+2. **Google Search Console** (~15 min, gratis) → ver sección 3. Es lo que hace que Google
+   te descubra en días, no semanas.
+3. **Conseguir 3–5 enlaces** → usa los correos listos en [`OUTREACH.md`](./OUTREACH.md).
+   En salud, esto pesa más que cualquier ajuste técnico.
+
+> Tras esto: paciencia. Indexar y posicionar toma de días a semanas. Revisa Search Console
+> cada pocos días.
+
+---
+
 ## 1. Ya implementado en el código (verificado en build)
 
 - **`metadataBase`, títulos, descripciones y canonical** en cada página (`layout.tsx` + cada `page.tsx`).
