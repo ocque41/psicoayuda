@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Cómo acompañar a alguien que está pasando por un mal momento",
@@ -14,6 +15,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/acompanar-a-alguien-en-crisis"
+          name="Cómo acompañar a alguien que está pasando por un mal momento"
+          description="Guía cálida para acompañar a un familiar, pareja o amigo que está triste, ansioso o en duelo: cómo escuchar sin juzgar, qué decir y cómo cuidarte tú."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },

@@ -152,6 +152,7 @@ describe("SEO — contenido y datos estructurados de la portada", () => {
     expect(structured).toContain('"@type": "WebSite"');
     expect(structured).toContain('"@type": "Service"');
     expect(structured).toContain('"@type": "FAQPage"');
+    expect(structured).toContain('"@type": "MedicalWebPage"');
   });
 });
 
@@ -200,7 +201,9 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
       "src/app/recursos/ayuda-psicologica-para-ninos/page.tsx",
       "src/app/recursos/venezolanos-en-el-exterior/page.tsx",
     ]) {
-      expect(read(file)).toContain("<Breadcrumbs");
+      const source = read(file);
+      expect(source).toContain("<Breadcrumbs");
+      expect(source).toContain("<GuideJsonLd");
     }
   });
 });

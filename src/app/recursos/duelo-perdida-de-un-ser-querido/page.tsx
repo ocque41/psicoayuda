@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Duelo: cómo sobrellevar la pérdida de un ser querido",
@@ -22,6 +23,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/duelo-perdida-de-un-ser-querido"
+          name="Duelo: cómo sobrellevar la pérdida de un ser querido"
+          description="Perder a alguien que amas duele de formas difíciles de explicar. Qué es normal en el duelo, cómo sobrellevarlo y cuándo pedir apoyo psicológico gratis en Venezuela."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Apoyo psicológico para venezolanos en el exterior",
@@ -14,6 +15,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/venezolanos-en-el-exterior"
+          name="Apoyo psicológico para venezolanos en el exterior"
+          description="Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },

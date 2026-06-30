@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Ansiedad y miedo después del terremoto: qué hacer",
@@ -22,6 +23,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/ansiedad-despues-del-terremoto"
+          name="Ansiedad y miedo después del terremoto: qué hacer"
+          description="Miedo, ansiedad, insomnio o sobresaltos tras un terremoto en Venezuela son reacciones normales. Técnicas sencillas para calmarte y cuándo pedir ayuda gratis."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Psicólogo online gratis en Venezuela: cómo empezar",
@@ -20,6 +21,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/psicologo-online-gratis-venezuela"
+          name="Psicólogo online gratis en Venezuela: cómo empezar"
+          description="Habla gratis con un psicólogo voluntario online en Venezuela, a distancia y en español. Sin crear cuenta, confidencial y sin costo. Aquí te explicamos cómo."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title:
@@ -15,6 +16,11 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/ayuda-psicologica-para-ninos"
+          name="Ayuda psicológica gratis para niñas, niños y adolescentes en Venezuela"
+          description="Cómo conseguir apoyo psicológico gratuito y a distancia en Venezuela para adolescentes y para madres, padres y cuidadores. Sin estigma y con acompañamiento de un adulto de confianza."
+        />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },
