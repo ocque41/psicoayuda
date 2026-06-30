@@ -30,4 +30,31 @@ export default {
     if (routed) return routed;
     return handler.fetch(request, env, ctx);
   },
+
+  // Cron de retención (ver wrangler.jsonc `triggers.crons`). Dispara el endpoint
+  // interno por loopback al propio handler de Next/opennext (donde `db` corre
+  // contra D1) con el secreto compartido. Cierra solicitudes inactivas a 30 días
+  // y anonimiza a 90 (política de privacidad).
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    const base = env.BETTER_AUTH_URL?.replace(/\/+$/, "") ?? "";
+    const secret = env.INTERNAL_NOTIFY_SECRET ?? env.BETTER_AUTH_SECRET;
+    if (!base || !secret) return;
+    const task = handler
+      .fetch(
+        new Request(`${base}/api/internal/retention`, {
+          method: "POST",
+          headers: { "x-nido-internal": secret },
+        }),
+        env,
+        ctx,
+      )
+      .then(() => undefined)
+      .catch(() => undefined);
+    ctx.waitUntil(task);
+    await task;
+  },
 } satisfies ExportedHandler<Env>;

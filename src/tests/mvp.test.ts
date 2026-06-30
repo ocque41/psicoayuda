@@ -204,12 +204,18 @@ describe("Nido MVP smoke checks", () => {
       join(process.cwd(), "src/lib/assignment.ts"),
       "utf8",
     );
+    // La anonimización (y su auditoría data_anonymization) vive en lib/retention,
+    // reutilizada por la acción admin y por el cron de retención.
+    const retention = readFileSync(
+      join(process.cwd(), "src/lib/retention.ts"),
+      "utf8",
+    );
 
     expect(actions).toContain("professional_approval");
     expect(actions).toContain("professional_rejection");
     expect(actions).toContain("professional_suspension");
     expect(actions).toContain("request_closure");
-    expect(actions).toContain("data_anonymization");
+    expect(retention).toContain("data_anonymization");
     expect(assignment).toContain("request_assignment");
   });
 });

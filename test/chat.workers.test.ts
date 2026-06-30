@@ -1,5 +1,6 @@
-import { fetchMock, SELF } from "cloudflare:test";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { env, runInDurableObject, SELF } from "cloudflare:test";
+import { getServerByName } from "partyserver";
+import { describe, expect, it } from "vitest";
 import {
   mintProfessionalToken,
   mintSeekerToken,
@@ -96,33 +97,24 @@ async function open(conversationId: string, cookie: string): Promise<Client> {
   return wrap(res.webSocket as unknown as WebSocket);
 }
 
-const internalCalls: Array<Record<string, unknown>> = [];
-
-beforeAll(() => {
-  fetchMock.activate();
-  fetchMock.disableNetConnect();
-  fetchMock
-    .get("https://internal.test")
-    .intercept({ path: "/api/internal/chat-event", method: "POST" })
-    .reply(200, (opts) => {
-      try {
-        internalCalls.push(
-          JSON.parse(opts.body as string) as Record<string, unknown>,
-        );
-      } catch {
-        // ignore
-      }
-      return { ok: true };
-    })
-    .persist();
-});
-
-afterAll(() => {
-  fetchMock.deactivate();
-});
-
 async function settle(ms = 60) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Lee una clave del meta SQLite del propio Durable Object (mismo instance que
+// enrutó partyserver). Sustituye al antiguo fetchMock (eliminado del pool en
+// Vitest 4) para verificar los efectos del DO por su estado persistido.
+async function readMeta(
+  conversationId: string,
+  key: string,
+): Promise<number | null> {
+  const stub = await getServerByName(env.Conversation, conversationId);
+  return runInDurableObject(stub, (_instance, state) => {
+    const rows = state.storage.sql
+      .exec("SELECT v FROM meta WHERE k = ?", key)
+      .toArray() as Array<{ v: number }>;
+    return rows.length ? Number(rows[0].v) : null;
+  });
 }
 
 describe("chat Durable Object (runtime de Workers)", () => {
@@ -144,7 +136,6 @@ describe("chat Durable Object (runtime de Workers)", () => {
     await seeker.waitFor("history");
     await pro.waitFor("history");
 
-    // seeker -> pro
     seeker.send({
       type: "send",
       clientMsgId: "c1",
@@ -164,7 +155,6 @@ describe("chat Durable Object (runtime de Workers)", () => {
     expect(msg1.message.senderRole).toBe("seeker");
     expect(msg1.message.seq).toBe(1);
 
-    // pro -> seeker
     pro.send({
       type: "send",
       clientMsgId: "p1",
@@ -201,7 +191,6 @@ describe("chat Durable Object (runtime de Workers)", () => {
     >;
     await pro.waitFor("msg");
 
-    // Reenvío idéntico: mismo ack (mismo seq), el pro NO recibe otro msg.
     seeker.send({ type: "send", clientMsgId: "dup", content: "uno" });
     const ackB = (await seeker.waitFor("ack")) as Extract<
       ServerFrame,
@@ -209,7 +198,6 @@ describe("chat Durable Object (runtime de Workers)", () => {
     >;
     expect(ackB.seq).toBe(ackA.seq);
 
-    // Mensaje siguiente con seq+1 prueba que en medio no hubo duplicado.
     seeker.send({ type: "send", clientMsgId: "next", content: "dos" });
     const msgNext = (await pro.waitFor("msg")) as Extract<
       ServerFrame,
@@ -241,29 +229,62 @@ describe("chat Durable Object (runtime de Workers)", () => {
     pro.close();
   });
 
-  it("avisa por email cuando el profesional está OFFLINE y captura el tiempo de respuesta", async () => {
-    internalCalls.length = 0;
+  it("registra el aviso al profesional OFFLINE y captura el tiempo de respuesta", async () => {
     const conv = "conv_notify";
     const seeker = await open(conv, seekerCookie(conv));
     await seeker.waitFor("history");
 
-    // Profesional NO conectado -> debe dispararse notify-message.
+    // Profesional NO conectado -> se registra el intento de notificación
+    // (last_notify_at persiste el debounce; sobrevive a la hibernación).
     seeker.send({ type: "send", clientMsgId: "n1", content: "¿hay alguien?" });
     await seeker.waitFor("ack");
     await settle();
-    expect(internalCalls.some((c) => c.kind === "notify-message")).toBe(true);
+    expect(await readMeta(conv, "last_notify_at")).not.toBeNull();
+    expect(await readMeta(conv, "first_seeker_msg_at")).not.toBeNull();
 
-    // El profesional entra y responde -> muestra de tiempo de respuesta.
+    // El profesional entra y responde -> se captura el primer reply.
     const pro = await open(conv, proCookie(conv));
     await pro.waitFor("history");
     pro.send({ type: "send", clientMsgId: "r1", content: "sí, aquí estoy" });
     await pro.waitFor("ack");
     await settle();
-    const sample = internalCalls.find((c) => c.kind === "response-sample");
-    expect(sample).toBeDefined();
-    expect(typeof sample?.responseDeltaMs).toBe("number");
+    expect(await readMeta(conv, "first_pro_reply_at")).not.toBeNull();
 
     seeker.close();
     pro.close();
+  });
+
+  it("purga el transcript con la señal interna autenticada", async () => {
+    const conv = "conv_purge";
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    seeker.send({ type: "send", clientMsgId: "g1", content: "algo privado" });
+    await seeker.waitFor("ack");
+
+    const stub = await getServerByName(env.Conversation, conv);
+    // Sin secreto correcto -> 401.
+    const denied = await stub.fetch("https://do/purge", {
+      method: "POST",
+      headers: { "x-nido-internal": "wrong" },
+    });
+    expect(denied.status).toBe(401);
+
+    // Con el secreto correcto -> purga.
+    const purged = await stub.fetch("https://do/purge", {
+      method: "POST",
+      headers: { "x-nido-internal": SECRET },
+    });
+    expect(purged.status).toBe(200);
+    seeker.close();
+    await settle();
+
+    // Una nueva conexión ya no ve el transcript: historial vacío.
+    const after = await open(conv, seekerCookie(conv));
+    const history = (await after.waitFor("history")) as Extract<
+      ServerFrame,
+      { type: "history" }
+    >;
+    expect(history.messages.length).toBe(0);
+    after.close();
   });
 });

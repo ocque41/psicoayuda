@@ -2,6 +2,45 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.3.0 - 2026-06-30
+
+Segunda pasada de auditoría sobre la base 0.2.0, añadiendo lo que faltaba para
+que el chat funcione en producción y completando privacidad y CI.
+
+### Chat en producción
+
+- **Guard de Origin del WebSocket**: acepta el `Origin` que coincide con el `Host`
+  de la request además de `BETTER_AUTH_URL`. Sin esto, el chat devolvía 403 en
+  cuanto se servía desde el dominio real. Con tests de Origin.
+- Notificación por correo a los profesionales cuando se les difunde una solicitud
+  (antes solo se enteraban mirando el panel).
+- `remoteAvailable` añadido a la reserva de cupo al aceptar una oferta.
+
+### Privacidad
+
+- Cron de retención de Cloudflare: cierra solicitudes inactivas a 30 días y las
+  anonimiza a 90 (reutiliza la anonimización end-to-end, que borra el transcript
+  del Durable Object). Anonimización extraída a `lib/retention` y compartida con
+  la acción admin; añade limpieza del hash de IP de las sesiones del seeker.
+- Política de privacidad: declara el almacenamiento del chat y el identificador
+  derivado de IP. Copy corregido en varias páginas que negaban el chat in-app.
+
+### Notificaciones
+
+- Aviso de aprobación de profesional por correo.
+
+### CI/CD y robustez
+
+- CI ejecuta el typecheck del Worker (`typecheck:worker`) y la prueba del Durable
+  Object (`test:workers`), migrada a Vitest 4 (`vitest.workers.config.mts`).
+- Runbook de despliegue (migraciones D1, secretos, dominio) y cron documentados.
+
+### UX / limpieza
+
+- Manejo de error en Google Sign-In, estado "0 profesionales" en
+  `/ayuda/gracias`, aviso de enlace caducado en `/ayuda`, botón "Salir rápido" en
+  `/ayuda`, recibo "Leído" estable y desempate determinista del feed.
+
 ## 0.2.0 - 2026-06-30
 
 Production-readiness pass: correctness, security, privacy, and flow fixes

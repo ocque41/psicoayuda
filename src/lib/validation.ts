@@ -54,14 +54,30 @@ export const helpRequestSchema = z.object({
 });
 
 export const professionalSchema = z.object({
-  fullName: z.string().trim().min(2).max(120),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, "Escribe tu nombre completo.")
+    .max(120, "El nombre es demasiado largo."),
   displayName: optionalText,
   country: optionalText,
   city: optionalText,
-  licenseNumber: z.string().trim().min(2).max(120),
-  licenseCountry: z.string().trim().min(2).max(80),
-  languages: z.array(z.enum(languages)).min(1),
-  supportAreas: z.array(z.enum(needCategories)).min(1),
+  licenseNumber: z
+    .string()
+    .trim()
+    .min(2, "Indica tu credencial o número de licencia.")
+    .max(120, "La credencial es demasiado larga."),
+  licenseCountry: z
+    .string()
+    .trim()
+    .min(2, "Indica el país de tu credencial.")
+    .max(80, "El país de la credencial es demasiado largo."),
+  languages: z
+    .array(z.enum(languages))
+    .min(1, "Elige al menos un idioma en el que puedas acompañar."),
+  supportAreas: z
+    .array(z.enum(needCategories))
+    .min(1, "Elige al menos un área de apoyo."),
   remoteAvailable: checkboxBoolean.default(false),
   crisisExperience: checkboxBoolean.default(false),
   contactEmail: z.email().trim().toLowerCase().optional().or(z.literal("")),

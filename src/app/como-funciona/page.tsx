@@ -70,9 +70,9 @@ export default function Page() {
               </li>
               <li>
                 <span>
-                  <strong>El acompañamiento ocurre fuera de la app.</strong> Se
-                  ponen de acuerdo en cómo seguir. Nido los conecta; el
-                  acompañamiento sucede entre ustedes, a distancia.
+                  <strong>Se abre un chat privado en Nido.</strong> Ahí se
+                  conocen y empiezan a hablar a distancia. Desde ese chat
+                  ustedes deciden si siguen por ese medio u otro que acuerden.
                 </span>
               </li>
             </ol>
@@ -150,9 +150,10 @@ export default function Page() {
               <Link href="/emergencia">líneas de emergencia y recursos</Link>.
             </li>
             <li>
-              <strong>No damos terapia dentro de la app.</strong> No hay chat,
-              videollamadas ni sesiones aquí. Nido solo conecta; el
-              acompañamiento ocurre fuera de la plataforma.
+              <strong>Nido no es terapia continua ni emergencia.</strong> Tienes
+              un chat privado para conocer a la persona voluntaria y coordinar
+              el acompañamiento; no hay videollamadas ni sesiones clínicas
+              dentro de la plataforma.
             </li>
             <li>
               <strong>No cobramos nada.</strong> Es un proyecto sin fines de

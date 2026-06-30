@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { FeedProfessionalCard } from "@/app/profesionales/professional-card";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
+import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getFeedProfessionals } from "@/lib/feed";
 
 export const metadata: Metadata = {
@@ -20,9 +21,9 @@ export const metadata: Metadata = {
 export default async function HelpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ profesional?: string }>;
+  searchParams: Promise<{ profesional?: string; acceso?: string }>;
 }) {
-  const { profesional } = await searchParams;
+  const { profesional, acceso } = await searchParams;
   const professionals = await getFeedProfessionals();
 
   let preferred: { id: string; name: string } | null = null;
@@ -33,6 +34,7 @@ export default async function HelpPage({
 
   return (
     <section className="section">
+      <QuickExit />
       <div className="container">
         <h1>Cuéntanos cómo estás. Vamos a leerte.</h1>
         <ul className="trust-strip" aria-label="Garantías">
@@ -42,6 +44,17 @@ export default async function HelpPage({
           <li>Voluntarios verificados</li>
         </ul>
         <EmergencyNotice />
+        <QuickExitNote />
+
+        {acceso === "invalido" ? (
+          <div className="notice" role="alert">
+            <p style={{ margin: 0 }}>
+              Ese enlace de acceso ya no es válido (pudo expirar a las 72 horas
+              o ya se usó). Si aún necesitas apoyo, vuelve a enviar tu solicitud
+              aquí abajo y te enviaremos un enlace nuevo.
+            </p>
+          </div>
+        ) : null}
 
         {professionals.length > 0 ? (
           <>

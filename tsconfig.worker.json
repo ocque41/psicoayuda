@@ -1,0 +1,19 @@
+{
+  // Typecheck del camino REAL de despliegue (Cloudflare Worker + Durable Object),
+  // que el `tsconfig.json` de Next excluye. CI lo corre con `pnpm typecheck:worker`
+  // para no desplegar regresiones de tipos en custom-worker.ts / src/server/*.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": [
+    "src/cloudflare-env.d.ts",
+    "custom-worker.ts",
+    "src/server/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/lib/seeker-token.ts"
+  ],
+  "exclude": ["node_modules", ".open-next"]
+}

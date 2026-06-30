@@ -145,11 +145,11 @@ export default function Page() {
             </p>
           </article>
           <article className="card">
-            <h3>No damos terapia dentro de la página</h3>
+            <h3>No reemplazamos la terapia ni las emergencias</h3>
             <p className="muted">
-              No hay chat, ni videollamada, ni un robot que responda. El
-              acompañamiento real lo da una persona, por fuera de esta
-              plataforma.
+              Hay un chat privado para que la persona y un voluntario se
+              conozcan y hablen; no hay videollamadas, ni terapia continua, ni
+              un robot que responda. El acompañamiento real lo da una persona.
             </p>
           </article>
           <article className="card">

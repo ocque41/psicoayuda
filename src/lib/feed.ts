@@ -96,7 +96,15 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     maxActiveRequests: r.maxActiveRequests,
   }));
 
-  return mapped.sort(
-    (a, b) => Number(isAvailableNow(b)) - Number(isAvailableNow(a)),
-  );
+  // Disponibles primero; dentro de cada grupo, desempate determinista por cupo
+  // restante (más libre antes) y luego por id, para no fijar el orden al orden
+  // físico de filas (que congelaba siempre a los primeros aprobados).
+  return mapped.sort((a, b) => {
+    const availability = Number(isAvailableNow(b)) - Number(isAvailableNow(a));
+    if (availability !== 0) return availability;
+    const remainingA = a.maxActiveRequests - a.currentActiveRequests;
+    const remainingB = b.maxActiveRequests - b.currentActiveRequests;
+    if (remainingA !== remainingB) return remainingB - remainingA;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 }

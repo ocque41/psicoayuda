@@ -1,6 +1,6 @@
 {
   "name": "nido",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Nido — Spanish-first app that connects people who need psychological support with verified volunteer professionals.",
   "license": "MIT",
   "repository": {
@@ -35,8 +35,11 @@
     "secret:scan": "node scripts/secret-scan.mjs",
     "format": "biome format --write",
     "db:push": "drizzle-kit push",
+    "db:migrate:remote": "wrangler d1 migrations apply nido-venezuela-db --remote",
     "db:seed": "tsx scripts/seed.ts",
+    "typecheck:worker": "tsc -p tsconfig.worker.json",
     "test": "vitest run",
+    "test:workers": "vitest run --config vitest.workers.config.mts",
     "test:chat-e2e": "node test/run-chat-e2e.mjs"
   },
   "dependencies": {

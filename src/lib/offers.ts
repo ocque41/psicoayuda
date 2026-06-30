@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   assignments,
@@ -11,7 +11,9 @@ import {
   seekerSessions,
 } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
+import { needLabels, urgencyLabels } from "@/lib/constants";
 import { newId, nowIso } from "@/lib/ids";
+import { notifyProfessionalNewOffer } from "@/lib/notifications";
 import { mintSeekerToken } from "@/lib/seeker-token";
 
 const TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72h
@@ -47,7 +49,7 @@ export async function offerRequestToProfessionals(
   if (targets.length === 0) return 0;
 
   const timestamp = nowIso();
-  let created = 0;
+  const createdFor: string[] = [];
   for (const professionalId of targets) {
     const inserted = await db
       .insert(assignments)
@@ -62,9 +64,10 @@ export async function offerRequestToProfessionals(
       })
       .onConflictDoNothing()
       .returning({ id: assignments.id });
-    if (inserted.length > 0) created += 1;
+    if (inserted.length > 0) createdFor.push(professionalId);
   }
 
+  const created = createdFor.length;
   if (created > 0) {
     await db
       .update(helpRequests)
@@ -82,9 +85,53 @@ export async function offerRequestToProfessionals(
       metadata: JSON.stringify({ offered: created, source: "seeker" }),
       createdAt: timestamp,
     });
+
+    // Notifica por correo a cada profesional recién ofertado (privacy-safe: sin
+    // datos de la persona). Sin esto, el pro solo se enteraba si miraba el panel
+    // por casualidad. Best-effort: no rompemos la difusión si el correo falla.
+    await notifyOfferedProfessionals(helpRequestId, createdFor);
   }
 
   return created;
+}
+
+async function notifyOfferedProfessionals(
+  helpRequestId: string,
+  professionalIds: string[],
+) {
+  try {
+    const request = await db.query.helpRequests.findFirst({
+      where: eq(helpRequests.id, helpRequestId),
+    });
+    const needLabel = request
+      ? (needLabels[request.needCategory as keyof typeof needLabels] ??
+        undefined)
+      : undefined;
+    const urgencyLabel = request
+      ? (urgencyLabels[request.urgency as keyof typeof urgencyLabels] ??
+        undefined)
+      : undefined;
+    const pros = await db
+      .select({
+        email: professionals.email,
+        displayName: professionals.displayName,
+        fullName: professionals.fullName,
+      })
+      .from(professionals)
+      .where(inArray(professionals.id, professionalIds));
+    await Promise.allSettled(
+      pros.map((pro) =>
+        notifyProfessionalNewOffer({
+          professionalEmail: pro.email,
+          professionalName: pro.displayName ?? pro.fullName,
+          needLabel,
+          urgencyLabel,
+        }),
+      ),
+    );
+  } catch {
+    // best-effort: la difusión ya quedó registrada
+  }
 }
 
 export type AcceptOfferResult =
@@ -144,6 +191,7 @@ export async function acceptOffer(input: {
         eq(professionals.id, input.professionalId),
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
+        eq(professionals.remoteAvailable, true),
         sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
       ),
     )

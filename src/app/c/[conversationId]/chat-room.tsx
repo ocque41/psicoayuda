@@ -313,9 +313,16 @@ export function ChatRoom({
     }
   }
 
-  const lastMineSeq = [...confirmed]
-    .reverse()
-    .find((m) => m.senderRole === role)?.seq;
+  // Recibo de lectura anclado al MAYOR mensaje propio ya leído por la otra parte
+  // (estilo WhatsApp). Antes se exigía que fuese el último mensaje propio, así
+  // que al enviar uno nuevo no leído el recibo desaparecía de toda la conversación.
+  const lastReadMineSeq = confirmed.reduce(
+    (acc, m) =>
+      m.senderRole === role && m.seq <= otherReadSeq && m.seq > acc
+        ? m.seq
+        : acc,
+    0,
+  );
   const presenceLabel = otherTyping
     ? "escribiendo…"
     : otherOnline
@@ -381,7 +388,7 @@ export function ChatRoom({
                     className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
                   >
                     <span>{formatTime(m.serverTs)}</span>
-                    {mine && m.seq === lastMineSeq && otherReadSeq >= m.seq ? (
+                    {mine && m.seq === lastReadMineSeq ? (
                       <span>Leído</span>
                     ) : null}
                   </div>

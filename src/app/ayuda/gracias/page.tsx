@@ -37,7 +37,7 @@ export default async function ThanksPage({
       <div className="container">
         <FocusHeading>Recibimos tu mensaje. No estás solo/a.</FocusHeading>
 
-        {sent !== null ? (
+        {sent !== null && sent > 0 ? (
           <div className="notice">
             <p style={{ margin: 0 }}>
               <strong>
@@ -47,6 +47,20 @@ export default async function ThanksPage({
               En cuanto alguien la acepte, te escribiremos a tu correo con un
               enlace para entrar a la conversación. No necesitas crear cuenta.
               Revisa también tu carpeta de spam.
+            </p>
+          </div>
+        ) : sent === 0 ? (
+          <div className="notice">
+            <p style={{ margin: 0 }}>
+              <strong>
+                Ahora mismo no hay profesionales disponibles para recibir tu
+                solicitud.
+              </strong>{" "}
+              Tu solicitud quedó registrada y nuestro equipo la revisará.
+              Mientras tanto, mira los{" "}
+              <Link href="/recursos">recursos de apoyo</Link> o, si estás en
+              peligro, las{" "}
+              <Link href="/emergencia">líneas de ayuda inmediata</Link>.
             </p>
           </div>
         ) : (

@@ -112,13 +112,31 @@ async function seekerSessionActive(
 function isAllowedOrigin(request: Request, env: Env): boolean {
   const origin = request.headers.get("Origin");
   if (!origin) return true; // upgrades same-origin pueden omitir Origin
-  const base = env.BETTER_AUTH_URL;
-  if (!base) return true;
+  let originHost: string;
   try {
-    return new URL(origin).host === new URL(base).host;
+    originHost = new URL(origin).host;
   } catch {
-    return false;
+    return false; // Origin presente pero mal formado => bloquea
   }
+  // Aceptamos el Origin si coincide con el host configurado (BETTER_AUTH_URL) o
+  // con el Host real que sirvió la página. Sin esto, en cuanto el dominio de
+  // producción difiere de BETTER_AUTH_URL (dominio propio, apex vs www, preview)
+  // TODOS los upgrades WebSocket se rechazaban con 403 y el chat moría.
+  const allowedHosts = new Set<string>();
+  const base = env.BETTER_AUTH_URL;
+  if (base) {
+    try {
+      allowedHosts.add(new URL(base).host);
+    } catch {
+      // BETTER_AUTH_URL mal formado: caemos al Host de la request.
+    }
+  }
+  const hostHeader = request.headers.get("Host");
+  if (hostHeader) allowedHosts.add(hostHeader);
+  // Sin ninguna referencia fiable no bloqueamos por Origin (el token HMAC sigue
+  // siendo obligatorio aguas abajo).
+  if (allowedHosts.size === 0) return true;
+  return allowedHosts.has(originHost);
 }
 
 /**

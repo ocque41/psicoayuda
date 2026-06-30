@@ -164,8 +164,9 @@ export default function Page() {
               No es un servicio de emergencia ni promete tiempos de respuesta.
             </li>
             <li>
-              No ofrece terapia dentro de la app: no hay chat, llamadas ni
-              videollamadas en la plataforma.
+              No reemplaza terapia ni emergencias: hay un chat privado para
+              conocerse y coordinar, pero no llamadas, videollamadas ni sesiones
+              clínicas en la plataforma.
             </li>
             <li>
               No tiene reseñas, puntuaciones ni rankings de profesionales.
