@@ -2,6 +2,22 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.3.2 - 2026-06-30
+
+Paleta de marca: el verde es el único color de acento.
+
+### Diseño
+
+- **Solo verde para acentos**: se elimina la terracota (`--human`) y el azul de
+  seguridad de la interfaz. El verde de marca (`#2f7a5b`) se usa para botones y
+  acciones, con un verde suave (`#c5ddc5`, nuevo `--accent-tint`) para botones
+  secundarios, bordes, badges y toques pequeños.
+- Botones secundarios ("humanos"), recursos de crisis, banner del chat, botón de
+  "salir rápido", CTA de los correos y las escalas de magnitud sísmica pasan a
+  verde.
+- Se conservan a propósito: el rojo de error (`--danger`, semántico) y los
+  colores de logos de terceros (la "G" de Google y la bandera de Venezuela).
+
 ## 0.3.1 - 2026-06-30
 
 Pulido de marca, dominio de producción y mensaje de "quiénes somos".
