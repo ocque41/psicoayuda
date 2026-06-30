@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
+import { FaqJsonLd } from "@/components/structured-data";
 import { HOME_FAQ, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -45,10 +46,20 @@ const PRO_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   },
 ];
 
+// Versión en texto plano de la pregunta de tiempos (su respuesta visible lleva
+// enlaces y va en dos párrafos); el JSON-LD necesita texto y debe coincidir con
+// lo visible.
+const RESPONSE_TIME_FAQ = {
+  question: "¿Cuánto tardan en responderme?",
+  answer:
+    "Queremos ser honestos contigo: Nido lo sostienen personas voluntarias, así que no respondemos al instante ni podemos prometer un tiempo exacto. Tu mensaje no se pierde; lo revisa el equipo de coordinación y se busca a alguien que pueda acompañarte. La espera puede variar según cuántas personas voluntarias estén disponibles. Por eso es importante recordar que Nido no es un servicio de emergencia: si estás en peligro ahora mismo o sientes que no puedes esperar, busca ayuda inmediata en la página de emergencia o consulta las líneas de apoyo en recursos.",
+};
+
 export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <FaqJsonLd items={[...HOME_FAQ, ...PRO_FAQ, RESPONSE_TIME_FAQ]} />
         <h1>Preguntas frecuentes sobre {SITE_NAME}</h1>
         <p className="lead">
           Aquí respondemos las dudas más comunes sobre cómo pedir apoyo

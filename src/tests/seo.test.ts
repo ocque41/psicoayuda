@@ -215,3 +215,14 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
     }
   });
 });
+
+describe("SEO — FAQPage en la página dedicada de preguntas frecuentes", () => {
+  it("expone el helper FaqJsonLd y lo usa la página de FAQ", () => {
+    expect(read("src/components/structured-data.tsx")).toContain(
+      "export function FaqJsonLd",
+    );
+    expect(read("src/app/preguntas-frecuentes/page.tsx")).toContain(
+      "<FaqJsonLd",
+    );
+  });
+});

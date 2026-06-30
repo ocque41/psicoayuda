@@ -102,6 +102,31 @@ export function GuideJsonLd({
   );
 }
 
+/**
+ * `FAQPage` independiente para la página dedicada de preguntas frecuentes.
+ * El texto debe coincidir con el visible (requisito de Google), por eso recibe
+ * las mismas preguntas/respuestas que se renderizan en la página.
+ */
+export function FaqJsonLd({
+  items,
+}: {
+  items: ReadonlyArray<{ question: string; answer: string }>;
+}) {
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: items.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      }}
+    />
+  );
+}
+
 /** Datos estructurados presentes en todas las páginas (en el layout raíz). */
 export function SiteJsonLd() {
   return (
