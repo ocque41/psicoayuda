@@ -85,6 +85,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/duelo-perdida-de-un-ser-querido">
+                Duelo: cómo sobrellevar la pérdida de un ser querido
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
