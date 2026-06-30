@@ -1,0 +1,40 @@
+name: Deploy to Cloudflare
+
+# Build en Linux (OpenNext no compila un Worker funcional en Windows) y despliega
+# a Cloudflare. Disparo manual para no publicar WIP a medio hacer por accidente.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cf-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build (OpenNext → Cloudflare)
+        run: pnpm exec opennextjs-cloudflare build
+        env:
+          NIDO_DB_TARGET: cloudflare
+
+      - name: Deploy
+        run: pnpm exec opennextjs-cloudflare deploy
+        env:
+          NIDO_DB_TARGET: cloudflare
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
