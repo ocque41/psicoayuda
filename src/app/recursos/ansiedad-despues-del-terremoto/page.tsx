@@ -156,6 +156,13 @@ export default function Page() {
               Pedir apoyo ahora
             </Link>
           </p>
+          <p className="muted">
+            O{" "}
+            <Link href="/profesionales?q=ansiedad">
+              busca un psicólogo para la ansiedad
+            </Link>{" "}
+            y elige tú.
+          </p>
         </div>
 
         <h2>Seguir leyendo</h2>

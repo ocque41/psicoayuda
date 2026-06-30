@@ -124,6 +124,13 @@ export default function Page() {
               Pedir apoyo ahora
             </Link>
           </p>
+          <p className="muted">
+            O{" "}
+            <Link href="/profesionales?q=soledad">
+              busca un psicólogo para la soledad
+            </Link>{" "}
+            y elige tú.
+          </p>
         </div>
 
         <h2>Seguir leyendo</h2>

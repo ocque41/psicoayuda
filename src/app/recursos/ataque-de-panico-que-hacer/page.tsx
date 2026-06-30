@@ -124,6 +124,13 @@ export default function Page() {
               Pedir apoyo ahora
             </Link>
           </p>
+          <p className="muted">
+            O{" "}
+            <Link href="/profesionales?q=panico">
+              busca un psicólogo para el pánico
+            </Link>{" "}
+            y elige tú.
+          </p>
         </div>
 
         <h2>Seguir leyendo</h2>
