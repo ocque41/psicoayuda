@@ -90,6 +90,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/depresion-senales-y-ayuda">
+                Depresión: señales y cómo pedir ayuda en Venezuela
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>

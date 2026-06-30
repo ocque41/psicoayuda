@@ -196,6 +196,7 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
       "src/app/recursos/psicologo-online-gratis-venezuela/page.tsx",
       "src/app/recursos/ansiedad-despues-del-terremoto/page.tsx",
       "src/app/recursos/duelo-perdida-de-un-ser-querido/page.tsx",
+      "src/app/recursos/depresion-senales-y-ayuda/page.tsx",
       "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",
       "src/app/recursos/apoyo-emocional-anonimo/page.tsx",
       "src/app/recursos/ayuda-psicologica-para-ninos/page.tsx",
