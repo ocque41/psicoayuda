@@ -14,13 +14,32 @@ hacer** (dominio, verificación, enlaces). El ranking #1 depende sobre todo de l
 El SEO en código está **completo y verificado**. Para que Google lo vea y empieces a
 posicionar, haz esto **en orden** (sin el paso 1, los demás no sirven):
 
-1. **Desplegar.** Fusiona el PR de SEO y publica:
+1. **Desplegar.** Fusiona el PR de SEO y publica. **OJO:** el build de producción
+   (`opennextjs-cloudflare`) **falla en Windows nativo** por permisos de symlink, así que
+   despliega desde **WSL** (Linux dentro de Windows), Linux o CI.
+
+   **Desde cero en Windows, vía WSL (una sola vez):**
+   ```bash
+   # 1) En PowerShell como ADMINISTRADOR: instala WSL (Ubuntu) y reinicia
+   wsl --install
+   # 2) Abre "Ubuntu", y dentro de WSL:
+   curl -fsSL https://get.pnpm.io/install.sh | sh -   # instala pnpm
+   git clone https://github.com/ocque41/psicoayuda.git && cd psicoayuda
+   pnpm install
+   npx wrangler login                                 # autoriza tu cuenta de Cloudflare
    ```
+   **Antes del primer deploy (obligatorio, ver el README sección de despliegue):**
+   ```bash
+   pnpm db:migrate:remote                 # aplica el esquema a la BD D1 de producción
+   npx wrangler secret put BETTER_AUTH_SECRET   # pega un secreto largo y aleatorio
+   ```
+   **Publicar (y cada vez que quieras actualizar):**
+   ```bash
    git checkout main && git pull
-   pnpm deploy        # desde WSL/Linux/CI; en Windows nativo activa "Modo Desarrollador"
+   pnpm deploy
    ```
-   Comprueba: `https://saludmental-venezuela.com/sitemap.xml` debe abrir y mostrar el
-   dominio propio.
+   Comprueba: abre `https://saludmental-venezuela.com/sitemap.xml` — debe cargar y mostrar
+   el dominio propio. (Detalle completo de secretos y variables: README.)
 2. **Google Search Console** (~15 min, gratis) → ver sección 3. Es lo que hace que Google
    te descubra en días, no semanas.
 3. **Conseguir 3–5 enlaces** → usa los correos listos en [`OUTREACH.md`](./OUTREACH.md).
