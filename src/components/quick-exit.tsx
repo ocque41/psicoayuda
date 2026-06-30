@@ -60,13 +60,13 @@ export function QuickExit() {
         minHeight: "40px",
         padding: "8px 14px",
         borderRadius: "999px",
-        border: "1.5px solid #1b3a63",
-        background: "#1b3a63",
+        border: "1.5px solid #245f47",
+        background: "#245f47",
         color: "#fff",
         fontWeight: 700,
         fontSize: "0.9rem",
         cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(27, 58, 99, 0.25)",
+        boxShadow: "0 2px 8px rgba(36, 95, 71, 0.25)",
       }}
     >
       <span aria-hidden="true">✕</span> Salir rápido

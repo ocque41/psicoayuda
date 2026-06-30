@@ -70,7 +70,7 @@ export function buildNewMessageEmail(input: {
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="border-radius:999px;background:#b65334;">
+                    <td style="border-radius:999px;background:#2f7a5b;">
                       <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Responder ahora</a>
                     </td>
                   </tr>
@@ -156,7 +156,7 @@ export function buildNewOfferEmail(input: {
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="border-radius:999px;background:#b65334;">
+                    <td style="border-radius:999px;background:#2f7a5b;">
                       <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Ver en mi panel</a>
                     </td>
                   </tr>
@@ -229,7 +229,7 @@ export function buildApprovalEmail(input: {
                 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td style="border-radius:999px;background:#b65334;">
+                    <td style="border-radius:999px;background:#2f7a5b;">
                       <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Abrir mi panel</a>
                     </td>
                   </tr>

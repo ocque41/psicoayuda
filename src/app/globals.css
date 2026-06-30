@@ -12,11 +12,12 @@
   --accent: #2f7a5b;
   --accent-strong: #245f47;
   --accent-soft: #e6f1ea;
-  /* Acción humana principal (terracota cálida).
-     AA WCAG 2.2: #b65334 da 4.91:1 con texto blanco (texto normal >=4.5:1);
-     #8a3d28 da 7.56:1 para hover y para texto terracota sobre crema. */
-  --human: #b65334;
-  --human-strong: #8a3d28;
+  /* Verde claro de marca para acentos, toques y botones secundarios.
+     Texto verde oscuro #245f47 sobre #c5ddc5 = 6.4:1 (AA). */
+  --accent-tint: #c5ddc5;
+  /* Acción "humana"/secundaria: ahora verde de marca, ya no terracota. */
+  --human: #2f7a5b;
+  --human-strong: #245f47;
   --success: #2f7a5b;
   --danger: #9a3b2e;
 
@@ -478,7 +479,7 @@ legend {
 }
 
 .badge-soon {
-  background: #f6e7df;
+  background: var(--accent-tint);
   color: var(--human-strong);
 }
 
@@ -622,15 +623,16 @@ legend {
   color: var(--accent-strong);
 }
 
-/* Acción humana principal (terracota): /ayuda y home */
+/* Acción "humana"/secundaria: verde suave de marca (acento) */
 .button.human {
-  background: var(--human);
-  border-color: var(--human);
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .button.human:hover {
-  background: var(--human-strong);
-  border-color: var(--human-strong);
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
 }
 
 .button.block {
@@ -992,12 +994,12 @@ body {
 }
 
 .quake-mag.tone-fuerte {
-  background: #f3dcd5;
+  background: #a8ccae;
   color: var(--human-strong);
 }
 
 .quake-mag.tone-medio {
-  background: #f6e7df;
+  background: var(--accent-tint);
   color: var(--human-strong);
 }
 

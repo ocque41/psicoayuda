@@ -362,6 +362,23 @@ export class Conversation extends Server<Env> {
       }
       return Response.json({ ok: true, purged: true });
     }
+    if (request.method === "POST" && url.pathname.endsWith("/disconnect")) {
+      if (!this.internalAuthorized(request)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      // Corta los sockets vivos SIN borrar el contenido (a diferencia de purge):
+      // hace efectivo el kill-switch al cerrar la solicitud o suspender al
+      // profesional. Si el cliente reconecta, auth-gate (sesión/estado en D1) ya
+      // lo rechaza.
+      for (const connection of this.getConnections()) {
+        try {
+          connection.close(1000, "closed");
+        } catch {
+          // best-effort
+        }
+      }
+      return Response.json({ ok: true, disconnected: true });
+    }
     return new Response("Not found", { status: 404 });
   }
 

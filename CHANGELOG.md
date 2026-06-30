@@ -2,6 +2,61 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.4.0 - 2026-06-30
+
+Endurecimiento de integridad de datos, concurrencia, seguridad y privacidad.
+Auditoría adversarial (multi-agente) sobre el chat/ofertas/asignación, con sus
+arreglos verificados (build, tests, prueba de atomicidad y re-auditoría del
+propio diff).
+
+### Integridad de datos
+
+- **`db.batch()` atómico**: se cablea el batch del driver sqlite-proxy (D1
+  `batch()` en producción, libSQL `batch('write')` en local), que ejecutan todo
+  en una sola transacción aunque D1 rechace `BEGIN/COMMIT`.
+- **Aceptar oferta es atómico (BUG-A)**: conversación + sesión del seeker,
+  cierre de ofertas hermanas y auditoría van en un único `db.batch`. Un fallo a
+  medias ya no deja conversaciones huérfanas/duplicadas ni ofertas a medio
+  cerrar.
+- **Sin doble asignación (BUG-B)**: tanto la asignación del admin como la
+  aceptación de oferta reclaman la solicitud de forma atómica
+  (`SET assigned WHERE status IN ('new','offered') RETURNING`); el admin además
+  cierra las ofertas hermanas. Nunca dos profesionales en una misma solicitud.
+- **Fuga de cupo**: `releaseAssignmentsForRequest` cierra cada asignación con
+  guarda de estado y solo libera cupo si de verdad la cerró (sin doble
+  decremento ante liberaciones concurrentes).
+
+### Seguridad
+
+- **Kill-switch real del WebSocket (BUG-C)**: cerrar una solicitud o suspender a
+  un profesional ahora corta el socket vivo en el Durable Object (nuevo endpoint
+  interno `/disconnect`, conserva el transcript), y el profesional tiene
+  kill-switch en D1 al conectar (conversación cerrada / cuenta suspendida). Antes
+  un socket revocado seguía vivo y un profesional suspendido podía reconectar.
+
+### Privacidad
+
+- **Anonimización honesta (BUG-D)**: solo se marca `anonymizedAt` cuando se borró
+  el transcript del DO de TODAS las conversaciones. Si el purgado falla, no se
+  marca (ni se toca `updatedAt`) y se deja rastro, para que el cron de retención
+  reintente en vez de abandonar PII real diciendo que se anonimizó.
+
+## 0.3.2 - 2026-06-30
+
+Paleta de marca: el verde es el único color de acento.
+
+### Diseño
+
+- **Solo verde para acentos**: se elimina la terracota (`--human`) y el azul de
+  seguridad de la interfaz. El verde de marca (`#2f7a5b`) se usa para botones y
+  acciones, con un verde suave (`#c5ddc5`, nuevo `--accent-tint`) para botones
+  secundarios, bordes, badges y toques pequeños.
+- Botones secundarios ("humanos"), recursos de crisis, banner del chat, botón de
+  "salir rápido", CTA de los correos y las escalas de magnitud sísmica pasan a
+  verde.
+- Se conservan a propósito: el rojo de error (`--danger`, semántico) y los
+  colores de logos de terceros (la "G" de Google y la bandera de Venezuela).
+
 ## 0.3.1 - 2026-06-30
 
 Pulido de marca, dominio de producción y mensaje de "quiénes somos".

@@ -13,7 +13,7 @@ const buttonVariants = cva(
         secondary:
           "border-[var(--accent)] bg-transparent text-[var(--accent)] hover:bg-[var(--accent-soft)] focus-visible:outline-[var(--accent)]",
         human:
-          "border-[var(--human)] bg-[var(--human)] text-white hover:bg-[var(--human-strong)] hover:border-[var(--human-strong)] focus-visible:outline-[var(--human)]",
+          "border-[var(--accent)] bg-[var(--accent-tint)] text-[var(--accent-strong)] hover:bg-[var(--accent-soft)] hover:border-[var(--accent-strong)] focus-visible:outline-[var(--accent)]",
       },
     },
     defaultVariants: {

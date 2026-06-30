@@ -209,56 +209,45 @@ export async function acceptOffer(input: {
       where: eq(helpRequests.id, offer.helpRequestId),
     });
 
+    // BUG-B: reclama la solicitud de forma ATÓMICA antes de crear nada. Solo
+    // "gana" si sigue reclamable (new/offered). Si otro flujo (asignación admin u
+    // otra oferta) ya la tomó, compensamos cupo+oferta y salimos sin duplicar.
+    const claimedRequest = await db
+      .update(helpRequests)
+      .set({ status: "assigned", updatedAt: timestamp })
+      .where(
+        and(
+          eq(helpRequests.id, offer.helpRequestId),
+          inArray(helpRequests.status, ["new", "offered"]),
+        ),
+      )
+      .returning({ id: helpRequests.id });
+    if (claimedRequest.length === 0) {
+      await db
+        .update(professionals)
+        .set({
+          currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+          updatedAt: nowIso(),
+        })
+        .where(eq(professionals.id, input.professionalId));
+      // La solicitud ya la tomó otro flujo (admin u otra oferta): esta oferta
+      // nunca podrá ganar, así que la CERRAMOS. Devolverla a "offered" la
+      // resucitaría como oferta fantasma en el panel del profesional (re-aparece
+      // y nunca se puede aceptar). Esto es distinto del catch de más abajo, donde
+      // el batch atómico revirtió todo y la solicitud sí vuelve a ser reclamable.
+      await db
+        .update(assignments)
+        .set({ status: "closed", updatedAt: nowIso() })
+        .where(eq(assignments.id, offer.id));
+      return { ok: false as const, reason: "capacity_or_status" as const };
+    }
+
     // Conversación + sesión del seeker (sin cookie: el seeker llega por correo).
     const conversationId = newId("conv");
     const sid = newId("seek");
-    await db.insert(conversations).values({
-      id: conversationId,
-      helpRequestId: offer.helpRequestId,
-      professionalId: input.professionalId,
-      seekerSid: sid,
-      status: "open",
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
-    await db.insert(seekerSessions).values({
-      sid,
-      conversationId,
-      requesterHash: request?.requesterHash ?? null,
-      role: "seeker",
-      issuedAt: new Date(now),
-      expiresAt: new Date(now + TOKEN_TTL_MS),
-    });
 
-    // Las ofertas hermanas (otras de la misma solicitud) se cierran.
-    await db
-      .update(assignments)
-      .set({ status: "closed", updatedAt: timestamp })
-      .where(
-        and(
-          eq(assignments.helpRequestId, offer.helpRequestId),
-          eq(assignments.status, "offered"),
-          ne(assignments.id, offer.id),
-        ),
-      );
-    await db
-      .update(helpRequests)
-      .set({ status: "assigned", updatedAt: timestamp })
-      .where(eq(helpRequests.id, offer.helpRequestId));
-
-    await db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail: input.actorEmail,
-      action: "offer_accepted",
-      entityType: "help_request",
-      entityId: offer.helpRequestId,
-      metadata: JSON.stringify({
-        professionalId: input.professionalId,
-        conversationId,
-      }),
-      createdAt: timestamp,
-    });
-
+    // El token solo necesita ids + secreto (no toca la BD): mintarlo ANTES del
+    // batch evita dejar una conversación escrita si la firma fallara.
     const seekerToken = mintSeekerToken(
       {
         sid,
@@ -270,6 +259,53 @@ export async function acceptOffer(input: {
       },
       getAuthSecret(),
     );
+
+    // Las cuatro escrituras van en UN batch atómico (D1 soporta batch aunque
+    // rechace BEGIN/COMMIT): conversación + sesión del seeker, cierre de las
+    // ofertas hermanas y auditoría. Todo-o-nada: si algo falla, no queda nada
+    // escrito, así que no hay conversaciones huérfanas/duplicadas ni ofertas
+    // hermanas cerradas a medias (la solicitud ya se reclamó arriba).
+    await db.batch([
+      db.insert(conversations).values({
+        id: conversationId,
+        helpRequestId: offer.helpRequestId,
+        professionalId: input.professionalId,
+        seekerSid: sid,
+        status: "open",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }),
+      db.insert(seekerSessions).values({
+        sid,
+        conversationId,
+        requesterHash: request?.requesterHash ?? null,
+        role: "seeker",
+        issuedAt: new Date(now),
+        expiresAt: new Date(now + TOKEN_TTL_MS),
+      }),
+      db
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(
+          and(
+            eq(assignments.helpRequestId, offer.helpRequestId),
+            eq(assignments.status, "offered"),
+            ne(assignments.id, offer.id),
+          ),
+        ),
+      db.insert(auditLogs).values({
+        id: newId("log"),
+        actorEmail: input.actorEmail,
+        action: "offer_accepted",
+        entityType: "help_request",
+        entityId: offer.helpRequestId,
+        metadata: JSON.stringify({
+          professionalId: input.professionalId,
+          conversationId,
+        }),
+        createdAt: timestamp,
+      }),
+    ]);
 
     return {
       ok: true as const,
@@ -290,6 +326,17 @@ export async function acceptOffer(input: {
       .update(assignments)
       .set({ status: "offered", updatedAt: nowIso() })
       .where(eq(assignments.id, offer.id));
+    // La solicitud se reclamó (-> "assigned") antes del batch; como el batch es
+    // atómico y no escribió nada, la devolvemos a "offered".
+    await db
+      .update(helpRequests)
+      .set({ status: "offered", updatedAt: nowIso() })
+      .where(
+        and(
+          eq(helpRequests.id, offer.helpRequestId),
+          eq(helpRequests.status, "assigned"),
+        ),
+      );
     throw error;
   }
 }
