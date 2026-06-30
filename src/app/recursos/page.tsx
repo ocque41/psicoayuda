@@ -105,6 +105,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/soledad-que-hacer">
+                Soledad: qué hacer cuando te sientes solo/a
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/acompanar-a-alguien-en-crisis">
                 Cómo acompañar a alguien que está pasando por un mal momento
               </Link>

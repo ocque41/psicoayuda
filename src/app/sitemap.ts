@@ -50,6 +50,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
     },
     {
+      path: "/recursos/soledad-que-hacer",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/recursos/acompanar-a-alguien-en-crisis",
       priority: 0.6,
       changeFrequency: "monthly",
