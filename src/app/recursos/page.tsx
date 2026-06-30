@@ -105,6 +105,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/autoestima-como-mejorarla">
+                Autoestima baja: cómo empezar a quererte mejor
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/estres-economico-y-salud-mental">
                 Estrés económico: cómo cuidar tu salud mental
               </Link>

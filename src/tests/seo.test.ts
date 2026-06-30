@@ -200,6 +200,7 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
       "src/app/recursos/ataque-de-panico-que-hacer/page.tsx",
       "src/app/recursos/insomnio-como-dormir-mejor/page.tsx",
       "src/app/recursos/soledad-que-hacer/page.tsx",
+      "src/app/recursos/autoestima-como-mejorarla/page.tsx",
       "src/app/recursos/estres-economico-y-salud-mental/page.tsx",
       "src/app/recursos/estres-postraumatico-tept/page.tsx",
       "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",

@@ -55,6 +55,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
     },
     {
+      path: "/recursos/autoestima-como-mejorarla",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/recursos/estres-economico-y-salud-mental",
       priority: 0.6,
       changeFrequency: "monthly",
