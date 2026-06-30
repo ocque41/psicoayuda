@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FeedProfessionalCard } from "@/app/profesionales/professional-card";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { getFeedProfessionals } from "@/lib/feed";
@@ -6,12 +7,12 @@ import { getFeedProfessionals } from "@/lib/feed";
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis",
   description:
-    "Pide apoyo psicológico gratuito y confidencial en Venezuela. Completa el formulario en menos de un minuto, sin crear cuenta, y una persona voluntaria te escribirá.",
+    "Pide apoyo psicológico gratuito y confidencial en Venezuela. Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta.",
   alternates: { canonical: "/ayuda" },
   openGraph: {
     title: "Pedir ayuda psicológica gratis | Nido",
     description:
-      "Pide apoyo psicológico gratuito y confidencial en Venezuela. Sin crear cuenta. Una persona voluntaria revisará tu mensaje.",
+      "Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta. Una persona voluntaria te acompañará.",
     url: "/ayuda",
   },
 };
@@ -22,10 +23,11 @@ export default async function HelpPage({
   searchParams: Promise<{ profesional?: string }>;
 }) {
   const { profesional } = await searchParams;
+  const professionals = await getFeedProfessionals();
+
   let preferred: { id: string; name: string } | null = null;
   if (profesional) {
-    const all = await getFeedProfessionals();
-    const found = all.find((person) => person.id === profesional);
+    const found = professionals.find((person) => person.id === profesional);
     if (found) preferred = { id: found.id, name: found.name };
   }
 
@@ -39,11 +41,32 @@ export default async function HelpPage({
           <li>Sin crear cuenta</li>
           <li>Voluntarios verificados</li>
         </ul>
-        <p className="lead">
-          Diste un paso importante al llegar aquí. Completar esto toma menos de
-          un minuto y una persona voluntaria revisará tu mensaje.
-        </p>
         <EmergencyNotice />
+
+        {professionals.length > 0 ? (
+          <>
+            <h2>Profesionales que pueden acompañarte</h2>
+            <p className="lead">
+              Estas personas voluntarias verificadas están disponibles ahora.
+              Escríbele directo a quien sientas más afín, o cuéntanos un poco
+              más abajo y <strong>envía tu solicitud a todas a la vez</strong> —
+              responde quien pueda.
+            </p>
+            <div className="grid grid-2">
+              {professionals.map((person) => (
+                <FeedProfessionalCard key={person.id} professional={person} />
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        <h2 id="formulario">
+          O cuéntanos y envía tu solicitud a varios a la vez
+        </h2>
+        <p className="lead">
+          Completar esto toma menos de un minuto. Al terminar podrás enviar tu
+          solicitud a todas las personas disponibles o elegir a quién.
+        </p>
         <HelpRequestForm
           preferredProfessionalId={preferred?.id}
           preferredProfessionalName={preferred?.name}
