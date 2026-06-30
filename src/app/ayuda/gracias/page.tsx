@@ -41,6 +41,12 @@ export default async function ThanksPage({
           varían. Mientras tanto, puedes mirar nuestros{" "}
           <Link href="/recursos">recursos</Link>.
         </p>
+        <p>
+          ¿Prefieres elegir tú a quién hablarle?{" "}
+          <Link className="button secondary" href="/profesionales">
+            Ver y elegir a las personas voluntarias
+          </Link>
+        </p>
 
         {suggestions.length ? (
           <>

@@ -46,6 +46,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
     },
     { path: "/pro", priority: 0.7, changeFrequency: "monthly" },
+    { path: "/psicologos", priority: 0.7, changeFrequency: "monthly" },
     { path: "/quienes-somos", priority: 0.6, changeFrequency: "monthly" },
     { path: "/seguridad", priority: 0.6, changeFrequency: "monthly" },
     { path: "/pacto-voluntario", priority: 0.5, changeFrequency: "monthly" },

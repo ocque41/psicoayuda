@@ -16,8 +16,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function ProPage() {
+export default async function ProPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ modo?: string }>;
+}) {
   const session = await getServerSession();
+  const { modo } = await searchParams;
+  const defaultMode = modo === "registro" ? "signup" : "signin";
 
   return (
     <section className="section">
@@ -45,7 +51,7 @@ export default async function ProPage() {
           </p>
         ) : (
           <div className="signin">
-            <AuthPanel />
+            <AuthPanel defaultMode={defaultMode} />
             <p className="muted auth-foot">
               Entras solo para verificar tu identidad profesional; no publicamos
               nada en tu nombre. Completar tu perfil toma unos 4 minutos.

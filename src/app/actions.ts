@@ -6,7 +6,12 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { auditLogs, helpRequests, professionals } from "@/db/schema";
+import {
+  assignments,
+  auditLogs,
+  helpRequests,
+  professionals,
+} from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
 import {
   assignRequestToProfessional,
@@ -117,6 +122,43 @@ export async function createHelpRequest(
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+
+  // Si la persona eligió a un profesional desde el feed, registramos su
+  // preferencia como una sugerencia para ese profesional. No consume cupo (lo
+  // confirma un coordinador) y la solicitud le llega igual al equipo.
+  if (parsed.data.preferredProfessionalId) {
+    try {
+      const chosen = await db.query.professionals.findFirst({
+        where: and(
+          eq(professionals.id, parsed.data.preferredProfessionalId),
+          eq(professionals.status, "approved"),
+        ),
+      });
+      if (chosen) {
+        await db.insert(assignments).values({
+          id: newId("asg"),
+          helpRequestId: id,
+          professionalId: chosen.id,
+          status: "suggested",
+          source: "seeker_choice",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        await db.insert(auditLogs).values({
+          id: newId("log"),
+          actorEmail: null,
+          action: "request_preference",
+          entityType: "help_request",
+          entityId: id,
+          metadata: JSON.stringify({ professionalId: chosen.id }),
+          createdAt: timestamp,
+        });
+      }
+    } catch {
+      // La preferencia es un extra: si falla, la solicitud igual queda
+      // registrada y le llega al equipo de coordinación.
+    }
+  }
 
   await notifyAdminHelpRequest(id);
   redirect(`/ayuda/gracias?solicitud=${id}`);

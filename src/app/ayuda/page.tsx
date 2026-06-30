@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
+import { getFeedProfessionals } from "@/lib/feed";
 
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis",
@@ -15,7 +16,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HelpPage() {
+export default async function HelpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ profesional?: string }>;
+}) {
+  const { profesional } = await searchParams;
+  let preferred: { id: string; name: string } | null = null;
+  if (profesional) {
+    const all = await getFeedProfessionals();
+    const found = all.find((person) => person.id === profesional);
+    if (found) preferred = { id: found.id, name: found.name };
+  }
+
   return (
     <section className="section">
       <div className="container">
@@ -31,7 +44,10 @@ export default function HelpPage() {
           un minuto y una persona voluntaria revisará tu mensaje.
         </p>
         <EmergencyNotice />
-        <HelpRequestForm />
+        <HelpRequestForm
+          preferredProfessionalId={preferred?.id}
+          preferredProfessionalName={preferred?.name}
+        />
         <p className="reassurance">
           Detrás de Nido hay psicólogas y psicólogos voluntarios reales que dan
           su tiempo para acompañar a personas como tú.

@@ -1,5 +1,11 @@
+import { eq, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
-import { helpRequests, professionals, user } from "../src/db/schema";
+import {
+  assignments,
+  helpRequests,
+  professionals,
+  user,
+} from "../src/db/schema";
 
 const db = drizzle({
   connection: { url: process.env.DATABASE_URL ?? "file:./local.db" },
@@ -8,6 +14,15 @@ const db = drizzle({
 const now = new Date().toISOString();
 
 async function main() {
+  // Reinicio idempotente de los datos de ejemplo, para poder re-sembrar y que
+  // reflejen la taxonomía actual sin filas obsoletas.
+  await db
+    .delete(assignments)
+    .where(like(assignments.professionalId, "pro_seed_%"));
+  await db.delete(professionals).where(like(professionals.id, "pro_seed_%"));
+  await db.delete(helpRequests).where(eq(helpRequests.id, "req_seed_1"));
+  await db.delete(user).where(like(user.id, "seed_user_%"));
+
   await db
     .insert(user)
     .values([
@@ -68,7 +83,7 @@ async function main() {
         licenseNumber: "CRED-ANA",
         licenseCountry: "Venezuela",
         languages: JSON.stringify(["es"]),
-        supportAreas: JSON.stringify(["duelo", "estres_agudo"]),
+        supportAreas: JSON.stringify(["duelo", "trauma_crisis"]),
         remoteAvailable: true,
         crisisExperience: true,
         contactEmail: "ana.pro@example.com",
@@ -91,7 +106,7 @@ async function main() {
         licenseCountry: "Colombia",
         languages: JSON.stringify(["es", "en"]),
         supportAreas: JSON.stringify([
-          "ansiedad_panico",
+          "ansiedad_depresion",
           "orientacion_general",
         ]),
         remoteAvailable: true,
@@ -115,7 +130,10 @@ async function main() {
         licenseNumber: "CRED-MARIA",
         licenseCountry: "Venezuela",
         languages: JSON.stringify(["es"]),
-        supportAreas: JSON.stringify(["familia_ninos", "perdida_vivienda"]),
+        supportAreas: JSON.stringify([
+          "infancia_adolescencia",
+          "familia_pareja",
+        ]),
         remoteAvailable: true,
         crisisExperience: true,
         contactEmail: "maria.pro@example.com",

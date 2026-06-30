@@ -44,6 +44,13 @@ export const helpRequestSchema = z.object({
   consentContact: checkboxBoolean.refine((value) => value, {
     message: "Necesitamos tu consentimiento para contactarte.",
   }),
+  // Si la persona eligió a un profesional concreto desde el feed, viaja su id.
+  preferredProfessionalId: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 export const professionalSchema = z.object({

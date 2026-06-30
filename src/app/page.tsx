@@ -30,7 +30,7 @@ export default function HomePage() {
             <Link className="button human" href="/ayuda">
               Quiero que me acompañen
             </Link>{" "}
-            <Link className="button secondary" href="/pro">
+            <Link className="button secondary" href="/psicologos">
               Soy profesional voluntario/a
             </Link>
           </p>
@@ -71,6 +71,32 @@ export default function HomePage() {
           <p>
             <Link className="button human" href="/ayuda">
               Pedir apoyo ahora
+            </Link>
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>
+            No te quedes solo/a: encuentra a un profesional que te acompañe
+          </h2>
+          <p>
+            Cuidar tu salud mental después de una catástrofe no es un lujo ni
+            una debilidad: es parte de reconstruir. El miedo, el duelo y el
+            agotamiento, cuando nadie los atiende, se quedan dentro y también
+            frenan a las familias y a las comunidades. Un país vuelve a
+            levantarse cuando su gente puede volver a dormir, a trabajar y a
+            cuidar de los suyos.
+          </p>
+          <p>
+            Pedir ayuda a tiempo cambia las cosas: hablar con una persona
+            profesional que escucha sin juzgar alivia, ordena lo que sientes y
+            te devuelve fuerzas. No tienes que poder con todo tú solo/a.
+          </p>
+          <p>
+            <Link className="button human" href="/ayuda">
+              Encontrar a un profesional
             </Link>
           </p>
         </div>

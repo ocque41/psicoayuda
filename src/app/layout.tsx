@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SiteNav } from "@/components/site-nav";
 import { SiteJsonLd } from "@/components/structured-data";
 import {
   SITE_DESCRIPTION,
@@ -116,12 +117,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </svg>
               <span>Nido</span>
             </Link>
-            <div className="nav-links">
-              <Link href="/ayuda">Pedir ayuda</Link>
-              <Link href="/profesionales">Profesionales</Link>
-              <Link href="/recursos">Recursos</Link>
-              <Link href="/pro">Soy profesional</Link>
-            </div>
+            <SiteNav />
           </nav>
         </header>
         <main id="contenido">{children}</main>
@@ -130,6 +126,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <nav className="footer-links" aria-label="Enlaces del sitio">
               <Link href="/como-funciona">Cómo funciona</Link>
               <Link href="/quienes-somos">Quiénes somos</Link>
+              <Link href="/psicologos">Psicólogos voluntarios</Link>
               <Link href="/preguntas-frecuentes">Preguntas frecuentes</Link>
               <Link href="/seguridad">Seguridad</Link>
               <Link href="/transparencia">Transparencia</Link>

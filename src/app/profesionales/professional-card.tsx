@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { createConversation } from "@/app/actions-chat";
 import { languageLabels, needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
 import {
@@ -63,18 +65,28 @@ export function FeedProfessionalCard({
       ) : null}
 
       <div className="pro-card-actions">
-        {/* Fase 1: el chat directo llega en la próxima fase. CTA honesto. */}
-        <button
-          className="button secondary block"
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="El chat directo llega muy pronto"
-        >
-          {available
-            ? `Hablar con ${professional.name} · muy pronto`
-            : "Sin cupo ahora mismo"}
-        </button>
+        {available ? (
+          <form action={createConversation}>
+            <input
+              type="hidden"
+              name="professionalId"
+              value={professional.id}
+            />
+            <button className="button human block" type="submit">
+              Hablar con {professional.name}
+            </button>
+          </form>
+        ) : (
+          <button
+            className="button secondary block"
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Esta persona no tiene cupo en este momento"
+          >
+            Sin cupo ahora mismo
+          </button>
+        )}
       </div>
     </article>
   );

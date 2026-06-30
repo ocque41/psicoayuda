@@ -91,7 +91,7 @@ function open(conv, cookie) {
             const f = await this.next();
             if (f.type === type) return f;
           }
-          throw new Error("no frame " + type);
+          throw new Error(`no frame ${type}`);
         },
         close: () => ws.close(),
       });
@@ -117,7 +117,7 @@ async function pollCalls(pred, timeout, label) {
     if (hit) return hit;
     await new Promise((r) => setTimeout(r, 150));
   }
-  throw new Error("no internal call: " + label);
+  throw new Error(`no internal call: ${label}`);
 }
 
 const results = [];
@@ -125,15 +125,15 @@ async function check(name, fn) {
   try {
     await fn();
     results.push([true, name]);
-    console.log("  PASS  " + name);
+    console.log(`  PASS  ${name}`);
   } catch (e) {
     results.push([false, name]);
-    console.log("  FAIL  " + name + " :: " + e.message);
+    console.log(`  FAIL  ${name} :: ${e.message}`);
   }
 }
 
 async function main() {
-  console.log("Chat e2e contra workerd (wrangler dev) en " + BASE);
+  console.log(`Chat e2e contra workerd (wrangler dev) en ${BASE}`);
 
   await check("403 sin cookie", async () => {
     assert.equal(await statusOf(cid("conv_auth"), null), 403);

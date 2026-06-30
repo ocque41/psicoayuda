@@ -51,10 +51,10 @@ function GoogleMark() {
   );
 }
 
-export function AuthPanel() {
+export function AuthPanel({ defaultMode = "signin" }: { defaultMode?: Mode }) {
   const router = useRouter();
   const ids = useId();
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(defaultMode);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");

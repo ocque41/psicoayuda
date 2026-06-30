@@ -10,7 +10,13 @@ import {
   urgencyLevels,
 } from "@/lib/constants";
 
-export function HelpRequestForm() {
+export function HelpRequestForm({
+  preferredProfessionalId,
+  preferredProfessionalName,
+}: {
+  preferredProfessionalId?: string;
+  preferredProfessionalName?: string;
+} = {}) {
   const [state, action, pending] = useActionState(createHelpRequest, null);
   const formId = useId();
   const [locationMessage, setLocationMessage] = useState("");
@@ -72,6 +78,22 @@ export function HelpRequestForm() {
         name="locationConsent"
         value={coords.lat ? "true" : "false"}
       />
+      {preferredProfessionalId ? (
+        <input
+          type="hidden"
+          name="preferredProfessionalId"
+          value={preferredProfessionalId}
+        />
+      ) : null}
+      {preferredProfessionalName ? (
+        <div className="notice" role="status">
+          <p style={{ margin: 0 }}>
+            Le pides apoyo a <strong>{preferredProfessionalName}</strong>. Si
+            prefieres, también puedes{" "}
+            <a href="/ayuda">enviar tu mensaje a todo el equipo</a>.
+          </p>
+        </div>
+      ) : null}
 
       <div className="field">
         <label htmlFor={ids.needCategory}>
