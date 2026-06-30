@@ -22,8 +22,7 @@ export default async function HomePage() {
         <div className="container">
           <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
           <h1>
-            Ayuda psicológica gratis para quienes vivieron los terremotos en
-            Venezuela
+            Ayuda psicológica gratis en Venezuela, también tras los terremotos
           </h1>
           <ul className="trust-strip" aria-label="Garantías">
             <li>Gratis, siempre</li>
