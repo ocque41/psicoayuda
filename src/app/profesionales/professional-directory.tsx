@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { CrisisResources } from "@/components/crisis-resources";
 import {
   languageLabels,
@@ -173,6 +173,13 @@ export function ProfessionalDirectory({
   const searchId = useId();
   const areaId = useId();
   const langId = useId();
+
+  // Si llega ?q= (p. ej. desde el buscador de la portada), precarga la consulta.
+  // En efecto de cliente para no tocar el SSR/ISR ni provocar mismatch.
+  useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get("q");
+    if (initial) setQuery(initial);
+  }, []);
 
   // Índice de búsqueda: el blob normalizado se calcula UNA vez por lista, no en
   // cada tecla → la búsqueda es instantánea aunque crezca el equipo.
