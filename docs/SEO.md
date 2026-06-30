@@ -24,25 +24,24 @@ hacer** (dominio, verificación, enlaces). El ranking #1 depende sobre todo de l
 
 Comprobar tras desplegar:
 ```
-curl https://TU-DOMINIO/robots.txt
-curl https://TU-DOMINIO/sitemap.xml
+curl https://saludmental-venezuela.com/robots.txt
+curl https://saludmental-venezuela.com/sitemap.xml
 ```
+Ambos deben mostrar **`https://saludmental-venezuela.com`** (no un `*.workers.dev`).
 
 ---
 
-## 2. Lo más importante: dominio propio (acción tuya)
+## 2. Dominio propio — ✅ HECHO
 
-`*.workers.dev` está **fuertemente penalizado** por Google y muchas veces **ni se indexa**.
-Sin un dominio propio, el resto del SEO rinde poco. Esto es la palanca #1.
+`saludmental-venezuela.com` ya está conectado (Custom Domain en Cloudflare) y es la
+URL canónica del sitio. Esto era la palanca #1: `*.workers.dev` está **fuertemente
+penalizado** por Google y muchas veces ni se indexa; el dominio propio lo desbloquea.
+Bonus: el dominio contiene la consulta objetivo ("salud mental venezuela").
 
-1. Registra un dominio (p. ej. `nido.org.ve`, `nido.ve` o `nidovenezuela.org`).
-2. En Cloudflare: Workers & Pages → tu Worker → **Custom Domains** → añade el dominio.
-3. Actualiza las variables a la URL real:
-   - `wrangler.jsonc` → `vars.NEXT_PUBLIC_SITE_URL` y `vars.BETTER_AUTH_URL`
-   - Vuelve a desplegar: `pnpm deploy`
-4. Verifica que `sitemap.xml` y `robots.txt` muestran ya el dominio nuevo.
-
-> Un `.org.ve`/`.org` también transmite más confianza (E-E-A-T) para un tema de salud (YMYL).
+> **Cómo se configura la URL canónica (importante).** `NEXT_PUBLIC_*` se inyecta en
+> *build time*, y nuestro build de Cloudflare **no** recibe esa variable; por eso la
+> URL real de producción es el **fallback de `src/lib/site.ts`**. Si algún día cambia
+> el dominio, actualiza ESE fallback (y, por coherencia, `wrangler.jsonc` y `.env`).
 
 ---
 
@@ -92,7 +91,7 @@ incluirnos como recurso/enlace? Encantados de coordinar y de sumar a su red de
 profesionales voluntarios.
 
 Gracias por su labor,
-[tu nombre] — [tu correo] — https://TU-DOMINIO
+[tu nombre] — [tu correo] — https://saludmental-venezuela.com
 ```
 
 > Cumple las reglas internas: no inventes cifras ni datos; menciona solo lo verificable.
@@ -125,7 +124,8 @@ distinta y verificada.
 
 ## Resumen de prioridad
 
-1. **Dominio propio** (sin esto, lo demás rinde poco).
-2. **Search Console**: verificar + enviar sitemap + solicitar indexación.
-3. **3–5 enlaces** de sitios relevantes (FPV, universidades, ONG, prensa).
+1. ~~**Dominio propio**~~ ✅ hecho (`saludmental-venezuela.com`).
+2. **Search Console** (lo más urgente ahora): verificar + enviar sitemap + solicitar
+   indexación de `/`, `/ayuda` y `/recursos`. Pega el token en `GOOGLE_SITE_VERIFICATION`.
+3. **3–5 enlaces** de sitios relevantes (FPV, universidades, ONG, prensa) para E-E-A-T.
 4. **Tiempo** (días-semanas) + contenido continuo.
