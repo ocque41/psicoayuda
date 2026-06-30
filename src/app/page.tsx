@@ -12,14 +12,6 @@ export default function HomePage() {
             Ayuda psicológica gratis para quienes vivieron los terremotos en
             Venezuela
           </h1>
-          <p className="lead">
-            Después de los sismos que sacudieron Yaracuy, La Guaira, Caracas y
-            el centro-norte del país, sentir miedo, angustia, insomnio o no
-            poder dejar de revivir lo ocurrido es una reacción normal ante algo
-            que no fue normal. En Nido te conectamos, sin coste y sin crear
-            cuenta, con psicólogas y psicólogos voluntarios verificados que
-            acompañan a distancia a quienes atraviesan este momento.
-          </p>
           <ul className="trust-strip" aria-label="Garantías">
             <li>Gratis, siempre</li>
             <li>Confidencial</li>
@@ -47,6 +39,14 @@ export default function HomePage() {
       <section className="section">
         <div className="container">
           <h2>Lo que sientes después del terremoto tiene sentido</h2>
+          <p className="lead">
+            Después de los sismos que sacudieron Yaracuy, La Guaira, Caracas y
+            el centro-norte del país, sentir miedo, angustia, insomnio o no
+            poder dejar de revivir lo ocurrido es una reacción normal ante algo
+            que no fue normal. En Nido te conectamos, sin coste y sin crear
+            cuenta, con psicólogas y psicólogos voluntarios verificados que
+            acompañan a distancia a quienes atraviesan este momento.
+          </p>
           <p>
             No hay una forma “correcta” de reaccionar ante una catástrofe. En
             los días y semanas posteriores es común sentir algunas de estas
