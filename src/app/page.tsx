@@ -1,8 +1,21 @@
 import Link from "next/link";
 import { HomeJsonLd } from "@/components/structured-data";
+import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
+import { FeedProfessionalCard } from "./profesionales/professional-card";
 
-export default function HomePage() {
+// La portada muestra a las personas voluntarias verificadas (lista pública, sin
+// datos confidenciales). ISR cada 60s, igual que /profesionales: la BD D1 no
+// existe en build, así que se prerenderiza vacío y se rellena en runtime.
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const professionals = await getFeedProfessionals();
+  // Tope de 6 en la portada: es una página de contención (YMYL) y más tarjetas
+  // empujarían el contenido tranquilizador demasiado abajo, sobre todo en móvil.
+  // El resto se ve en /profesionales mediante "Ver todas".
+  const featured = professionals.slice(0, 6);
+
   return (
     <>
       <section className="hero">
@@ -33,6 +46,50 @@ export default function HomePage() {
             ayuda presencial ahora mismo.{" "}
             <Link href="/emergencia">Más líneas de ayuda y qué hacer →</Link>
           </p>
+        </div>
+      </section>
+
+      <section className="section" id="voluntarios">
+        <div className="container">
+          <h2>Psicólogas y psicólogos voluntarios disponibles</h2>
+          <p className="lead">
+            Estas personas profesionales, verificadas, donan su tiempo para
+            acompañarte gratis y a distancia. Elige con quién hablar o deja tu
+            solicitud y te conectamos con alguien afín.
+          </p>
+          {featured.length > 0 ? (
+            <>
+              <div className="grid grid-2">
+                {featured.map((professional) => (
+                  <FeedProfessionalCard
+                    key={professional.id}
+                    professional={professional}
+                  />
+                ))}
+              </div>
+              <p>
+                <Link className="button secondary" href="/profesionales">
+                  Ver todas las personas voluntarias
+                </Link>
+              </p>
+            </>
+          ) : (
+            <div className="card">
+              <p>
+                Estamos sumando psicólogas y psicólogos voluntarios verificados.
+                Mientras tanto, deja tu solicitud y una persona del equipo te
+                escribirá a tu correo para acompañarte.
+              </p>
+              <p className="join-actions">
+                <Link className="button human" href="/ayuda">
+                  Pedir apoyo ahora
+                </Link>
+                <Link className="button secondary" href="/pro">
+                  Soy psicólogo/a: quiero ayudar
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
