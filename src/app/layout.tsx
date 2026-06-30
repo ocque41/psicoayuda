@@ -95,9 +95,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link className="brand" href="/" aria-label="Nido, inicio">
               <Image
                 className="brand-logo"
-                src="/brand/nido-logo-400.png"
-                width="400"
-                height="208"
+                src="/brand/nido-icon-128.png"
+                width="128"
+                height="128"
                 alt="Nido"
               />
             </Link>
