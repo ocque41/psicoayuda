@@ -65,6 +65,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
     },
     {
+      path: "/recursos/burnout-agotamiento-que-hacer",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
       path: "/recursos/estres-postraumatico-tept",
       priority: 0.7,
       changeFrequency: "monthly",

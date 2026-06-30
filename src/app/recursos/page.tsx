@@ -115,6 +115,11 @@ export default function ResourcesPage() {
               </Link>
             </li>
             <li>
+              <Link href="/recursos/burnout-agotamiento-que-hacer">
+                Burnout: agotamiento por estrés, señales y qué hacer
+              </Link>
+            </li>
+            <li>
               <Link href="/recursos/estres-postraumatico-tept">
                 Estrés postraumático (TEPT): cuándo el susto no se va
               </Link>

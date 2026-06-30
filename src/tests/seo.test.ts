@@ -202,6 +202,7 @@ describe("SEO — migas de pan (BreadcrumbList)", () => {
       "src/app/recursos/soledad-que-hacer/page.tsx",
       "src/app/recursos/autoestima-como-mejorarla/page.tsx",
       "src/app/recursos/estres-economico-y-salud-mental/page.tsx",
+      "src/app/recursos/burnout-agotamiento-que-hacer/page.tsx",
       "src/app/recursos/estres-postraumatico-tept/page.tsx",
       "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",
       "src/app/recursos/apoyo-emocional-anonimo/page.tsx",
