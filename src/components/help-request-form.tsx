@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { createHelpRequest } from "@/app/actions";
 import {
   languageLabels,
@@ -9,6 +16,16 @@ import {
   urgencyLabels,
   urgencyLevels,
 } from "@/lib/constants";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
+
+// Borrador local: si la persona cierra la página sin enviar, al volver en el
+// mismo dispositivo no pierde sus selecciones. SOLO guardamos campos NO
+// identificables: este formulario es público (sin sesión), así que en un
+// dispositivo compartido el siguiente usuario recuperaría lo guardado. Por eso
+// NO persistimos correo, alias ni ubicación (ni el consentimiento). Con TTL.
+const DRAFT_KEY = "nido:ayuda-draft";
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const DRAFT_FIELDS = ["needCategory", "urgency", "language"] as const;
 
 export function HelpRequestForm({
   preferredProfessionalId,
@@ -22,7 +39,46 @@ export function HelpRequestForm({
   const [locationMessage, setLocationMessage] = useState("");
   const [coords, setCoords] = useState<{ lat?: number; lng?: number }>({});
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const persistDraft = useCallback(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const data = new FormData(form);
+    const draft: Record<string, string> = {};
+    for (const name of DRAFT_FIELDS) {
+      const value = data.get(name);
+      if (typeof value === "string" && value !== "") draft[name] = value;
+    }
+    saveDraft(DRAFT_KEY, draft);
+  }, []);
+
+  // Restaurar el borrador al abrir, en el mismo dispositivo (si no caducó).
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const saved = loadDraft<Record<string, unknown>>(DRAFT_KEY, DRAFT_TTL_MS);
+    if (!saved) return;
+    for (const name of DRAFT_FIELDS) {
+      const value = saved[name];
+      if (typeof value !== "string" || value === "") continue;
+      const el = form.elements.namedItem(name);
+      // DRAFT_FIELDS no incluye grupos de radio, así que namedItem devuelve un
+      // único control; el cast a { value } solapa con input/select sin pelear con
+      // el tipo RadioNodeList que TS contempla.
+      if (el && "value" in el) {
+        (el as { value: string }).value = value;
+      }
+    }
+  }, []);
+
+  // Si el envío falla, el borrador sigue a salvo aunque cierren la pestaña.
+  useEffect(() => {
+    if (state && !state.ok) persistDraft();
+  }, [state, persistDraft]);
   const ids = {
+    seekerName: `${formId}-seeker-name`,
+    seekerNameHint: `${formId}-seeker-name-hint`,
     email: `${formId}-email`,
     emailHint: `${formId}-email-hint`,
     language: `${formId}-language`,
@@ -70,7 +126,14 @@ export function HelpRequestForm({
   }
 
   return (
-    <form action={action} className="card" aria-busy={pending}>
+    <form
+      action={action}
+      className="card"
+      aria-busy={pending}
+      ref={formRef}
+      onChange={persistDraft}
+      onSubmit={() => clearDraft(DRAFT_KEY)}
+    >
       <input type="hidden" name="lat" value={coords.lat ?? ""} />
       <input type="hidden" name="lng" value={coords.lng ?? ""} />
       <input
@@ -135,6 +198,24 @@ export function HelpRequestForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor={ids.seekerName}>
+          ¿Cómo quieres que te llamemos? (opcional)
+        </label>
+        <p className="hint" id={ids.seekerNameHint}>
+          Un nombre o apodo. La persona que te acompañe lo verá al avisarle. No
+          tiene que ser tu nombre real.
+        </p>
+        <input
+          id={ids.seekerName}
+          name="seekerName"
+          type="text"
+          maxLength={40}
+          autoComplete="off"
+          aria-describedby={ids.seekerNameHint}
+        />
       </div>
 
       <div className="field">

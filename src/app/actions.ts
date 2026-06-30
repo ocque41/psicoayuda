@@ -122,6 +122,7 @@ export async function createHelpRequest(
   await db.insert(helpRequests).values({
     id,
     email: parsed.data.email ?? "",
+    seekerName: parsed.data.seekerName ?? null,
     language: parsed.data.language,
     country: parsed.data.country || "Venezuela",
     state: parsed.data.state,
@@ -203,7 +204,6 @@ export async function saveProfessionalOnboarding(
   const raw = formEntries(formData);
   const parsed = professionalSchema.safeParse({
     ...raw,
-    languages: formData.getAll("languages"),
     supportAreas: formData.getAll("supportAreas"),
   });
 
@@ -225,7 +225,11 @@ export async function saveProfessionalOnboarding(
     city: parsed.data.city,
     licenseNumber: parsed.data.licenseNumber,
     licenseCountry: parsed.data.licenseCountry,
-    languages: JSON.stringify(parsed.data.languages),
+    university: parsed.data.university,
+    phone: parsed.data.phone ?? null,
+    photo: parsed.data.photo ?? null,
+    // Todos acompañan en español: el idioma ya no se pregunta en el alta.
+    languages: JSON.stringify(["es"]),
     supportAreas: JSON.stringify(parsed.data.supportAreas),
     remoteAvailable: parsed.data.remoteAvailable,
     crisisExperience: parsed.data.crisisExperience,
@@ -239,15 +243,17 @@ export async function saveProfessionalOnboarding(
   };
 
   if (existing) {
+    // ponytail: no tocamos status al editar — preserva una posible suspensión/baja del admin.
     await db
       .update(professionals)
-      .set({ ...values, status: "pending_verification" })
+      .set(values)
       .where(eq(professionals.id, existing.id));
   } else {
     await db.insert(professionals).values({
       ...values,
       id: newId("pro"),
-      status: "pending_verification",
+      // Sin verificación: el profesional queda activo al instante.
+      status: "approved",
       currentActiveRequests: 0,
       createdAt: timestamp,
     });

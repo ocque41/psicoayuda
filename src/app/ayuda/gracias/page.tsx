@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { sendRequestToProfessionals } from "@/app/actions-offers";
 import { FocusHeading } from "@/components/focus-heading";
-import { languageLabels, needLabels } from "@/lib/constants";
+import { needLabels } from "@/lib/constants";
 import { getFeedProfessionals } from "@/lib/feed";
 
 export const metadata: Metadata = {
@@ -125,15 +125,6 @@ export default async function ThanksPage({
                                 ·{" "}
                                 {p.supportAreas
                                   .map((a) => label(needLabels, a))
-                                  .join(", ")}
-                              </span>
-                            ) : null}
-                            {p.languages.length > 0 ? (
-                              <span className="muted">
-                                {" "}
-                                ·{" "}
-                                {p.languages
-                                  .map((l) => label(languageLabels, l))
                                   .join(", ")}
                               </span>
                             ) : null}

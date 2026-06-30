@@ -13,6 +13,10 @@ export type FeedProfessional = {
   languages: string[];
   supportAreas: string[];
   shortBio: string | null;
+  photo: string | null;
+  // Público por diseño: la ficha funciona como directorio (libro amarillo). Se
+  // muestra como botón de WhatsApp/llamada. Null si el profesional no lo dio.
+  phone: string | null;
   crisisExperience: boolean;
   acceptingRequests: boolean;
   currentActiveRequests: number;
@@ -45,6 +49,8 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     languages: string;
     supportAreas: string;
     shortBio: string | null;
+    photo: string | null;
+    phone: string | null;
     crisisExperience: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
@@ -61,6 +67,8 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         languages: professionals.languages,
         supportAreas: professionals.supportAreas,
         shortBio: professionals.shortBio,
+        photo: professionals.photo,
+        phone: professionals.phone,
         crisisExperience: professionals.crisisExperience,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
@@ -90,6 +98,8 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     languages: parseJsonList(r.languages),
     supportAreas: parseJsonList(r.supportAreas),
     shortBio: r.shortBio,
+    photo: r.photo,
+    phone: r.phone,
     crisisExperience: r.crisisExperience,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,

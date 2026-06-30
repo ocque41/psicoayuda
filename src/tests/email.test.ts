@@ -7,7 +7,7 @@ describe("buildNewMessageEmail", () => {
   it("avisa de forma directa con CTA a responder", () => {
     const mail = buildNewMessageEmail({ conversationUrl: URL });
     expect(mail.subject).toContain("Nido");
-    expect(mail.subject.toLowerCase()).toContain("apoyo");
+    expect(mail.subject.toLowerCase()).toContain("escribiendo");
     expect(mail.html).toContain("te escribió directamente");
     expect(mail.html).toContain("Responder ahora");
   });
@@ -37,6 +37,25 @@ describe("buildNewMessageEmail", () => {
   it("usa 'Alguien' anónimo por defecto (no expone identidad del seeker)", () => {
     const mail = buildNewMessageEmail({ conversationUrl: URL });
     expect(mail.subject.startsWith("Alguien")).toBe(true);
+  });
+
+  it("muestra el alias del seeker cuando se da, en subject y cuerpo", () => {
+    const mail = buildNewMessageEmail({
+      conversationUrl: URL,
+      seekerLabel: "María",
+    });
+    expect(mail.subject.startsWith("María")).toBe(true);
+    expect(mail.html).toContain("María");
+    expect(mail.text).toContain("María");
+  });
+
+  it("escapa HTML del alias del seeker para evitar inyección", () => {
+    const mail = buildNewMessageEmail({
+      conversationUrl: URL,
+      seekerLabel: "<img src=x onerror=alert(1)>",
+    });
+    expect(mail.html).not.toContain("<img src=x");
+    expect(mail.html).toContain("&lt;img");
   });
 
   it("no incluye el contenido del mensaje (confidencialidad)", () => {

@@ -98,6 +98,14 @@ export const professionals = sqliteTable(
     city: text("city"),
     licenseNumber: text("license_number"),
     licenseCountry: text("license_country"),
+    // Universidad donde obtuvo el título (dato de verificación, no público).
+    university: text("university"),
+    // Teléfono/WhatsApp opcional. Público por diseño: si el profesional lo da, se
+    // muestra en su ficha como botón de WhatsApp/llamada (libro amarillo).
+    phone: text("phone"),
+    // Foto opcional (avatar). Data URL pequeña, redimensionada en el cliente para
+    // no pesar (ver professional-onboarding-form). Pública: se muestra en su ficha.
+    photo: text("photo"),
     languages: text("languages").notNull(),
     supportAreas: text("support_areas").notNull(),
     remoteAvailable: integer("remote_available", { mode: "boolean" })
@@ -141,6 +149,10 @@ export const helpRequests = sqliteTable(
   {
     id: text("id").primaryKey(),
     email: text("email").notNull(),
+    // Alias opcional elegido por la persona ("¿Cómo quieres que te llamemos?").
+    // No es identidad legal: la persona decide qué compartir. Se muestra al
+    // profesional en el aviso de mensaje y se borra al anonimizar.
+    seekerName: text("seeker_name"),
     language: text("language").default("es").notNull(),
     country: text("country").default("Venezuela"),
     state: text("state"),
@@ -228,6 +240,10 @@ export const conversations = sqliteTable(
       .notNull()
       .references(() => professionals.id, { onDelete: "cascade" }),
     seekerSid: text("seeker_sid").notNull(),
+    // Copia del alias opcional del seeker, para mostrarlo en el aviso "te están
+    // escribiendo" sin tener que cruzar a help_requests (que puede ser null en el
+    // flujo de chat directo). Se borra al anonimizar.
+    seekerName: text("seeker_name"),
     status: text("status").default("open").notNull(),
     firstSeekerMsgAt: integer("first_seeker_msg_at", { mode: "timestamp_ms" }),
     firstProReplyAt: integer("first_pro_reply_at", { mode: "timestamp_ms" }),

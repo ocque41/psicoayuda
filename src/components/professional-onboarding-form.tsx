@@ -1,8 +1,48 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef } from "react";
+import {
+  type ChangeEvent,
+  useActionState,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { saveProfessionalOnboarding } from "@/app/actions";
-import { languageLabels, needCategories, needLabels } from "@/lib/constants";
+import { countries, needCategories, needLabels } from "@/lib/constants";
+
+// Redimensiona la foto elegida a un avatar pequeño (máx 256px) y la comprime a
+// JPEG antes de subirla: así no pesa ni recarga la web ni la base de datos.
+const PHOTO_MAX_PX = 256;
+const PHOTO_QUALITY = 0.82;
+
+function resizeImageToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode"));
+      img.onload = () => {
+        const scale = Math.min(
+          1,
+          PHOTO_MAX_PX / Math.max(img.width, img.height),
+        );
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("ctx"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 export function ProfessionalOnboardingForm({
   email,
@@ -17,6 +57,8 @@ export function ProfessionalOnboardingForm({
   );
   const formId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState("");
   const ids = {
     fullName: `${formId}-full-name`,
     displayName: `${formId}-display-name`,
@@ -26,6 +68,10 @@ export function ProfessionalOnboardingForm({
     licenseNumber: `${formId}-license-number`,
     licenseHint: `${formId}-license-hint`,
     licenseCountry: `${formId}-license-country`,
+    university: `${formId}-university`,
+    universityHint: `${formId}-university-hint`,
+    phone: `${formId}-phone`,
+    phoneHint: `${formId}-phone-hint`,
     contactEmail: `${formId}-contact-email`,
     contactEmailHint: `${formId}-contact-email-hint`,
     maxActiveRequests: `${formId}-max-active-requests`,
@@ -33,6 +79,8 @@ export function ProfessionalOnboardingForm({
     contactNotes: `${formId}-contact-notes`,
     shortBio: `${formId}-short-bio`,
     shortBioHint: `${formId}-short-bio-hint`,
+    photo: `${formId}-photo`,
+    photoHint: `${formId}-photo-hint`,
   };
 
   useEffect(() => {
@@ -40,6 +88,21 @@ export function ProfessionalOnboardingForm({
       errorRef.current?.focus();
     }
   }, [state]);
+
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPhotoError("");
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Elige un archivo de imagen.");
+      return;
+    }
+    try {
+      setPhoto(await resizeImageToDataUrl(file));
+    } catch {
+      setPhotoError("No se pudo procesar la imagen. Prueba con otra.");
+    }
+  }
 
   return (
     <form action={action} className="card" aria-busy={pending}>
@@ -73,12 +136,72 @@ export function ProfessionalOnboardingForm({
         <div className="grid grid-2">
           <div className="field">
             <label htmlFor={ids.country}>País</label>
-            <input id={ids.country} name="country" />
+            <select
+              id={ids.country}
+              name="country"
+              autoComplete="country-name"
+              defaultValue="Venezuela"
+            >
+              {countries.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor={ids.city}>Ciudad</label>
             <input id={ids.city} name="city" />
           </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor={ids.photo}>Foto (opcional)</label>
+          <p className="hint" id={ids.photoHint}>
+            Una foto cercana ayuda a generar confianza. Se reduce
+            automáticamente para que no pese.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {photo ? (
+              // biome-ignore lint/performance/noImgElement: vista previa de un data URL en cliente; next/image no aplica
+              <img
+                src={photo}
+                alt="Vista previa de tu foto"
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  flex: "none",
+                }}
+              />
+            ) : null}
+            <input
+              id={ids.photo}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handlePhotoChange}
+              aria-describedby={ids.photoHint}
+            />
+            {photo ? (
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  setPhoto(null);
+                  setPhotoError("");
+                }}
+              >
+                Quitar
+              </button>
+            ) : null}
+          </div>
+          {photoError ? (
+            <p className="form-error" role="alert">
+              {photoError}
+            </p>
+          ) : null}
+          <input type="hidden" name="photo" value={photo ?? ""} />
         </div>
       </fieldset>
 
@@ -103,8 +226,33 @@ export function ProfessionalOnboardingForm({
           </div>
           <div className="field">
             <label htmlFor={ids.licenseCountry}>País de la credencial *</label>
-            <input id={ids.licenseCountry} name="licenseCountry" required />
+            <select
+              id={ids.licenseCountry}
+              name="licenseCountry"
+              required
+              defaultValue="Venezuela"
+            >
+              {countries.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
+        <div className="field">
+          <label htmlFor={ids.university}>
+            Universidad donde obtuviste tu título *
+          </label>
+          <p className="hint" id={ids.universityHint}>
+            La institución que emitió tu título profesional.
+          </p>
+          <input
+            id={ids.university}
+            name="university"
+            required
+            aria-describedby={ids.universityHint}
+          />
         </div>
       </fieldset>
 
@@ -114,32 +262,26 @@ export function ProfessionalOnboardingForm({
           Tú defines tus límites. Todo esto lo puedes cambiar más adelante.
         </p>
 
-        <p style={{ fontWeight: 600, margin: "0 0 6px" }}>Idiomas *</p>
-        <div className="checks">
-          {Object.entries(languageLabels).map(([value, label]) => (
-            <label key={value}>
-              <input
-                name="languages"
-                type="checkbox"
-                value={value}
-                defaultChecked={value === "es"}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-
-        <p style={{ fontWeight: 600, margin: "10px 0 6px" }}>
-          Áreas de apoyo *
-        </p>
-        <div className="checks">
-          {needCategories.map((value) => (
-            <label key={value}>
-              <input name="supportAreas" type="checkbox" value={value} />
-              {needLabels[value]}
-            </label>
-          ))}
-        </div>
+        <fieldset
+          style={{
+            border: 0,
+            margin: 0,
+            padding: 0,
+            minInlineSize: "auto",
+          }}
+        >
+          <legend style={{ fontWeight: 600, margin: "0 0 6px", padding: 0 }}>
+            Áreas de apoyo *
+          </legend>
+          <div className="checks">
+            {needCategories.map((value) => (
+              <label key={value}>
+                <input name="supportAreas" type="checkbox" value={value} />
+                {needLabels[value]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <div className="field">
           <label htmlFor={ids.maxActiveRequests}>
@@ -188,6 +330,22 @@ export function ProfessionalOnboardingForm({
             name="shortBio"
             rows={4}
             aria-describedby={ids.shortBioHint}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={ids.phone}>WhatsApp *</label>
+          <p className="hint" id={ids.phoneHint}>
+            Se mostrará en tu ficha como botón de WhatsApp y llamada: es como
+            las personas te contactarán directamente. Si estás fuera de
+            Venezuela, incluye el código de país (ej. +57…).
+          </p>
+          <input
+            id={ids.phone}
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            required
+            aria-describedby={ids.phoneHint}
           />
         </div>
         <div className="grid grid-2">
