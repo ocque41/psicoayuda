@@ -195,6 +195,37 @@ export default function HomePage() {
 
       <section className="section">
         <div className="container">
+          <h2>Guías para acompañarte</h2>
+          <p>
+            Lecturas breves y cálidas, escritas con cuidado, para distintos
+            momentos. No reemplazan hablar con una persona, pero pueden ayudarte
+            mientras das el paso.
+          </p>
+          <ul className="reactions">
+            <li>
+              <Link href="/recursos/psicologo-online-gratis-venezuela">
+                Psicólogo online gratis en Venezuela: cómo empezar
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/ansiedad-despues-del-terremoto">
+                Ansiedad y miedo después del terremoto: qué hacer
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/acompanar-a-alguien-en-crisis">
+                Cómo acompañar a alguien que está pasando por un mal momento
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos">Ver todos los recursos de apoyo</Link>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
           <h2>Preguntas frecuentes sobre la ayuda psicológica gratuita</h2>
           <div className="faq">
             {HOME_FAQ.map((item) => (
