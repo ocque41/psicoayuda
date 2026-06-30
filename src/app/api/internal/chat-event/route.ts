@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
@@ -11,7 +12,10 @@ function isAuthorized(request: Request): boolean {
   const provided = request.headers.get("x-nido-internal");
   const expected =
     process.env.INTERNAL_NOTIFY_SECRET ?? process.env.BETTER_AUTH_SECRET;
-  return Boolean(provided && expected && provided === expected);
+  if (!provided || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 type ChatEvent = {

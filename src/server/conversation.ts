@@ -17,6 +17,11 @@ const HISTORY_PAGE = 30;
 const SYNC_LIMIT = 200;
 // Como mucho un email cada 5 min por conversación (anti-spam al profesional).
 const NOTIFY_DEBOUNCE_MS = 5 * 60 * 1000;
+// Anti-flood: tope de frames por conexión y ventana, y tope duro de mensajes
+// por conversación (evita crecimiento no acotado del SQLite del DO).
+const FRAME_WINDOW_MS = 10_000;
+const FRAME_MAX_PER_WINDOW = 40;
+const MAX_MESSAGES_PER_CONVERSATION = 5000;
 
 type ConnState = { role: SenderRole };
 
@@ -55,6 +60,22 @@ export class Conversation extends Server<Env> {
   private firstSeekerMsgAt: number | null = null;
   private firstProReplyAt: number | null = null;
   private lastNotifyAt = 0;
+  // Contador de frames por conexión (en memoria; un flood mantiene el DO
+  // despierto, así que la ventana persiste durante el ataque).
+  private rate = new Map<string, { winStart: number; count: number }>();
+
+  // Token-bucket por conexión: limita frames/ventana (anti-flood de mensajes,
+  // typing, etc.). Devuelve false si la conexión excede el límite.
+  private allowFrame(connectionId: string): boolean {
+    const now = Date.now();
+    const entry = this.rate.get(connectionId);
+    if (!entry || now - entry.winStart >= FRAME_WINDOW_MS) {
+      this.rate.set(connectionId, { winStart: now, count: 1 });
+      return true;
+    }
+    entry.count += 1;
+    return entry.count <= FRAME_MAX_PER_WINDOW;
+  }
 
   async onStart() {
     const sql = this.ctx.storage.sql;
@@ -112,8 +133,13 @@ export class Conversation extends Server<Env> {
         HISTORY_PAGE,
       )
       .toArray() as MessageRow[];
+    const total = (
+      this.ctx.storage.sql.exec(`SELECT COUNT(*) AS c FROM messages`).one() as {
+        c: number;
+      }
+    ).c;
     const messages = rows.reverse().map(toChatMessage);
-    const hasMore = messages.length > 0 && messages[0].seq > 1;
+    const hasMore = total > messages.length;
 
     this.sendTo(connection, { type: "history", messages, hasMore });
     this.broadcastExcept(connection, {
@@ -124,6 +150,7 @@ export class Conversation extends Server<Env> {
   }
 
   onClose(connection: Connection) {
+    this.rate.delete(connection.id);
     const role = (connection.state as ConnState | null)?.role ?? "seeker";
     this.broadcastExcept(connection, { type: "presence", role, online: false });
   }
@@ -133,6 +160,10 @@ export class Conversation extends Server<Env> {
     const frame = parseClientFrame(raw);
     if (!frame) {
       this.sendTo(connection, { type: "error", code: "bad_frame" });
+      return;
+    }
+    if (!this.allowFrame(connection.id)) {
+      this.sendTo(connection, { type: "error", code: "rate_limited" });
       return;
     }
     const role = (connection.state as ConnState | null)?.role ?? "seeker";
@@ -195,7 +226,13 @@ export class Conversation extends Server<Env> {
       return;
     }
 
-    const seq = ++this.lastSeq;
+    // Tope duro por conversación: evita crecimiento no acotado del SQLite del DO.
+    if (this.lastSeq >= MAX_MESSAGES_PER_CONVERSATION) {
+      this.sendTo(connection, { type: "error", code: "conversation_full" });
+      return;
+    }
+
+    const seq = this.lastSeq + 1;
     const serverTs = Date.now();
     const serverId = `m_${seq}_${serverTs.toString(36)}`;
 
@@ -209,6 +246,7 @@ export class Conversation extends Server<Env> {
       content,
       serverTs,
     );
+    this.lastSeq = seq; // solo tras un INSERT exitoso: sin huecos en seq
 
     this.sendTo(connection, {
       type: "ack",

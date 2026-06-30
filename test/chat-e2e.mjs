@@ -246,6 +246,19 @@ async function main() {
     },
   );
 
+  await check("rate-limit anti-flood por conexión", async () => {
+    const conv = cid("conv_flood");
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    // Inundar por encima del tope (40/ventana) debe producir un error.
+    for (let i = 0; i < 60; i++) {
+      seeker.send({ type: "send", clientMsgId: `f${i}`, content: "x" });
+    }
+    const err = await seeker.waitFor("error");
+    assert.equal(err.code, "rate_limited");
+    seeker.close();
+  });
+
   const failed = results.filter(([ok]) => !ok).length;
   console.log(`\n${results.length - failed}/${results.length} checks passed`);
 
