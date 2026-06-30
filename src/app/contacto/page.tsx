@@ -80,6 +80,26 @@ export default function Page() {
           </article>
         </div>
 
+        <div className="card" style={{ borderColor: "var(--accent)" }}>
+          <h2>Fundaciones, organizaciones y alianzas</h2>
+          <p>
+            Si representas a una fundación, universidad, colegio de psicólogos u
+            otra organización de salud mental y quieres aliarte con Nido para
+            llegar a más personas tras el terremoto —que tus profesionales se
+            sumen como voluntarios, derivar casos o coordinar campañas—,
+            escríbenos y lo conversamos:
+          </p>
+          <p>
+            <Link className="button human" href={`mailto:${privacyEmail}`}>
+              {privacyEmail}
+            </Link>
+          </p>
+          <p className="muted">
+            Cuéntanos quiénes son y cómo les gustaría colaborar. Cada
+            organización que se suma nos ayuda a acompañar a más gente.
+          </p>
+        </div>
+
         <div className="reassurance">
           <h2>Qué esperar de nosotros</h2>
           <ul>

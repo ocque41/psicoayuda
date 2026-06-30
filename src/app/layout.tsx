@@ -91,7 +91,30 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="topbar">
           <nav className="container nav" aria-label="Principal">
             <Link className="brand" href="/" aria-label="Nido, inicio">
-              Nido
+              <svg
+                className="brand-flag"
+                viewBox="0 0 30 20"
+                width="26"
+                height="17"
+                role="img"
+                aria-label="Venezuela"
+              >
+                <title>Venezuela</title>
+                <rect width="30" height="20" rx="2.5" fill="#FCD116" />
+                <rect y="6.667" width="30" height="6.667" fill="#00247D" />
+                <rect y="13.333" width="30" height="6.667" fill="#CF142B" />
+                <g fill="#ffffff">
+                  <circle cx="7.5" cy="9.0" r="0.62" />
+                  <circle cx="9.6" cy="9.7" r="0.62" />
+                  <circle cx="11.8" cy="10.1" r="0.62" />
+                  <circle cx="13.9" cy="10.4" r="0.62" />
+                  <circle cx="16.1" cy="10.4" r="0.62" />
+                  <circle cx="18.2" cy="10.1" r="0.62" />
+                  <circle cx="20.4" cy="9.7" r="0.62" />
+                  <circle cx="22.5" cy="9.0" r="0.62" />
+                </g>
+              </svg>
+              <span>Nido</span>
             </Link>
             <div className="nav-links">
               <Link href="/ayuda">Pedir ayuda</Link>

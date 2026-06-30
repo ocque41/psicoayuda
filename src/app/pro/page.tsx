@@ -4,14 +4,14 @@ import { AuthPanel } from "@/components/auth-panel";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
-  title: "Psicólogos voluntarios: ofrece apoyo gratis",
+  title: "Voluntariado: psicólogos y fundaciones que quieren ayudar",
   description:
-    "¿Eres psicóloga o psicólogo? Únete como voluntario/a y ofrece apoyo psicológico gratuito y a distancia a personas en Venezuela. Tú defines tu disponibilidad.",
+    "¿Eres psicóloga, psicólogo o una fundación de salud mental? Únete como voluntario/a y ofrece apoyo psicológico gratuito y a distancia a personas afectadas por el terremoto en Venezuela. Tú defines tu disponibilidad.",
   alternates: { canonical: "/pro" },
   openGraph: {
-    title: "Psicólogos voluntarios: ofrece apoyo gratis | Nido",
+    title: "Psicólogos voluntarios y fundaciones: ayuda gratis | Nido",
     description:
-      "Únete como psicólogo o psicóloga voluntaria y ofrece apoyo gratuito y a distancia a personas en Venezuela.",
+      "Súmate como psicólogo, psicóloga o fundación voluntaria y ofrece apoyo gratuito y a distancia a personas en Venezuela tras el terremoto.",
     url: "/pro",
   },
 };
@@ -24,9 +24,10 @@ export default async function ProPage() {
       <div className="container">
         <h1>Este es tu lugar para ayudar</h1>
         <p className="lead">
-          Si eres psicólogo/a o profesional de la salud mental, aquí puedes
-          acompañar a quien más lo necesita. Atiendes en remoto, en la medida de
-          tu tiempo, sin coste para nadie. Gracias por estar aquí.
+          Si eres psicóloga o psicólogo, aquí puedes acompañar a quien más lo
+          necesita tras el terremoto: en remoto, en la medida de tu tiempo, sin
+          coste para nadie. Y si representas a una fundación u organización de
+          salud mental, también queremos sumarte. Gracias por estar aquí.
         </p>
         <ul className="trust-strip" aria-label="Lo que te ofrecemos">
           <li>Tú defines tu cupo</li>
@@ -51,6 +52,14 @@ export default async function ProPage() {
             </p>
           </div>
         )}
+        <div className="notice" style={{ marginTop: "var(--space-8)" }}>
+          <p style={{ margin: 0 }}>
+            <strong>¿Eres una fundación u organización de salud mental?</strong>{" "}
+            Aliémonos para llegar a más personas. Tus profesionales pueden
+            registrarse aquí, y si quieres coordinar una alianza,{" "}
+            <Link href="/contacto">escríbenos</Link>.
+          </p>
+        </div>
       </div>
     </section>
   );

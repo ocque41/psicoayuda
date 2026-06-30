@@ -25,14 +25,14 @@ export const SITE_LANG = "es";
  * "ayuda psicológica venezuela" sin perder calidez.
  */
 export const SITE_TITLE_DEFAULT =
-  "Ayuda psicológica gratis en Venezuela | Nido";
+  "Apoyo psicológico gratis tras el terremoto en Venezuela | Nido";
 
 /** Plantilla de título para páginas internas. */
 export const SITE_TITLE_TEMPLATE = "%s | Nido";
 
 /** Descripción por defecto (~155 caracteres para no truncar en Google). */
 export const SITE_DESCRIPTION =
-  "Conecta gratis y a distancia con psicólogas y psicólogos voluntarios verificados en Venezuela. Apoyo emocional confidencial, sin crear cuenta y sin coste.";
+  "Apoyo psicológico gratis y a distancia para afectados por los terremotos en Venezuela. Con voluntarios verificados, confidencial y sin crear cuenta.";
 
 /**
  * Palabras clave objetivo. Google ya no usa la meta keywords para ranking,
@@ -40,15 +40,19 @@ export const SITE_DESCRIPTION =
  * la usamos para guiar el contenido visible (que sí pesa).
  */
 export const SITE_KEYWORDS = [
+  "ayuda psicológica terremoto Venezuela",
+  "apoyo psicológico terremoto Venezuela",
+  "ayuda emocional sismo Venezuela",
+  "primeros auxilios psicológicos terremoto",
+  "apoyo psicológico desastre Venezuela",
   "ayuda psicológica Venezuela",
-  "ayuda psicológica gratis",
   "ayuda psicológica gratis Venezuela",
   "psicólogo online gratis Venezuela",
-  "apoyo psicológico Venezuela",
   "apoyo emocional gratis",
-  "terapia psicológica gratis Venezuela",
   "salud mental Venezuela",
   "psicólogos voluntarios Venezuela",
+  "ser psicólogo voluntario Venezuela",
+  "fundaciones de salud mental Venezuela",
   "primeros auxilios psicológicos",
   "líneas de atención psicológica Venezuela",
 ];
@@ -89,6 +93,11 @@ export function absoluteUrl(path = "/"): string {
  * por eso se comparten desde aquí.
  */
 export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
+  {
+    question: "¿Es normal sentirme mal después del terremoto?",
+    answer:
+      "Sí. Tras un terremoto es muy común sentir miedo, ansiedad, tristeza, insomnio, irritabilidad o revivir lo ocurrido una y otra vez. Son reacciones normales ante una situación que no fue normal, y para la mayoría de las personas mejoran con apoyo y tiempo. Si te cuesta sobrellevarlo, hablar con un profesional voluntario puede ayudar; puedes escribirnos gratis y sin crear cuenta.",
+  },
   {
     question: "¿La ayuda psicológica es realmente gratis?",
     answer:

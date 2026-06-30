@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
-import { MINORS_RESOURCES } from "@/lib/resources";
+import { MINORS_RESOURCES, SEISMIC_SOURCE } from "@/lib/resources";
 
 export const metadata: Metadata = {
   title: "Si estás en peligro ahora",
@@ -25,6 +25,26 @@ export default function EmergencyPage() {
         </p>
 
         <CrisisResources variant="full" />
+
+        <div className="card">
+          <h2>Información oficial sobre los sismos</h2>
+          <p>{SEISMIC_SOURCE.description}</p>
+          <ul>
+            {SEISMIC_SOURCE.contacts.map((c) => (
+              <li key={c.label}>
+                <strong>{c.label}:</strong>{" "}
+                {c.href ? (
+                  <a href={c.href} target="_blank" rel="noopener noreferrer">
+                    {c.value}
+                  </a>
+                ) : (
+                  c.value
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="hint">Fuente: {SEISMIC_SOURCE.source}</p>
+        </div>
 
         <div className="card">
           <h2>Si quien necesita ayuda es un niño, niña o adolescente</h2>

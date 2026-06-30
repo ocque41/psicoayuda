@@ -9,6 +9,7 @@
  */
 
 import {
+  EMERGENCY_CONTACTS,
   RESOURCE_DIRECTORIES,
   RESOURCES_LAST_VERIFIED,
   SUPPORT_LINES,
@@ -112,9 +113,9 @@ export function CrisisResources({
         busca ayuda inmediata:
       </p>
       <p style={{ margin: "0 0 14px" }}>
-        Llama de inmediato a los{" "}
-        <strong>servicios de emergencia de tu localidad</strong>. Si puedes,
-        acude a la persona de confianza o al centro de salud más cercano.
+        Llama de inmediato al <strong>911</strong>, la línea única nacional de
+        emergencias (policía, bomberos y ambulancia). Si puedes, acude a una
+        persona de confianza o al centro de salud más cercano.
       </p>
 
       {variant === "callout" ? (
@@ -125,6 +126,13 @@ export function CrisisResources({
         </p>
       ) : (
         <>
+          <h3 style={{ color: SAFETY }}>Emergencia inmediata</h3>
+          <div className="grid grid-2" style={{ marginBottom: 18 }}>
+            {EMERGENCY_CONTACTS.map((r) => (
+              <ResourceCard key={r.id} resource={r} />
+            ))}
+          </div>
+
           <h3 style={{ color: SAFETY }}>
             Líneas de apoyo psicológico gratuitas
           </h3>

@@ -7,14 +7,18 @@ export default function HomePage() {
     <>
       <section className="hero">
         <div className="container">
+          <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
           <h1>
-            Ayuda psicológica gratis, confidencial y a distancia en Venezuela
+            Apoyo psicológico gratis para quienes vivieron los terremotos en
+            Venezuela
           </h1>
           <p className="lead">
-            ¿Estás pasando por un momento difícil? No tienes que atravesarlo en
-            silencio. En Nido te conectamos, sin coste y sin crear cuenta, con
-            psicólogas y psicólogos voluntarios verificados que acompañan a
-            personas en toda Venezuela.
+            Después de los sismos que sacudieron Yaracuy, La Guaira, Caracas y
+            el centro-norte del país, sentir miedo, angustia, insomnio o no
+            poder dejar de revivir lo ocurrido es una reacción normal ante algo
+            que no fue normal. En Nido te conectamos, sin coste y sin crear
+            cuenta, con psicólogas y psicólogos voluntarios verificados que
+            acompañan a distancia a quienes atraviesan este momento.
           </p>
           <ul className="trust-strip" aria-label="Garantías">
             <li>Gratis, siempre</li>
@@ -28,6 +32,45 @@ export default function HomePage() {
             </Link>{" "}
             <Link className="button secondary" href="/pro">
               Soy profesional voluntario/a
+            </Link>
+          </p>
+          <p className="safety-note">
+            Nido no es un servicio de emergencias. Si tú o alguien corre peligro
+            inmediato o necesita atención médica urgente, llama al{" "}
+            <strong>911</strong> (línea única nacional de emergencias) o busca
+            ayuda presencial ahora mismo.{" "}
+            <Link href="/emergencia">Más líneas de ayuda y qué hacer →</Link>
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Lo que sientes después del terremoto tiene sentido</h2>
+          <p>
+            No hay una forma “correcta” de reaccionar ante una catástrofe. En
+            los días y semanas posteriores es común sentir algunas de estas
+            cosas. No estás solo/a y, en la mayoría de los casos, mejoran con
+            apoyo y tiempo:
+          </p>
+          <ul className="reactions">
+            <li>Miedo, sobresalto o estar en alerta todo el tiempo.</li>
+            <li>Dificultad para dormir, pesadillas o revivir lo ocurrido.</li>
+            <li>Tristeza, llanto o sensación de vacío.</li>
+            <li>Ansiedad, palpitaciones o sensación de falta de aire.</li>
+            <li>Irritabilidad, culpa o sentir que “deberías estar mejor”.</li>
+            <li>
+              Preocupación constante por tus seres queridos o por el futuro.
+            </li>
+          </ul>
+          <p>
+            Hablar con alguien que escucha sin juzgar ayuda. Si quieres, una
+            persona voluntaria puede acompañarte de forma gratuita y
+            confidencial.
+          </p>
+          <p>
+            <Link className="button human" href="/ayuda">
+              Pedir apoyo ahora
             </Link>
           </p>
         </div>
@@ -86,12 +129,40 @@ export default function HomePage() {
 
       <section className="section">
         <div className="container">
-          <h2>Apoyo psicológico para toda Venezuela, esté donde estés</h2>
+          <div className="join-cta">
+            <p className="eyebrow">Súmate al equipo</p>
+            <h2>¿Eres psicólogo/a profesional o una fundación?</h2>
+            <p>
+              Cuantas más personas voluntarias y organizaciones se sumen, a más
+              gente podemos acompañar tras el terremoto. Si eres psicóloga o
+              psicólogo, regístrate gratis: tú defines tu disponibilidad y
+              nosotros verificamos y coordinamos por ti. Si representas a una
+              fundación u organización de salud mental, aliémonos para llegar a
+              más personas.
+            </p>
+            <p className="join-actions">
+              <Link className="button human" href="/pro">
+                Soy psicólogo/a: quiero ayudar
+              </Link>
+              <Link className="button secondary" href="/contacto">
+                Represento una fundación
+              </Link>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Apoyo para las zonas afectadas y para toda Venezuela</h2>
           <p>
-            Como la atención es en línea, la ayuda llega a cualquier estado:
-            Caracas, Maracaibo, Valencia, Barquisimeto, Maracay, Ciudad Guayana
-            y el resto del país. También acompañamos a personas venezolanas en
-            el exterior. Solo necesitas un correo electrónico para empezar.
+            Como la atención es en línea, la ayuda llega a las zonas más
+            golpeadas por los sismos —Yaracuy (San Felipe), Yumare, La Guaira y
+            Caracas— y también al resto del país: Maracaibo, Valencia,
+            Barquisimeto, Maracay, Ciudad Guayana y más. Acompañamos a familias
+            desplazadas, a personas en refugios con acceso a un teléfono y a
+            venezolanos en el exterior preocupados por los suyos. Solo necesitas
+            un correo electrónico para empezar.
           </p>
         </div>
       </section>

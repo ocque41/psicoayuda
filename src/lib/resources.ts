@@ -36,6 +36,52 @@ export type SupportResource = {
 };
 
 /**
+ * Emergencia inmediata (peligro físico, atención médica urgente).
+ *
+ * 911 es la línea única nacional de emergencias de Venezuela (VEN 911), que
+ * sustituyó al 171 y coordina policía, bomberos, ambulancia y protección civil.
+ * Es lo PRIMERO que debe ver alguien en peligro: por encima del acompañamiento
+ * psicológico, que no responde al instante.
+ */
+export const EMERGENCY_CONTACTS: readonly SupportResource[] = [
+  {
+    id: "ven911",
+    name: "Emergencias 911",
+    description:
+      "Línea única nacional de emergencias en Venezuela (VEN 911): policía, bomberos, ambulancia y protección civil. Llama si tu vida o la de otra persona corre peligro inmediato.",
+    contacts: [
+      { label: "Teléfono", value: "911", href: "tel:911" },
+      {
+        label: "Sitio web",
+        value: "ven911.gob.ve",
+        href: "https://ven911.gob.ve/",
+      },
+    ],
+    source:
+      "VEN 911 — Ministerio del Poder Popular para Relaciones Interiores (oficial)",
+  },
+];
+
+/**
+ * Fuente sísmica oficial. Para información veraz sobre los sismos y sus réplicas
+ * (no rumores): FUNVISIS es la autoridad sismológica del Estado venezolano.
+ */
+export const SEISMIC_SOURCE: SupportResource = {
+  id: "funvisis",
+  name: "FUNVISIS — información sísmica oficial",
+  description:
+    "Fundación Venezolana de Investigaciones Sismológicas: monitor de sismos, réplicas y boletines oficiales. Consúltala para datos verificados sobre los terremotos, en lugar de rumores en redes.",
+  contacts: [
+    {
+      label: "Monitor de sismos",
+      value: "funvisis.gob.ve",
+      href: "http://www.funvisis.gob.ve/",
+    },
+  ],
+  source: "FUNVISIS (oficial)",
+};
+
+/**
  * Líneas de apoyo psicológico gratuito en Venezuela.
  * Orden: primero las líneas con atención directa por teléfono/WhatsApp.
  */
