@@ -2,6 +2,31 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.3.1 - 2026-06-30
+
+Pulido de marca, dominio de producción y mensaje de "quiénes somos".
+
+### Marca / iconos
+
+- **Logo de la bandera de Venezuela corregido**: las estrellas estaban al revés
+  (puntos en un arco hacia abajo). Ahora son 8 estrellas de 5 puntas en el arco
+  hacia arriba correcto, verificadas contra la bandera oficial. El icono pasa a
+  ser la bandera en todos los tamaños (favicon, apple-icon, OG/Twitter, manifest);
+  la marca "Nido" se mantiene como texto junto a la bandera.
+
+### Producción
+
+- **Dominio de producción**: `ayudamental-venezuela.ocque41.workers.dev`
+  (`SITE_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_SITE_URL` y nombre del Worker). El
+  despliegue requiere `wrangler deploy` y el secreto `BETTER_AUTH_SECRET` para
+  ese host.
+
+### Contenido
+
+- **Quiénes somos**: "De dónde venimos" reescrito con la historia real de los
+  fundadores —dos amigos, la salud mental como raíz del daño colectivo y la
+  importancia de procesar el trauma para no agravarlo.
+
 ## 0.3.0 - 2026-06-30
 
 Segunda pasada de auditoría sobre la base 0.2.0, añadiendo lo que faltaba para
