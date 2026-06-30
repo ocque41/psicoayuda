@@ -21,11 +21,15 @@ export default async function ThanksPage({
     solicitud?: string;
     enviado?: string;
     sin_seleccion?: string;
+    sin_correo?: string;
   }>;
 }) {
   const params = await searchParams;
   const solicitud = params.solicitud ?? "";
-  const sent = params.enviado ? Number(params.enviado) : null;
+  // Param no confiable: descarta NaN para no pintar "… a NaN profesionales".
+  const sentParsed = params.enviado ? Number(params.enviado) : null;
+  const sent =
+    sentParsed !== null && Number.isFinite(sentParsed) ? sentParsed : null;
   const professionals = solicitud ? await getFeedProfessionals() : [];
 
   return (
@@ -51,6 +55,20 @@ export default async function ThanksPage({
               <p className="form-error" role="alert">
                 Selecciona al menos un profesional, o usa “Enviar a todos”.
               </p>
+            ) : null}
+
+            {params.sin_correo ? (
+              <div className="notice" role="alert">
+                <p style={{ margin: 0 }}>
+                  Para difundir tu solicitud necesitamos un correo donde
+                  avisarte cuando alguien acepte. Vuelve a{" "}
+                  <Link href="/ayuda">tu solicitud</Link> y agrégalo, o{" "}
+                  <Link href="/profesionales">
+                    habla directo por chat con un profesional
+                  </Link>{" "}
+                  (sin correo, ahora mismo).
+                </p>
+              </div>
             ) : null}
 
             <h2>Envía tu solicitud a las personas voluntarias</h2>

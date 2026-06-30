@@ -23,6 +23,18 @@ export default {
     if (url.pathname === "/__nido-calls") {
       return Response.json(recorded);
     }
+    // Espejo EXACTO del borrado de producción (chat-admin.ts): direcciona el DO
+    // por idFromName(room) y vacía su SQLite. Misma derivación que el WebSocket.
+    if (url.pathname === "/__purge") {
+      const room = url.searchParams.get("room");
+      if (!room) return new Response("room required", { status: 400 });
+      const stub = env.Conversation.get(env.Conversation.idFromName(room));
+      const purged = await stub.fetch("https://do/purge", {
+        method: "POST",
+        headers: { "x-nido-internal": "test-secret" },
+      });
+      return new Response(await purged.text(), { status: purged.status });
+    }
 
     const routed = await routePartykitRequest(request, env, {
       prefix: "parties",

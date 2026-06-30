@@ -3,9 +3,10 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { professionals } from "@/db/schema";
+import { auditLogs, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
+import { newId, nowIso } from "@/lib/ids";
 import { notifySeekerOfferAccepted } from "@/lib/notifications";
 import { acceptOffer, offerRequestToProfessionals } from "@/lib/offers";
 
@@ -18,6 +19,17 @@ export async function sendRequestToProfessionals(formData: FormData) {
   const helpRequestId = String(formData.get("helpRequestId") ?? "");
   const mode = String(formData.get("mode") ?? "");
   if (!helpRequestId) redirect("/ayuda");
+
+  // El solicitante no tiene sesión: el correo es la ÚNICA vía para entregarle el
+  // enlace cuando alguien acepte. Sin correo no difundimos (evita el callejón
+  // sin salida de prometer un correo que nunca podrá llegar).
+  const request = await db.query.helpRequests.findFirst({
+    where: eq(helpRequests.id, helpRequestId),
+  });
+  if (!request) redirect("/ayuda");
+  if (!request.email) {
+    redirect(`/ayuda/gracias?solicitud=${helpRequestId}&sin_correo=1`);
+  }
 
   let professionalIds: string[];
   if (mode === "all") {
@@ -42,9 +54,30 @@ export async function sendRequestToProfessionals(formData: FormData) {
 }
 
 /**
+ * Deja constancia (auditoría) de que el enlace de acceso del seeker NO se pudo
+ * entregar por correo, para que un coordinador pueda entregarlo a mano en vez de
+ * que la persona quede incomunicada en silencio.
+ */
+async function recordUndeliveredSeekerLink(
+  conversationId: string,
+  actorEmail: string,
+  detail: string,
+) {
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail,
+    action: "seeker_link_undelivered",
+    entityType: "conversation",
+    entityId: conversationId,
+    metadata: JSON.stringify({ detail }),
+    createdAt: nowIso(),
+  });
+}
+
+/**
  * Un profesional (logueado) acepta una solicitud que le ofrecieron. Abre la
  * conversación, avisa al solicitante por correo con un enlace de acceso y lleva
- * al profesional directo al chat.
+ * al profesional directo al chat. Si el correo no sale, lo deja en auditoría.
  */
 export async function acceptRequestOffer(formData: FormData) {
   const assignmentId = String(formData.get("assignmentId") ?? "");
@@ -71,11 +104,25 @@ export async function acceptRequestOffer(formData: FormData) {
   }
 
   if (result.seekerEmail) {
-    await notifySeekerOfferAccepted({
+    const delivery = await notifySeekerOfferAccepted({
       seekerEmail: result.seekerEmail,
       conversationId: result.conversationId,
       accessToken: result.seekerToken,
     });
+    if (!delivery.ok) {
+      await recordUndeliveredSeekerLink(
+        result.conversationId,
+        professional.email,
+        delivery.skipped ? "email_not_configured" : delivery.error,
+      );
+    }
+  } else {
+    // Solicitud sin correo (p. ej. asignada por admin): no hay a dónde escribir.
+    await recordUndeliveredSeekerLink(
+      result.conversationId,
+      professional.email,
+      "no_seeker_email",
+    );
   }
 
   redirect(`/c/${result.conversationId}`);

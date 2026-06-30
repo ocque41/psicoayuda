@@ -9,6 +9,7 @@ import { db } from "@/db";
 import {
   assignments,
   auditLogs,
+  conversations,
   helpRequests,
   professionals,
 } from "@/db/schema";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/assignment";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
+import { purgeConversationMessages } from "@/lib/chat-admin";
 import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
@@ -101,6 +103,17 @@ export async function createHelpRequest(
       ok: false,
       message:
         "Recibimos varias solicitudes recientes con este correo o conexión. Intenta más tarde.",
+    };
+  }
+
+  // "Enviar a todos" difunde la solicitud y, como el solicitante no tiene
+  // sesión, el correo es la ÚNICA vía para avisarle cuando alguien acepte.
+  // Exigirlo aquí evita un callejón sin salida silencioso.
+  if (formData.get("enviarATodos") && !parsed.data.email) {
+    return {
+      ok: false,
+      message:
+        "Para “enviar a todos” necesitamos tu correo: es donde te avisaremos cuando alguien acepte. Agrégalo arriba, o habla directo por chat con un profesional.",
     };
   }
 
@@ -366,6 +379,23 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   // Cierra y libera la capacidad de cualquier asignación activa antes de anonimizar.
   await releaseAssignmentsForRequest(requestId);
 
+  // Borrado REAL del contenido del chat: el mensaje a mensaje solo vive en el
+  // SQLite del Durable Object, así que anonimizar el espejo en D1 no basta.
+  // Vaciamos cada DO y marcamos las conversaciones como anonimizadas.
+  const convs = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.helpRequestId, requestId));
+  for (const conversation of convs) {
+    await purgeConversationMessages(conversation.id);
+  }
+  if (convs.length > 0) {
+    await db
+      .update(conversations)
+      .set({ status: "closed", anonymizedAt: timestamp, updatedAt: timestamp })
+      .where(eq(conversations.helpRequestId, requestId));
+  }
+
   // Retention default: close inactive requests after 30 days and anonymize
   // after 90 days unless safety or legal reasons require minimal records.
   await db
@@ -397,9 +427,4 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   });
 
   revalidatePath("/admin");
-}
-
-export async function adminExportCsv() {
-  const admin = await requireAdmin();
-  if (!admin) redirect("/pro");
 }
