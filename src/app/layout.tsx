@@ -132,6 +132,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/transparencia">Transparencia</Link>
               <Link href="/recursos">Recursos</Link>
               <Link href="/emergencia">Emergencia</Link>
+              <Link href="/situacion">Situación del terremoto</Link>
               <Link href="/contacto">Contacto</Link>
               <Link href="/privacidad">Privacidad</Link>
               <Link href="/terminos">Términos</Link>
