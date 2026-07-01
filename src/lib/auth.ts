@@ -54,6 +54,15 @@ export const auth = betterAuth({
     autoSignIn: true,
     minPasswordLength: 8,
   },
+  // La cookie está firmada con BETTER_AUTH_SECRET y evita consultar D1 en cada
+  // lectura de sesión. Las operaciones sensibles la omiten expresamente.
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60,
+      strategy: "compact",
+    },
+  },
   socialProviders,
   // Limita intentos de login/callback (defensa básica contra fuerza bruta y
   // enumeración). En Workers es por isolate; reforzar con KV/WAF en producción.

@@ -45,6 +45,11 @@ export function IncompleteRegistrationsSection({
     <>
       <h2>Registros incompletos</h2>
       <p className="muted">Total: {registrations.length}</p>
+      <p className="muted">
+        Estas cuentas se conservan. La persona puede entrar con el mismo método
+        que usó al registrarse y terminar su perfil. Al completarlo, dejará de
+        aparecer aquí automáticamente.
+      </p>
 
       {registrations.length > 0 ? (
         <div className="table-wrap">

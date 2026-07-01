@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getServerSession } from "@/lib/auth-server";
+import { getFreshServerSession } from "@/lib/auth-server";
 
 export function getAdminEmails() {
   return (process.env.ADMIN_EMAILS ?? "")
@@ -14,7 +14,7 @@ export function isAdminEmail(email?: string | null) {
 }
 
 export async function requireAdmin() {
-  const session = await getServerSession();
+  const session = await getFreshServerSession();
   const email = session?.user?.email;
   if (!isAdminEmail(email)) {
     return null;

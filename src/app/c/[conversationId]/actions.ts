@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { conversations, professionals } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
+import { getFreshServerSession } from "@/lib/auth-server";
 import { mintProfessionalToken, PRO_COOKIE } from "@/lib/seeker-token";
 
 const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
@@ -19,7 +19,7 @@ const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
 export async function ensureProChatToken(
   conversationId: string,
 ): Promise<{ ok: boolean }> {
-  const session = await getServerSession();
+  const session = await getFreshServerSession();
   if (!session?.user?.id) return { ok: false };
 
   const pro = await db.query.professionals.findFirst({

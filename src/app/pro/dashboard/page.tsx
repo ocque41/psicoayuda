@@ -91,7 +91,7 @@ export default async function ProDashboardPage({
     );
   }
 
-  const assigned = await db
+  const assignedPromise = db
     .select({
       request: helpRequests,
       assignment: assignments,
@@ -107,8 +107,11 @@ export default async function ProDashboardPage({
       ),
     );
 
-  const offers = await pendingOffersForProfessional(professional.id);
-  const chats = await conversationsForProfessional(professional.id);
+  const [assigned, offers, chats] = await Promise.all([
+    assignedPromise,
+    pendingOffersForProfessional(professional.id),
+    conversationsForProfessional(professional.id),
+  ]);
 
   return (
     <section className="section">

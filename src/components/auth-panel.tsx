@@ -9,6 +9,20 @@ const CALLBACK_URL = "/pro/onboarding";
 
 type Mode = "signin" | "signup";
 
+function isExistingAccountError(
+  error: {
+    code?: string;
+    message?: string;
+  } | null,
+) {
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  return (
+    /USER_ALREADY_EXISTS|EXISTING|ALREADY_EXISTS/.test(code) ||
+    /already exists|ya existe/i.test(message)
+  );
+}
+
 function translateError(error: { code?: string; message?: string } | null) {
   const code = error?.code ?? "";
   if (
@@ -16,8 +30,8 @@ function translateError(error: { code?: string; message?: string } | null) {
   ) {
     return "Correo o contraseña incorrectos.";
   }
-  if (/USER_ALREADY_EXISTS|EXISTING/.test(code)) {
-    return "Ya existe una cuenta con ese correo. Entra en su lugar.";
+  if (isExistingAccountError(error)) {
+    return "Ya existe una cuenta con ese correo. Entra con el método que usaste antes para continuar tu perfil.";
   }
   if (/PASSWORD_TOO_SHORT|WEAK_PASSWORD/.test(code)) {
     return "La contraseña debe tener al menos 8 caracteres.";
@@ -108,6 +122,11 @@ export function AuthPanel({
           : await authClient.signIn.email({ email, password });
 
       if (result.error) {
+        if (mode === "signup" && isExistingAccountError(result.error)) {
+          // Conservamos el correo y la contraseña escritos y mostramos el
+          // acceso. Si la cuenta nació con Google, el botón sigue disponible.
+          setMode("signin");
+        }
         setError(translateError(result.error));
         setPending(false);
         return;

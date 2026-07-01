@@ -5,6 +5,9 @@
   "workers_dev": false,
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
+  "limits": {
+    "cpu_ms": 5000
+  },
   "routes": [
     { "pattern": "saludmental-venezuela.com", "custom_domain": true },
     { "pattern": "www.saludmental-venezuela.com", "custom_domain": true }

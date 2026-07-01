@@ -265,4 +265,34 @@ describe("Nido MVP smoke checks", () => {
     expect(retention).toContain("data_anonymization");
     expect(assignment).toContain("request_assignment");
   });
+
+  it("carga en paralelo los datos independientes del panel profesional", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/app/pro/dashboard/page.tsx"),
+      "utf8",
+    );
+    expect(dashboard).toContain("Promise.all");
+    expect(dashboard).toContain("pendingOffersForProfessional");
+    expect(dashboard).toContain("conversationsForProfessional");
+  });
+
+  it("ofrece recuperación en español sin borrar la cuenta", () => {
+    const actions = readFileSync(
+      join(process.cwd(), "src/app/actions.ts"),
+      "utf8",
+    );
+    const authPanel = readFileSync(
+      join(process.cwd(), "src/components/auth-panel.tsx"),
+      "utf8",
+    );
+    const errorPage = readFileSync(
+      join(process.cwd(), "src/app/pro/error.tsx"),
+      "utf8",
+    );
+
+    expect(actions).toContain("Tu cuenta sigue guardada");
+    expect(authPanel).toContain("el método que usaste antes");
+    expect(errorPage).toContain("Reintentar");
+    expect(errorPage).toContain("Volver al acceso profesional");
+  });
 });

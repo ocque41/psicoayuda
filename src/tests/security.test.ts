@@ -41,6 +41,28 @@ describe("Seguridad — secreto de auth con cierre en producción", () => {
     expect(auth).toContain("trustedOrigins");
     expect(auth).not.toContain('"nido-local-development-secret-change-me"');
   });
+
+  it("limita la caché firmada a 60 segundos", () => {
+    const auth = read("src/lib/auth.ts");
+    expect(auth).toContain("cookieCache");
+    expect(auth).toContain("maxAge: 60");
+    expect(auth).toContain('strategy: "compact"');
+  });
+
+  it("consulta D1 directamente antes de operaciones sensibles", () => {
+    const authServer = read("src/lib/auth-server.ts");
+    expect(authServer).toContain("disableCookieCache: true");
+
+    for (const file of [
+      "src/lib/admin.ts",
+      "src/app/actions-account.ts",
+      "src/app/actions.ts",
+      "src/app/actions-offers.ts",
+      "src/app/c/[conversationId]/actions.ts",
+    ]) {
+      expect(read(file)).toContain("getFreshServerSession");
+    }
+  });
 });
 
 describe("Seguridad — cabeceras HTTP", () => {
@@ -80,6 +102,11 @@ describe("Seguridad — aislamiento de datos", () => {
   it("el panel profesional filtra por estado de asignación", () => {
     const src = read("src/app/pro/dashboard/page.tsx");
     expect(src).toContain('eq(assignments.status, "assigned")');
+  });
+
+  it("el límite preventivo del Worker es 5.000 ms", () => {
+    const wrangler = read("wrangler.jsonc");
+    expect(wrangler).toMatch(/"cpu_ms":\s*5000/);
   });
 
   it("el export CSV escapa, acota filas y registra el egreso de PII", () => {

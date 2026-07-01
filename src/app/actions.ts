@@ -19,7 +19,7 @@ import {
   releaseProfessionalAssignments,
 } from "@/lib/assignment";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
+import { getFreshServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
@@ -227,7 +227,7 @@ export async function saveProfessionalOnboarding(
   _prevState: unknown,
   formData: FormData,
 ) {
-  const session = await getServerSession();
+  const session = await getFreshServerSession();
   if (!session?.user?.id || !session.user.email) {
     redirect("/pro");
   }
@@ -239,14 +239,15 @@ export async function saveProfessionalOnboarding(
   });
 
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Error" };
+    return {
+      ok: false as const,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Revisa los datos e inténtalo de nuevo.",
+    };
   }
 
   const timestamp = nowIso();
-  const existing = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-
   const values = {
     userId: session.user.id,
     email: session.user.email,
@@ -274,28 +275,45 @@ export async function saveProfessionalOnboarding(
     updatedAt: timestamp,
   };
 
-  if (existing) {
-    // ponytail: no tocamos status al editar — preserva una posible suspensión/baja del admin.
-    await db
-      .update(professionals)
-      .set(values)
-      .where(eq(professionals.id, existing.id));
-  } else {
-    await db.insert(professionals).values({
-      ...values,
-      id: newId("pro"),
-      // Sin verificación: el profesional queda activo al instante.
-      status: "approved",
-      currentActiveRequests: 0,
-      createdAt: timestamp,
+  try {
+    const existing = await db.query.professionals.findFirst({
+      where: eq(professionals.userId, session.user.id),
     });
+
+    if (existing) {
+      // No tocamos status al editar: preserva una suspensión o baja del admin.
+      await db
+        .update(professionals)
+        .set(values)
+        .where(eq(professionals.id, existing.id));
+    } else {
+      await db.insert(professionals).values({
+        ...values,
+        id: newId("pro"),
+        // Sin verificación: el profesional queda activo al instante.
+        status: "approved",
+        currentActiveRequests: 0,
+        createdAt: timestamp,
+      });
+    }
+  } catch (error) {
+    // No registramos el formulario ni el correo para evitar exponer datos
+    // personales en los logs. El nombre del error basta para clasificarlo.
+    console.error("No se pudo guardar el perfil profesional", {
+      errorName: error instanceof Error ? error.name : "Error desconocido",
+    });
+    return {
+      ok: false as const,
+      message:
+        "No pudimos guardar tu perfil. Tu cuenta sigue guardada. Inténtalo de nuevo en un momento.",
+    };
   }
 
   redirect("/pro/dashboard");
 }
 
 export async function updateProfessionalAvailability(formData: FormData) {
-  const session = await getServerSession();
+  const session = await getFreshServerSession();
   if (!session?.user?.id) redirect("/pro");
 
   await db

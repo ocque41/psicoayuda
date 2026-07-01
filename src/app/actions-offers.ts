@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditLogs, helpRequests, professionals } from "@/db/schema";
-import { getServerSession } from "@/lib/auth-server";
+import { getFreshServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import { notifySeekerOfferAccepted } from "@/lib/notifications";
@@ -83,7 +83,7 @@ export async function acceptRequestOffer(formData: FormData) {
   const assignmentId = String(formData.get("assignmentId") ?? "");
   if (!assignmentId) redirect("/pro/dashboard");
 
-  const session = await getServerSession();
+  const session = await getFreshServerSession();
   const userId = session?.user?.id;
   if (!userId) redirect("/pro");
 
