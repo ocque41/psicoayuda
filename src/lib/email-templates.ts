@@ -368,8 +368,10 @@ export function buildFoundationContactEmail(input: {
   contactName: string;
   organizationName: string;
   website?: string;
+  phone?: string;
   email: string;
   message?: string;
+  adminUrl?: string;
 }): BuiltEmail {
   const org = input.organizationName.trim();
   const orgEsc = escapeHtml(org);
@@ -383,10 +385,14 @@ export function buildFoundationContactEmail(input: {
     ? escapeHtml(/^https?:\/\//i.test(website) ? website : `https://${website}`)
     : "";
   const websiteText = website ? escapeHtml(website) : "";
+  const phone = input.phone?.trim();
+  const phoneEsc = phone ? escapeHtml(phone) : "";
   const message = input.message?.trim();
   const messageHtml = message
     ? escapeHtml(message).replace(/\n/g, "<br />")
     : "";
+  const adminUrl = input.adminUrl?.trim();
+  const adminUrlAttr = adminUrl ? escapeHtml(adminUrl) : "";
 
   const subject = `Nueva organización interesada en aliarse: ${org}`;
   const preheader = `${org} quiere colaborar con Nido.`;
@@ -398,8 +404,14 @@ export function buildFoundationContactEmail(input: {
     website
       ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Web:</strong> <a href="${websiteHref}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${websiteText}</a></p>`
       : "",
+    phone
+      ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Teléfono:</strong> ${phoneEsc}</p>`
+      : "",
     message
       ? `<p style="margin:16px 0 0;font-size:16px;line-height:1.6;"><strong>Mensaje:</strong><br />${messageHtml}</p>`
+      : "",
+    adminUrl
+      ? `<p style="margin:22px 0 0;"><a href="${adminUrlAttr}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:700;color:#ffffff;background:#2f7a5b;text-decoration:none;border-radius:999px;">Revisar y aprobar en el panel</a></p>`
       : "",
   ]
     .filter(Boolean)
@@ -449,10 +461,74 @@ export function buildFoundationContactEmail(input: {
     `Contacto: ${input.contactName.trim()}`,
     `Correo: ${email}`,
     website ? `Web: ${website}` : "",
+    phone ? `Teléfono: ${phone}` : "",
     message ? `\nMensaje:\n${message}` : "",
+    adminUrl ? `\nRevísala y apruébala en el panel: ${adminUrl}` : "",
   ]
     .filter((line) => line !== "")
     .join("\n");
 
   return { subject, html, text, headers: { "Reply-To": email } };
+}
+
+/**
+ * Aviso a la ORGANIZACIÓN de que su solicitud de alianza fue APROBADA. Va al
+ * correo que dejó en el formulario /alianzas; lo dispara la acción de admin.
+ */
+export function buildAllianceApprovedEmail(input: {
+  organizationName: string;
+  contactName?: string;
+}): BuiltEmail {
+  const org = input.organizationName.trim();
+  const contact = input.contactName?.trim();
+  const greeting = contact ? `Hola ${escapeHtml(contact)},` : "Hola,";
+  const subject = "Tu organización ya es aliada de Nido";
+  const preheader = `${org} fue aprobada como organización aliada.`;
+  const lead = `¡Buenas noticias! Revisamos la solicitud de <strong>${escapeHtml(
+    org,
+  )}</strong> y ya son una organización aliada de Nido. En breve, una persona del equipo de coordinación se pondrá en contacto contigo para dar los siguientes pasos.`;
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#2f7a5b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#245f47;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">${greeting}</p>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Gracias por sumarse. Nido · apoyo psicológico voluntario, gratis y a distancia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `${contact ? `Hola ${contact},` : "Hola,"}
+
+¡Buenas noticias! Revisamos la solicitud de ${org} y ya son una organización aliada de Nido. En breve una persona del equipo de coordinación se pondrá en contacto contigo para dar los siguientes pasos.
+
+Gracias por sumarse. Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: {} };
 }

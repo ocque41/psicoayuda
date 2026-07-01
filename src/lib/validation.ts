@@ -76,14 +76,33 @@ export const foundationContactSchema = z.object({
     .min(2, "Escribe el nombre de la fundación u organización.")
     .max(160, "El nombre de la organización es demasiado largo."),
   // Web opcional: muchas organizaciones pequeñas no tienen sitio. Aceptamos con o
-  // sin esquema (fundacion.org o https://fundacion.org); solo acotamos longitud.
+  // sin esquema (fundacion.org o https://fundacion.org), pero si la dan exigimos
+  // que PAREZCA una web (dominio con punto y TLD): no vale texto suelto.
   website: z
     .string()
     .trim()
     .max(200, "La dirección web es demasiado larga.")
     .optional()
-    .transform((value) => value || undefined),
+    .transform((value) => value || undefined)
+    .refine(
+      (value) =>
+        value === undefined ||
+        /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}([/?#]\S*)?$/i.test(value),
+      "Escribe una dirección web válida (ej. fundacion.org).",
+    ),
   email: z.email("Escribe un correo válido.").trim().toLowerCase(),
+  // Teléfono opcional (WhatsApp o fijo). Si lo dan, exigimos que sea un NÚMERO
+  // válido: lo normalizamos con la misma heurística que la ficha profesional.
+  phone: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+      message:
+        "Escribe un teléfono válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+    }),
   // Mensaje opcional: cómo les gustaría colaborar.
   message: z
     .string()
@@ -273,3 +292,6 @@ export const professionalStatusSchema = z.enum([
   "rejected",
   "suspended",
 ]);
+
+// Estado de una solicitud de alianza (formulario /alianzas), gestionada en /admin.
+export const allianceStatusSchema = z.enum(["pending", "approved", "rejected"]);

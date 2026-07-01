@@ -19,6 +19,7 @@ export function FoundationContactForm() {
     contactName: `${formId}-contact`,
     email: `${formId}-email`,
     website: `${formId}-website`,
+    phone: `${formId}-phone`,
     message: `${formId}-message`,
     company: `${formId}-company`,
   };
@@ -118,6 +119,27 @@ export function FoundationContactForm() {
           maxLength={200}
           placeholder="fundacion.org"
           autoComplete="url"
+          // Si escriben algo, que parezca una web (dominio con punto y TLD). El
+          // servidor revalida lo mismo; esto es solo un aviso temprano en el navegador.
+          pattern="(https?://)?([A-Za-z0-9-]+\.)+[A-Za-z]{2,}([/?#].*)?"
+          title="Escribe una dirección web válida (ej. fundacion.org)."
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={ids.phone}>Teléfono de contacto (opcional)</label>
+        <input
+          id={ids.phone}
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          maxLength={40}
+          placeholder="+58 412 1234567"
+          autoComplete="tel"
+          // Solo dígitos y los signos habituales de teléfono. El servidor lo
+          // normaliza y valida de verdad; esto evita que escriban letras.
+          pattern="[0-9+()\s-]{7,40}"
+          title="Escribe un teléfono válido (solo números; incluye el código de país si estás fuera de Venezuela)."
         />
       </div>
 

@@ -80,7 +80,7 @@ export default async function ProPage({
             <strong>¿Eres una fundación u organización de salud mental?</strong>{" "}
             Aliémonos para llegar a más personas. Tus profesionales pueden
             registrarse aquí, y si quieres coordinar una alianza,{" "}
-            <Link href="/contacto">escríbenos</Link>.
+            <Link href="/alianzas">déjanos tus datos</Link>.
           </p>
         </div>
       </div>

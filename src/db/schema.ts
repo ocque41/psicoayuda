@@ -330,3 +330,34 @@ export const responseSamples = sqliteTable(
     ),
   ],
 );
+
+// Solicitudes de fundaciones/organizaciones que quieren aliarse con Nido
+// (formulario público /alianzas). A diferencia del contacto por correo, aquí SÍ
+// persistimos: el equipo de coordinación las revisa y aprueba desde /admin, y al
+// aprobar se avisa por correo a la organización. Son datos que la propia
+// organización facilita a propósito (no PII sensible de quien pide ayuda).
+export const allianceRequests = sqliteTable(
+  "alliance_requests",
+  {
+    id: text("id").primaryKey(),
+    organizationName: text("organization_name").notNull(),
+    contactName: text("contact_name").notNull(),
+    email: text("email").notNull(),
+    website: text("website"),
+    phone: text("phone"),
+    message: text("message"),
+    // 'pending' | 'approved' | 'rejected'
+    status: text("status").default("pending").notNull(),
+    // Correo del admin que la revisó y momento de la revisión (auditoría ligera).
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: text("reviewed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("alliance_requests_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);

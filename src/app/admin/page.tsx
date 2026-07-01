@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   adminAnonymizeHelpRequest,
   adminAssignRequest,
+  adminUpdateAllianceStatus,
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
 } from "@/app/actions";
@@ -15,7 +16,7 @@ import {
 } from "@/components/admin-incomplete-registrations";
 import { AuthPanel } from "@/components/auth-panel";
 import { db } from "@/db";
-import { helpRequests, user } from "@/db/schema";
+import { allianceRequests, helpRequests, user } from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels } from "@/lib/constants";
@@ -80,7 +81,7 @@ export default async function AdminPage({
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const offset = (page - 1) * REQUESTS_PAGE_SIZE;
 
-  const [proRows, requestPage, accountRows] = await Promise.all([
+  const [proRows, requestPage, accountRows, allianceRows] = await Promise.all([
     // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
     // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
     // el incidente de CPU de /profesionales). Se leería aparte al revisar uno.
@@ -108,6 +109,16 @@ export default async function AdminPage({
         emailVerified: user.emailVerified,
       })
       .from(user),
+    // Solicitudes de alianza: pendientes primero, luego las ya revisadas; dentro
+    // de cada grupo, las más recientes arriba.
+    db
+      .select()
+      .from(allianceRequests)
+      .orderBy(
+        sql`case ${allianceRequests.status} when 'pending' then 0 when 'approved' then 1 else 2 end`,
+        desc(allianceRequests.createdAt),
+      )
+      .limit(100),
   ]);
 
   const hasNextPage = requestPage.length > REQUESTS_PAGE_SIZE;
@@ -239,6 +250,92 @@ export default async function AdminPage({
           registrations={incompleteRegistrations}
           deleteAction={adminDeleteAccount}
         />
+
+        <h2>Alianzas y organizaciones</h2>
+        {allianceRows.length ? (
+          <div className="grid">
+            {allianceRows.map((alliance) => {
+              const websiteHref = alliance.website
+                ? /^https?:\/\//i.test(alliance.website)
+                  ? alliance.website
+                  : `https://${alliance.website}`
+                : null;
+              return (
+                <article className="card" key={alliance.id}>
+                  <h3>{alliance.organizationName}</h3>
+                  <p className="muted">Estado: {alliance.status}</p>
+                  <p>
+                    <strong>Contacto:</strong> {alliance.contactName}
+                    <br />
+                    <strong>Correo:</strong>{" "}
+                    <a href={`mailto:${alliance.email}`}>{alliance.email}</a>
+                    {alliance.phone ? (
+                      <>
+                        <br />
+                        <strong>Teléfono:</strong> {alliance.phone}
+                      </>
+                    ) : null}
+                    {websiteHref ? (
+                      <>
+                        <br />
+                        <strong>Web:</strong>{" "}
+                        <a href={websiteHref} target="_blank" rel="noreferrer">
+                          {alliance.website}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                  {alliance.message ? (
+                    <p style={{ whiteSpace: "pre-wrap" }}>{alliance.message}</p>
+                  ) : null}
+
+                  <form action={adminUpdateAllianceStatus}>
+                    <input
+                      name="allianceId"
+                      type="hidden"
+                      value={alliance.id}
+                    />
+                    {alliance.status !== "approved" ? (
+                      <button
+                        className="button"
+                        type="submit"
+                        name="status"
+                        value="approved"
+                      >
+                        Aprobar
+                      </button>
+                    ) : null}{" "}
+                    {alliance.status !== "rejected" ? (
+                      <button
+                        className="button secondary"
+                        type="submit"
+                        name="status"
+                        value="rejected"
+                      >
+                        Rechazar
+                      </button>
+                    ) : null}{" "}
+                    {alliance.status !== "pending" ? (
+                      <button
+                        className="button secondary"
+                        type="submit"
+                        name="status"
+                        value="pending"
+                      >
+                        Volver a pendiente
+                      </button>
+                    ) : null}
+                  </form>
+                  {alliance.reviewedBy ? (
+                    <p className="muted">Revisada por {alliance.reviewedBy}</p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="muted">No hay solicitudes de alianza.</p>
+        )}
 
         <h2>Solicitudes</h2>
         <div className="grid">

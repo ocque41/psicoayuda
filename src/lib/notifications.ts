@@ -3,6 +3,7 @@ import "server-only";
 import { getAllianceRecipients, getErrorAlertEmails } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 import {
+  buildAllianceApprovedEmail,
   buildApprovalEmail,
   buildErrorAlertEmail,
   buildFoundationContactEmail,
@@ -197,12 +198,16 @@ export async function notifyFoundationContact(input: {
   contactName: string;
   organizationName: string;
   website?: string;
+  phone?: string;
   email: string;
   message?: string;
 }) {
   const recipients = getAllianceRecipients();
   if (recipients.length === 0) return;
-  const mail = buildFoundationContactEmail(input);
+  const mail = buildFoundationContactEmail({
+    ...input,
+    adminUrl: `${appBaseUrl()}/admin`,
+  });
   for (const to of recipients) {
     await sendEmail({
       to,
@@ -212,6 +217,28 @@ export async function notifyFoundationContact(input: {
       headers: mail.headers,
     });
   }
+}
+
+/**
+ * Avisa a la ORGANIZACIÓN de que su solicitud de alianza fue aprobada. Va al
+ * correo que dejaron en /alianzas; lo dispara la acción de admin al aprobar.
+ */
+export async function notifyAllianceApproved(input: {
+  email: string;
+  organizationName: string;
+  contactName?: string | null;
+}) {
+  if (!input.email) return;
+  const mail = buildAllianceApprovedEmail({
+    organizationName: input.organizationName,
+    contactName: input.contactName ?? undefined,
+  });
+  return sendEmail({
+    to: input.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
 }
 
 /** Avisa a un profesional de que su perfil fue APROBADO. */

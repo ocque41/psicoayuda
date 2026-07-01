@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
+  allianceRequests,
   assignments,
   auditLogs,
   helpRequests,
@@ -24,6 +25,7 @@ import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
   notifyAdminHelpRequest,
+  notifyAllianceApproved,
   notifyFoundationContact,
   notifyProfessionalApproved,
   notifyProfessionalAssignment,
@@ -31,6 +33,7 @@ import {
 import { offerRequestToProfessionals } from "@/lib/offers";
 import { anonymizeHelpRequest } from "@/lib/retention";
 import {
+  allianceStatusSchema,
   foundationContactSchema,
   helpRequestSchema,
   professionalSchema,
@@ -195,9 +198,9 @@ export async function createHelpRequest(
 }
 
 /**
- * Formulario de fundaciones/organizaciones (/alianzas). Valida y avisa al buzón
- * de coordinación con los datos que la organización facilitó. No guarda en BD:
- * es un canal de contacto puntual, como el resto de /contacto (solo correo).
+ * Formulario de fundaciones/organizaciones (/alianzas). Valida, GUARDA la
+ * solicitud como pendiente (para que aparezca en /admin y se pueda aprobar) y
+ * avisa al buzón de coordinación con los datos que la organización facilitó.
  */
 export async function createFoundationContact(
   _prevState: unknown,
@@ -219,8 +222,79 @@ export async function createFoundationContact(
     };
   }
 
+  const timestamp = nowIso();
+  await db.insert(allianceRequests).values({
+    id: newId("alliance"),
+    organizationName: parsed.data.organizationName,
+    contactName: parsed.data.contactName,
+    email: parsed.data.email,
+    website: parsed.data.website,
+    phone: parsed.data.phone,
+    message: parsed.data.message,
+    status: "pending",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  // El aviso por correo es best-effort: si el proveedor falla, la solicitud ya
+  // quedó guardada y visible en /admin, así que no perdemos el contacto.
   await notifyFoundationContact(parsed.data);
+  revalidatePath("/admin");
   return { ok: true as const };
+}
+
+/**
+ * Acción de admin: aprobar o rechazar una solicitud de alianza (formulario
+ * /alianzas). Al APROBAR, avisa por correo a la organización. Deja rastro en el
+ * log de auditoría, igual que la aprobación de profesionales.
+ */
+export async function adminUpdateAllianceStatus(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const allianceId = String(formData.get("allianceId") ?? "");
+  const status = allianceStatusSchema.parse(formData.get("status"));
+  if (!allianceId) redirect("/admin");
+
+  const timestamp = nowIso();
+  await db
+    .update(allianceRequests)
+    .set({
+      status,
+      reviewedBy: admin.email,
+      reviewedAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .where(eq(allianceRequests.id, allianceId));
+
+  if (status === "approved") {
+    const request = await db.query.allianceRequests.findFirst({
+      where: eq(allianceRequests.id, allianceId),
+    });
+    if (request?.email) {
+      await notifyAllianceApproved({
+        email: request.email,
+        organizationName: request.organizationName,
+        contactName: request.contactName,
+      });
+    }
+  }
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action:
+      status === "approved"
+        ? "alliance_approval"
+        : status === "rejected"
+          ? "alliance_rejection"
+          : "alliance_pending",
+    entityType: "alliance_request",
+    entityId: allianceId,
+    createdAt: timestamp,
+  });
+
+  revalidatePath("/admin");
 }
 
 export async function saveProfessionalOnboarding(
