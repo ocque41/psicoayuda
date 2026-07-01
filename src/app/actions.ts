@@ -12,6 +12,7 @@ import {
   auditLogs,
   helpRequests,
   professionals,
+  user,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
 import {
@@ -468,6 +469,112 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
     entityType: "professional",
     entityId: professionalId,
     createdAt: timestamp,
+  });
+
+  revalidatePath("/admin");
+}
+
+// Reclasifica el tipo de un profesional ya dado de alta: certificado (con
+// credencial) ↔ auxiliar no clínico. El admin lo usa para corregir la elección
+// del onboarding antes o después de aprobar. Solo toca la etiqueta de tipo.
+export async function adminSetProfessionalKind(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const professionalId = String(formData.get("professionalId") ?? "");
+  if (!professionalId) return;
+  const nonClinicalHelper = formData.get("kind") === "non_clinical";
+  const timestamp = nowIso();
+
+  await db
+    .update(professionals)
+    .set({ nonClinicalHelper, updatedAt: timestamp })
+    .where(eq(professionals.id, professionalId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: nonClinicalHelper
+      ? "professional_kind_non_clinical"
+      : "professional_kind_certified",
+    entityType: "professional",
+    entityId: professionalId,
+    createdAt: timestamp,
+  });
+
+  revalidatePath("/admin");
+}
+
+// Alta manual desde /admin de una cuenta que se registró pero no completó el
+// onboarding. Crea un perfil aprobado con el tipo elegido (certificado o
+// auxiliar no clínico), pero FUERA del directorio público (remoteAvailable=false)
+// y sin aceptar solicitudes: no tiene áreas, bio ni credencial todavía. Cuando la
+// persona complete su perfil en /pro/onboarding, ese formulario rellena los datos
+// y activa su disponibilidad (saveProfessionalOnboarding no toca el status, así
+// que sigue aprobado).
+export async function adminApproveIncompleteRegistration(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) return;
+  const nonClinicalHelper = formData.get("kind") === "non_clinical";
+
+  const [account] = await db
+    .select({ name: user.name, email: user.email })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (!account?.email) {
+    revalidatePath("/admin");
+    return;
+  }
+
+  // Si ya tiene perfil (dejó de estar "incompleto" entre la carga y el clic), no
+  // duplicamos: el email tiene índice único y reventaría el insert.
+  const existing = await db.query.professionals.findFirst({
+    where: eq(professionals.userId, userId),
+  });
+  if (existing) {
+    revalidatePath("/admin");
+    return;
+  }
+
+  const timestamp = nowIso();
+  await db.insert(professionals).values({
+    id: newId("pro"),
+    userId,
+    email: account.email,
+    fullName: account.name?.trim() || account.email,
+    contactEmail: account.email,
+    languages: JSON.stringify(["es"]),
+    supportAreas: JSON.stringify([]),
+    nonClinicalHelper,
+    status: "approved",
+    // Oculto del directorio y sin recibir solicitudes hasta que complete su
+    // perfil (áreas/contacto). El onboarding activará ambos.
+    remoteAvailable: false,
+    acceptingRequests: false,
+    currentActiveRequests: 0,
+    conductAcceptedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: nonClinicalHelper
+      ? "professional_manual_approval_non_clinical"
+      : "professional_manual_approval_certified",
+    entityType: "professional",
+    entityId: userId,
+    createdAt: timestamp,
+  });
+
+  await notifyProfessionalApproved({
+    professionalEmail: account.email,
+    professionalName: account.name?.trim() || account.email,
   });
 
   revalidatePath("/admin");

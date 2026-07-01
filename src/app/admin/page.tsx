@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   adminAnonymizeHelpRequest,
+  adminApproveIncompleteRegistration,
   adminAssignRequest,
+  adminSetProfessionalKind,
   adminUpdateAllianceStatus,
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
@@ -199,6 +201,7 @@ export default async function AdminPage({
                 <th>Nombre</th>
                 <th>Correo</th>
                 <th>Estado</th>
+                <th>Tipo</th>
                 <th>FPV</th>
                 <th>Capacidad</th>
                 <th>Acción</th>
@@ -214,6 +217,32 @@ export default async function AdminPage({
                   </td>
                   <td>{professional.email}</td>
                   <td>{professional.status}</td>
+                  <td>
+                    <form action={adminSetProfessionalKind}>
+                      <input
+                        name="professionalId"
+                        type="hidden"
+                        value={professional.id}
+                      />
+                      <select
+                        name="kind"
+                        defaultValue={
+                          professional.nonClinicalHelper
+                            ? "non_clinical"
+                            : "certified"
+                        }
+                        aria-label="Tipo de profesional"
+                      >
+                        <option value="certified">Certificado</option>
+                        <option value="non_clinical">
+                          Auxiliar no clínico
+                        </option>
+                      </select>{" "}
+                      <button className="button secondary" type="submit">
+                        Guardar
+                      </button>
+                    </form>
+                  </td>
                   <td>
                     <AdminFpvBadge
                       fpvVerified={professional.fpvVerified}
@@ -265,6 +294,7 @@ export default async function AdminPage({
         <IncompleteRegistrationsSection
           registrations={incompleteRegistrations}
           deleteAction={adminDeleteAccount}
+          approveAction={adminApproveIncompleteRegistration}
         />
 
         <h2>Alianzas y organizaciones</h2>

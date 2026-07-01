@@ -41,10 +41,13 @@ const accountDateFormatter = new Intl.DateTimeFormat("es-VE", {
 export function IncompleteRegistrationsSection({
   registrations,
   deleteAction,
+  approveAction,
 }: {
   registrations: RegistrationAccount[];
   deleteAction?: (formData: FormData) => Promise<void>;
+  approveAction?: (formData: FormData) => Promise<void>;
 }) {
+  const hasActions = Boolean(deleteAction || approveAction);
   return (
     <>
       <h2>Registros incompletos</h2>
@@ -60,7 +63,7 @@ export function IncompleteRegistrationsSection({
                 <th>Creación de la cuenta</th>
                 <th>Correo verificado</th>
                 <th>Estado</th>
-                {deleteAction ? <th>Acción</th> : null}
+                {hasActions ? <th>Acción</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -85,13 +88,40 @@ export function IncompleteRegistrationsSection({
                       Onboarding incompleto
                     </span>
                   </td>
-                  {deleteAction ? (
+                  {hasActions ? (
                     <td>
-                      <AdminDeleteAccountForm
-                        action={deleteAction}
-                        userId={registration.id}
-                        accountLabel={registration.email}
-                      />
+                      {approveAction ? (
+                        <form action={approveAction}>
+                          <input
+                            name="userId"
+                            type="hidden"
+                            value={registration.id}
+                          />
+                          <button
+                            className="button"
+                            type="submit"
+                            name="kind"
+                            value="certified"
+                          >
+                            Aprobar (certificado)
+                          </button>{" "}
+                          <button
+                            className="button secondary"
+                            type="submit"
+                            name="kind"
+                            value="non_clinical"
+                          >
+                            Aprobar (auxiliar)
+                          </button>
+                        </form>
+                      ) : null}
+                      {deleteAction ? (
+                        <AdminDeleteAccountForm
+                          action={deleteAction}
+                          userId={registration.id}
+                          accountLabel={registration.email}
+                        />
+                      ) : null}
                     </td>
                   ) : null}
                 </tr>
