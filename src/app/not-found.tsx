@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
   title: "Página no encontrada",
@@ -15,6 +16,7 @@ export default function NotFound() {
           El enlace puede estar roto o la página se movió. Pero sigues a un paso
           de recibir apoyo.
         </p>
+        <CrisisResources variant="callout" />
         <p>
           <Link className="button human" href="/ayuda">
             Pedir ayuda psicológica gratis
