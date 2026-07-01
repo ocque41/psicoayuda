@@ -24,7 +24,7 @@ export default function Page() {
           escribir y qué puedes esperar.
         </p>
 
-        <div className="notice">
+        <div className="notice contact-emergency-notice">
           <p>
             Esto <strong>no</strong> es un canal de emergencia. Nadie está
             revisando estos correos en tiempo real. Si estás en peligro ahora

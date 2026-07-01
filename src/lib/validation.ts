@@ -93,82 +93,86 @@ export const foundationContactSchema = z.object({
     .transform((value) => value || undefined),
 });
 
-export const professionalSchema = z.object({
-  fullName: z
-    .string()
-    .trim()
-    .min(2, "Escribe tu nombre completo.")
-    .max(120, "El nombre es demasiado largo."),
-  displayName: optionalText,
-  country: optionalText,
-  city: optionalText,
-  licenseNumber: z
-    .string()
-    .trim()
-    .min(2, "Indica tu credencial o número de licencia.")
-    .max(120, "La credencial es demasiado larga."),
-  licenseCountry: z
-    .string()
-    .trim()
-    .min(2, "Elige el país de tu credencial.")
-    .max(80, "El país de la credencial es demasiado largo."),
-  university: z
-    .string()
-    .trim()
-    .min(2, "Indica la universidad donde obtuviste tu título.")
-    .max(160, "El nombre de la universidad es demasiado largo."),
-  // Contacto directo (libro amarillo). Ya NO es obligatorio: el correo de la
-  // cuenta siempre se muestra como contacto, así que con eso basta. WhatsApp y
-  // teléfono fijo son opcionales; cuando se dan, se validan para que generen un
-  // enlace usable (ver src/lib/phone.ts y professional-card): wa.me / tel:.
-  phone: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .transform((value) => value || undefined)
-    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
-      message:
-        "Escribe un WhatsApp válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
-    }),
-  landline: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .transform((value) => value || undefined)
-    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
-      message:
-        "Escribe un teléfono fijo válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
-    }),
-  // Foto opcional: data URL ya redimensionada en el cliente. Acotamos formato y
-  // tamaño (~225 KB) para que no pese ni permita inyectar otra cosa.
-  photo: z
-    .string()
-    .max(300_000, "La foto es demasiado grande. Sube una imagen más liviana.")
-    .refine(
-      (value) =>
-        value === "" || /^data:image\/(jpeg|png|webp);base64,/.test(value),
-      "Formato de foto no válido.",
-    )
-    .optional()
-    .transform((value) => value || undefined),
-  supportAreas: z
-    .array(z.enum(needCategories))
-    .min(1, "Elige al menos un área de apoyo."),
-  remoteAvailable: checkboxBoolean.default(false),
-  crisisExperience: checkboxBoolean.default(false),
-  contactEmail: z.email().trim().toLowerCase().optional().or(z.literal("")),
-  contactNotes: optionalText,
-  shortBio: z.string().trim().max(600).optional(),
-  acceptingRequests: checkboxBoolean.default(false),
-  maxActiveRequests: z.coerce.number().int().min(1).max(10),
-  conductFreeService: requiredCheckbox,
-  conductNoClientCapture: requiredCheckbox,
-  conductConfidentiality: requiredCheckbox,
-  conductNoEmergencyGuarantee: requiredCheckbox,
-  conductCompetence: requiredCheckbox,
-});
+export const professionalSchema = z
+  .object({
+    fullName: z
+      .string()
+      .trim()
+      .min(2, "Escribe tu nombre completo.")
+      .max(120, "El nombre es demasiado largo."),
+    displayName: optionalText,
+    country: optionalText,
+    city: optionalText,
+    licenseNumber: z
+      .string()
+      .trim()
+      .min(2, "Indica tu credencial o número de licencia.")
+      .max(120, "La credencial es demasiado larga."),
+    licenseCountry: z
+      .string()
+      .trim()
+      .min(2, "Elige el país de tu credencial.")
+      .max(80, "El país de la credencial es demasiado largo."),
+    university: z
+      .string()
+      .trim()
+      .min(2, "Indica la universidad donde obtuviste tu título.")
+      .max(160, "El nombre de la universidad es demasiado largo."),
+    // Contacto directo (libro amarillo). Se exige al menos WhatsApp o teléfono
+    // fijo. Ambos siguen siendo columnas opcionales para preservar sin cambios
+    // los perfiles existentes que se registraron antes de esta regla.
+    phone: z
+      .string()
+      .trim()
+      .max(40)
+      .optional()
+      .transform((value) => value || undefined)
+      .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+        message:
+          "Escribe un WhatsApp válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+      }),
+    landline: z
+      .string()
+      .trim()
+      .max(40)
+      .optional()
+      .transform((value) => value || undefined)
+      .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+        message:
+          "Escribe un teléfono fijo válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+      }),
+    // Foto opcional: data URL ya redimensionada en el cliente. Acotamos formato y
+    // tamaño (~225 KB) para que no pese ni permita inyectar otra cosa.
+    photo: z
+      .string()
+      .max(300_000, "La foto es demasiado grande. Sube una imagen más liviana.")
+      .refine(
+        (value) =>
+          value === "" || /^data:image\/(jpeg|png|webp);base64,/.test(value),
+        "Formato de foto no válido.",
+      )
+      .optional()
+      .transform((value) => value || undefined),
+    supportAreas: z
+      .array(z.enum(needCategories))
+      .min(1, "Elige al menos un área de apoyo."),
+    remoteAvailable: checkboxBoolean.default(false),
+    crisisExperience: checkboxBoolean.default(false),
+    contactEmail: z.email().trim().toLowerCase().optional().or(z.literal("")),
+    contactNotes: optionalText,
+    shortBio: z.string().trim().max(600).optional(),
+    acceptingRequests: checkboxBoolean.default(false),
+    maxActiveRequests: z.coerce.number().int().min(1).max(10),
+    conductFreeService: requiredCheckbox,
+    conductNoClientCapture: requiredCheckbox,
+    conductConfidentiality: requiredCheckbox,
+    conductNoEmergencyGuarantee: requiredCheckbox,
+    conductCompetence: requiredCheckbox,
+  })
+  .refine((data) => Boolean(data.phone || data.landline), {
+    message: "Debes indicar un número de WhatsApp o un teléfono fijo.",
+    path: ["phone"],
+  });
 
 export const statusSchema = z.enum(["new", "contacted", "assigned", "closed"]);
 

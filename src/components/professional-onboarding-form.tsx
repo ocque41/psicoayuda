@@ -59,6 +59,8 @@ export function ProfessionalOnboardingForm({
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState("");
+  const [phone, setPhone] = useState("");
+  const [landline, setLandline] = useState("");
   const ids = {
     fullName: `${formId}-full-name`,
     displayName: `${formId}-display-name`,
@@ -339,35 +341,42 @@ export function ProfessionalOnboardingForm({
         </div>
         <p className="field-help" style={{ margin: "0 0 8px" }}>
           Tu correo <strong>{email}</strong> ya se mostrará en tu ficha como
-          forma de contacto. Si quieres, añade también WhatsApp o un teléfono
-          fijo: cada uno aparece como botón para contactarte al instante.
+          forma de contacto. También debes indicar al menos un número de
+          WhatsApp o un teléfono fijo para que puedan contactarte al instante.
         </p>
         <div className="grid grid-2">
           <div className="field">
-            <label htmlFor={ids.phone}>WhatsApp (opcional)</label>
+            <label htmlFor={ids.phone}>WhatsApp</label>
             <p className="hint" id={ids.phoneHint}>
               Aparece como botón de WhatsApp y llamada. Si estás fuera de
-              Venezuela, incluye el código de país (ej. +57…).
+              Venezuela, incluye el código de país (ej. +57…). Debes completar
+              este campo o el teléfono fijo.
             </p>
             <input
               id={ids.phone}
               name="phone"
               type="tel"
               autoComplete="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              required={!landline.trim()}
               aria-describedby={ids.phoneHint}
             />
           </div>
           <div className="field">
-            <label htmlFor={ids.landline}>Teléfono fijo (opcional)</label>
+            <label htmlFor={ids.landline}>Teléfono fijo</label>
             <p className="hint" id={ids.landlineHint}>
               Aparece como botón de llamada. Útil si prefieres que te llamen a
-              un número fijo.
+              un número fijo. Debes completar este campo o WhatsApp.
             </p>
             <input
               id={ids.landline}
               name="landline"
               type="tel"
               autoComplete="tel"
+              value={landline}
+              onChange={(event) => setLandline(event.target.value)}
+              required={!phone.trim()}
               aria-describedby={ids.landlineHint}
             />
           </div>

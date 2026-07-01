@@ -404,6 +404,26 @@ legend {
   color: var(--accent-strong);
 }
 
+/* El aviso de Contacto combina bastante texto, un bloque de crisis y un CTA.
+   En escritorio usa dos columnas legibles y reserva una fila completa para el
+   botón, evitando que flex lo comprima hasta separar cada palabra. */
+.contact-emergency-notice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.contact-emergency-notice > p:first-child {
+  margin-bottom: 0;
+}
+
+.contact-emergency-notice > p:has(> .button) {
+  grid-column: 1 / -1;
+  justify-content: center;
+  margin: 0;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -1069,6 +1089,18 @@ body {
   /* Una sola columna garantizada para el pulgar */
   .grid-2 {
     grid-template-columns: 1fr;
+  }
+
+  .contact-emergency-notice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-emergency-notice > p:has(> .button) {
+    grid-column: auto;
+  }
+
+  .contact-emergency-notice > p > .button {
+    width: 100%;
   }
 
   /* Recuperar ancho útil donde hay padding sobre padding */

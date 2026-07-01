@@ -80,7 +80,7 @@ describe("Nido MVP smoke checks", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("accepts optional phone/landline but rejects unusable numbers", () => {
+  it("requires WhatsApp or landline and rejects unusable numbers", () => {
     const base = {
       fullName: "Ana Perez",
       licenseNumber: "CRED-1",
@@ -94,8 +94,18 @@ describe("Nido MVP smoke checks", () => {
       conductNoEmergencyGuarantee: "on",
       conductCompetence: "on",
     };
-    // Sin teléfono ni fijo: aceptado (el correo de la cuenta es el contacto).
-    expect(professionalSchema.safeParse(base).success).toBe(true);
+    // Sin WhatsApp ni fijo: rechazado, incluso si llegan como campos vacíos.
+    const missingContact = professionalSchema.safeParse(base);
+    expect(missingContact.success).toBe(false);
+    if (!missingContact.success) {
+      expect(missingContact.error.issues[0]?.message).toBe(
+        "Debes indicar un número de WhatsApp o un teléfono fijo.",
+      );
+    }
+    expect(
+      professionalSchema.safeParse({ ...base, phone: "", landline: "" })
+        .success,
+    ).toBe(false);
     // WhatsApp basura no normalizable: rechazado.
     expect(
       professionalSchema.safeParse({ ...base, phone: "123" }).success,
