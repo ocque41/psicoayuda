@@ -35,13 +35,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Apply D1 migrations (production)
-        # TEMPORAL: el CLOUDFLARE_API_TOKEN de CI aún no tiene permiso D1:Edit, así
-        # que este paso no puede aplicar migraciones (error 7403) y bloqueaba TODO
-        # el deploy. Lo dejamos no-bloqueante para no frenar el deploy. Hoy no hay
-        # migraciones pendientes (se aplican a mano con `pnpm db:migrate:remote`).
-        # ⚠️ Cuando el token tenga D1:Edit, QUITA este `continue-on-error` para que
-        # una migración fallida vuelva a bloquear el deploy (evita schema drift).
-        continue-on-error: true
+        # El CLOUDFLARE_API_TOKEN de CI ya tiene permiso D1:Edit, así que este paso
+        # aplica las migraciones pendientes antes de desplegar. Es BLOQUEANTE a
+        # propósito: si una migración falla, se detiene el deploy (evita schema
+        # drift, es decir, publicar código que espera tablas/columnas inexistentes).
         run: pnpm db:migrate:remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
