@@ -9,7 +9,7 @@ import { ProfessionalDirectory } from "./professional-directory";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Psicólogas y psicólogos voluntarios disponibles",
+  title: "Psicólogas y psicólogos voluntarios en Venezuela",
   description:
     "Mira las psicólogas y psicólogos voluntarios verificados de Nido, busca por nombre o especialidad y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
   alternates: { canonical: "/profesionales" },
