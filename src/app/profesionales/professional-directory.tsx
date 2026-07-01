@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useMemo, useState } from "react";
 import { CrisisResources } from "@/components/crisis-resources";
-import {
-  languageLabels,
-  languages,
-  needCategories,
-  needLabels,
-} from "@/lib/constants";
+import { needCategories, needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
 import { isAvailableNow } from "@/lib/response-bucket";
 import { buildSearchBlob, detectCrisis, queryTokens } from "@/lib/search";
@@ -47,12 +42,9 @@ export function ProfessionalDirectory({
 }) {
   const [query, setQuery] = useState("");
   const [area, setArea] = useState("");
-  const [language, setLanguage] = useState("");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
-  const [onlyCrisis, setOnlyCrisis] = useState(false);
   const searchId = useId();
   const areaId = useId();
-  const langId = useId();
 
   // Si llega ?q= (p. ej. desde el buscador de la portada), precarga la consulta.
   // En efecto de cliente para no tocar el SSR/ISR ni provocar mismatch.
@@ -87,31 +79,22 @@ export function ProfessionalDirectory({
           return false;
         }
         if (area && !pro.supportAreas.includes(area)) return false;
-        if (language && !pro.languages.includes(language)) return false;
         if (onlyAvailable && !isAvailableNow(pro)) return false;
-        if (onlyCrisis && !pro.crisisExperience) return false;
         return true;
       })
       .map(({ pro }) => pro);
-  }, [indexed, query, area, language, onlyAvailable, onlyCrisis]);
+  }, [indexed, query, area, onlyAvailable]);
 
   // Riesgo: si la consulta sugiere autolesión/suicidio, anteponemos los recursos
   // de crisis (Nido no atiende emergencias en tiempo real).
   const crisisIntent = useMemo(() => detectCrisis(query), [query]);
 
-  const hasFilters =
-    query.trim() !== "" ||
-    area !== "" ||
-    language !== "" ||
-    onlyAvailable ||
-    onlyCrisis;
+  const hasFilters = query.trim() !== "" || area !== "" || onlyAvailable;
 
   function clearFilters() {
     setQuery("");
     setArea("");
-    setLanguage("");
     setOnlyAvailable(false);
-    setOnlyCrisis(false);
   }
 
   // Sin voluntarios aprobados todavía: mensaje cálido, no un vacío seco.
@@ -210,22 +193,6 @@ export function ProfessionalDirectory({
             </select>
           </div>
 
-          <div className="field" style={{ flex: "1 1 160px", marginBottom: 0 }}>
-            <label htmlFor={langId}>Idioma</label>
-            <select
-              id={langId}
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-            >
-              <option value="">Cualquier idioma</option>
-              {languages.map((key) => (
-                <option key={key} value={key}>
-                  {languageLabels[key]}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <fieldset
             style={{
               flex: "0 1 auto",
@@ -246,14 +213,6 @@ export function ProfessionalDirectory({
                   onChange={(event) => setOnlyAvailable(event.target.checked)}
                 />
                 <span>Solo disponibles ahora</span>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={onlyCrisis}
-                  onChange={(event) => setOnlyCrisis(event.target.checked)}
-                />
-                <span>Con experiencia en crisis</span>
               </label>
             </div>
           </fieldset>
