@@ -167,7 +167,7 @@ export default async function AdminPage({
   );
 
   return (
-    <section className="section">
+    <section className="section admin">
       <div className="container">
         <h1>Admin</h1>
         <p className="muted">Sesión admin: {admin.email}</p>

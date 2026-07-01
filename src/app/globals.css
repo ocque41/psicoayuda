@@ -934,6 +934,58 @@ tr:last-child td {
   border-bottom: none;
 }
 
+/* ============================================================
+   Panel de administración (/admin): los controles de acción viven dentro de
+   tablas densas, con varias acciones por fila. El .button global (48px, pill)
+   es un CTA pensado para la web pública y ahí queda enorme y descuadra las
+   filas, y el <select> de estado (sin .field) se ve pequeño al lado. Aquí
+   damos un aspecto de dashboard —controles compactos y a la misma altura—
+   SOLO bajo .admin, sin tocar el botón del sitio público. */
+.admin .button {
+  min-height: 40px;
+  padding: 9px 16px;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+}
+
+.admin td,
+.admin th {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+/* Cada formulario de acción ocupa su propio renglón; sus controles (select +
+   botón) van en línea y alineados, y envuelven bien en pantallas estrechas. */
+.admin td form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin td form + form {
+  margin-top: 8px;
+}
+
+/* Dentro de las tablas, aún más compactos y select a juego con el botón. */
+.admin table .button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  gap: 6px;
+}
+
+.admin table select {
+  min-height: 34px;
+  padding: 6px 28px 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
 h1 {
   max-width: 760px;
   font-family: var(--font-display);
