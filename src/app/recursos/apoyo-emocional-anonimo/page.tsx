@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description:
     "Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno.",
   alternates: { canonical: "/recursos/apoyo-emocional-anonimo" },
+  openGraph: {
+    title: "Apoyo emocional gratis y anónimo, sin dar tu nombre | Nido",
+    description:
+      "Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno.",
+    url: "/recursos/apoyo-emocional-anonimo",
+  },
 };
 
 export default function Page() {

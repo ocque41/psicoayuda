@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description:
     "Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español.",
   alternates: { canonical: "/recursos/venezolanos-en-el-exterior" },
+  openGraph: {
+    title: "Apoyo psicológico para venezolanos en el exterior | Nido",
+    description:
+      "Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español.",
+    url: "/recursos/venezolanos-en-el-exterior",
+  },
 };
 
 export default function Page() {

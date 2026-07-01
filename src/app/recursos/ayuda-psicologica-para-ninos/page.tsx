@@ -10,6 +10,13 @@ export const metadata: Metadata = {
   description:
     "Cómo conseguir apoyo psicológico gratuito y a distancia en Venezuela para adolescentes y para madres, padres y cuidadores. Sin estigma y con acompañamiento de un adulto de confianza.",
   alternates: { canonical: "/recursos/ayuda-psicologica-para-ninos" },
+  openGraph: {
+    title:
+      "Ayuda psicológica gratis para niñas, niños y adolescentes en Venezuela | Nido",
+    description:
+      "Cómo conseguir apoyo psicológico gratuito y a distancia en Venezuela para adolescentes y para madres, padres y cuidadores. Sin estigma y con acompañamiento de un adulto de confianza.",
+    url: "/recursos/ayuda-psicologica-para-ninos",
+  },
 };
 
 export default function Page() {

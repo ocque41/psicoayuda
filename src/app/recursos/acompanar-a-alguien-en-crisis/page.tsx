@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   description:
     "Guía cálida para acompañar a un familiar, pareja o amigo que está triste, ansioso o en duelo: cómo escuchar sin juzgar, qué decir y cómo cuidarte tú.",
   alternates: { canonical: "/recursos/acompanar-a-alguien-en-crisis" },
+  openGraph: {
+    title:
+      "Cómo acompañar a alguien que está pasando por un mal momento | Nido",
+    description:
+      "Guía cálida para acompañar a un familiar, pareja o amigo que está triste, ansioso o en duelo: cómo escuchar sin juzgar, qué decir y cómo cuidarte tú.",
+    url: "/recursos/acompanar-a-alguien-en-crisis",
+  },
 };
 
 export default function Page() {
