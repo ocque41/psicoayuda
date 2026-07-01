@@ -42,7 +42,7 @@ const AREA_KEYWORDS: Record<string, string> = {
 // Términos comunes para el servicio en sí: cada voluntario ES psicólogo y ofrece
 // acompañamiento, así que estos van en TODAS las tarjetas.
 const UNIVERSAL_KEYWORDS =
-  "psicólogo psicóloga psicología terapia terapeuta consulta sesión apoyo emocional ayuda profesional acompañamiento";
+  "psicólogo psicóloga psicología psicológica psicológico salud mental bienestar terapia terapeuta consulta sesión apoyo emocional ayuda profesional acompañamiento";
 
 // Detección de riesgo (autolesión/suicidio): si la persona escribe esto, lo que
 // necesita es ayuda inmediata, no un catálogo. Términos ya normalizados (sin
@@ -126,6 +126,25 @@ const STOPWORDS = new Set([
   "su",
   "sus",
   "nos",
+  // Relleno de intención: describen que la persona busca/necesita algo, no QUÉ
+  // busca. Quitarlos evita que "problemas de pareja" o "busco psicólogo" caigan a
+  // cero por el match AND (basta con que sobreviva la palabra que sí discrimina).
+  "problemas",
+  "problema",
+  "necesito",
+  "necesita",
+  "necesitas",
+  "busco",
+  "buscar",
+  "buscando",
+  "quiero",
+  "queria",
+  "ayudar",
+  "ayudame",
+  "ayudarme",
+  "alguien",
+  "hola",
+  "favor",
 ]);
 
 // Quita acentos y baja a minúsculas para que "nino"=="niño", "ingles"=="inglés".
