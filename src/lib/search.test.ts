@@ -47,6 +47,8 @@ describe("términos cabecera: todo voluntario debe aparecer", () => {
     "psicólogo gratis",
     "terapia online",
     "psicólogo a distancia",
+    "psicoterapia",
+    "consejería",
     "salud mental venezuela",
   ]) {
     it(`encuentra profesionales para "${q}"`, () => {
