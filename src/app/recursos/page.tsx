@@ -38,11 +38,18 @@ export default function ResourcesPage() {
             Cuéntanos cómo estás en un formulario breve. No necesitas crear
             cuenta ni dar tu ubicación. Una persona voluntaria verificada
             revisará tu mensaje y te escribirá a tu correo para acompañarte a
-            distancia, sin coste.
+            distancia, sin coste. Si prefieres, también puedes{" "}
+            <Link href="/profesionales">
+              ver a las psicólogas y psicólogos voluntarios
+            </Link>{" "}
+            y elegir tú con quién hablar.
           </p>
           <p>
             <Link className="button human" href="/ayuda">
               Pedir apoyo ahora
+            </Link>{" "}
+            <Link className="button secondary" href="/profesionales">
+              Ver psicólogos voluntarios
             </Link>
           </p>
         </div>
