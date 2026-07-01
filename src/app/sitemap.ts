@@ -20,6 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/", priority: 1, changeFrequency: "weekly" },
     { path: "/ayuda", priority: 0.9, changeFrequency: "monthly" },
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/situacion", priority: 0.7, changeFrequency: "weekly" },
     { path: "/recursos", priority: 0.8, changeFrequency: "weekly" },
     {
       path: "/recursos/psicologo-online-gratis-venezuela",
