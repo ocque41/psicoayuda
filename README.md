@@ -355,7 +355,7 @@ Estos límites existen por **privacidad y seguridad** de personas vulnerables. L
 
 Distribuido bajo la **Licencia MIT**. Consulta **[LICENSE](LICENSE)**.
 
-Al contribuir, aceptas que tu contribución se licencia bajo la Licencia MIT.
+Al contribuir (ver **[CONTRIBUTING.md](CONTRIBUTING.md)**), aceptas que tu contribución se licencia bajo la Licencia MIT.
 
 ---
 
