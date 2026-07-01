@@ -109,6 +109,11 @@ export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
       "Sí. Nido es un proyecto sin fines de lucro. La atención la brindan psicólogas y psicólogos voluntarios verificados que donan su tiempo. No se cobra a las personas que piden apoyo ni se solicita ningún dato de pago.",
   },
   {
+    question: "¿Cómo puedo hablar con un psicólogo gratis en Venezuela?",
+    answer:
+      "Tienes dos formas, ambas gratis y sin crear cuenta: cuentas en un formulario breve cómo estás y una persona voluntaria verificada te escribe a tu correo para acompañarte a distancia; o entras al directorio de psicólogas y psicólogos voluntarios y eliges tú con quién hablar. Todo ocurre en línea, así que funciona desde cualquier estado de Venezuela.",
+  },
+  {
     question: "¿Necesito crear una cuenta o dar mi identidad?",
     answer:
       "No. Para pedir apoyo no necesitas crear una cuenta ni dar tu nombre, cédula o ubicación exacta. Solo pedimos un correo de contacto para que una persona voluntaria pueda escribirte.",
