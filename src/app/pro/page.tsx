@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthPanel } from "@/components/auth-panel";
+import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default async function ProPage({
   searchParams: Promise<{ modo?: string }>;
 }) {
   const session = await getServerSession();
+  const isAdmin = isAdminEmail(session?.user?.email);
   const { modo } = await searchParams;
   const defaultMode = modo === "registro" ? "signup" : "signin";
   const googleEnabled = Boolean(
@@ -45,14 +47,22 @@ export default async function ProPage({
           <li>100% remoto y voluntario</li>
         </ul>
         {session?.user ? (
-          <p>
-            <Link className="button human" href="/pro/onboarding">
-              Continuar mi perfil
-            </Link>{" "}
-            <Link className="button secondary" href="/pro/dashboard">
-              Ver mi panel
-            </Link>
-          </p>
+          isAdmin ? (
+            <p>
+              <Link className="button human" href="/admin">
+                Ir al panel de administración
+              </Link>
+            </p>
+          ) : (
+            <p>
+              <Link className="button human" href="/pro/onboarding">
+                Continuar mi perfil
+              </Link>{" "}
+              <Link className="button secondary" href="/pro/dashboard">
+                Ver mi panel
+              </Link>
+            </p>
+          )
         ) : (
           <div className="signin">
             <AuthPanel

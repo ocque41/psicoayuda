@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ProfessionalOnboardingForm } from "@/components/professional-onboarding-form";
+import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
 export default async function ProOnboardingPage() {
   const session = await getServerSession();
   if (!session?.user?.email) redirect("/pro");
+  // Los admins no son profesionales: no pasan por el onboarding. Como el callback
+  // de login apunta aquí, este es el chokepoint que los desvía a su panel.
+  if (isAdminEmail(session.user.email)) redirect("/admin");
 
   return (
     <section className="section">
