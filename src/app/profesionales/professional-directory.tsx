@@ -17,6 +17,19 @@ import { FeedProfessionalCard } from "./professional-card";
 // Especialidades e idiomas filtrables ("otro" se omite como opción de filtro).
 const FILTER_AREAS = needCategories.filter((area) => area !== "otro");
 
+// Atajos de búsqueda: las necesidades más comunes, a un toque. Cada uno solo
+// rellena la barra (no es un filtro aparte) y cae en los sinónimos de abajo, así
+// que devuelve resultados. Ayuda a quien no sabe con qué palabra empezar.
+const QUICK_SEARCHES = [
+  "Ansiedad",
+  "Duelo",
+  "Niños",
+  "Pareja",
+  "Insomnio",
+  "Autoestima",
+  "Terremoto",
+];
+
 // Sinónimos por especialidad: lo que de verdad escribe la gente (incluye formas
 // coloquiales, adjetivos y términos venezolanos). Hace que la búsqueda libre
 // encuentre al profesional aunque no use el término clínico.
@@ -302,6 +315,36 @@ export function ProfessionalDirectory({
             Escribe con tus palabras: cómo te sientes, qué pasó, o el nombre de
             quien buscas.
           </p>
+        </div>
+
+        <div style={{ margin: "0 0 var(--space-6)" }}>
+          <p className="hint" style={{ margin: "0 0 8px" }}>
+            Búsquedas frecuentes:
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {QUICK_SEARCHES.map((term) => {
+              const active = query.trim().toLowerCase() === term.toLowerCase();
+              return (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => setQuery(term)}
+                  aria-pressed={active}
+                  style={{
+                    border: `1px solid ${active ? "#245f47" : "#c5ddc5"}`,
+                    background: active ? "#e6f1ea" : "#fff",
+                    color: "inherit",
+                    borderRadius: 999,
+                    padding: "6px 14px",
+                    fontSize: "0.95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  {term}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <p style={{ fontWeight: 600, margin: "0 0 var(--space-3)" }}>
