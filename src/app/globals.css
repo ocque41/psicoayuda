@@ -903,22 +903,52 @@ tr:last-child td {
 
 h1 {
   max-width: 760px;
-  font-size: clamp(1.9rem, 4.5vw, 3rem);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4.8vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
   margin: 0 0 var(--space-4);
 }
 
 h2 {
   margin-top: 0;
   margin-bottom: var(--space-4);
+  font-family: var(--font-display);
   font-size: var(--step-2);
   font-weight: 650;
+  letter-spacing: -0.015em;
 }
 
 h3 {
   margin-bottom: var(--space-3);
+  font-family: var(--font-display);
   font-weight: 650;
+}
+
+/* ============================================================
+   Estructura centrada: encabezados e intros de sección centrados, y el texto
+   corrido en una columna centrada en la página (ya no "pegado a la izquierda").
+   Solo afecta a hijos directos de .container en secciones; tarjetas, rejillas y
+   el interior de los componentes conservan su alineación.
+   ============================================================ */
+.section .container > h2,
+.section .container > h3,
+.section .container > .lead {
+  text-align: center;
+}
+
+.section .container > p,
+.section .container > ul,
+.section .container > ol,
+.section .container > form {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
+/* CTAs de sección centrados (las filas de botones ya son flex). */
+.section .container > p:has(> .button) {
+  justify-content: center;
 }
 
 /* Ritmo vertical de prosa. El preflight de Tailwind pone a 0 los márgenes de

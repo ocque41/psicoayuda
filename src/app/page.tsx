@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
+import { HomeProfessionalsFilter } from "@/components/home-professionals-filter";
 import { HomeJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
@@ -54,73 +54,9 @@ export default async function HomePage() {
             acompañarte gratis y a distancia. Elige con quién hablar o deja tu
             solicitud y te conectamos con alguien afín.
           </p>
-          <form
-            action="/profesionales"
-            method="get"
-            className="field"
-            style={{ maxWidth: 560, marginBottom: "var(--space-5)" }}
-          >
-            <label htmlFor="home-pro-search">
-              Busca un psicólogo por lo que necesitas
-            </label>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <input
-                id="home-pro-search"
-                type="search"
-                name="q"
-                placeholder="Ej.: ansiedad, duelo, niños, miedo…"
-                autoComplete="off"
-                style={{ flex: "1 1 240px" }}
-              />
-              <button type="submit" className="button human">
-                Buscar
-              </button>
-            </div>
-          </form>
-          <p className="hint" style={{ margin: "0 0 8px" }}>
-            Búsquedas frecuentes:
-          </p>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginBottom: "var(--space-6)",
-            }}
-          >
-            {[
-              "Ansiedad",
-              "Duelo",
-              "Niños",
-              "Pareja",
-              "Insomnio",
-              "Terremoto",
-            ].map((term) => (
-              <Link
-                key={term}
-                href={`/profesionales?q=${encodeURIComponent(term.toLowerCase())}`}
-                style={{
-                  border: "1px solid #c5ddc5",
-                  borderRadius: 999,
-                  padding: "6px 14px",
-                  fontSize: "0.95rem",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
-                {term}
-              </Link>
-            ))}
-          </div>
           {featured.length > 0 ? (
             <>
-              <p className="muted">
-                {professionals.length === 1
-                  ? "1 psicóloga o psicólogo voluntario disponible ahora."
-                  : `${professionals.length} psicólogas y psicólogos voluntarios disponibles ahora.`}{" "}
-                Desliza para conocerlos.
-              </p>
-              <HomeProfessionalsStrip professionals={featured} />
+              <HomeProfessionalsFilter professionals={featured} />
               <p>
                 <Link className="button secondary" href="/profesionales">
                   Ver y buscar todas las personas voluntarias
