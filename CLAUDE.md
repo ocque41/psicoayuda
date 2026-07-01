@@ -4,6 +4,27 @@
 > vez**. Sin disciplina se pisan: se barren commits entre sí, compiten en
 > `pnpm install` y chocan en el build. Sigue el protocolo de abajo siempre.
 
+## ⛔ Base de datos de PRODUCCIÓN — máximo cuidado (obligatorio)
+
+**La app YA tiene usuarios reales usando la D1 de producción.** Cada ejecución
+debe tratar la BBDD de producción como intocable:
+
+- **NUNCA** hagas reset, drop, truncate, ni borres filas/tablas de la BBDD de
+  producción (D1 remoto). Nada de `wrangler d1 execute --remote` con DELETE /
+  DROP / migraciones destructivas, ni `db:migrate:remote` que pierda datos.
+- **NUNCA** ejecutes seeds, fixtures ni cargas de prueba contra producción.
+- Cualquier prueba, seed o migración destructiva va contra una **BBDD local o de
+  worktree**, jamás contra `--remote`.
+- Antes de aplicar una migración a producción, verifica que es **aditiva y no
+  destructiva** (las 0004/0005/0006 se aplicaron sin pérdida de datos: ese es el
+  estándar). Si hay cualquier duda de pérdida de datos, **para y pregunta al
+  humano** en vez de ejecutar.
+
+## Idioma
+
+Todo el trabajo del proyecto se hace en **español**: respuestas al usuario,
+commits, PRs, comentarios de código, documentación y mensajes de UI.
+
 ## Coordinación entre sesiones (obligatorio)
 
 Este clon (`main` en `C:\Users\Usuario\clones\psicoayuda`) es **compartido**. Para
