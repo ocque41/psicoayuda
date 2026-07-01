@@ -1,0 +1,58 @@
+name: Deploy to Cloudflare
+
+# Build en Linux (OpenNext no compila un Worker funcional en Windows nativo) y
+# despliega a Cloudflare. Disparo MANUAL para no publicar WIP a medio hacer por
+# accidente (varias ramas/sesiones empujan a main).
+#
+# Requisito (una vez, en GitHub → Settings → Secrets and variables → Actions):
+#   - CLOUDFLARE_API_TOKEN  (permisos Workers Scripts:Edit, D1:Edit, Workers Routes:Edit)
+# El account id va abajo (no es secreto). El secreto de RUNTIME del Worker
+# (BETTER_AUTH_SECRET) se pone una vez con `wrangler secret put`, NO aquí.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cf-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply D1 migrations (production)
+        run: pnpm db:migrate:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
+
+      - name: Build (OpenNext → Cloudflare)
+        run: pnpm exec opennextjs-cloudflare build
+        env:
+          NIDO_DB_TARGET: cloudflare
+          NEXT_PUBLIC_SITE_URL: https://saludmental-venezuela.com
+          BETTER_AUTH_URL: https://saludmental-venezuela.com
+          # Marcador SOLO para el build; el secreto real vive como secreto de
+          # Cloudflare (wrangler secret put BETTER_AUTH_SECRET).
+          BETTER_AUTH_SECRET: deploy-build-placeholder-not-the-real-secret
+
+      - name: Deploy
+        run: pnpm exec opennextjs-cloudflare deploy
+        env:
+          NIDO_DB_TARGET: cloudflare
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e

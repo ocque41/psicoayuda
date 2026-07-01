@@ -271,6 +271,7 @@ export async function acceptOffer(input: {
         helpRequestId: offer.helpRequestId,
         professionalId: input.professionalId,
         seekerSid: sid,
+        seekerName: request?.seekerName ?? null,
         status: "open",
         createdAt: timestamp,
         updatedAt: timestamp,

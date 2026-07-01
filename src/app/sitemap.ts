@@ -8,7 +8,9 @@ import { absoluteUrl } from "@/lib/site";
  * profesional, página de gracias) que además se bloquean en robots.ts.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date("2026-06-29");
+  // Fecha de última actualización relevante del sitio (guías, buscador, etc.).
+  // Actualízala cuando cambie contenido: es señal de frescura para Google.
+  const lastModified = new Date("2026-07-01");
 
   const routes: Array<{
     path: string;
@@ -19,6 +21,61 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/ayuda", priority: 0.9, changeFrequency: "monthly" },
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
     { path: "/recursos", priority: 0.8, changeFrequency: "weekly" },
+    {
+      path: "/recursos/psicologo-online-gratis-venezuela",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/ansiedad-despues-del-terremoto",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/duelo-perdida-de-un-ser-querido",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/depresion-senales-y-ayuda",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/ataque-de-panico-que-hacer",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/insomnio-como-dormir-mejor",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/soledad-que-hacer",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/autoestima-como-mejorarla",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/estres-economico-y-salud-mental",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/burnout-agotamiento-que-hacer",
+      priority: 0.6,
+      changeFrequency: "monthly",
+    },
+    {
+      path: "/recursos/estres-postraumatico-tept",
+      priority: 0.7,
+      changeFrequency: "monthly",
+    },
     {
       path: "/recursos/acompanar-a-alguien-en-crisis",
       priority: 0.6,

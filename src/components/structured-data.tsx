@@ -63,6 +63,70 @@ const websiteNode: Json = {
   publisher: { "@id": `${SITE_URL}/#organization` },
 };
 
+/**
+ * Datos estructurados de una guía de salud (`MedicalWebPage`).
+ *
+ * Google recomienda marcar el contenido de salud (YMYL) como página médica.
+ * Se enlaza al grafo del sitio (`#website` / `#organization`) por `@id` para
+ * que Google una todo en una sola entidad. No declara revisor médico porque no
+ * lo hay: solo afirmamos lo verificable.
+ */
+export function GuideJsonLd({
+  path,
+  name,
+  description,
+}: {
+  path: string;
+  name: string;
+  description: string;
+}) {
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "MedicalWebPage",
+        "@id": `${SITE_URL}${path}#webpage`,
+        url: absoluteUrl(path),
+        name,
+        description,
+        inLanguage: "es",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: { "@id": `${SITE_URL}/#organization` },
+        publisher: { "@id": `${SITE_URL}/#organization` },
+        audience: {
+          "@type": "MedicalAudience",
+          geographicArea: { "@type": "Country", name: "Venezuela" },
+        },
+      }}
+    />
+  );
+}
+
+/**
+ * `FAQPage` independiente para la página dedicada de preguntas frecuentes.
+ * El texto debe coincidir con el visible (requisito de Google), por eso recibe
+ * las mismas preguntas/respuestas que se renderizan en la página.
+ */
+export function FaqJsonLd({
+  items,
+}: {
+  items: ReadonlyArray<{ question: string; answer: string }>;
+}) {
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: items.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      }}
+    />
+  );
+}
+
 /** Datos estructurados presentes en todas las páginas (en el layout raíz). */
 export function SiteJsonLd() {
   return (

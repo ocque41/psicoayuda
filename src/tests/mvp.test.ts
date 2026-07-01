@@ -63,7 +63,8 @@ describe("Nido MVP smoke checks", () => {
       fullName: "Ana Perez",
       licenseNumber: "CRED-1",
       licenseCountry: "Venezuela",
-      languages: ["es"],
+      university: "Universidad Central de Venezuela",
+      phone: "0412-1234567",
       supportAreas: ["duelo"],
       remoteAvailable: "on",
       acceptingRequests: "on",
@@ -79,12 +80,39 @@ describe("Nido MVP smoke checks", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("requires a usable WhatsApp number (libro amarillo)", () => {
+    const base = {
+      fullName: "Ana Perez",
+      licenseNumber: "CRED-1",
+      licenseCountry: "Venezuela",
+      university: "Universidad Central de Venezuela",
+      supportAreas: ["duelo"],
+      maxActiveRequests: "3",
+      conductFreeService: "on",
+      conductNoClientCapture: "on",
+      conductConfidentiality: "on",
+      conductNoEmergencyGuarantee: "on",
+      conductCompetence: "on",
+    };
+    // Sin teléfono: rechazado.
+    expect(professionalSchema.safeParse(base).success).toBe(false);
+    // Basura no normalizable: rechazado.
+    expect(
+      professionalSchema.safeParse({ ...base, phone: "123" }).success,
+    ).toBe(false);
+    // Número válido: aceptado.
+    expect(
+      professionalSchema.safeParse({ ...base, phone: "+58 412 1234567" })
+        .success,
+    ).toBe(true);
+  });
+
   it("requires professional conduct acceptance", () => {
     const parsed = professionalSchema.safeParse({
       fullName: "Ana Perez",
       licenseNumber: "CRED-1",
       licenseCountry: "Venezuela",
-      languages: ["es"],
+      university: "Universidad Central de Venezuela",
       supportAreas: ["duelo"],
       maxActiveRequests: "3",
     });

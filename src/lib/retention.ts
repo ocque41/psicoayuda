@@ -69,7 +69,12 @@ export async function anonymizeHelpRequest(
   if (convs.length > 0) {
     await db
       .update(conversations)
-      .set({ status: "closed", anonymizedAt: timestamp, updatedAt: timestamp })
+      .set({
+        status: "closed",
+        seekerName: null,
+        anonymizedAt: timestamp,
+        updatedAt: timestamp,
+      })
       .where(eq(conversations.helpRequestId, requestId));
   }
 
@@ -78,6 +83,7 @@ export async function anonymizeHelpRequest(
     .set({
       // Token aleatorio: sin enlace residual al id de la solicitud original.
       email: `anon-${newId("anon")}@nido.local`,
+      seekerName: null,
       country: null,
       state: null,
       city: null,

@@ -1,39 +1,22 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EmergencyNotice } from "@/components/emergency-notice";
-import { needCategories, needLabels } from "@/lib/constants";
 import { getFeedProfessionals } from "@/lib/feed";
-import { FeedProfessionalCard } from "./professional-card";
+import { ProfessionalDirectory } from "./professional-directory";
 
 // Lista pública (verificados, sin datos confidenciales): se cachea en el edge y
-// se revalida cada 60s. Mucho mejor TTFB/LCP en móvil que renderizar por request.
+// se revalida cada 60s. El filtrado (nombre/especialidad/disponibilidad) ocurre
+// en el cliente sobre esta lista, así que la página sigue siendo ISR.
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Psicólogas y psicólogos voluntarios disponibles",
+  title: "Psicólogas y psicólogos voluntarios en Venezuela",
   description:
-    "Mira las psicólogas y psicólogos voluntarios verificados de Nido, filtra por el tema que necesitas y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
+    "Mira las psicólogas y psicólogos voluntarios verificados de Nido, busca por nombre o especialidad y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
   alternates: { canonical: "/profesionales" },
 };
 
-// Temas por los que se puede filtrar (excluye "otro", poco útil como filtro).
-const FILTER_AREAS = needCategories.filter((area) => area !== "otro");
-
-export default async function ProfesionalesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ area?: string }>;
-}) {
-  const { area } = await searchParams;
-  const activeArea =
-    area && (needCategories as readonly string[]).includes(area) ? area : null;
-
-  const all = await getFeedProfessionals();
-  const professionals = activeArea
-    ? all.filter((professional) =>
-        professional.supportAreas.includes(activeArea),
-      )
-    : all;
+export default async function ProfesionalesPage() {
+  const professionals = await getFeedProfessionals();
 
   return (
     <section className="section">
@@ -47,88 +30,13 @@ export default async function ProfesionalesPage({
         </ul>
         <p className="lead">
           Estas psicólogas y psicólogos dan su tiempo para acompañarte, a
-          distancia. Mira sus áreas, elige a quien sientas más afín y pídele
-          apoyo. Y si prefieres no elegir, deja tu mensaje y le llega a todo el
-          equipo.
+          distancia. Busca por nombre o especialidad, elige a quien sientas más
+          afín y pídele apoyo. Y si prefieres no elegir, deja tu mensaje y le
+          llega a todo el equipo.
         </p>
         <EmergencyNotice />
 
-        {all.length > 0 ? (
-          <nav
-            className="pro-filters"
-            aria-label="Filtrar por tema"
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              margin: "0 0 var(--space-6)",
-            }}
-          >
-            <Link
-              className={activeArea ? "button secondary" : "button"}
-              href="/profesionales"
-            >
-              Todas
-            </Link>
-            {FILTER_AREAS.map((areaKey) => (
-              <Link
-                key={areaKey}
-                className={
-                  activeArea === areaKey ? "button" : "button secondary"
-                }
-                href={`/profesionales?area=${areaKey}`}
-              >
-                {needLabels[areaKey]}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
-
-        {professionals.length === 0 ? (
-          <div className="card">
-            {activeArea ? (
-              <p>
-                Ahora mismo no hay voluntarios disponibles en “
-                {needLabels[activeArea as keyof typeof needLabels]}”.{" "}
-                <Link href="/profesionales">Ver todas las personas</Link> o{" "}
-                <Link href="/ayuda">deja tu solicitud</Link> y te conectamos con
-                alguien afín.
-              </p>
-            ) : (
-              <p>
-                Aún estamos sumando voluntarios verificados. Mientras tanto,
-                puedes <Link href="/ayuda">dejar tu solicitud</Link> y una
-                persona del equipo te contactará por correo.
-              </p>
-            )}
-          </div>
-        ) : (
-          <>
-            <p className="muted">
-              {professionals.length}{" "}
-              {professionals.length === 1
-                ? "persona disponible"
-                : "personas disponibles"}
-              {activeArea
-                ? ` en “${needLabels[activeArea as keyof typeof needLabels]}”`
-                : ""}
-              .
-            </p>
-            <div className="grid grid-2">
-              {professionals.map((professional) => (
-                <FeedProfessionalCard
-                  key={professional.id}
-                  professional={professional}
-                />
-              ))}
-            </div>
-            <p className="reassurance">
-              ¿Prefieres que te conectemos sin elegir? Deja tu mensaje en{" "}
-              <Link href="/ayuda">pedir apoyo</Link> y le llega a todo el equipo
-              voluntario.
-            </p>
-          </>
-        )}
+        <ProfessionalDirectory professionals={professionals} />
       </div>
     </section>
   );

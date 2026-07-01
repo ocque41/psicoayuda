@@ -78,6 +78,7 @@ describe("SEO — sitemap.xml", () => {
       "/",
       "/ayuda",
       "/recursos",
+      "/recursos/psicologo-online-gratis-venezuela",
       "/pro",
       "/privacidad",
       "/terminos",
@@ -151,6 +152,7 @@ describe("SEO — contenido y datos estructurados de la portada", () => {
     expect(structured).toContain('"@type": "WebSite"');
     expect(structured).toContain('"@type": "Service"');
     expect(structured).toContain('"@type": "FAQPage"');
+    expect(structured).toContain('"@type": "MedicalWebPage"');
   });
 });
 
@@ -179,5 +181,48 @@ describe("SEO — archivos de metadatos requeridos", () => {
     ]) {
       expect(read(file)).toContain("index: false");
     }
+  });
+});
+
+describe("SEO — migas de pan (BreadcrumbList)", () => {
+  it("emite datos estructurados BreadcrumbList desde una única fuente", () => {
+    const component = read("src/components/breadcrumbs.tsx");
+    expect(component).toContain('"@type": "BreadcrumbList"');
+    expect(component).toContain('"@type": "ListItem"');
+  });
+
+  it("añade migas a las páginas de recursos de cola larga", () => {
+    for (const file of [
+      "src/app/recursos/psicologo-online-gratis-venezuela/page.tsx",
+      "src/app/recursos/ansiedad-despues-del-terremoto/page.tsx",
+      "src/app/recursos/duelo-perdida-de-un-ser-querido/page.tsx",
+      "src/app/recursos/depresion-senales-y-ayuda/page.tsx",
+      "src/app/recursos/ataque-de-panico-que-hacer/page.tsx",
+      "src/app/recursos/insomnio-como-dormir-mejor/page.tsx",
+      "src/app/recursos/soledad-que-hacer/page.tsx",
+      "src/app/recursos/autoestima-como-mejorarla/page.tsx",
+      "src/app/recursos/estres-economico-y-salud-mental/page.tsx",
+      "src/app/recursos/burnout-agotamiento-que-hacer/page.tsx",
+      "src/app/recursos/estres-postraumatico-tept/page.tsx",
+      "src/app/recursos/acompanar-a-alguien-en-crisis/page.tsx",
+      "src/app/recursos/apoyo-emocional-anonimo/page.tsx",
+      "src/app/recursos/ayuda-psicologica-para-ninos/page.tsx",
+      "src/app/recursos/venezolanos-en-el-exterior/page.tsx",
+    ]) {
+      const source = read(file);
+      expect(source).toContain("<Breadcrumbs");
+      expect(source).toContain("<GuideJsonLd");
+    }
+  });
+});
+
+describe("SEO — FAQPage en la página dedicada de preguntas frecuentes", () => {
+  it("expone el helper FaqJsonLd y lo usa la página de FAQ", () => {
+    expect(read("src/components/structured-data.tsx")).toContain(
+      "export function FaqJsonLd",
+    );
+    expect(read("src/app/preguntas-frecuentes/page.tsx")).toContain(
+      "<FaqJsonLd",
+    );
   });
 });

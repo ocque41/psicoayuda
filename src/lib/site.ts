@@ -6,9 +6,14 @@
  * a propósito: son constantes puras importables desde cualquier contexto.
  */
 
+// Dominio propio de producción. Es el *fallback* a propósito: `NEXT_PUBLIC_*`
+// se inyecta en el bundle en *build time*, y nuestro build de Cloudflare no
+// recibe esta variable (solo existe como `var` de runtime en wrangler.jsonc),
+// así que este valor por defecto es el que realmente se publica en canonical,
+// sitemap, robots, Open Graph y JSON-LD. Mantenlo igual al dominio real.
 const RAW_SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-  "https://ayudamental-venezuela.ocque41.workers.dev";
+  "https://saludmental-venezuela.com";
 
 /** URL canónica de producción, sin barra final. */
 export const SITE_URL = RAW_SITE_URL.replace(/\/+$/, "");
@@ -25,14 +30,14 @@ export const SITE_LANG = "es";
  * "ayuda psicológica venezuela" sin perder calidez.
  */
 export const SITE_TITLE_DEFAULT =
-  "Ayuda psicológica gratis tras el terremoto en Venezuela | Nido";
+  "Ayuda psicológica gratis en Venezuela | Salud mental | Nido";
 
 /** Plantilla de título para páginas internas. */
 export const SITE_TITLE_TEMPLATE = "%s | Nido";
 
 /** Descripción por defecto (~155 caracteres para no truncar en Google). */
 export const SITE_DESCRIPTION =
-  "Apoyo psicológico gratis y a distancia para afectados por los terremotos en Venezuela. Con voluntarios verificados, confidencial y sin crear cuenta.";
+  "Ayuda psicológica gratis y a distancia en Venezuela, también tras los terremotos. Psicólogos voluntarios verificados, confidencial y sin crear cuenta.";
 
 /**
  * Palabras clave objetivo. Google ya no usa la meta keywords para ranking,

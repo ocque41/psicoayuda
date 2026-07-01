@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
 import {
   type ChatMessage,
   type ClientFrame,
@@ -18,6 +19,11 @@ import { ensureProChatToken } from "./actions";
 import styles from "./chat.module.css";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
+
+// El borrador sin enviar es contenido sensible: lo guardamos para no perderlo al
+// cerrar, pero con caducidad para que no quede indefinidamente en un dispositivo
+// compartido (la sala ya está gateada por cookie, pero esto acota el residuo).
+const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 type Pending = { clientMsgId: string; content: string };
 
@@ -80,6 +86,22 @@ export function ChatRoom({
   useEffect(() => {
     pendingRef.current = pending;
   }, [pending]);
+
+  // Borrador del compositor: sobrevive a cerrar la pestaña, en este dispositivo.
+  // El historial ya vive en el servidor; esto solo cuida lo aún no enviado.
+  useEffect(() => {
+    const saved = loadDraft<string>(
+      `nido:chat-draft:${conversationId}`,
+      CHAT_DRAFT_TTL_MS,
+    );
+    if (saved) setDraft(saved);
+  }, [conversationId]);
+
+  useEffect(() => {
+    const key = `nido:chat-draft:${conversationId}`;
+    if (draft) saveDraft(key, draft);
+    else clearDraft(key);
+  }, [draft, conversationId]);
 
   const sendRaw = useCallback((frame: ClientFrame): boolean => {
     const ws = wsRef.current;

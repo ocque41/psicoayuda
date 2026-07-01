@@ -47,6 +47,12 @@ export async function createConversation(formData: FormData) {
   const helpRequestId = formData.get("helpRequestId")
     ? String(formData.get("helpRequestId"))
     : undefined;
+  // Alias opcional ("¿Cómo quieres que te llamemos?"): se muestra al profesional
+  // en el aviso "te están escribiendo". Acotado y sin identidad forzada.
+  const seekerName =
+    String(formData.get("seekerName") ?? "")
+      .trim()
+      .slice(0, 40) || null;
 
   if (!professionalId) redirect("/profesionales");
 
@@ -77,6 +83,7 @@ export async function createConversation(formData: FormData) {
     helpRequestId,
     professionalId,
     seekerSid: sid,
+    seekerName,
     status: "open",
     createdAt: timestamp,
     updatedAt: timestamp,

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
+import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
   title: "Apoyo emocional gratis y anónimo, sin dar tu nombre",
@@ -13,6 +15,20 @@ export default function Page() {
   return (
     <section className="section">
       <div className="container">
+        <GuideJsonLd
+          path="/recursos/apoyo-emocional-anonimo"
+          name="Apoyo emocional gratis y anónimo, sin dar tu nombre"
+          description="Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno."
+        />
+        <Breadcrumbs
+          trail={[
+            { name: "Recursos", path: "/recursos" },
+            {
+              name: "Apoyo emocional anónimo",
+              path: "/recursos/apoyo-emocional-anonimo",
+            },
+          ]}
+        />
         <h1>Apoyo emocional gratis y anónimo, sin dar tu nombre</h1>
         <p className="lead">
           Si te frena la vergüenza o el miedo a que te identifiquen, respira:

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { languages, needCategories, urgencyLevels } from "@/lib/constants";
+import { toIntlNumber } from "@/lib/phone";
 
 const checkboxBoolean = z.preprocess(
   (value) => value === "on" || value === "true" || value === true,
@@ -31,6 +32,14 @@ export const helpRequestSchema = z.object({
     .toLowerCase()
     .optional()
     .or(z.literal(""))
+    .transform((value) => value || undefined),
+  // Alias opcional: cómo quiere que la llamen. No es identidad legal; la persona
+  // decide qué compartir. Se muestra al profesional en el aviso de mensaje.
+  seekerName: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
     .transform((value) => value || undefined),
   language: z.enum(languages),
   country: z.string().trim().max(80).default("Venezuela"),
@@ -70,11 +79,40 @@ export const professionalSchema = z.object({
   licenseCountry: z
     .string()
     .trim()
-    .min(2, "Indica el país de tu credencial.")
+    .min(2, "Elige el país de tu credencial.")
     .max(80, "El país de la credencial es demasiado largo."),
-  languages: z
-    .array(z.enum(languages))
-    .min(1, "Elige al menos un idioma en el que puedas acompañar."),
+  university: z
+    .string()
+    .trim()
+    .min(2, "Indica la universidad donde obtuviste tu título.")
+    .max(160, "El nombre de la universidad es demasiado largo."),
+  // WhatsApp obligatorio: es el canal de contacto principal de la ficha (libro
+  // amarillo). Público por diseño y validado para que siempre genere un link
+  // usable (ver src/lib/phone.ts y professional-card).
+  phone: z
+    .string()
+    .trim()
+    .min(
+      1,
+      "Indica tu número de WhatsApp: es como te contactarán las personas.",
+    )
+    .max(40)
+    .refine((value) => toIntlNumber(value) !== null, {
+      message:
+        "Escribe un WhatsApp válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+    }),
+  // Foto opcional: data URL ya redimensionada en el cliente. Acotamos formato y
+  // tamaño (~225 KB) para que no pese ni permita inyectar otra cosa.
+  photo: z
+    .string()
+    .max(300_000, "La foto es demasiado grande. Sube una imagen más liviana.")
+    .refine(
+      (value) =>
+        value === "" || /^data:image\/(jpeg|png|webp);base64,/.test(value),
+      "Formato de foto no válido.",
+    )
+    .optional()
+    .transform((value) => value || undefined),
   supportAreas: z
     .array(z.enum(needCategories))
     .min(1, "Elige al menos un área de apoyo."),

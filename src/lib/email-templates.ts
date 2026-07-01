@@ -42,9 +42,9 @@ export function buildNewMessageEmail(input: {
   const url = input.conversationUrl;
   const urlAttr = escapeHtml(url);
 
-  const subject = `${who} necesita tu apoyo psicológico ahora · Nido`;
+  const subject = `${who} te está escribiendo · responde en Nido`;
   const preheader = `${who} te escribió directamente en Nido. Haz clic para responder.`;
-  const lead = `${whoEsc} que necesita apoyo psicológico <strong>te escribió directamente a ti</strong> en Nido. Cuando puedas, haz clic para responderle.`;
+  const lead = `<strong>${whoEsc}</strong> te escribió directamente en Nido y necesita tu apoyo psicológico. Cuando puedas, haz clic para responderle.`;
 
   const html = `<!doctype html>
 <html lang="es">
@@ -92,7 +92,7 @@ export function buildNewMessageEmail(input: {
 
   const text = `${name ? `Hola ${name},` : "Hola,"}
 
-${who} que necesita apoyo psicológico te escribió directamente a ti en Nido. Cuando puedas, responde aquí:
+${who} te escribió directamente en Nido y necesita tu apoyo psicológico. Cuando puedas, responde aquí:
 ${url}
 
 Por privacidad, no incluimos el mensaje en este correo; lo verás en la conversación segura.

@@ -1,0 +1,1 @@
+ALTER TABLE `professionals` ADD `photo` text;

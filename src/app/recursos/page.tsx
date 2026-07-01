@@ -72,16 +72,84 @@ export default function ResourcesPage() {
 
         <div className="card">
           <h2>Guías de apoyo</h2>
-          <p>Lecturas breves y cálidas para distintos momentos:</p>
+          <p>
+            Lecturas breves y cálidas, escritas con cuidado, para distintos
+            momentos.
+          </p>
+
+          <h3>Cómo te sientes</h3>
           <ul>
             <li>
-              <Link href="/recursos/acompanar-a-alguien-en-crisis">
-                Cómo acompañar a alguien que está pasando por un mal momento
+              <Link href="/recursos/ansiedad-despues-del-terremoto">
+                Ansiedad y miedo después del terremoto: qué hacer
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/depresion-senales-y-ayuda">
+                Depresión: señales y cómo pedir ayuda en Venezuela
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/ataque-de-panico-que-hacer">
+                Ataque de pánico: qué hacer en el momento
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/insomnio-como-dormir-mejor">
+                Insomnio: cómo dormir mejor cuando la mente no para
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/soledad-que-hacer">
+                Soledad: qué hacer cuando te sientes solo/a
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/autoestima-como-mejorarla">
+                Autoestima baja: cómo empezar a quererte mejor
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/estres-economico-y-salud-mental">
+                Estrés económico: cómo cuidar tu salud mental
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/burnout-agotamiento-que-hacer">
+                Burnout: agotamiento por estrés, señales y qué hacer
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/estres-postraumatico-tept">
+                Estrés postraumático (TEPT): cuándo el susto no se va
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/duelo-perdida-de-un-ser-querido">
+                Duelo: cómo sobrellevar la pérdida de un ser querido
+              </Link>
+            </li>
+          </ul>
+
+          <h3>Cómo conseguir apoyo</h3>
+          <ul>
+            <li>
+              <Link href="/recursos/psicologo-online-gratis-venezuela">
+                Psicólogo online gratis en Venezuela: cómo empezar
               </Link>
             </li>
             <li>
               <Link href="/recursos/apoyo-emocional-anonimo">
                 Apoyo emocional gratis y anónimo, sin dar tu nombre
+              </Link>
+            </li>
+          </ul>
+
+          <h3>Acompañar y situaciones concretas</h3>
+          <ul>
+            <li>
+              <Link href="/recursos/acompanar-a-alguien-en-crisis">
+                Cómo acompañar a alguien que está pasando por un mal momento
               </Link>
             </li>
             <li>

@@ -62,6 +62,7 @@ export async function POST(request: Request) {
         professionalEmail: professional.email,
         professionalName: professional.displayName ?? professional.fullName,
         conversationId,
+        seekerLabel: conversation.seekerName ?? undefined,
       });
     }
     return NextResponse.json({ ok: true });

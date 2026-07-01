@@ -1,16 +1,28 @@
 import Link from "next/link";
 import { HomeJsonLd } from "@/components/structured-data";
+import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
+import { FeedProfessionalCard } from "./profesionales/professional-card";
 
-export default function HomePage() {
+// La portada muestra a las personas voluntarias verificadas (lista pública, sin
+// datos confidenciales). ISR cada 60s, igual que /profesionales: la BD D1 no
+// existe en build, así que se prerenderiza vacío y se rellena en runtime.
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const professionals = await getFeedProfessionals();
+  // Tope de 6 en la portada: es una página de contención (YMYL) y más tarjetas
+  // empujarían el contenido tranquilizador demasiado abajo, sobre todo en móvil.
+  // El resto se ve en /profesionales mediante "Ver todas".
+  const featured = professionals.slice(0, 6);
+
   return (
     <>
       <section className="hero">
         <div className="container">
           <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
           <h1>
-            Ayuda psicológica gratis para quienes vivieron los terremotos en
-            Venezuela
+            Ayuda psicológica gratis en Venezuela, también tras los terremotos
           </h1>
           <ul className="trust-strip" aria-label="Garantías">
             <li>Gratis, siempre</li>
@@ -33,6 +45,73 @@ export default function HomePage() {
             ayuda presencial ahora mismo.{" "}
             <Link href="/emergencia">Más líneas de ayuda y qué hacer →</Link>
           </p>
+        </div>
+      </section>
+
+      <section className="section" id="voluntarios">
+        <div className="container">
+          <h2>Psicólogas y psicólogos voluntarios disponibles</h2>
+          <p className="lead">
+            Estas personas profesionales, verificadas, donan su tiempo para
+            acompañarte gratis y a distancia. Elige con quién hablar o deja tu
+            solicitud y te conectamos con alguien afín.
+          </p>
+          <form
+            action="/profesionales"
+            method="get"
+            className="field"
+            style={{ maxWidth: 560, marginBottom: "var(--space-5)" }}
+          >
+            <label htmlFor="home-pro-search">
+              Busca un psicólogo por lo que necesitas
+            </label>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <input
+                id="home-pro-search"
+                type="search"
+                name="q"
+                placeholder="Ej.: ansiedad, duelo, niños, miedo…"
+                autoComplete="off"
+                style={{ flex: "1 1 240px" }}
+              />
+              <button type="submit" className="button human">
+                Buscar
+              </button>
+            </div>
+          </form>
+          {featured.length > 0 ? (
+            <>
+              <div className="grid grid-2">
+                {featured.map((professional) => (
+                  <FeedProfessionalCard
+                    key={professional.id}
+                    professional={professional}
+                  />
+                ))}
+              </div>
+              <p>
+                <Link className="button secondary" href="/profesionales">
+                  Ver y buscar todas las personas voluntarias
+                </Link>
+              </p>
+            </>
+          ) : (
+            <div className="card">
+              <p>
+                Estamos sumando psicólogas y psicólogos voluntarios verificados.
+                Mientras tanto, deja tu solicitud y una persona del equipo te
+                escribirá a tu correo para acompañarte.
+              </p>
+              <p className="join-actions">
+                <Link className="button human" href="/ayuda">
+                  Pedir apoyo ahora
+                </Link>
+                <Link className="button secondary" href="/pro">
+                  Soy psicólogo/a: quiero ayudar
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -190,6 +269,37 @@ export default function HomePage() {
             venezolanos en el exterior preocupados por los suyos. Solo necesitas
             un correo electrónico para empezar.
           </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <h2>Guías para acompañarte</h2>
+          <p>
+            Lecturas breves y cálidas, escritas con cuidado, para distintos
+            momentos. No reemplazan hablar con una persona, pero pueden ayudarte
+            mientras das el paso.
+          </p>
+          <ul className="reactions">
+            <li>
+              <Link href="/recursos/psicologo-online-gratis-venezuela">
+                Psicólogo online gratis en Venezuela: cómo empezar
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/ansiedad-despues-del-terremoto">
+                Ansiedad y miedo después del terremoto: qué hacer
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos/acompanar-a-alguien-en-crisis">
+                Cómo acompañar a alguien que está pasando por un mal momento
+              </Link>
+            </li>
+            <li>
+              <Link href="/recursos">Ver todos los recursos de apoyo</Link>
+            </li>
+          </ul>
         </div>
       </section>
 

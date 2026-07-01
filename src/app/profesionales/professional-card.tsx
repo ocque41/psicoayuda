@@ -1,15 +1,11 @@
-import Link from "next/link";
 import { createConversation } from "@/app/actions-chat";
-import { languageLabels, needLabels } from "@/lib/constants";
+import { needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
+import { toIntlNumber } from "@/lib/phone";
 import {
   isAvailableNow,
   professionalResponseSignal,
 } from "@/lib/response-bucket";
-
-function langName(code: string) {
-  return languageLabels[code as keyof typeof languageLabels] ?? code;
-}
 
 function areaName(code: string) {
   return needLabels[code as keyof typeof needLabels] ?? code;
@@ -24,12 +20,52 @@ export function FeedProfessionalCard({
   const available = isAvailableNow(professional);
   const initial = professional.name.charAt(0).toUpperCase() || "·";
 
+  // Contacto directo (libro amarillo): el número como link a WhatsApp/llamada.
+  const intlPhone = toIntlNumber(professional.phone);
+  const waText = encodeURIComponent(
+    `Hola ${professional.name}, te contacto desde Nido (saludmental-venezuela.com). Me gustaría hablar contigo.`,
+  );
+
+  // El chat en la app es secundario: cuando hay WhatsApp, va plegado.
+  const chatForm = (
+    <form action={createConversation}>
+      <input type="hidden" name="professionalId" value={professional.id} />
+      <div className="field">
+        <label htmlFor={`name-${professional.id}`}>
+          ¿Cómo quieres que te llame? (opcional)
+        </label>
+        <input
+          id={`name-${professional.id}`}
+          name="seekerName"
+          type="text"
+          maxLength={40}
+          autoComplete="off"
+          placeholder="Un nombre o apodo"
+        />
+      </div>
+      <button className="button human block" type="submit">
+        Hablar con {professional.name}
+      </button>
+    </form>
+  );
+
   return (
     <article className="card pro-card">
       <div className="pro-card-head">
-        <span className="avatar" aria-hidden="true">
-          {initial}
-        </span>
+        {professional.photo ? (
+          // biome-ignore lint/performance/noImgElement: avatar es un data URL pequeño desde la BD; next/image no aplica
+          <img
+            className="avatar"
+            src={professional.photo}
+            alt=""
+            aria-hidden="true"
+            style={{ objectFit: "cover" }}
+          />
+        ) : (
+          <span className="avatar" aria-hidden="true">
+            {initial}
+          </span>
+        )}
         <div>
           <h3>{professional.name}</h3>
           {professional.city ? (
@@ -54,29 +90,53 @@ export function FeedProfessionalCard({
         </ul>
       ) : null}
 
-      {professional.languages.length ? (
-        <p className="muted pro-langs">
-          Atiende en: {professional.languages.map(langName).join(", ")}
-        </p>
-      ) : null}
-
       {professional.shortBio ? (
         <p className="pro-bio">{professional.shortBio}</p>
       ) : null}
 
       <div className="pro-card-actions">
+        <div className="pro-contact">
+          {intlPhone ? (
+            <>
+              <a
+                className="button human block"
+                href={`https://wa.me/${intlPhone}?text=${waText}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Escribir por WhatsApp · {professional.phone}
+              </a>
+              <a
+                className="muted"
+                href={`tel:+${intlPhone}`}
+                style={{ display: "inline-block", marginTop: "6px" }}
+              >
+                o llamar al {professional.phone}
+              </a>
+            </>
+          ) : null}
+          <a
+            className="muted"
+            href={`mailto:${professional.email}`}
+            style={{ display: "block", marginTop: "6px" }}
+          >
+            {intlPhone ? "o escribir a " : "Escribir a "}
+            {professional.email}
+          </a>
+        </div>
+
         {available ? (
-          <form action={createConversation}>
-            <input
-              type="hidden"
-              name="professionalId"
-              value={professional.id}
-            />
-            <button className="button human block" type="submit">
-              Hablar con {professional.name}
-            </button>
-          </form>
-        ) : (
+          intlPhone ? (
+            <details style={{ marginTop: "12px" }}>
+              <summary className="muted">
+                Prefiero escribir por aquí (sin salir de Nido)
+              </summary>
+              <div style={{ marginTop: "10px" }}>{chatForm}</div>
+            </details>
+          ) : (
+            chatForm
+          )
+        ) : intlPhone ? null : (
           <button
             className="button secondary block"
             type="button"

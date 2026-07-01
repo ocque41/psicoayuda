@@ -6,12 +6,12 @@ import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getFeedProfessionals } from "@/lib/feed";
 
 export const metadata: Metadata = {
-  title: "Pedir ayuda psicológica gratis",
+  title: "Pedir ayuda psicológica gratis en Venezuela",
   description:
     "Pide apoyo psicológico gratuito y confidencial en Venezuela. Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta.",
   alternates: { canonical: "/ayuda" },
   openGraph: {
-    title: "Pedir ayuda psicológica gratis | Nido",
+    title: "Pedir ayuda psicológica gratis en Venezuela | Nido",
     description:
       "Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta. Una persona voluntaria te acompañará.",
     url: "/ayuda",

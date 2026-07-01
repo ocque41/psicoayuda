@@ -21,6 +21,24 @@ export function SiteNav() {
       <div className="nav-links">
         <Link href="/pro/dashboard">Perfil</Link>
         <Link href="/pro/dashboard#chats">Chats</Link>
+        <button
+          type="button"
+          onClick={() => {
+            authClient.signOut().finally(() => {
+              window.location.href = "/";
+            });
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "10px 8px",
+            font: "inherit",
+            color: "var(--accent)",
+            cursor: "pointer",
+          }}
+        >
+          Cerrar sesión
+        </button>
       </div>
     );
   }
