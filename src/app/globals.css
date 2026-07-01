@@ -891,6 +891,19 @@ p:has(> .button) {
   margin: 4px 0 12px;
 }
 
+.button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.status-message {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  padding: 10px 12px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);

@@ -1,10 +1,17 @@
 "use server";
 
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { auditLogs, professionals, user } from "@/db/schema";
 import { purgeAccount } from "@/lib/account";
+import { isAdminEmail, requireAdmin } from "@/lib/admin";
+import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/auth-server";
+import { newId, nowIso } from "@/lib/ids";
 
 /**
  * Borra la cuenta del profesional autenticado y todo su rastro. Está disponible
@@ -29,4 +36,50 @@ export async function deleteMyAccount() {
   await purgeAccount(userId);
 
   redirect("/");
+}
+
+/**
+ * Permite que una cuenta incluida en ADMIN_EMAILS borre otra cuenta. Las
+ * cuentas administradoras están protegidas para evitar perder el acceso al
+ * panel por un clic accidental o por un formulario manipulado.
+ */
+export async function adminDeleteAccount(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) redirect("/admin?cuenta=no-encontrada");
+
+  const target = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+    columns: { id: true, email: true },
+  });
+
+  if (!target) redirect("/admin?cuenta=no-encontrada");
+  if (isAdminEmail(target.email)) redirect("/admin?cuenta=protegida");
+
+  const professional = await db.query.professionals.findFirst({
+    where: eq(professionals.userId, target.id),
+    columns: { id: true },
+  });
+
+  // Una baja con casos activos no puede dejar solicitudes huérfanas: primero
+  // las devuelve a la cola y revoca las conversaciones/sesiones abiertas.
+  if (professional) {
+    await releaseProfessionalAssignments(professional.id);
+  }
+
+  await purgeAccount(target.id);
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: "account_deletion",
+    entityType: "user",
+    entityId: target.id,
+    createdAt: nowIso(),
+  });
+
+  revalidatePath("/admin");
+  redirect("/admin?cuenta=borrada");
 }

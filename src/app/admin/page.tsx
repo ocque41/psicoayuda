@@ -7,6 +7,8 @@ import {
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
 } from "@/app/actions";
+import { adminDeleteAccount } from "@/app/actions-account";
+import { AdminDeleteAccountForm } from "@/components/admin-delete-account-form";
 import {
   IncompleteRegistrationsSection,
   selectIncompleteRegistrations,
@@ -30,7 +32,7 @@ const REQUESTS_PAGE_SIZE = 25;
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; cuenta?: string }>;
 }) {
   const admin = await requireAdmin();
   if (!admin) {
@@ -72,7 +74,7 @@ export default async function AdminPage({
     );
   }
 
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, cuenta: accountResult } = await searchParams;
   const requestedPage = Number.parseInt(pageParam ?? "1", 10);
   const page =
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -112,6 +114,10 @@ export default async function AdminPage({
     proRows.map((professional) => professional.userId),
     getAdminEmails(),
   );
+  const accountEmailByUserId = new Map(
+    accountRows.map((accountRow) => [accountRow.id, accountRow.email]),
+  );
+  const adminEmails = new Set(getAdminEmails());
 
   const eligibleProfessionals = proRows.filter(
     (professional) =>
@@ -138,6 +144,22 @@ export default async function AdminPage({
       <div className="container">
         <h1>Admin</h1>
         <p className="muted">Sesión admin: {admin.email}</p>
+        {accountResult === "borrada" ? (
+          <p className="status-message" role="status">
+            La cuenta y sus sesiones se borraron correctamente.
+          </p>
+        ) : null}
+        {accountResult === "protegida" ? (
+          <p className="form-error" role="alert">
+            Las cuentas administradoras están protegidas y no se pueden borrar
+            desde este panel.
+          </p>
+        ) : null}
+        {accountResult === "no-encontrada" ? (
+          <p className="form-error" role="alert">
+            La cuenta ya no existe o no se pudo identificar.
+          </p>
+        ) : null}
         <p>
           <Link className="button secondary" href="/admin/export">
             Exportar solicitudes CSV
@@ -189,6 +211,17 @@ export default async function AdminPage({
                         Guardar
                       </button>
                     </form>
+                    {!adminEmails.has(
+                      accountEmailByUserId.get(professional.userId) ?? "",
+                    ) ? (
+                      <AdminDeleteAccountForm
+                        action={adminDeleteAccount}
+                        userId={professional.userId}
+                        accountLabel={professional.email}
+                      />
+                    ) : (
+                      <span className="muted">Cuenta administradora</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -198,6 +231,7 @@ export default async function AdminPage({
 
         <IncompleteRegistrationsSection
           registrations={incompleteRegistrations}
+          deleteAction={adminDeleteAccount}
         />
 
         <h2>Solicitudes</h2>

@@ -1,3 +1,5 @@
+import { AdminDeleteAccountForm } from "@/components/admin-delete-account-form";
+
 export type RegistrationAccount = {
   id: string;
   name: string;
@@ -38,8 +40,10 @@ const accountDateFormatter = new Intl.DateTimeFormat("es-VE", {
 
 export function IncompleteRegistrationsSection({
   registrations,
+  deleteAction,
 }: {
   registrations: RegistrationAccount[];
+  deleteAction?: (formData: FormData) => Promise<void>;
 }) {
   return (
     <>
@@ -56,6 +60,7 @@ export function IncompleteRegistrationsSection({
                 <th>Creación de la cuenta</th>
                 <th>Correo verificado</th>
                 <th>Estado</th>
+                {deleteAction ? <th>Acción</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -80,6 +85,15 @@ export function IncompleteRegistrationsSection({
                       Onboarding incompleto
                     </span>
                   </td>
+                  {deleteAction ? (
+                    <td>
+                      <AdminDeleteAccountForm
+                        action={deleteAction}
+                        userId={registration.id}
+                        accountLabel={registration.email}
+                      />
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
