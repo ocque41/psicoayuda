@@ -62,6 +62,37 @@ export const helpRequestSchema = z.object({
     .transform((value) => value || undefined),
 });
 
+// Formulario de fundaciones/organizaciones que quieren aliarse (público, sin
+// sesión). Solo pedimos lo imprescindible para poder contactarles.
+export const foundationContactSchema = z.object({
+  contactName: z
+    .string()
+    .trim()
+    .min(2, "Escribe el nombre de la persona de contacto.")
+    .max(120, "El nombre es demasiado largo."),
+  organizationName: z
+    .string()
+    .trim()
+    .min(2, "Escribe el nombre de la fundación u organización.")
+    .max(160, "El nombre de la organización es demasiado largo."),
+  // Web opcional: muchas organizaciones pequeñas no tienen sitio. Aceptamos con o
+  // sin esquema (fundacion.org o https://fundacion.org); solo acotamos longitud.
+  website: z
+    .string()
+    .trim()
+    .max(200, "La dirección web es demasiado larga.")
+    .optional()
+    .transform((value) => value || undefined),
+  email: z.email("Escribe un correo válido.").trim().toLowerCase(),
+  // Mensaje opcional: cómo les gustaría colaborar.
+  message: z
+    .string()
+    .trim()
+    .max(1000, "El mensaje es demasiado largo.")
+    .optional()
+    .transform((value) => value || undefined),
+});
+
 export const professionalSchema = z.object({
   fullName: z
     .string()

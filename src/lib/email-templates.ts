@@ -258,3 +258,102 @@ Gracias por dar tu tiempo. Nido · apoyo psicológico voluntario, gratis y a dis
 
   return { subject, html, text, headers: {} };
 }
+
+/**
+ * Aviso al buzón de coordinación de que una fundación/organización dejó sus
+ * datos para aliarse (formulario /alianzas). A diferencia de los avisos de
+ * seekers, aquí SÍ incluimos los datos: son de contacto de una organización que
+ * los facilitó a propósito. Reply-To apunta a su correo para responder directo.
+ */
+export function buildFoundationContactEmail(input: {
+  contactName: string;
+  organizationName: string;
+  website?: string;
+  email: string;
+  message?: string;
+}): BuiltEmail {
+  const org = input.organizationName.trim();
+  const orgEsc = escapeHtml(org);
+  const contactName = escapeHtml(input.contactName.trim());
+  const email = input.email.trim();
+  const emailEsc = escapeHtml(email);
+  const website = input.website?.trim();
+  // Si no trae esquema, anteponemos https:// para que el href funcione (el texto
+  // visible queda tal cual lo escribieron).
+  const websiteHref = website
+    ? escapeHtml(/^https?:\/\//i.test(website) ? website : `https://${website}`)
+    : "";
+  const websiteText = website ? escapeHtml(website) : "";
+  const message = input.message?.trim();
+  const messageHtml = message
+    ? escapeHtml(message).replace(/\n/g, "<br />")
+    : "";
+
+  const subject = `Nueva organización interesada en aliarse: ${org}`;
+  const preheader = `${org} quiere colaborar con Nido.`;
+
+  const rows = [
+    `<p style="margin:0 0 8px;font-size:16px;"><strong>Organización:</strong> ${orgEsc}</p>`,
+    `<p style="margin:0 0 8px;font-size:16px;"><strong>Contacto:</strong> ${contactName}</p>`,
+    `<p style="margin:0 0 8px;font-size:16px;"><strong>Correo:</strong> <a href="mailto:${emailEsc}" style="color:#2f7a5b;">${emailEsc}</a></p>`,
+    website
+      ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Web:</strong> <a href="${websiteHref}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${websiteText}</a></p>`
+      : "",
+    message
+      ? `<p style="margin:16px 0 0;font-size:16px;line-height:1.6;"><strong>Mensaje:</strong><br />${messageHtml}</p>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#2f7a5b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#245f47;">Nido</p>
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Una organización dejó sus datos para aliarse con Nido:</p>
+                ${rows}
+                <p style="margin:22px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Puedes responder directamente a este correo para escribirle a la organización.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = [
+    "Una organización dejó sus datos para aliarse con Nido:",
+    "",
+    `Organización: ${org}`,
+    `Contacto: ${input.contactName.trim()}`,
+    `Correo: ${email}`,
+    website ? `Web: ${website}` : "",
+    message ? `\nMensaje:\n${message}` : "",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+
+  return { subject, html, text, headers: { "Reply-To": email } };
+}

@@ -3,6 +3,7 @@ import "server-only";
 import { sendEmail } from "@/lib/email";
 import {
   buildApprovalEmail,
+  buildFoundationContactEmail,
   buildNewMessageEmail,
   buildNewOfferEmail,
 } from "@/lib/email-templates";
@@ -150,6 +151,31 @@ export async function notifyProfessionalNewOffer(input: {
     subject: mail.subject,
     html: mail.html,
     text: mail.text,
+  });
+}
+
+/**
+ * Avisa al buzón de coordinación de que una fundación/organización dejó sus
+ * datos para aliarse (formulario /alianzas). No-op elegante si no hay buzón
+ * configurado (igual patrón que el resto): en dev/sin claves no rompe el flujo.
+ */
+export async function notifyFoundationContact(input: {
+  contactName: string;
+  organizationName: string;
+  website?: string;
+  email: string;
+  message?: string;
+}) {
+  const to =
+    process.env.ALLIANCES_CONTACT_EMAIL || process.env.NOTIFICATION_EMAIL;
+  if (!to) return;
+  const mail = buildFoundationContactEmail(input);
+  return sendEmail({
+    to,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
   });
 }
 
