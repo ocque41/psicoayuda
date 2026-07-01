@@ -103,6 +103,9 @@ export const professionals = sqliteTable(
     // Teléfono/WhatsApp opcional. Público por diseño: si el profesional lo da, se
     // muestra en su ficha como botón de WhatsApp/llamada (libro amarillo).
     phone: text("phone"),
+    // Teléfono fijo opcional (solo llamada). Público: se muestra en la ficha como
+    // enlace tel:. Va aparte de `phone` porque un fijo no tiene WhatsApp.
+    landline: text("landline"),
     // Foto opcional (avatar). Data URL pequeña, redimensionada en el cliente para
     // no pesar (ver professional-onboarding-form). Pública: se muestra en su ficha.
     photo: text("photo"),

@@ -180,6 +180,12 @@ export default function Page() {
             .
           </li>
           <li>
+            <Link href="/recursos/estres-postraumatico-tept">
+              Estrés postraumático (TEPT): cuándo el susto no se va
+            </Link>
+            .
+          </li>
+          <li>
             <Link href="/preguntas-frecuentes">Preguntas frecuentes</Link>.
           </li>
         </ul>

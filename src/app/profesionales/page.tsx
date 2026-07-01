@@ -12,7 +12,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Psicólogas y psicólogos voluntarios en Venezuela",
   description:
-    "Mira las psicólogas y psicólogos voluntarios verificados de Nido, busca por cómo te sientes, por especialidad o por nombre y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
+    "Psicólogas y psicólogos voluntarios verificados en Venezuela. Busca por cómo te sientes, especialidad o nombre y elige con quién hablar. Gratis y a distancia.",
   alternates: { canonical: "/profesionales" },
 };
 

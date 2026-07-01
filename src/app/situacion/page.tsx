@@ -8,9 +8,9 @@ import { DAMAGE_MAP } from "@/lib/allied-resources";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Situación del terremoto: sismos en vivo y plataformas de ayuda",
+  title: "Terremoto en Venezuela: sismos en vivo y ayuda",
   description:
-    "Sismos recientes en Venezuela (USGS, en vivo) y un directorio de plataformas de ayuda tras el terremoto: buscar personas, refugios, hospitales, centros de acopio, rescate y apoyo psicológico.",
+    "Sismos recientes en Venezuela en vivo (USGS) y plataformas de ayuda tras el terremoto: buscar personas, refugios, hospitales, rescate y apoyo psicológico.",
   alternates: { canonical: "/situacion" },
 };
 

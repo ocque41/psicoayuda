@@ -1,0 +1,1 @@
+ALTER TABLE `professionals` ADD `landline` text;

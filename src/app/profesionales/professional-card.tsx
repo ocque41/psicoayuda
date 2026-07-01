@@ -20,8 +20,11 @@ export function FeedProfessionalCard({
   const available = isAvailableNow(professional);
   const initial = professional.name.charAt(0).toUpperCase() || "·";
 
-  // Contacto directo (libro amarillo): el número como link a WhatsApp/llamada.
-  const intlPhone = toIntlNumber(professional.phone);
+  // Contacto directo (libro amarillo). WhatsApp → wa.me + llamada; fijo → llamada;
+  // correo → mailto. Cada método aparece solo si el profesional lo dio.
+  const intlWhatsApp = toIntlNumber(professional.phone);
+  const intlLandline = toIntlNumber(professional.landline);
+  const hasPhone = Boolean(intlWhatsApp || intlLandline);
   const waText = encodeURIComponent(
     `Hola ${professional.name}, te contacto desde Nido (saludmental-venezuela.com). Me gustaría hablar contigo.`,
   );
@@ -96,11 +99,11 @@ export function FeedProfessionalCard({
 
       <div className="pro-card-actions">
         <div className="pro-contact">
-          {intlPhone ? (
+          {intlWhatsApp ? (
             <>
               <a
                 className="button human block"
-                href={`https://wa.me/${intlPhone}?text=${waText}`}
+                href={`https://wa.me/${intlWhatsApp}?text=${waText}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -108,25 +111,39 @@ export function FeedProfessionalCard({
               </a>
               <a
                 className="muted"
-                href={`tel:+${intlPhone}`}
+                href={`tel:+${intlWhatsApp}`}
                 style={{ display: "inline-block", marginTop: "6px" }}
               >
                 o llamar al {professional.phone}
               </a>
             </>
           ) : null}
+          {intlLandline ? (
+            <a
+              className={intlWhatsApp ? "muted" : "button human block"}
+              href={`tel:+${intlLandline}`}
+              style={
+                intlWhatsApp
+                  ? { display: "block", marginTop: "6px" }
+                  : undefined
+              }
+            >
+              {intlWhatsApp ? "o llamar al fijo " : "Llamar al "}
+              {professional.landline}
+            </a>
+          ) : null}
           <a
             className="muted"
             href={`mailto:${professional.email}`}
             style={{ display: "block", marginTop: "6px" }}
           >
-            {intlPhone ? "o escribir a " : "Escribir a "}
+            {hasPhone ? "o escribir a " : "Escribir a "}
             {professional.email}
           </a>
         </div>
 
         {available ? (
-          intlPhone ? (
+          hasPhone ? (
             <details style={{ marginTop: "12px" }}>
               <summary className="muted">
                 Prefiero escribir por aquí (sin salir de Nido)
@@ -136,7 +153,7 @@ export function FeedProfessionalCard({
           ) : (
             chatForm
           )
-        ) : intlPhone ? null : (
+        ) : hasPhone ? null : (
           <button
             className="button secondary block"
             type="button"

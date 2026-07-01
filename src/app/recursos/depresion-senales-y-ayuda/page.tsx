@@ -171,6 +171,12 @@ export default function Page() {
             .
           </li>
           <li>
+            <Link href="/recursos/autoestima-como-mejorarla">
+              Autoestima baja: cómo empezar a quererte mejor
+            </Link>
+            .
+          </li>
+          <li>
             <Link href="/preguntas-frecuentes">Preguntas frecuentes</Link>.
           </li>
         </ul>
