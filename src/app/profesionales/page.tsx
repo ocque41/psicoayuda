@@ -11,7 +11,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Psicólogas y psicólogos voluntarios en Venezuela",
   description:
-    "Mira las psicólogas y psicólogos voluntarios verificados de Nido, busca por nombre o especialidad y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
+    "Mira las psicólogas y psicólogos voluntarios verificados de Nido, busca por cómo te sientes, por especialidad o por nombre y elige con quién hablar. Gratis, a distancia y sin crear cuenta.",
   alternates: { canonical: "/profesionales" },
 };
 
@@ -21,7 +21,10 @@ export default async function ProfesionalesPage() {
   return (
     <section className="section">
       <div className="container">
-        <h1>Personas voluntarias listas para acompañarte</h1>
+        <h1>
+          Psicólogas y psicólogos voluntarios en Venezuela, listos para
+          acompañarte
+        </h1>
         <ul className="trust-strip" aria-label="Garantías">
           <li>Gratis</li>
           <li>Confidencial</li>
@@ -30,9 +33,9 @@ export default async function ProfesionalesPage() {
         </ul>
         <p className="lead">
           Estas psicólogas y psicólogos dan su tiempo para acompañarte, a
-          distancia. Busca por nombre o especialidad, elige a quien sientas más
-          afín y pídele apoyo. Y si prefieres no elegir, deja tu mensaje y le
-          llega a todo el equipo.
+          distancia. Busca por cómo te sientes, por especialidad o por nombre,
+          elige a quien sientas más afín y pídele apoyo. Y si prefieres no
+          elegir, deja tu mensaje y le llega a todo el equipo.
         </p>
         <EmergencyNotice />
 
