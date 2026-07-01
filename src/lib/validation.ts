@@ -86,20 +86,29 @@ export const professionalSchema = z.object({
     .trim()
     .min(2, "Indica la universidad donde obtuviste tu título.")
     .max(160, "El nombre de la universidad es demasiado largo."),
-  // WhatsApp obligatorio: es el canal de contacto principal de la ficha (libro
-  // amarillo). Público por diseño y validado para que siempre genere un link
-  // usable (ver src/lib/phone.ts y professional-card).
+  // Contacto directo (libro amarillo). Ya NO es obligatorio: el correo de la
+  // cuenta siempre se muestra como contacto, así que con eso basta. WhatsApp y
+  // teléfono fijo son opcionales; cuando se dan, se validan para que generen un
+  // enlace usable (ver src/lib/phone.ts y professional-card): wa.me / tel:.
   phone: z
     .string()
     .trim()
-    .min(
-      1,
-      "Indica tu número de WhatsApp: es como te contactarán las personas.",
-    )
     .max(40)
-    .refine((value) => toIntlNumber(value) !== null, {
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
       message:
         "Escribe un WhatsApp válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+    }),
+  landline: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+      message:
+        "Escribe un teléfono fijo válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
     }),
   // Foto opcional: data URL ya redimensionada en el cliente. Acotamos formato y
   // tamaño (~225 KB) para que no pese ni permita inyectar otra cosa.

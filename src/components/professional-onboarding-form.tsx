@@ -72,6 +72,8 @@ export function ProfessionalOnboardingForm({
     universityHint: `${formId}-university-hint`,
     phone: `${formId}-phone`,
     phoneHint: `${formId}-phone-hint`,
+    landline: `${formId}-landline`,
+    landlineHint: `${formId}-landline-hint`,
     contactEmail: `${formId}-contact-email`,
     contactEmailHint: `${formId}-contact-email-hint`,
     maxActiveRequests: `${formId}-max-active-requests`,
@@ -335,21 +337,40 @@ export function ProfessionalOnboardingForm({
             aria-describedby={ids.shortBioHint}
           />
         </div>
-        <div className="field">
-          <label htmlFor={ids.phone}>WhatsApp *</label>
-          <p className="hint" id={ids.phoneHint}>
-            Se mostrará en tu ficha como botón de WhatsApp y llamada: es como
-            las personas te contactarán directamente. Si estás fuera de
-            Venezuela, incluye el código de país (ej. +57…).
-          </p>
-          <input
-            id={ids.phone}
-            name="phone"
-            type="tel"
-            autoComplete="tel"
-            required
-            aria-describedby={ids.phoneHint}
-          />
+        <p className="field-help" style={{ margin: "0 0 8px" }}>
+          Tu correo <strong>{email}</strong> ya se mostrará en tu ficha como
+          forma de contacto. Si quieres, añade también WhatsApp o un teléfono
+          fijo: cada uno aparece como botón para contactarte al instante.
+        </p>
+        <div className="grid grid-2">
+          <div className="field">
+            <label htmlFor={ids.phone}>WhatsApp (opcional)</label>
+            <p className="hint" id={ids.phoneHint}>
+              Aparece como botón de WhatsApp y llamada. Si estás fuera de
+              Venezuela, incluye el código de país (ej. +57…).
+            </p>
+            <input
+              id={ids.phone}
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              aria-describedby={ids.phoneHint}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={ids.landline}>Teléfono fijo (opcional)</label>
+            <p className="hint" id={ids.landlineHint}>
+              Aparece como botón de llamada. Útil si prefieres que te llamen a
+              un número fijo.
+            </p>
+            <input
+              id={ids.landline}
+              name="landline"
+              type="tel"
+              autoComplete="tel"
+              aria-describedby={ids.landlineHint}
+            />
+          </div>
         </div>
         <div className="grid grid-2">
           <div className="field">
