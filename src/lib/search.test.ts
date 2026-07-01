@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { FeedProfessional } from "@/lib/feed";
+import type { Organization } from "@/lib/organizations";
 import {
   blobMatchesQuery,
+  buildOrgSearchBlob,
   buildSearchBlob,
   detectCrisis,
   matchesFilters,
+  organizationMatchesSupport,
+  professionalMatchesSupport,
   queryTokens,
 } from "@/lib/search";
 
@@ -21,6 +25,19 @@ function fakePro(overrides: Partial<FeedProfessional> = {}): FeedProfessional {
     crisisExperience: false,
     ...overrides,
   } as FeedProfessional;
+}
+
+// Organización mínima especializada en autismo (el caso real del equipo).
+function fakeOrg(overrides: Partial<Organization> = {}): Organization {
+  return {
+    id: "org-1",
+    name: "Centro Ejemplo",
+    tagline: "Especialistas en autismo",
+    specialties: ["autismo"],
+    services: ["psiquiatria", "neuropsicologia", "pediatria"],
+    virtual24h: true,
+    ...overrides,
+  } as Organization;
 }
 
 describe("queryTokens", () => {
@@ -154,5 +171,83 @@ describe("detección de crisis (seguridad)", () => {
     for (const q of ["ansiedad", "duelo", "hola", "psicólogo para niños"]) {
       expect(detectCrisis(q)).toBe(false);
     }
+  });
+});
+
+describe("búsqueda de organizaciones", () => {
+  const blob = buildOrgSearchBlob(fakeOrg());
+
+  it("encuentra la organización por su enfoque y sinónimos", () => {
+    for (const q of ["autismo", "tea", "espectro autista", "asperger"]) {
+      expect(blobMatchesQuery(blob, q)).toBe(true);
+    }
+  });
+
+  it("encuentra la organización por sus servicios y sinónimos", () => {
+    for (const q of ["psiquiatría", "neuropsicología", "pediatra"]) {
+      expect(blobMatchesQuery(blob, q)).toBe(true);
+    }
+  });
+
+  it("indexa la modalidad 24h y los términos genéricos", () => {
+    expect(blobMatchesQuery(blob, "24 horas")).toBe(true);
+    expect(blobMatchesQuery(blob, "centro")).toBe(true);
+  });
+});
+
+describe("filtros del directorio de apoyo unificado", () => {
+  const org = fakeOrg();
+  const psy = fakePro({ id: "p", nonClinicalHelper: false });
+  const aux = fakePro({ id: "a", nonClinicalHelper: true });
+
+  it("el tipo separa personas de organizaciones", () => {
+    expect(professionalMatchesSupport(psy, { type: "psicologo" })).toBe(true);
+    expect(professionalMatchesSupport(aux, { type: "psicologo" })).toBe(false);
+    expect(professionalMatchesSupport(aux, { type: "auxiliar" })).toBe(true);
+    expect(professionalMatchesSupport(psy, { type: "organizacion" })).toBe(
+      false,
+    );
+    expect(organizationMatchesSupport(org, { type: "organizacion" })).toBe(
+      true,
+    );
+    expect(organizationMatchesSupport(org, { type: "psicologo" })).toBe(false);
+  });
+
+  it("el tema por enfoque/servicio solo aplica a organizaciones", () => {
+    expect(organizationMatchesSupport(org, { topic: "spec:autismo" })).toBe(
+      true,
+    );
+    expect(
+      organizationMatchesSupport(org, { topic: "svc:neuropsicologia" }),
+    ).toBe(true);
+    expect(organizationMatchesSupport(org, { topic: "svc:radiologia" })).toBe(
+      false,
+    );
+    // Un servicio/enfoque de organización excluye a las personas.
+    expect(professionalMatchesSupport(psy, { topic: "spec:autismo" })).toBe(
+      false,
+    );
+    // Un área de persona excluye a las organizaciones.
+    expect(
+      organizationMatchesSupport(org, { topic: "area:ansiedad_depresion" }),
+    ).toBe(false);
+  });
+
+  it("el área de persona filtra por especialidad del profesional", () => {
+    expect(
+      professionalMatchesSupport(psy, { topic: "area:ansiedad_depresion" }),
+    ).toBe(true);
+    expect(professionalMatchesSupport(psy, { topic: "area:duelo" })).toBe(
+      false,
+    );
+  });
+
+  it("'solo disponibles' mantiene organizaciones 24h y descarta el resto", () => {
+    expect(organizationMatchesSupport(org, { onlyAvailable: true })).toBe(true);
+    expect(
+      organizationMatchesSupport(fakeOrg({ virtual24h: false }), {
+        onlyAvailable: true,
+      }),
+    ).toBe(false);
   });
 });

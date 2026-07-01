@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { FeedProfessionalCard } from "@/app/profesionales/professional-card";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getFeedProfessionals } from "@/lib/feed";
+import { publishedOrganizations } from "@/lib/organizations";
+import { SupportDirectory } from "./support-directory";
 
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis en Venezuela",
@@ -25,6 +26,7 @@ export default async function HelpPage({
 }) {
   const { profesional, acceso } = await searchParams;
   const professionals = await getFeedProfessionals();
+  const organizations = [...publishedOrganizations];
 
   let preferred: { id: string; name: string; nonClinical: boolean } | null =
     null;
@@ -62,20 +64,21 @@ export default async function HelpPage({
           </div>
         ) : null}
 
-        {professionals.length > 0 ? (
+        {professionals.length > 0 || organizations.length > 0 ? (
           <>
-            <h2>Profesionales que pueden acompañarte</h2>
+            <h2>Quiénes pueden acompañarte</h2>
             <p className="lead">
-              Estas personas voluntarias verificadas están disponibles ahora.
-              Escríbele directo a quien sientas más afín, o cuéntanos un poco
-              más abajo y <strong>envía tu solicitud a todas a la vez</strong> —
-              responde quien pueda.
+              Personas voluntarias verificadas —psicólogas y psicólogos y
+              auxiliares no clínicos— y organizaciones aliadas. Busca por cómo
+              te sientes, por servicio o por nombre, escríbele directo a quien
+              sientas más afín, o cuéntanos un poco más abajo y{" "}
+              <strong>envía tu solicitud a todas a la vez</strong> — responde
+              quien pueda.
             </p>
-            <div className="grid grid-2">
-              {professionals.map((person) => (
-                <FeedProfessionalCard key={person.id} professional={person} />
-              ))}
-            </div>
+            <SupportDirectory
+              professionals={professionals}
+              organizations={organizations}
+            />
           </>
         ) : null}
 
