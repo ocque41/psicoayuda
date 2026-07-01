@@ -18,8 +18,12 @@ export function HomeProfessionalsStrip({
   professionals: FeedProfessional[];
 }) {
   return (
+    // tabIndex=0: Firefox y Safari no hacen enfocables por teclado los
+    // contenedores con overflow, así que sin esto un usuario de teclado no podría
+    // desplazar la tira horizontalmente (WCAG 2.1.1). El aria-label le da nombre.
     <ul
       aria-label="Psicólogas y psicólogos voluntarios"
+      tabIndex={0}
       style={{
         display: "flex",
         gap: "16px",
