@@ -1297,3 +1297,53 @@ body {
   width: 100%;
   margin-top: var(--space-2);
 }
+
+/* Carrusel de aliados en la portada (PartnersCarousel): tira horizontal
+   deslizante; cada tarjeta enlaza directo al contacto del aliado. */
+.partners-carousel {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: var(--space-1) var(--space-1) var(--space-3);
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.partner-slide {
+  flex: 0 0 min(220px, 78vw);
+  scroll-snap-align: start;
+}
+
+.partners-carousel .partner-logo {
+  width: 72px;
+  height: 72px;
+}
+
+.partner-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+a.partner-link:hover,
+a.partner-link:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.partner-cta {
+  margin-top: auto;
+  padding-top: var(--space-1);
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
