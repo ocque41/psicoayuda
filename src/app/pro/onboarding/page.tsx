@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { AccountActions } from "@/components/account-actions";
 import { ProfessionalOnboardingForm } from "@/components/professional-onboarding-form";
 import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
@@ -27,6 +28,7 @@ export default async function ProOnboardingPage() {
           email={session.user.email}
           name={session.user.name}
         />
+        <AccountActions />
       </div>
     </section>
   );

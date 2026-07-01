@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updateProfessionalAvailability } from "@/app/actions";
 import { acceptRequestOffer } from "@/app/actions-offers";
+import { AccountActions } from "@/components/account-actions";
 import { db } from "@/db";
 import { assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
@@ -63,6 +64,7 @@ export default async function ProDashboardPage({
           <Link className="button human" href="/pro/onboarding">
             Completar mi perfil
           </Link>
+          <AccountActions />
         </div>
       </section>
     );
@@ -83,6 +85,7 @@ export default async function ProDashboardPage({
               Actualizar mi perfil
             </Link>
           </div>
+          <AccountActions />
         </div>
       </section>
     );
@@ -257,6 +260,7 @@ export default async function ProDashboardPage({
             </tbody>
           </table>
         </div>
+        <AccountActions />
       </div>
     </section>
   );
