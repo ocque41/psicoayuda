@@ -8,6 +8,10 @@ import type { Env } from "./types";
 
 export type AuthDecision = { role: "seeker" | "professional"; id: string };
 
+type AuthGateEnv = Pick<Env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL"> & {
+  DB?: Env["DB"];
+};
+
 function parseCookies(header: string | null): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
@@ -111,7 +115,7 @@ export function professionalConnectionAllows(
  * token ya validado) para no tumbar el chat por un fallo transitorio de la DB.
  */
 async function seekerSessionActive(
-  env: Env,
+  env: AuthGateEnv,
   sid: string,
   conversationId: string,
   nowMs: number,
@@ -141,7 +145,7 @@ async function seekerSessionActive(
  * transitorio, NO bloqueamos (nos apoyamos en el token ya validado).
  */
 async function professionalSessionActive(
-  env: Env,
+  env: AuthGateEnv,
   professionalId: string,
   conversationId: string,
 ): Promise<boolean> {
@@ -164,7 +168,7 @@ async function professionalSessionActive(
   }
 }
 
-function isAllowedOrigin(request: Request, env: Env): boolean {
+function isAllowedOrigin(request: Request, env: AuthGateEnv): boolean {
   const origin = request.headers.get("Origin");
   if (!origin) return true; // upgrades same-origin pueden omitir Origin
   let originHost: string;
@@ -199,7 +203,7 @@ function isAllowedOrigin(request: Request, env: Env): boolean {
  * (la firma de partyserver no recibe env). Valida Origin (anti-CSWSH), autoriza
  * por token e inyecta headers de confianza que el DO leerá; cualquier otro => 403.
  */
-export function makeOnBeforeConnect(env: Env) {
+export function makeOnBeforeConnect(env: AuthGateEnv) {
   return async (
     request: Request,
     lobby: { party: string; name: string },

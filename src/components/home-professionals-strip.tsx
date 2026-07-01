@@ -1,3 +1,4 @@
+// biome-ignore-all lint/a11y/noNoninteractiveTabindex: el carrusel horizontal debe poder recibir foco para desplazarse con teclado
 import Link from "next/link";
 import { needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";

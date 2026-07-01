@@ -7,10 +7,14 @@ import {
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
 } from "@/app/actions";
+import {
+  IncompleteRegistrationsSection,
+  selectIncompleteRegistrations,
+} from "@/components/admin-incomplete-registrations";
 import { AuthPanel } from "@/components/auth-panel";
 import { db } from "@/db";
-import { helpRequests, professionals } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
+import { helpRequests, professionals, user } from "@/db/schema";
+import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels } from "@/lib/constants";
 import { rankProfessionalsForRequest } from "@/lib/matching";
@@ -47,8 +51,8 @@ export default async function AdminPage({
                 de administración.
               </p>
               <p className="muted">
-                Entra con una cuenta autorizada: ocquema@gmail.com o
-                martinezra@gmail.com.
+                Entra con una cuenta incluida en la configuración de
+                administradores.
               </p>
             </div>
           ) : (
@@ -59,7 +63,7 @@ export default async function AdminPage({
               </p>
               <AuthPanel callbackURL="/admin" googleEnabled={googleEnabled} />
               <p className="muted auth-foot">
-                Cuentas autorizadas: ocquema@gmail.com y martinezra@gmail.com.
+                Usa una cuenta incluida en la configuración de administradores.
               </p>
             </div>
           )}
@@ -74,7 +78,7 @@ export default async function AdminPage({
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const offset = (page - 1) * REQUESTS_PAGE_SIZE;
 
-  const [proRows, requestPage] = await Promise.all([
+  const [proRows, requestPage, accountRows] = await Promise.all([
     db.select().from(professionals).orderBy(desc(professionals.createdAt)),
     // Surface actionable requests first (new, then contacted), newest within
     // each bucket. Fetch one extra row to detect a next page without a count.
@@ -87,6 +91,15 @@ export default async function AdminPage({
       )
       .limit(REQUESTS_PAGE_SIZE + 1)
       .offset(offset),
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        emailVerified: user.emailVerified,
+      })
+      .from(user),
   ]);
 
   const hasNextPage = requestPage.length > REQUESTS_PAGE_SIZE;
@@ -94,6 +107,11 @@ export default async function AdminPage({
     ? requestPage.slice(0, REQUESTS_PAGE_SIZE)
     : requestPage;
   const hasPrevPage = page > 1;
+  const incompleteRegistrations = selectIncompleteRegistrations(
+    accountRows,
+    proRows.map((professional) => professional.userId),
+    getAdminEmails(),
+  );
 
   const eligibleProfessionals = proRows.filter(
     (professional) =>
@@ -177,6 +195,10 @@ export default async function AdminPage({
             </tbody>
           </table>
         </div>
+
+        <IncompleteRegistrationsSection
+          registrations={incompleteRegistrations}
+        />
 
         <h2>Solicitudes</h2>
         <div className="grid">
