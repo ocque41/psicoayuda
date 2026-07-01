@@ -297,15 +297,47 @@ function formatLastAction(
 export function buildApprovalEmail(input: {
   dashboardUrl: string;
   professionalName?: string | null;
+  // El auxiliar no clínico no tiene credencial: el correo no debe decir que la
+  // "verificamos". El alta manual desde /admin todavía no completó su perfil, así
+  // que se le invita a completarlo en vez de anunciar "ya puedes recibir".
+  nonClinicalHelper?: boolean;
+  needsProfileCompletion?: boolean;
 }): BuiltEmail {
   const name = input.professionalName?.trim();
   const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
   const url = input.dashboardUrl;
   const urlAttr = escapeHtml(url);
-  const subject = "Tu perfil de Nido fue aprobado";
-  const preheader = "Ya puedes recibir solicitudes y acompañar a personas.";
-  const lead =
-    "Verificamos tu credencial y tu perfil ya está aprobado. Ya puedes recibir solicitudes y acompañar a personas desde tu panel.";
+
+  let subject: string;
+  let preheader: string;
+  let lead: string;
+  let ctaLabel: string;
+  let textLead: string;
+  if (input.needsProfileCompletion) {
+    subject = "Te damos de alta en Nido — completa tu perfil";
+    preheader = "Completa tu perfil para empezar a acompañar.";
+    lead =
+      "Te dimos de alta en Nido. Para empezar a recibir solicitudes y acompañar a personas, completa tu perfil (áreas de apoyo y datos de contacto) desde tu panel.";
+    ctaLabel = "Completar mi perfil";
+    textLead =
+      "Te dimos de alta en Nido. Para empezar a recibir solicitudes, completa tu perfil desde tu panel:";
+  } else if (input.nonClinicalHelper) {
+    subject = "Tu perfil de Nido fue aprobado";
+    preheader = "Ya puedes recibir solicitudes y acompañar a personas.";
+    lead =
+      "Tu perfil ya está aprobado. Ya puedes recibir solicitudes y acompañar a personas desde tu panel.";
+    ctaLabel = "Abrir mi panel";
+    textLead =
+      "Tu perfil ya está aprobado. Ya puedes recibir solicitudes desde tu panel:";
+  } else {
+    subject = "Tu perfil de Nido fue aprobado";
+    preheader = "Ya puedes recibir solicitudes y acompañar a personas.";
+    lead =
+      "Verificamos tu credencial y tu perfil ya está aprobado. Ya puedes recibir solicitudes y acompañar a personas desde tu panel.";
+    ctaLabel = "Abrir mi panel";
+    textLead =
+      "Verificamos tu credencial y tu perfil ya está aprobado. Ya puedes recibir solicitudes desde tu panel:";
+  }
 
   const html = `<!doctype html>
 <html lang="es">
@@ -332,7 +364,7 @@ export function buildApprovalEmail(input: {
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="border-radius:999px;background:#2f7a5b;">
-                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Abrir mi panel</a>
+                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(ctaLabel)}</a>
                     </td>
                   </tr>
                 </table>
@@ -353,7 +385,7 @@ export function buildApprovalEmail(input: {
 
   const text = `${name ? `Hola ${name},` : "Hola,"}
 
-Verificamos tu credencial y tu perfil ya está aprobado. Ya puedes recibir solicitudes desde tu panel:
+${textLead}
 ${url}
 
 Gracias por dar tu tiempo. Nido · apoyo psicológico voluntario, gratis y a distancia.`;

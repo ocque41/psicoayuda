@@ -26,6 +26,10 @@ function dashboardUrl() {
   return `${appBaseUrl()}/pro/dashboard`;
 }
 
+function onboardingUrl() {
+  return `${appBaseUrl()}/pro/onboarding`;
+}
+
 /**
  * Avisa al buzón de coordinación (NOTIFICATION_EMAIL) de que entró una nueva
  * solicitud, con un enlace a /admin. SIN PII: el correo solo dice que hay algo
@@ -246,11 +250,17 @@ export async function notifyAllianceApproved(input: {
 export async function notifyProfessionalApproved(input: {
   professionalEmail: string;
   professionalName?: string | null;
+  nonClinicalHelper?: boolean;
+  needsProfileCompletion?: boolean;
 }) {
   if (!input.professionalEmail) return;
   const mail = buildApprovalEmail({
-    dashboardUrl: dashboardUrl(),
+    dashboardUrl: input.needsProfileCompletion
+      ? onboardingUrl()
+      : dashboardUrl(),
     professionalName: input.professionalName,
+    nonClinicalHelper: input.nonClinicalHelper,
+    needsProfileCompletion: input.needsProfileCompletion,
   });
   return sendEmail({
     to: input.professionalEmail,

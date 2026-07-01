@@ -458,6 +458,7 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
       await notifyProfessionalApproved({
         professionalEmail: pro.email,
         professionalName: pro.displayName ?? pro.fullName,
+        nonClinicalHelper: pro.nonClinicalHelper,
       });
     }
   }
@@ -575,6 +576,10 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
   await notifyProfessionalApproved({
     professionalEmail: account.email,
     professionalName: account.name?.trim() || account.email,
+    nonClinicalHelper,
+    // Alta manual: el perfil aún no tiene datos, así que el correo lo invita a
+    // completar su perfil en vez de anunciar que ya puede recibir solicitudes.
+    needsProfileCompletion: true,
   });
 
   revalidatePath("/admin");
