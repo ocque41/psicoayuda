@@ -81,6 +81,15 @@ export function HomeProfessionalsStrip({
 
               <p className={`badge badge-${signal.tone}`}>{signal.label}</p>
 
+              {professional.nonClinicalHelper ? (
+                <p
+                  className="badge badge-new"
+                  title="Acompaña de forma no clínica; no es un profesional con licencia."
+                >
+                  Auxiliar no clínico
+                </p>
+              ) : null}
+
               {professional.supportAreas.length ? (
                 <ul className="chips" aria-label="Áreas de especialización">
                   {professional.supportAreas.slice(0, 2).map((area) => (

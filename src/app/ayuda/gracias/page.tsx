@@ -119,6 +119,18 @@ export default async function ThanksPage({
                           />
                           <span>
                             <strong>{p.name}</strong>
+                            {p.nonClinicalHelper ? (
+                              <span
+                                className="badge badge-new"
+                                style={{
+                                  marginLeft: 6,
+                                  verticalAlign: "middle",
+                                }}
+                                title="Acompaña de forma no clínica; no es un profesional con licencia."
+                              >
+                                Auxiliar no clínico
+                              </span>
+                            ) : null}
                             {p.supportAreas.length > 0 ? (
                               <span className="muted">
                                 {" "}
