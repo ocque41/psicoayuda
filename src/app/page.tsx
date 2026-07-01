@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
 import { HomeJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
-import { FeedProfessionalCard } from "./profesionales/professional-card";
 
 // La portada muestra a las personas voluntarias verificadas (lista pública, sin
 // datos confidenciales). ISR cada 60s, igual que /profesionales: la BD D1 no
@@ -11,11 +11,9 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const professionals = await getFeedProfessionals();
-  // Tope de 6 en la portada: es una página de contención (YMYL) y más tarjetas
-  // empujarían el contenido tranquilizador demasiado abajo, sobre todo en móvil.
-  // El resto se ve en /profesionales mediante "Ver todas".
-  const featured = professionals.slice(0, 6);
-
+  // Carrusel horizontal en la portada: mostramos hasta 10 (se deslizan sin
+  // empujar el contenido tranquilizador hacia abajo). El resto en /profesionales.
+  const featured = professionals.slice(0, 10);
   return (
     <>
       <section className="hero">
@@ -81,14 +79,13 @@ export default async function HomePage() {
           </form>
           {featured.length > 0 ? (
             <>
-              <div className="grid grid-2">
-                {featured.map((professional) => (
-                  <FeedProfessionalCard
-                    key={professional.id}
-                    professional={professional}
-                  />
-                ))}
-              </div>
+              <p className="muted">
+                {professionals.length === 1
+                  ? "1 psicóloga o psicólogo voluntario disponible ahora."
+                  : `${professionals.length} psicólogas y psicólogos voluntarios disponibles ahora.`}{" "}
+                Desliza para conocerlos.
+              </p>
+              <HomeProfessionalsStrip professionals={featured} />
               <p>
                 <Link className="button secondary" href="/profesionales">
                   Ver y buscar todas las personas voluntarias
