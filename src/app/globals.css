@@ -979,6 +979,18 @@ h3 {
   margin-inline: auto;
 }
 
+/* En secciones de solo texto, el título (h2/h3) se ciñe a la misma columna de
+   lectura que el lead y el cuerpo, para que todo el bloque comparta ancho y el
+   título no quede "flotando" más ancho que el contenido. Las secciones con un
+   contenedor ancho hijo (rejillas de tarjetas, FAQ, avisos) se detectan con
+   :has(> div) y se dejan intactas, para que ahí el título siga abarcando su
+   contenido. */
+.section .container:not(:has(> div)) > h2,
+.section .container:not(:has(> div)) > h3 {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+
 .section .container > p,
 .section .container > ul,
 .section .container > ol,
