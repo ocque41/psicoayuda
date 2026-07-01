@@ -144,6 +144,12 @@ export default function Page() {
             .
           </li>
           <li>
+            <Link href="/recursos/burnout-agotamiento-que-hacer">
+              Burnout: agotamiento por estrés, señales y qué hacer
+            </Link>
+            .
+          </li>
+          <li>
             <Link href="/preguntas-frecuentes">Preguntas frecuentes</Link>.
           </li>
         </ul>
