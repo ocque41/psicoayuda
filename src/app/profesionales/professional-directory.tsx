@@ -41,7 +41,7 @@ const AREA_KEYWORDS: Record<string, string> = {
   duelo:
     "duelo pérdida luto muerte fallecimiento ausencia despedida migratorio migración emigrar emigración distancia",
   ansiedad_depresion:
-    "ansiedad angustia depresión tristeza estrés pánico nervios preocupación insomnio ánimo miedo miedos fobia fobias ataque ataques deprimido deprimida deprimir ansioso ansiosa decaído bajón dormir duermo sueño soledad solo sola vacío burnout agotamiento quemado laboral trabajo cansancio económico dinero deudas plata",
+    "ansiedad angustia depresión tristeza estrés pánico nervios preocupación insomnio ánimo miedo miedos fobia fobias social ataque ataques deprimido deprimida deprimir ansioso ansiosa decaído bajón dormir duermo sueño soledad solo sola vacío burnout agotamiento quemado laboral trabajo cansancio económico dinero deudas plata ira enojo rabia enfado",
   trauma_crisis:
     "trauma crisis tept estrés postraumático abuso violencia accidente desastre terremoto maltrato agresión acoso doméstica género amenaza suicidio suicida ideación autolesión autolesiones",
   adicciones: "adicciones consumo alcohol drogas dependencia juego apuestas",
@@ -158,6 +158,10 @@ const STOPWORDS = new Set([
   "buscando",
   "quiero",
   "queria",
+  "control",
+  "controlar",
+  "manejo",
+  "manejar",
   "ayudar",
   "ayudame",
   "ayudarme",
