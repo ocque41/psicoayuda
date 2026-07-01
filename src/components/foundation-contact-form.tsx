@@ -19,7 +19,9 @@ export function FoundationContactForm() {
     contactName: `${formId}-contact`,
     email: `${formId}-email`,
     website: `${formId}-website`,
+    websiteHint: `${formId}-website-hint`,
     phone: `${formId}-phone`,
+    phoneHint: `${formId}-phone-hint`,
     message: `${formId}-message`,
     company: `${formId}-company`,
   };
@@ -117,17 +119,22 @@ export function FoundationContactForm() {
           type="text"
           inputMode="url"
           maxLength={200}
-          placeholder="fundacion.org"
+          placeholder="fundacion.org/contacto"
           autoComplete="url"
           // Si escriben algo, que parezca una web (dominio con punto y TLD). El
           // servidor revalida lo mismo; esto es solo un aviso temprano en el navegador.
           pattern="(https?://)?([A-Za-z0-9-]+\.)+[A-Za-z]{2,}([/?#].*)?"
           title="Escribe una dirección web válida (ej. fundacion.org)."
+          aria-describedby={ids.websiteHint}
         />
+        <p id={ids.websiteHint} className="hint">
+          Si la pones, usa el enlace que lleve directo a tu página de contacto
+          (no solo a la portada), para poder escribirte con un clic.
+        </p>
       </div>
 
       <div className="field">
-        <label htmlFor={ids.phone}>Teléfono de contacto (opcional)</label>
+        <label htmlFor={ids.phone}>WhatsApp o teléfono de contacto</label>
         <input
           id={ids.phone}
           name="phone"
@@ -140,8 +147,50 @@ export function FoundationContactForm() {
           // normaliza y valida de verdad; esto evita que escriban letras.
           pattern="[0-9+()\s-]{7,40}"
           title="Escribe un teléfono válido (solo números; incluye el código de país si estás fuera de Venezuela)."
+          aria-describedby={ids.phoneHint}
         />
+        <p id={ids.phoneHint} className="hint">
+          Escribe el número completo con el código de país (ej. +58…). Es
+          obligatorio si eliges WhatsApp o llamada como forma más rápida.
+        </p>
       </div>
+
+      <fieldset className="field">
+        <legend>¿Cuál es la forma más rápida de contactarte?</legend>
+        <p className="hint">
+          Marca por dónde prefieres que te escribamos primero, así vamos
+          directo.
+        </p>
+        <div className="checks">
+          <label>
+            <input
+              type="radio"
+              name="preferredContact"
+              value="whatsapp"
+              required
+            />
+            WhatsApp (usaremos el número de arriba)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="preferredContact"
+              value="phone"
+              required
+            />
+            Llamada telefónica (usaremos el número de arriba)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="preferredContact"
+              value="email"
+              required
+            />
+            Correo electrónico
+          </label>
+        </div>
+      </fieldset>
 
       <div className="field">
         <label htmlFor={ids.message}>

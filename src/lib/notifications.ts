@@ -199,6 +199,7 @@ export async function notifyFoundationContact(input: {
   organizationName: string;
   website?: string;
   phone?: string;
+  preferredContact?: string;
   email: string;
   message?: string;
 }) {

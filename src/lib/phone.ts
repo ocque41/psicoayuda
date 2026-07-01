@@ -35,3 +35,15 @@ export function toIntlNumber(
   if (digits.length < 8 || digits.length > 15) return null;
   return digits;
 }
+
+/**
+ * Enlace de WhatsApp (`https://wa.me/<n>`) para un teléfono libre, o `null` si no
+ * se puede normalizar. Permite ir directo al chat con un clic.
+ */
+export function whatsappUrl(
+  raw: string | null | undefined,
+  cc: string = DEFAULT_CC,
+): string | null {
+  const intl = toIntlNumber(raw, cc);
+  return intl ? `https://wa.me/${intl}` : null;
+}

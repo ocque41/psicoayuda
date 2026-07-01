@@ -61,6 +61,17 @@ export const languageLabels: Record<(typeof languages)[number], string> = {
   other: "Otro",
 };
 
+// Vías de contacto que una organización puede marcar como la "más rápida" en el
+// formulario de alianzas. Mismas keys que `preferredContactMethods` (validation).
+export const preferredContactLabels: Record<
+  "whatsapp" | "phone" | "email",
+  string
+> = {
+  whatsapp: "WhatsApp",
+  phone: "Llamada telefónica",
+  email: "Correo electrónico",
+};
+
 // Lista de países (nombres en español) para los selectores de "país" del perfil
 // profesional (ubicación y país de la credencial). Cubre los estados miembros de
 // la ONU + algunos observadores comunes. Orden alfabético; Venezuela es el

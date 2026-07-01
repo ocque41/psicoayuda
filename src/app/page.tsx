@@ -220,7 +220,7 @@ export default async function HomePage() {
               <Link className="button human" href="/pro">
                 Soy psicólogo/a: quiero ayudar
               </Link>
-              <Link className="button secondary" href="/contacto">
+              <Link className="button secondary" href="/alianzas">
                 Represento una fundación
               </Link>
             </p>

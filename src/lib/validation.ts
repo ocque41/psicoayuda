@@ -62,55 +62,78 @@ export const helpRequestSchema = z.object({
     .transform((value) => value || undefined),
 });
 
+// Vías de contacto que puede elegir una organización como la "más rápida".
+export const preferredContactMethods = ["whatsapp", "phone", "email"] as const;
+
 // Formulario de fundaciones/organizaciones que quieren aliarse (público, sin
 // sesión). Solo pedimos lo imprescindible para poder contactarles.
-export const foundationContactSchema = z.object({
-  contactName: z
-    .string()
-    .trim()
-    .min(2, "Escribe el nombre de la persona de contacto.")
-    .max(120, "El nombre es demasiado largo."),
-  organizationName: z
-    .string()
-    .trim()
-    .min(2, "Escribe el nombre de la fundación u organización.")
-    .max(160, "El nombre de la organización es demasiado largo."),
-  // Web opcional: muchas organizaciones pequeñas no tienen sitio. Aceptamos con o
-  // sin esquema (fundacion.org o https://fundacion.org), pero si la dan exigimos
-  // que PAREZCA una web (dominio con punto y TLD): no vale texto suelto.
-  website: z
-    .string()
-    .trim()
-    .max(200, "La dirección web es demasiado larga.")
-    .optional()
-    .transform((value) => value || undefined)
-    .refine(
-      (value) =>
-        value === undefined ||
-        /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}([/?#]\S*)?$/i.test(value),
-      "Escribe una dirección web válida (ej. fundacion.org).",
+export const foundationContactSchema = z
+  .object({
+    contactName: z
+      .string()
+      .trim()
+      .min(2, "Escribe el nombre de la persona de contacto.")
+      .max(120, "El nombre es demasiado largo."),
+    organizationName: z
+      .string()
+      .trim()
+      .min(2, "Escribe el nombre de la fundación u organización.")
+      .max(160, "El nombre de la organización es demasiado largo."),
+    // Vía de contacto MÁS RÁPIDA (obligatorio): así el equipo sabe por dónde
+    // escribir primero (WhatsApp/llamada/correo) y puede ir directo con un clic.
+    preferredContact: z.preprocess(
+      (value) => (value === "" || value == null ? undefined : value),
+      z.enum(preferredContactMethods, {
+        error: "Elige cuál es la forma más rápida de contactarte.",
+      }),
     ),
-  email: z.email("Escribe un correo válido.").trim().toLowerCase(),
-  // Teléfono opcional (WhatsApp o fijo). Si lo dan, exigimos que sea un NÚMERO
-  // válido: lo normalizamos con la misma heurística que la ficha profesional.
-  phone: z
-    .string()
-    .trim()
-    .max(40)
-    .optional()
-    .transform((value) => value || undefined)
-    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+    // Web opcional: muchas organizaciones pequeñas no tienen sitio. Aceptamos con
+    // o sin esquema (fundacion.org o https://fundacion.org), pero si la dan
+    // exigimos que PAREZCA una web (dominio con punto y TLD): no vale texto suelto.
+    website: z
+      .string()
+      .trim()
+      .max(200, "La dirección web es demasiado larga.")
+      .optional()
+      .transform((value) => value || undefined)
+      .refine(
+        (value) =>
+          value === undefined ||
+          /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}([/?#]\S*)?$/i.test(value),
+        "Escribe una dirección web válida (ej. fundacion.org).",
+      ),
+    email: z.email("Escribe un correo válido.").trim().toLowerCase(),
+    // Teléfono opcional en general, pero OBLIGATORIO si eligen WhatsApp o llamada
+    // como vía rápida (ver el .refine de abajo). Debe ser un número válido: lo
+    // normalizamos con la misma heurística que la ficha profesional.
+    phone: z
+      .string()
+      .trim()
+      .max(40)
+      .optional()
+      .transform((value) => value || undefined)
+      .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+        message:
+          "Escribe un teléfono válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+      }),
+    // Mensaje opcional: cómo les gustaría colaborar.
+    message: z
+      .string()
+      .trim()
+      .max(1000, "El mensaje es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+  })
+  .refine(
+    // Si la vía rápida es WhatsApp o llamada, necesitamos el número para poder
+    // ir directo (wa.me / tel:). Con correo basta el email, que ya es obligatorio.
+    (data) => data.preferredContact === "email" || Boolean(data.phone),
+    {
       message:
-        "Escribe un teléfono válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
-    }),
-  // Mensaje opcional: cómo les gustaría colaborar.
-  message: z
-    .string()
-    .trim()
-    .max(1000, "El mensaje es demasiado largo.")
-    .optional()
-    .transform((value) => value || undefined),
-});
+        "Escribe tu número para poder contactarte por WhatsApp o por llamada.",
+      path: ["phone"],
+    },
+  );
 
 export const professionalSchema = z
   .object({

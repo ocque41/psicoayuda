@@ -345,6 +345,9 @@ export const allianceRequests = sqliteTable(
     email: text("email").notNull(),
     website: text("website"),
     phone: text("phone"),
+    // Vía de contacto más rápida elegida en el formulario: 'whatsapp' | 'phone' |
+    // 'email'. El equipo la usa para ir directo (wa.me / tel: / mailto).
+    preferredContact: text("preferred_contact"),
     message: text("message"),
     // 'pending' | 'approved' | 'rejected'
     status: text("status").default("pending").notNull(),

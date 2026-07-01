@@ -19,8 +19,9 @@ import { db } from "@/db";
 import { allianceRequests, helpRequests, user } from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
-import { needLabels } from "@/lib/constants";
+import { needLabels, preferredContactLabels } from "@/lib/constants";
 import { rankProfessionalsForRequest } from "@/lib/matching";
+import { whatsappUrl } from "@/lib/phone";
 
 export const metadata: Metadata = {
   title: "Administración",
@@ -260,10 +261,21 @@ export default async function AdminPage({
                   ? alliance.website
                   : `https://${alliance.website}`
                 : null;
+              const waHref = whatsappUrl(alliance.phone);
+              const preferredLabel = alliance.preferredContact
+                ? (preferredContactLabels[
+                    alliance.preferredContact as keyof typeof preferredContactLabels
+                  ] ?? alliance.preferredContact)
+                : null;
               return (
                 <article className="card" key={alliance.id}>
                   <h3>{alliance.organizationName}</h3>
                   <p className="muted">Estado: {alliance.status}</p>
+                  {preferredLabel ? (
+                    <p>
+                      <strong>Forma más rápida:</strong> {preferredLabel}
+                    </p>
+                  ) : null}
                   <p>
                     <strong>Contacto:</strong> {alliance.contactName}
                     <br />
@@ -273,6 +285,16 @@ export default async function AdminPage({
                       <>
                         <br />
                         <strong>Teléfono:</strong> {alliance.phone}
+                        {waHref ? (
+                          <>
+                            {" · "}
+                            <a href={waHref} target="_blank" rel="noreferrer">
+                              WhatsApp
+                            </a>
+                            {" · "}
+                            <a href={`tel:${alliance.phone}`}>Llamar</a>
+                          </>
+                        ) : null}
                       </>
                     ) : null}
                     {websiteHref ? (

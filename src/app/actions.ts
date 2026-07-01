@@ -230,6 +230,7 @@ export async function createFoundationContact(
     email: parsed.data.email,
     website: parsed.data.website,
     phone: parsed.data.phone,
+    preferredContact: parsed.data.preferredContact,
     message: parsed.data.message,
     status: "pending",
     createdAt: timestamp,

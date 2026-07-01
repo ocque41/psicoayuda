@@ -1,6 +1,9 @@
 // Plantillas de correo PURAS (sin dependencias de servidor) para poder testearlas
 // con vitest. El envío real vive en src/lib/email.ts.
 
+import { preferredContactLabels } from "@/lib/constants";
+import { whatsappUrl } from "@/lib/phone";
+
 export type BuiltEmail = {
   subject: string;
   html: string;
@@ -369,6 +372,7 @@ export function buildFoundationContactEmail(input: {
   organizationName: string;
   website?: string;
   phone?: string;
+  preferredContact?: string;
   email: string;
   message?: string;
   adminUrl?: string;
@@ -387,6 +391,18 @@ export function buildFoundationContactEmail(input: {
   const websiteText = website ? escapeHtml(website) : "";
   const phone = input.phone?.trim();
   const phoneEsc = phone ? escapeHtml(phone) : "";
+  // Enlace directo de WhatsApp para escribir con un clic (si el número es válido).
+  const waHref = phone ? whatsappUrl(phone) : null;
+  const waHrefAttr = waHref ? escapeHtml(waHref) : "";
+  const preferredKey = input.preferredContact?.trim();
+  const preferredLabel =
+    preferredKey && preferredKey in preferredContactLabels
+      ? preferredContactLabels[
+          preferredKey as keyof typeof preferredContactLabels
+        ]
+      : preferredKey
+        ? escapeHtml(preferredKey)
+        : "";
   const message = input.message?.trim();
   const messageHtml = message
     ? escapeHtml(message).replace(/\n/g, "<br />")
@@ -400,12 +416,19 @@ export function buildFoundationContactEmail(input: {
   const rows = [
     `<p style="margin:0 0 8px;font-size:16px;"><strong>Organización:</strong> ${orgEsc}</p>`,
     `<p style="margin:0 0 8px;font-size:16px;"><strong>Contacto:</strong> ${contactName}</p>`,
+    preferredLabel
+      ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Forma más rápida:</strong> ${preferredLabel}</p>`
+      : "",
     `<p style="margin:0 0 8px;font-size:16px;"><strong>Correo:</strong> <a href="mailto:${emailEsc}" style="color:#2f7a5b;">${emailEsc}</a></p>`,
     website
       ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Web:</strong> <a href="${websiteHref}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${websiteText}</a></p>`
       : "",
     phone
-      ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Teléfono:</strong> ${phoneEsc}</p>`
+      ? `<p style="margin:0 0 8px;font-size:16px;"><strong>Teléfono:</strong> ${phoneEsc}${
+          waHref
+            ? ` · <a href="${waHrefAttr}" target="_blank" style="color:#2f7a5b;">WhatsApp</a> · <a href="tel:${phoneEsc}" style="color:#2f7a5b;">Llamar</a>`
+            : ""
+        }</p>`
       : "",
     message
       ? `<p style="margin:16px 0 0;font-size:16px;line-height:1.6;"><strong>Mensaje:</strong><br />${messageHtml}</p>`
@@ -459,9 +482,11 @@ export function buildFoundationContactEmail(input: {
     "",
     `Organización: ${org}`,
     `Contacto: ${input.contactName.trim()}`,
+    preferredLabel ? `Forma más rápida: ${preferredLabel}` : "",
     `Correo: ${email}`,
     website ? `Web: ${website}` : "",
     phone ? `Teléfono: ${phone}` : "",
+    waHref ? `WhatsApp: ${waHref}` : "",
     message ? `\nMensaje:\n${message}` : "",
     adminUrl ? `\nRevísala y apruébala en el panel: ${adminUrl}` : "",
   ]

@@ -1,0 +1,1 @@
+ALTER TABLE `alliance_requests` ADD `preferred_contact` text;
