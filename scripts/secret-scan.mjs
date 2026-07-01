@@ -9,6 +9,8 @@ const allowedValues = new Set([
   "nido-local-development-secret-change-me",
   // Placeholder usado solo en los tests del worker de chat (no es un secreto real).
   "test-secret",
+  // Marcador de build en deploy.yml; el secreto real vive en Cloudflare.
+  "deploy-build-placeholder-not-the-real-secret",
 ]);
 
 const allowedFiles = new Set(["pnpm-lock.yaml"]);
@@ -54,7 +56,13 @@ for (const file of trackedFiles()) {
     for (const match of text.matchAll(pattern.regex)) {
       const value = valueFor(match, pattern).trim();
 
-      if (allowedValues.has(value) || value.endsWith("=")) {
+      // `${{ secrets.* }}` es una REFERENCIA de GitHub Actions, no un secreto
+      // literal en el repo: el valor real vive en GitHub Secrets. No lo marcamos.
+      if (
+        allowedValues.has(value) ||
+        value.endsWith("=") ||
+        value.startsWith("${{")
+      ) {
         continue;
       }
 
