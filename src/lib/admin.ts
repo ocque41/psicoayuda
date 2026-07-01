@@ -25,6 +25,20 @@ export function getErrorAlertEmails() {
   return list.length ? list : getAdminEmails();
 }
 
+/**
+ * Destinatarios del aviso de alianzas (formulario /alianzas).
+ * `ALLIANCES_CONTACT_EMAIL` (lista separada por comas) manda; si está vacío cae a
+ * los admins de `ADMIN_EMAILS`. Así el aviso llega a los admins sin tocar env de
+ * prod (ADMIN_EMAILS ya está configurado).
+ */
+export function getAllianceRecipients() {
+  const list = (process.env.ALLIANCES_CONTACT_EMAIL ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length ? list : getAdminEmails();
+}
+
 export async function requireAdmin() {
   const session = await getServerSession();
   const email = session?.user?.email;

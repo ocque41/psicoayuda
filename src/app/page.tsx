@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HomeProfessionalsFilter } from "@/components/home-professionals-filter";
+import { PartnersShowcase } from "@/components/partners-showcase";
 import { HomeJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
@@ -82,6 +83,8 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      <PartnersShowcase />
 
       <section className="section">
         <div className="container">
