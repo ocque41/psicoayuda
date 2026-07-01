@@ -80,7 +80,7 @@ describe("Nido MVP smoke checks", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("requires a usable WhatsApp number (libro amarillo)", () => {
+  it("accepts optional phone/landline but rejects unusable numbers", () => {
     const base = {
       fullName: "Ana Perez",
       licenseNumber: "CRED-1",
@@ -94,17 +94,26 @@ describe("Nido MVP smoke checks", () => {
       conductNoEmergencyGuarantee: "on",
       conductCompetence: "on",
     };
-    // Sin teléfono: rechazado.
-    expect(professionalSchema.safeParse(base).success).toBe(false);
-    // Basura no normalizable: rechazado.
+    // Sin teléfono ni fijo: aceptado (el correo de la cuenta es el contacto).
+    expect(professionalSchema.safeParse(base).success).toBe(true);
+    // WhatsApp basura no normalizable: rechazado.
     expect(
       professionalSchema.safeParse({ ...base, phone: "123" }).success,
     ).toBe(false);
-    // Número válido: aceptado.
+    // WhatsApp válido: aceptado.
     expect(
       professionalSchema.safeParse({ ...base, phone: "+58 412 1234567" })
         .success,
     ).toBe(true);
+    // Teléfono fijo válido: aceptado.
+    expect(
+      professionalSchema.safeParse({ ...base, landline: "0212-1234567" })
+        .success,
+    ).toBe(true);
+    // Teléfono fijo basura: rechazado.
+    expect(
+      professionalSchema.safeParse({ ...base, landline: "x" }).success,
+    ).toBe(false);
   });
 
   it("requires professional conduct acceptance", () => {

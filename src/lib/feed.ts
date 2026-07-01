@@ -17,6 +17,8 @@ export type FeedProfessional = {
   // Público por diseño: la ficha funciona como directorio (libro amarillo). Se
   // muestra como botón de WhatsApp/llamada. Null si el profesional no lo dio.
   phone: string | null;
+  // Teléfono fijo opcional (solo llamada): se muestra como enlace `tel:`.
+  landline: string | null;
   // Público por diseño (libro amarillo): se muestra como link `mailto:` junto al
   // teléfono. Es el correo de la cuenta, no el `contactEmail` de coordinación
   // (ese sigue siendo interno: "no se comparte con las personas").
@@ -56,6 +58,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     shortBio: string | null;
     photo: string | null;
     phone: string | null;
+    landline: string | null;
     email: string;
     crisisExperience: boolean;
     acceptingRequests: boolean;
@@ -75,6 +78,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         shortBio: professionals.shortBio,
         photo: professionals.photo,
         phone: professionals.phone,
+        landline: professionals.landline,
         email: professionals.email,
         crisisExperience: professionals.crisisExperience,
         acceptingRequests: professionals.acceptingRequests,
@@ -107,6 +111,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     shortBio: r.shortBio,
     photo: r.photo,
     phone: r.phone,
+    landline: r.landline,
     email: r.email,
     crisisExperience: r.crisisExperience,
     acceptingRequests: r.acceptingRequests,
