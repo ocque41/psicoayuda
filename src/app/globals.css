@@ -971,6 +971,14 @@ h3 {
   text-align: center;
 }
 
+/* El h1 principal de una sección también centrado. Su caja usa max-width 760px,
+   más estrecha que el contenedor (hasta 1040px), así que necesita margin-inline
+   para no quedar pegada a la izquierda (mismo criterio que el hero). */
+.section .container > h1 {
+  text-align: center;
+  margin-inline: auto;
+}
+
 .section .container > p,
 .section .container > ul,
 .section .container > ol,
