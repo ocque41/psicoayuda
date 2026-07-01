@@ -4,6 +4,7 @@ import {
   blobMatchesQuery,
   buildSearchBlob,
   detectCrisis,
+  matchesFilters,
   queryTokens,
 } from "@/lib/search";
 
@@ -88,6 +89,50 @@ describe("sinónimos: cada síntoma enruta a su especialidad", () => {
   it("psicólogo infantil / niños → infancia_adolescencia", () => {
     expect(blobMatchesQuery(kids, "psicólogo infantil")).toBe(true);
     expect(blobMatchesQuery(kids, "niños")).toBe(true);
+  });
+});
+
+describe("matchesFilters (especialidad + disponible ahora)", () => {
+  const pro = fakePro({
+    supportAreas: ["ansiedad_depresion", "duelo"],
+    acceptingRequests: true,
+    currentActiveRequests: 1,
+    maxActiveRequests: 3,
+  } as Partial<FeedProfessional>);
+
+  it("un filtro vacío no restringe", () => {
+    expect(matchesFilters(pro, {})).toBe(true);
+  });
+
+  it("especialidad: coincide solo si el pro tiene esa área", () => {
+    expect(matchesFilters(pro, { area: "ansiedad_depresion" })).toBe(true);
+    expect(matchesFilters(pro, { area: "duelo" })).toBe(true);
+    expect(matchesFilters(pro, { area: "adicciones" })).toBe(false);
+  });
+
+  it("disponible ahora: exige cupo libre y aceptar solicitudes", () => {
+    expect(matchesFilters(pro, { onlyAvailable: true })).toBe(true);
+    const full = fakePro({
+      acceptingRequests: true,
+      currentActiveRequests: 3,
+      maxActiveRequests: 3,
+    } as Partial<FeedProfessional>);
+    expect(matchesFilters(full, { onlyAvailable: true })).toBe(false);
+    const paused = fakePro({
+      acceptingRequests: false,
+      currentActiveRequests: 0,
+      maxActiveRequests: 3,
+    } as Partial<FeedProfessional>);
+    expect(matchesFilters(paused, { onlyAvailable: true })).toBe(false);
+  });
+
+  it("combina especialidad y disponibilidad con AND", () => {
+    expect(matchesFilters(pro, { area: "duelo", onlyAvailable: true })).toBe(
+      true,
+    );
+    expect(
+      matchesFilters(pro, { area: "adicciones", onlyAvailable: true }),
+    ).toBe(false);
   });
 });
 

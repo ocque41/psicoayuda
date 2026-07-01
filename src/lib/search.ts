@@ -1,5 +1,6 @@
 import { languageLabels, needLabels, needSeekerLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
+import { isAvailableNow } from "@/lib/response-bucket";
 
 /**
  * Lógica pura del buscador del directorio (sin React), para poder testearla.
@@ -199,4 +200,21 @@ export function blobMatchesQuery(blob: string, query: string): boolean {
 export function detectCrisis(query: string): boolean {
   const q = normalize(query.trim());
   return q.length >= 4 && CRISIS_TERMS.some((term) => q.includes(term));
+}
+
+export type DirectoryFilters = {
+  area?: string;
+  onlyAvailable?: boolean;
+};
+
+// Filtros exactos del directorio (especialidad, disponibilidad ahora). Van
+// aparte del match por texto: un profesional debe pasar AMBOS. Un filtro
+// vacío/false no restringe.
+export function matchesFilters(
+  pro: FeedProfessional,
+  { area, onlyAvailable }: DirectoryFilters,
+): boolean {
+  if (area && !pro.supportAreas.includes(area)) return false;
+  if (onlyAvailable && !isAvailableNow(pro)) return false;
+  return true;
 }

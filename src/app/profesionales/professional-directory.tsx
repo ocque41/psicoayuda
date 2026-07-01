@@ -5,8 +5,12 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { CrisisResources } from "@/components/crisis-resources";
 import { needCategories, needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
-import { isAvailableNow } from "@/lib/response-bucket";
-import { buildSearchBlob, detectCrisis, queryTokens } from "@/lib/search";
+import {
+  buildSearchBlob,
+  detectCrisis,
+  matchesFilters,
+  queryTokens,
+} from "@/lib/search";
 import { FeedProfessionalCard } from "./professional-card";
 
 // Especialidades e idiomas filtrables ("otro" se omite como opción de filtro).
@@ -78,9 +82,7 @@ export function ProfessionalDirectory({
         if (words.length && !words.every((word) => blob.includes(word))) {
           return false;
         }
-        if (area && !pro.supportAreas.includes(area)) return false;
-        if (onlyAvailable && !isAvailableNow(pro)) return false;
-        return true;
+        return matchesFilters(pro, { area, onlyAvailable });
       })
       .map(({ pro }) => pro);
   }, [indexed, query, area, onlyAvailable]);
