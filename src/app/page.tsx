@@ -77,6 +77,41 @@ export default async function HomePage() {
               </button>
             </div>
           </form>
+          <p className="hint" style={{ margin: "0 0 8px" }}>
+            Búsquedas frecuentes:
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: "var(--space-6)",
+            }}
+          >
+            {[
+              "Ansiedad",
+              "Duelo",
+              "Niños",
+              "Pareja",
+              "Insomnio",
+              "Terremoto",
+            ].map((term) => (
+              <Link
+                key={term}
+                href={`/profesionales?q=${encodeURIComponent(term.toLowerCase())}`}
+                style={{
+                  border: "1px solid #c5ddc5",
+                  borderRadius: 999,
+                  padding: "6px 14px",
+                  fontSize: "0.95rem",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                {term}
+              </Link>
+            ))}
+          </div>
           {featured.length > 0 ? (
             <>
               <p className="muted">
