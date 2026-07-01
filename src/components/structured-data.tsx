@@ -63,6 +63,13 @@ const websiteNode: Json = {
   publisher: { "@id": `${SITE_URL}/#organization` },
 };
 
+// Fechas de contenido del clúster de guías. `datePublished` = cuándo se publicó;
+// `dateModified` = última revisión de contenido (señal de frescura que Google usa
+// en contenido de salud/YMYL). Actualiza `dateModified` al reescribir una guía.
+// No usamos `lastReviewed`: implicaría revisión médica y aquí no la hay.
+const GUIDES_PUBLISHED = "2026-06-29";
+const GUIDES_MODIFIED = "2026-07-01";
+
 /**
  * Datos estructurados de una guía de salud (`MedicalWebPage`).
  *
@@ -90,6 +97,8 @@ export function GuideJsonLd({
         name,
         description,
         inLanguage: "es",
+        datePublished: GUIDES_PUBLISHED,
+        dateModified: GUIDES_MODIFIED,
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: { "@id": `${SITE_URL}/#organization` },
         publisher: { "@id": `${SITE_URL}/#organization` },
