@@ -64,6 +64,13 @@
       "when": 1782934197925,
       "tag": "0008_add_email_public",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1782937382263,
+      "tag": "0009_easy_bulldozer",
+      "breakpoints": true
     }
   ]
 }

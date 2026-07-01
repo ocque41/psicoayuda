@@ -44,6 +44,48 @@ function resizeImageToDataUrl(file: File): Promise<string> {
   });
 }
 
+// Pipeline aparte para el COMPROBANTE de registro (no reusa el de la foto: un
+// certificado a 256px sería ilegible). Imágenes → se redimensionan a un tamaño
+// legible; PDF → se lee tal cual. Tope ~1 MB, igual que la validación del server.
+// ponytail: base64 en D1, sin R2. Techo ~1 MB; si el volumen crece, mover a R2 + URL.
+const DOC_MAX_PX = 1600;
+const DOC_QUALITY = 0.7;
+const DOC_MAX_BYTES = 1_200_000;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeDocumentToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode"));
+      img.onload = () => {
+        const scale = Math.min(1, DOC_MAX_PX / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("ctx"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", DOC_QUALITY));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ProfessionalOnboardingForm({
   email,
   name,
@@ -62,6 +104,12 @@ export function ProfessionalOnboardingForm({
   const [phone, setPhone] = useState("");
   const [landline, setLandline] = useState("");
   const [emailPublic, setEmailPublic] = useState(true);
+  // Credencial flexible: auxiliar no clínico exime de todo; si no, basta una vía.
+  const [nonClinical, setNonClinical] = useState(false);
+  const [registrationType, setRegistrationType] = useState("");
+  const [proofDoc, setProofDoc] = useState<string | null>(null);
+  const [proofName, setProofName] = useState("");
+  const [proofError, setProofError] = useState("");
   const ids = {
     fullName: `${formId}-full-name`,
     displayName: `${formId}-display-name`,
@@ -73,6 +121,15 @@ export function ProfessionalOnboardingForm({
     licenseCountry: `${formId}-license-country`,
     university: `${formId}-university`,
     universityHint: `${formId}-university-hint`,
+    fpvNumber: `${formId}-fpv-number`,
+    fpvHint: `${formId}-fpv-hint`,
+    supervisionInfo: `${formId}-supervision-info`,
+    supervisionHint: `${formId}-supervision-hint`,
+    registrationType: `${formId}-registration-type`,
+    registrationHint: `${formId}-registration-hint`,
+    registrationDetail: `${formId}-registration-detail`,
+    registrationProof: `${formId}-registration-proof`,
+    registrationProofHint: `${formId}-registration-proof-hint`,
     phone: `${formId}-phone`,
     phoneHint: `${formId}-phone-hint`,
     landline: `${formId}-landline`,
@@ -106,6 +163,35 @@ export function ProfessionalOnboardingForm({
       setPhoto(await resizeImageToDataUrl(file));
     } catch {
       setPhotoError("No se pudo procesar la imagen. Prueba con otra.");
+    }
+  }
+
+  async function handleProofChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProofError("");
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      setProofError("Sube una imagen (JPG, PNG o WebP) o un PDF.");
+      return;
+    }
+    try {
+      const dataUrl = isPdf
+        ? await readFileAsDataUrl(file)
+        : await resizeDocumentToDataUrl(file);
+      if (dataUrl.length > DOC_MAX_BYTES) {
+        setProofError(
+          "El documento es demasiado grande (máx ~1 MB). Sube un archivo más liviano.",
+        );
+        return;
+      }
+      setProofDoc(dataUrl);
+      setProofName(file.name);
+    } catch {
+      setProofError(
+        "No se pudo procesar el documento. Prueba con otro archivo.",
+      );
     }
   }
 
@@ -213,52 +299,187 @@ export function ProfessionalOnboardingForm({
       <fieldset className="card">
         <legend>Tu credencial profesional</legend>
         <p className="field-help">
-          La revisa una persona del equipo para confirmar que eres profesional.
-          Nunca se muestra públicamente.
+          La revisa una persona del equipo para confirmar que puedes acompañar.
+          Nunca se muestra públicamente. Con acreditar <strong>una</strong> vía
+          basta.
         </p>
-        <div className="grid grid-2">
-          <div className="field">
-            <label htmlFor={ids.licenseNumber}>Credencial o licencia *</label>
-            <p className="hint" id={ids.licenseHint}>
-              Solo para verificar tu identidad profesional.
-            </p>
+
+        <div className="checks" style={{ margin: "0 0 14px" }}>
+          <label>
             <input
-              id={ids.licenseNumber}
-              name="licenseNumber"
-              required
-              aria-describedby={ids.licenseHint}
+              name="nonClinicalHelper"
+              type="checkbox"
+              checked={nonClinical}
+              onChange={(event) => setNonClinical(event.target.checked)}
             />
-          </div>
-          <div className="field">
-            <label htmlFor={ids.licenseCountry}>País de la credencial *</label>
-            <select
-              id={ids.licenseCountry}
-              name="licenseCountry"
-              required
-              defaultValue="Venezuela"
-            >
-              {countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor={ids.university}>
-            Universidad donde obtuviste tu título *
+            Soy <strong>auxiliar no clínico</strong> (estudiante o voluntario/a
+            sin credencial para ejercer). No hará falta número ni verificación,
+            pero tu ficha mostrará la etiqueta “Auxiliar no Clínico”.
           </label>
-          <p className="hint" id={ids.universityHint}>
-            La institución que emitió tu título profesional.
-          </p>
-          <input
-            id={ids.university}
-            name="university"
-            required
-            aria-describedby={ids.universityHint}
-          />
         </div>
+
+        {nonClinical ? (
+          <p className="field-help" style={{ margin: 0 }}>
+            Como auxiliar no clínico no necesitas credencial. Tu ficha mostrará
+            la etiqueta <strong>“Auxiliar no Clínico”</strong> para que quien
+            busca ayuda sepa que acompañas sin ser profesional con licencia.
+          </p>
+        ) : (
+          <>
+            <p className="field-help" style={{ margin: "0 0 10px" }}>
+              <strong>Acredítate con una de estas tres vías</strong> (con una
+              basta; las demás son opcionales):
+            </p>
+
+            <div className="field">
+              <label htmlFor={ids.fpvNumber}>1. Número FPV</label>
+              <p className="hint" id={ids.fpvHint}>
+                Tu número de Psicólogo Federado. Verificable en la Federación de
+                Psicólogos de Venezuela.
+              </p>
+              <input
+                id={ids.fpvNumber}
+                name="fpvNumber"
+                aria-describedby={ids.fpvHint}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor={ids.supervisionInfo}>
+                2. Trabajo bajo supervisión
+              </label>
+              <p className="hint" id={ids.supervisionHint}>
+                ¿Quién te supervisa y en qué institución? (p. ej. prácticas,
+                Ministerio de Educación, o trabajo clínico/educativo
+                supervisado).
+              </p>
+              <input
+                id={ids.supervisionInfo}
+                name="supervisionInfo"
+                aria-describedby={ids.supervisionHint}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor={ids.registrationType}>
+                3. Comprobante de registro
+              </label>
+              <p className="hint" id={ids.registrationHint}>
+                Elige dónde estás registrado/a y sube el comprobante (imagen o
+                PDF).
+              </p>
+              <select
+                id={ids.registrationType}
+                name="registrationType"
+                value={registrationType}
+                onChange={(event) => setRegistrationType(event.target.value)}
+                aria-describedby={ids.registrationHint}
+              >
+                <option value="">— Selecciona (opcional) —</option>
+                <option value="ministerio_educacion">
+                  Registro en el Ministerio de Educación
+                </option>
+                <option value="colegio_psicologos">
+                  Colegio de Psicólogos de tu jurisdicción
+                </option>
+                <option value="inprepsi">Membresía en INPREPSI</option>
+              </select>
+            </div>
+
+            {registrationType ? (
+              <>
+                <div className="field">
+                  <label htmlFor={ids.registrationDetail}>
+                    Jurisdicción o número de registro (opcional)
+                  </label>
+                  <input
+                    id={ids.registrationDetail}
+                    name="registrationDetail"
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={ids.registrationProof}>
+                    Comprobante (imagen o PDF) *
+                  </label>
+                  <p className="hint" id={ids.registrationProofHint}>
+                    Foto legible o PDF del carnet/constancia. Máx ~1 MB.
+                  </p>
+                  <input
+                    id={ids.registrationProof}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,application/pdf"
+                    onChange={handleProofChange}
+                    required={!proofDoc}
+                    aria-describedby={ids.registrationProofHint}
+                  />
+                  {proofDoc ? (
+                    <p className="hint" role="status">
+                      Documento cargado ✓ {proofName}
+                    </p>
+                  ) : null}
+                  {proofError ? (
+                    <p className="form-error" role="alert">
+                      {proofError}
+                    </p>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
+            <input
+              type="hidden"
+              name="registrationProofDoc"
+              value={proofDoc ?? ""}
+            />
+
+            <div className="grid grid-2">
+              <div className="field">
+                <label htmlFor={ids.licenseNumber}>
+                  Credencial o licencia (opcional)
+                </label>
+                <p className="hint" id={ids.licenseHint}>
+                  Si tienes otro número de colegiatura o licencia, indícalo.
+                </p>
+                <input
+                  id={ids.licenseNumber}
+                  name="licenseNumber"
+                  aria-describedby={ids.licenseHint}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={ids.licenseCountry}>
+                  País de la credencial
+                </label>
+                <select
+                  id={ids.licenseCountry}
+                  name="licenseCountry"
+                  defaultValue="Venezuela"
+                >
+                  {countries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor={ids.university}>
+                Universidad donde obtuviste tu título *
+              </label>
+              <p className="hint" id={ids.universityHint}>
+                La institución que emitió tu título profesional.
+              </p>
+              <input
+                id={ids.university}
+                name="university"
+                required
+                aria-describedby={ids.universityHint}
+              />
+            </div>
+          </>
+        )}
       </fieldset>
 
       <fieldset className="card">

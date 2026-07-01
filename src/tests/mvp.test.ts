@@ -61,6 +61,7 @@ describe("Nido MVP smoke checks", () => {
   it("validates professional onboarding fields and capacity range", () => {
     const parsed = professionalSchema.safeParse({
       fullName: "Ana Perez",
+      fpvNumber: "FPV-1",
       licenseNumber: "CRED-1",
       licenseCountry: "Venezuela",
       university: "Universidad Central de Venezuela",
@@ -83,6 +84,7 @@ describe("Nido MVP smoke checks", () => {
   it("requires at least one contact (email, landline or WhatsApp)", () => {
     const base = {
       fullName: "Ana Perez",
+      fpvNumber: "FPV-1",
       licenseNumber: "CRED-1",
       licenseCountry: "Venezuela",
       university: "Universidad Central de Venezuela",

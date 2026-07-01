@@ -25,6 +25,8 @@ export type FeedProfessional = {
   // ¿Publicar el correo como contacto en la ficha? Una de las 3 vías.
   emailPublic: boolean;
   crisisExperience: boolean;
+  // Etiqueta pública: acompaña sin credencial clínica (estudiante/voluntario).
+  nonClinicalHelper: boolean;
   acceptingRequests: boolean;
   currentActiveRequests: number;
   maxActiveRequests: number;
@@ -63,6 +65,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     email: string;
     emailPublic: boolean;
     crisisExperience: boolean;
+    nonClinicalHelper: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
     maxActiveRequests: number;
@@ -84,6 +87,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         email: professionals.email,
         emailPublic: professionals.emailPublic,
         crisisExperience: professionals.crisisExperience,
+        nonClinicalHelper: professionals.nonClinicalHelper,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
         maxActiveRequests: professionals.maxActiveRequests,
@@ -118,6 +122,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     email: r.email,
     emailPublic: r.emailPublic,
     crisisExperience: r.crisisExperience,
+    nonClinicalHelper: r.nonClinicalHelper,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,
     maxActiveRequests: r.maxActiveRequests,

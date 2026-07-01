@@ -26,10 +26,16 @@ export default async function HelpPage({
   const { profesional, acceso } = await searchParams;
   const professionals = await getFeedProfessionals();
 
-  let preferred: { id: string; name: string } | null = null;
+  let preferred: { id: string; name: string; nonClinical: boolean } | null =
+    null;
   if (profesional) {
     const found = professionals.find((person) => person.id === profesional);
-    if (found) preferred = { id: found.id, name: found.name };
+    if (found)
+      preferred = {
+        id: found.id,
+        name: found.name,
+        nonClinical: found.nonClinicalHelper,
+      };
   }
 
   return (
@@ -83,6 +89,7 @@ export default async function HelpPage({
         <HelpRequestForm
           preferredProfessionalId={preferred?.id}
           preferredProfessionalName={preferred?.name}
+          preferredProfessionalNonClinical={preferred?.nonClinical}
         />
         <p className="reassurance">
           Detrás de Nido hay psicólogas y psicólogos voluntarios reales que dan

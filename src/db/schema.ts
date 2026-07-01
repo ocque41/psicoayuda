@@ -100,6 +100,19 @@ export const professionals = sqliteTable(
     licenseCountry: text("license_country"),
     // Universidad donde obtuvo el título (dato de verificación, no público).
     university: text("university"),
+    // Verificación profesional flexible — basta UNA vía (o marcar auxiliar no
+    // clínico, ver `nonClinicalHelper`): (1) número FPV, verificable en
+    // sistema.fpv.org.ve; (2) declaración de supervisión (de quién/institución);
+    // (3) comprobante de registro (tipo + detalle + documento subido). No públicas.
+    fpvNumber: text("fpv_number"),
+    supervisionInfo: text("supervision_info"),
+    // 'ministerio_educacion' | 'colegio_psicologos' | 'inprepsi'
+    registrationType: text("registration_type"),
+    registrationDetail: text("registration_detail"),
+    // Documento del comprobante (data URL, imagen o PDF). PESA: NUNCA entra en los
+    // selects de listado — feed/matching/offers proyectan columnas explícitas y el
+    // admin lo excluye a propósito (db.query ... columns: { registrationProofDoc: false }).
+    registrationProofDoc: text("registration_proof_doc"),
     // Teléfono/WhatsApp opcional. Público por diseño: si el profesional lo da, se
     // muestra en su ficha como botón de WhatsApp/llamada (libro amarillo).
     phone: text("phone"),
@@ -120,6 +133,12 @@ export const professionals = sqliteTable(
       .default(true)
       .notNull(),
     crisisExperience: integer("crisis_experience", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    // Auxiliar no clínico: estudiante/voluntario sin credencial para ejercer.
+    // Exime de la verificación de credencial y se muestra como etiqueta PÚBLICA
+    // en su ficha, para que quien busca ayuda sepa que no es un profesional con licencia.
+    nonClinicalHelper: integer("non_clinical_helper", { mode: "boolean" })
       .default(false)
       .notNull(),
     contactEmail: text("contact_email"),

@@ -103,21 +103,76 @@ export const professionalSchema = z
     displayName: optionalText,
     country: optionalText,
     city: optionalText,
+    // Verificación flexible: la credencial ya no es un único campo obligatorio.
+    // El alta exige UNA vía (FPV / supervisión / comprobante) o marcar "Auxiliar
+    // no Clínico" — ver los .refine del final. Estas columnas quedan opcionales
+    // para no tocar los perfiles registrados antes de esta regla.
     licenseNumber: z
       .string()
       .trim()
-      .min(2, "Indica tu credencial o número de licencia.")
-      .max(120, "La credencial es demasiado larga."),
+      .max(120, "La credencial es demasiado larga.")
+      .optional()
+      .transform((value) => value || undefined),
     licenseCountry: z
       .string()
       .trim()
-      .min(2, "Elige el país de tu credencial.")
-      .max(80, "El país de la credencial es demasiado largo."),
+      .max(80, "El país de la credencial es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+    // Universidad: obligatoria para clínicos (se exige en el .refine, salvo
+    // auxiliar no clínico); aquí solo acotamos longitud.
     university: z
       .string()
       .trim()
-      .min(2, "Indica la universidad donde obtuviste tu título.")
-      .max(160, "El nombre de la universidad es demasiado largo."),
+      .max(160, "El nombre de la universidad es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+    // Vía 1: número de Psicólogo Federado (FPV). Verificable públicamente.
+    fpvNumber: z
+      .string()
+      .trim()
+      .max(60, "El número FPV es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+    // Vía 2: trabajo bajo supervisión (de quién / en qué institución).
+    supervisionInfo: z
+      .string()
+      .trim()
+      .max(300, "El texto de supervisión es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+    // Vía 3: comprobante de registro. El documento es obligatorio si se elige
+    // esta vía (todos los organismos emiten prueba verificable).
+    registrationType: z.preprocess(
+      (value) => (value === "" || value == null ? undefined : value),
+      z
+        .enum(["ministerio_educacion", "colegio_psicologos", "inprepsi"])
+        .optional(),
+    ),
+    registrationDetail: z
+      .string()
+      .trim()
+      .max(160, "El detalle del registro es demasiado largo.")
+      .optional()
+      .transform((value) => value || undefined),
+    // Documento subido como data URL (imagen o PDF). Acotamos tamaño (~1 MB) y
+    // formato para que no pese ni permita inyectar otra cosa.
+    registrationProofDoc: z
+      .string()
+      .max(
+        1_200_000,
+        "El documento es demasiado grande. Sube un archivo más liviano (máx ~1 MB).",
+      )
+      .refine(
+        (value) =>
+          value === "" ||
+          /^data:(image\/(jpeg|png|webp)|application\/pdf);base64,/.test(value),
+        "Formato de documento no válido. Sube una imagen (JPG/PNG/WebP) o un PDF.",
+      )
+      .optional()
+      .transform((value) => value || undefined),
+    // Auxiliar no clínico: exime de credencial y universidad; etiqueta pública.
+    nonClinicalHelper: checkboxBoolean.default(false),
     // Contacto directo (libro amarillo). El alta exige AL MENOS UNA vía de las
     // tres: correo público, teléfono fijo o WhatsApp (ver .refine del final). Las
     // columnas siguen siendo opcionales para preservar sin cambios los perfiles
@@ -180,6 +235,33 @@ export const professionalSchema = z
       message:
         "Danos al menos una forma de contacto: tu correo, un teléfono fijo o WhatsApp.",
       path: ["emailPublic"],
+    },
+  )
+  .refine(
+    // Universidad obligatoria salvo auxiliar no clínico (estudiantes/voluntarios).
+    (data) => data.nonClinicalHelper || Boolean(data.university),
+    {
+      message: "Indica la universidad donde obtuviste tu título.",
+      path: ["university"],
+    },
+  )
+  .refine(
+    // Verificación: al menos UNA vía de credencial, salvo auxiliar no clínico.
+    (data) =>
+      data.nonClinicalHelper ||
+      Boolean(data.fpvNumber || data.supervisionInfo || data.registrationType),
+    {
+      message:
+        'Acredita tu perfil: indica tu número FPV, tu supervisión, o sube un comprobante de registro. Si no tienes credencial para ejercer, marca "Auxiliar no Clínico".',
+      path: ["fpvNumber"],
+    },
+  )
+  .refine(
+    // Si eligen la vía de comprobante de registro, el documento es obligatorio.
+    (data) => !data.registrationType || Boolean(data.registrationProofDoc),
+    {
+      message: "Sube el comprobante de tu registro (una imagen o un PDF).",
+      path: ["registrationProofDoc"],
     },
   );
 

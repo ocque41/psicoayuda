@@ -30,9 +30,11 @@ const DRAFT_FIELDS = ["needCategory", "urgency", "language"] as const;
 export function HelpRequestForm({
   preferredProfessionalId,
   preferredProfessionalName,
+  preferredProfessionalNonClinical,
 }: {
   preferredProfessionalId?: string;
   preferredProfessionalName?: string;
+  preferredProfessionalNonClinical?: boolean;
 } = {}) {
   const [state, action, pending] = useActionState(createHelpRequest, null);
   const formId = useId();
@@ -155,6 +157,13 @@ export function HelpRequestForm({
             prefieres, también puedes{" "}
             <a href="/ayuda">enviar tu mensaje a todo el equipo</a>.
           </p>
+          {preferredProfessionalNonClinical ? (
+            <p style={{ margin: "8px 0 0" }}>
+              <strong>{preferredProfessionalName}</strong> es un auxiliar no
+              clínico: acompaña con empatía, pero no es un profesional con
+              licencia.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

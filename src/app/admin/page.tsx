@@ -15,7 +15,7 @@ import {
 } from "@/components/admin-incomplete-registrations";
 import { AuthPanel } from "@/components/auth-panel";
 import { db } from "@/db";
-import { helpRequests, professionals, user } from "@/db/schema";
+import { helpRequests, user } from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels } from "@/lib/constants";
@@ -81,7 +81,13 @@ export default async function AdminPage({
   const offset = (page - 1) * REQUESTS_PAGE_SIZE;
 
   const [proRows, requestPage, accountRows] = await Promise.all([
-    db.select().from(professionals).orderBy(desc(professionals.createdAt)),
+    // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
+    // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
+    // el incidente de CPU de /profesionales). Se leería aparte al revisar uno.
+    db.query.professionals.findMany({
+      columns: { registrationProofDoc: false },
+      orderBy: (p, { desc: descOp }) => [descOp(p.createdAt)],
+    }),
     // Surface actionable requests first (new, then contacted), newest within
     // each bucket. Fetch one extra row to detect a next page without a count.
     db

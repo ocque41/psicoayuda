@@ -82,6 +82,15 @@ export function FeedProfessionalCard({
 
       <p className={`badge badge-${signal.tone}`}>{signal.label}</p>
 
+      {professional.nonClinicalHelper ? (
+        <p
+          className="badge badge-new"
+          title="Acompaña de forma no clínica; no es un profesional con licencia."
+        >
+          Auxiliar no Clínico
+        </p>
+      ) : null}
+
       {professional.supportAreas.length ? (
         <ul className="chips" aria-label="Áreas de apoyo">
           {professional.supportAreas.slice(0, 4).map((area) => (
@@ -98,6 +107,12 @@ export function FeedProfessionalCard({
       ) : null}
 
       <div className="pro-card-actions">
+        {professional.nonClinicalHelper ? (
+          <p className="hint" style={{ margin: "0 0 8px" }}>
+            Es un <strong>auxiliar no clínico</strong>: acompaña con empatía,
+            pero no es un profesional con licencia.
+          </p>
+        ) : null}
         <div className="pro-contact">
           {intlWhatsApp ? (
             <>
