@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   description:
     "Sismos recientes en Venezuela en vivo (USGS) y plataformas de ayuda tras el terremoto: buscar personas, refugios, hospitales, rescate y apoyo psicológico.",
   alternates: { canonical: "/situacion" },
+  openGraph: {
+    title: "Terremoto en Venezuela: sismos en vivo y ayuda | Nido",
+    description:
+      "Sismos en vivo (USGS) y plataformas de ayuda tras el terremoto en Venezuela: buscar personas, refugios, hospitales, rescate y apoyo psicológico gratis.",
+    url: "/situacion",
+  },
 };
 
 export default function SituacionPage() {
