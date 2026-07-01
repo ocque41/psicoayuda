@@ -18,6 +18,23 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#faf6f0",
     theme_color: "#2f7a5b",
     categories: ["health", "medical", "lifestyle"],
+    // Accesos directos de la app instalada (la mayoría de las búsquedas de salud
+    // mental son en móvil): las dos acciones principales a un toque.
+    shortcuts: [
+      {
+        name: "Pedir apoyo psicológico",
+        short_name: "Pedir apoyo",
+        description:
+          "Habla gratis con un psicólogo voluntario, sin crear cuenta",
+        url: "/ayuda",
+      },
+      {
+        name: "Buscar un psicólogo",
+        short_name: "Buscar",
+        description: "Busca por especialidad o por lo que necesitas",
+        url: "/profesionales",
+      },
+    ],
     icons: [
       {
         src: "/icon.svg",
