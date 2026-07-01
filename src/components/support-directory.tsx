@@ -166,8 +166,8 @@ export function SupportDirectory({
         <p>
           Aún estamos sumando personas voluntarias y organizaciones verificadas.
           Mientras tanto, puedes{" "}
-          <Link href="#formulario">dejar tu solicitud</Link> y una persona del
-          equipo te contactará por correo.
+          <Link href="/ayuda#formulario">dejar tu solicitud</Link> y una persona
+          del equipo te contactará por correo.
         </p>
       </div>
     );
@@ -361,6 +361,26 @@ export function SupportDirectory({
           del todo. Nido no atiende emergencias en tiempo real. */}
       {crisisIntent ? <CrisisResources variant="callout" /> : null}
 
+      {/* Encabezado de sección para lectores de pantalla: las tarjetas usan h3,
+          así que sin este h2 la jerarquía podría saltar de h1 a h3 en páginas sin
+          otro h2 encima (p. ej. /profesionales). Se oculta visualmente porque el
+          recuento de abajo ya rotula los resultados para quien ve la pantalla. */}
+      <h2
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        Resultados
+      </h2>
+
       {/* Región viva: anuncia el recuento o el "sin resultados" al filtrar en
           vivo (WCAG 4.1.3). */}
       <div role="status" aria-live="polite" aria-atomic="true">
@@ -369,8 +389,8 @@ export function SupportDirectory({
             <p>
               No hay resultados para tu búsqueda. Prueba con otras palabras o
               quita algún filtro, o{" "}
-              <Link href="#formulario">deja tu solicitud</Link> y te conectamos
-              con alguien afín.
+              <Link href="/ayuda#formulario">deja tu solicitud</Link> y te
+              conectamos con alguien afín.
             </p>
           </div>
         ) : (

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
+import { SupportDirectory } from "@/components/support-directory";
 import { getFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
-import { SupportDirectory } from "./support-directory";
 
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis en Venezuela",

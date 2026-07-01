@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { DirectoryJsonLd } from "@/components/structured-data";
+import { SupportDirectory } from "@/components/support-directory";
 import { getFeedProfessionals } from "@/lib/feed";
-import { ProfessionalDirectory } from "./professional-directory";
+import { publishedOrganizations } from "@/lib/organizations";
 
 // Lista pública (verificados, sin datos confidenciales): se cachea en el edge y
 // se revalida cada 60s. El filtrado (nombre/especialidad/disponibilidad) ocurre
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
 
 export default async function ProfesionalesPage() {
   const professionals = await getFeedProfessionals();
+  const organizations = [...publishedOrganizations];
 
   return (
     <section className="section">
@@ -44,14 +46,18 @@ export default async function ProfesionalesPage() {
           <li>Verificados</li>
         </ul>
         <p className="lead">
-          Estas psicólogas y psicólogos dan su tiempo para acompañarte, a
-          distancia. Busca por cómo te sientes, por especialidad o por nombre,
-          elige a quien sientas más afín y pídele apoyo. Y si prefieres no
-          elegir, deja tu mensaje y le llega a todo el equipo.
+          Psicólogas y psicólogos voluntarios —y también auxiliares no clínicos
+          y organizaciones aliadas— que dan su tiempo para acompañarte, a
+          distancia. Busca por cómo te sientes, por especialidad o servicio, o
+          por nombre; filtra por tipo de apoyo y elige a quien sientas más afín.
+          Y si prefieres no elegir, deja tu mensaje y le llega a todo el equipo.
         </p>
         <EmergencyNotice />
 
-        <ProfessionalDirectory professionals={professionals} />
+        <SupportDirectory
+          professionals={professionals}
+          organizations={organizations}
+        />
       </div>
     </section>
   );
