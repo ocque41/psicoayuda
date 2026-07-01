@@ -1,12 +1,26 @@
-import Image from "next/image";
-import { PARTNERS } from "@/lib/partners";
-import { toIntlNumber } from "@/lib/phone";
+import {
+  getPublishedPartners,
+  isExternalHref,
+  type PartnerContact,
+  partnerContactHref,
+  partnerContactText,
+} from "@/lib/partners";
 
-// Escaparate de organizaciones aliadas verificadas. Lista curada
-// (`src/lib/partners.ts`). Contacto directo por WhatsApp/llamada, mismo patrón
-// "libro amarillo" que las fichas de profesionales.
-export function PartnersShowcase() {
-  if (PARTNERS.length === 0) return null;
+// Clase de botón/enlace según el tipo de contacto: WhatsApp como acción humana
+// principal; el resto, secundario o enlace discreto.
+function contactClass(type: PartnerContact["type"]) {
+  if (type === "whatsapp") return "button human block";
+  if (type === "phone") return "button secondary block";
+  return "muted partner-contact-link";
+}
+
+// Escaparate de organizaciones aliadas verificadas (ficha completa). Datos en D1
+// (`partners`), gestionados desde /admin. Cada tarjeta tiene un id para enlazar
+// desde el carrusel de la portada (/alianzas#<id>). Contacto directo por
+// WhatsApp/llamada, mismo patrón "libro amarillo" que las fichas de profesionales.
+export async function PartnersShowcase() {
+  const partners = await getPublishedPartners();
+  if (partners.length === 0) return null;
 
   return (
     <section className="section" id="aliados">
@@ -18,52 +32,52 @@ export function PartnersShowcase() {
           tienes cómo contactarlas.
         </p>
         <ul className="partners-grid" aria-label="Organizaciones aliadas">
-          {PARTNERS.map((partner) => {
-            const intl = partner.phone ? toIntlNumber(partner.phone) : null;
-            const waText = encodeURIComponent(
-              `Hola ${partner.name}, te contacto desde Nido (saludmental-venezuela.com).`,
-            );
-            return (
-              <li className="card partner-card" key={partner.id}>
-                <Image
+          {partners.map((partner) => (
+            <li className="card partner-card" id={partner.id} key={partner.id}>
+              {partner.logo ? (
+                // biome-ignore lint/performance/noImgElement: logo arbitrario desde BD (URL/data URL); next/image no aplica
+                <img
                   className="partner-logo"
                   src={partner.logo}
+                  alt={partner.name}
                   width={96}
                   height={96}
-                  alt={partner.name}
+                  loading="lazy"
                 />
-                <h3 className="partner-name">{partner.name}</h3>
-                {partner.tagline ? (
-                  <p className="partner-tagline">{partner.tagline}</p>
-                ) : null}
-                {intl ? (
-                  <div className="partner-contact">
-                    <a
-                      className="button human block"
-                      href={`https://wa.me/${intl}?text=${waText}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Escribir por WhatsApp · {partner.phone}
-                    </a>
-                    <a className="muted" href={`tel:+${intl}`}>
-                      o llamar al {partner.phone}
-                    </a>
-                  </div>
-                ) : null}
-                {partner.url ? (
-                  <a
-                    className="muted"
-                    href={partner.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Visitar su web
-                  </a>
-                ) : null}
-              </li>
-            );
-          })}
+              ) : (
+                <span className="partner-namechip lg" aria-hidden="true">
+                  {partner.name}
+                </span>
+              )}
+              <h3 className="partner-name">{partner.name}</h3>
+              {partner.specialty ? (
+                <p className="partner-specialty">{partner.specialty}</p>
+              ) : null}
+              {partner.description ? (
+                <p className="partner-tagline">{partner.description}</p>
+              ) : null}
+              {partner.contacts.length ? (
+                <div className="partner-contact">
+                  {partner.contacts.map((contact) => {
+                    const href = partnerContactHref(contact);
+                    if (!href) return null;
+                    const external = isExternalHref(href);
+                    return (
+                      <a
+                        key={`${contact.type}-${contact.value}`}
+                        className={contactClass(contact.type)}
+                        href={href}
+                        target={external ? "_blank" : undefined}
+                        rel={external ? "noopener noreferrer" : undefined}
+                      >
+                        {partnerContactText(contact)}
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </li>
+          ))}
         </ul>
       </div>
     </section>

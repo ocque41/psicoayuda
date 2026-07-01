@@ -176,6 +176,21 @@ export const professionalSchema = z
       .max(60, "El número FPV es demasiado largo.")
       .optional()
       .transform((value) => value || undefined),
+    // Cédula: SOLO para verificar contra FPV en el alta. Se usa para consultar
+    // api.sistema.fpv.org.ve y NO se persiste. Si se aporta junto al Nº FPV y el
+    // cruce coincide, el perfil queda marcado como "verificado FPV".
+    cedula: z
+      .string()
+      .trim()
+      .max(20, "La cédula es demasiado larga.")
+      .optional()
+      .transform((value) => value || undefined)
+      .refine(
+        (value) =>
+          value === undefined ||
+          /^[ve]?-?\d{5,9}$/i.test(value.replace(/\s+/g, "")),
+        "Escribe una cédula válida (solo números, p. ej. 12345678).",
+      ),
     // Vía 2: trabajo bajo supervisión (de quién / en qué institución).
     supervisionInfo: z
       .string()
@@ -318,3 +333,83 @@ export const professionalStatusSchema = z.enum([
 
 // Estado de una solicitud de alianza (formulario /alianzas), gestionada en /admin.
 export const allianceStatusSchema = z.enum(["pending", "approved", "rejected"]);
+
+// --- Aliados (organizaciones del carrusel/escaparate, gestionadas en /admin) ---
+
+export const partnerContactTypes = [
+  "whatsapp",
+  "phone",
+  "instagram",
+  "website",
+  "email",
+] as const;
+
+// Una vía de contacto de un aliado. `label` es opcional (ej. el nombre de la
+// psicóloga cuando la organización tiene varias líneas).
+export const partnerContactSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .transform((value) => value ?? ""),
+  type: z.enum(partnerContactTypes),
+  value: z.string().trim().min(1, "Falta el dato de contacto.").max(200),
+});
+
+export const partnerStatusSchema = z.enum(["published", "hidden"]);
+
+// Logo: vacío, ruta local en /public, URL http(s) o data URL de imagen. Acotamos
+// el tamaño (~300 KB) para que una imagen subida no infle la fila ni permita
+// inyectar otra cosa.
+const partnerLogoSchema = z
+  .string()
+  .trim()
+  .max(
+    300_000,
+    "El logo pesa demasiado. Sube una imagen más liviana o pega una URL.",
+  )
+  .refine(
+    (value) =>
+      value === "" ||
+      value.startsWith("/") ||
+      /^https?:\/\//i.test(value) ||
+      /^data:image\/(jpeg|png|webp|svg\+xml|gif);base64,/.test(value),
+    "El logo debe ser una URL http(s) o una imagen.",
+  )
+  .optional()
+  .transform((value) => value ?? "");
+
+export const partnerSchema = z.object({
+  // Presente al editar; ausente al crear.
+  id: z.string().trim().optional(),
+  name: z.string().trim().min(1, "El nombre es obligatorio.").max(120),
+  specialty: z
+    .string()
+    .trim()
+    .max(160)
+    .optional()
+    .transform((value) => value ?? ""),
+  description: z
+    .string()
+    .trim()
+    .max(1200)
+    .optional()
+    .transform((value) => value ?? ""),
+  logo: partnerLogoSchema,
+  status: partnerStatusSchema.default("published"),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
+  // El editor del panel envía los contactos como JSON; los validamos como array.
+  contacts: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") return value;
+      if (value.trim() === "") return [];
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value; // no es JSON válido -> el array de abajo lo rechaza
+      }
+    },
+    z.array(partnerContactSchema).max(12, "Demasiados contactos (máximo 12)."),
+  ),
+});

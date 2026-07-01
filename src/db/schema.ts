@@ -144,6 +144,18 @@ export const professionals = sqliteTable(
     contactEmail: text("contact_email"),
     contactNotes: text("contact_notes"),
     shortBio: text("short_bio"),
+    // Verificación oficial contra la Federación de Psicólogos de Venezuela
+    // (api.sistema.fpv.org.ve). Se rellena en el alta SOLO si el profesional
+    // aporta cédula + Nº FPV: consultamos la API pública por cédula, cruzamos
+    // Nº FPV + nombre y guardamos el resultado. La cédula NO se guarda (se usa
+    // solo para consultar). `fpvSnapshot` es el registro oficial + el detalle
+    // del cruce (JSON), para auditoría y para mostrarlo en /admin; nunca sale en
+    // las proyecciones públicas (feed/matching/offers usan columnas explícitas).
+    fpvVerified: integer("fpv_verified", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    fpvVerifiedAt: integer("fpv_verified_at", { mode: "timestamp_ms" }),
+    fpvSnapshot: text("fpv_snapshot"),
     status: text("status").default("pending_verification").notNull(),
     acceptingRequests: integer("accepting_requests", { mode: "boolean" })
       .default(false)
@@ -362,5 +374,38 @@ export const allianceRequests = sqliteTable(
       table.status,
       table.createdAt,
     ),
+  ],
+);
+
+// Organizaciones ALIADAS que se muestran en la web (carrusel de la portada y
+// escaparate de /alianzas). Antes eran una constante en código; ahora viven en
+// D1 para que el equipo las gestione desde /admin (crear, editar, logo, ocultar)
+// sin tocar el repo. `contacts` es JSON con las vías de contacto: una misma
+// organización puede tener varias (p.ej. varias psicólogas, cada una con su
+// WhatsApp). La primera de la lista es la principal (a la que enlaza el carrusel).
+export const partners = sqliteTable(
+  "partners",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    // Especialidad / enfoque breve (ej. "Primeros Auxilios Psicológicos").
+    specialty: text("specialty"),
+    // Descripción más larga para la ficha de /alianzas.
+    description: text("description"),
+    // Logo: URL http(s), data URL (base64) o ruta local en /public. Vacío => en
+    // el carrusel se muestra el nombre "en limpio".
+    logo: text("logo"),
+    // Vías de contacto en JSON: [{ label?, type, value }] con
+    // type ∈ whatsapp | phone | instagram | website | email.
+    contacts: text("contacts").default("[]").notNull(),
+    // 'published' | 'hidden'. 'hidden' no aparece en la web pero sí en /admin.
+    status: text("status").default("published").notNull(),
+    // Orden ascendente en el carrusel/escaparate.
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("partners_status_order_idx").on(table.status, table.sortOrder),
   ],
 );

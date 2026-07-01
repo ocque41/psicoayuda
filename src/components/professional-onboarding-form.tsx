@@ -123,6 +123,8 @@ export function ProfessionalOnboardingForm({
     universityHint: `${formId}-university-hint`,
     fpvNumber: `${formId}-fpv-number`,
     fpvHint: `${formId}-fpv-hint`,
+    cedula: `${formId}-cedula`,
+    cedulaHint: `${formId}-cedula-hint`,
     supervisionInfo: `${formId}-supervision-info`,
     supervisionHint: `${formId}-supervision-hint`,
     registrationType: `${formId}-registration-type`,
@@ -334,13 +336,32 @@ export function ProfessionalOnboardingForm({
             <div className="field">
               <label htmlFor={ids.fpvNumber}>1. Número FPV</label>
               <p className="hint" id={ids.fpvHint}>
-                Tu número de Psicólogo Federado. Verificable en la Federación de
-                Psicólogos de Venezuela.
+                Tu número de Psicólogo Federado. Si además añades tu cédula
+                abajo, verificamos tu registro al instante en la Federación de
+                Psicólogos de Venezuela y tu perfil queda marcado como
+                verificado.
               </p>
               <input
                 id={ids.fpvNumber}
                 name="fpvNumber"
                 aria-describedby={ids.fpvHint}
+              />
+              <label
+                htmlFor={ids.cedula}
+                style={{ marginTop: "10px", display: "block" }}
+              >
+                Cédula <span className="muted">(opcional, para verificar)</span>
+              </label>
+              <p className="hint" id={ids.cedulaHint}>
+                Solo se usa para confirmar tu Nº FPV con la Federación en este
+                momento. No la guardamos ni se muestra en tu perfil.
+              </p>
+              <input
+                id={ids.cedula}
+                name="cedula"
+                inputMode="numeric"
+                autoComplete="off"
+                aria-describedby={ids.cedulaHint}
               />
             </div>
 

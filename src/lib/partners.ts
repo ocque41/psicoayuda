@@ -1,35 +1,173 @@
+import "server-only";
+
+import { asc, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { partners } from "@/db/schema";
+import { toIntlNumber } from "@/lib/phone";
+
 /**
- * Organizaciones ALIADAS verificadas de Nido (escaparate público).
+ * Organizaciones ALIADAS verificadas de Nido (carrusel de la portada + escaparate
+ * de /alianzas). Viven en D1 (`partners`) y las gestiona el equipo desde /admin:
+ * crear, editar, cambiar el logo, reordenar u ocultar. Antes eran una constante
+ * en código; se movieron a BD cuando pasaron a ser varias y las mantiene el equipo.
  *
- * IMPORTANTE: solo entran organizaciones que el equipo de coordinación ha
- * verificado. No se inventan datos: nombre, teléfono y logo se toman de la fuente
- * oficial de cada aliado. Antes de añadir o revisar una entrada, reconfirma el
- * teléfono y el logo contra el aliado.
- *
- * Lista curada en código a propósito (no BBDD): hay pocos aliados y cambian rara
- * vez, igual que `resources.ts`. ponytail: si algún día son muchos o los gestiona
- * un tercero, mover a D1 + panel admin.
+ * IMPORTANTE: solo se publican organizaciones verificadas. Teléfonos, logo y datos
+ * se toman de la fuente oficial de cada aliado.
  */
 
-export type Partner = {
-  readonly id: string;
-  readonly name: string;
-  /** Lema breve del aliado (opcional). */
-  readonly tagline?: string;
-  /** Ruta al logo dentro de /public (recorte cuadrado, idealmente circular). */
-  readonly logo: string;
-  /** Teléfono de contacto en formato libre; se normaliza con `toIntlNumber`. */
-  readonly phone?: string;
-  /** Web del aliado (opcional). */
-  readonly url?: string;
+export type PartnerContactType =
+  | "whatsapp"
+  | "phone"
+  | "instagram"
+  | "website"
+  | "email";
+
+export type PartnerContact = {
+  /** Etiqueta opcional (ej. el nombre de la psicóloga de esa línea). */
+  label?: string;
+  type: PartnerContactType;
+  /** Valor libre: teléfono, @usuario, URL o correo. */
+  value: string;
 };
 
-export const PARTNERS: readonly Partner[] = [
-  {
-    id: "guardianes-azules",
-    name: "Guardianes Azules",
-    tagline: "No estás solo. Aquí caminamos contigo.",
-    logo: "/partners/guardianes-azules.png",
-    phone: "+52 56 1823 4332",
-  },
-];
+export type Partner = {
+  id: string;
+  name: string;
+  specialty: string;
+  description: string;
+  /** URL, data URL o ruta local; "" si no hay (el carrusel muestra el nombre). */
+  logo: string;
+  contacts: PartnerContact[];
+  status: "published" | "hidden";
+  sortOrder: number;
+};
+
+type PartnerRow = typeof partners.$inferSelect;
+
+function parseContacts(raw: string | null | undefined): PartnerContact[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const valid: PartnerContactType[] = [
+      "whatsapp",
+      "phone",
+      "instagram",
+      "website",
+      "email",
+    ];
+    return parsed.flatMap((item): PartnerContact[] => {
+      if (!item || typeof item !== "object") return [];
+      const { label, type, value } = item as Record<string, unknown>;
+      if (typeof value !== "string" || !value.trim()) return [];
+      if (!valid.includes(type as PartnerContactType)) return [];
+      return [
+        {
+          label: typeof label === "string" && label.trim() ? label : undefined,
+          type: type as PartnerContactType,
+          value,
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function toPartner(row: PartnerRow): Partner {
+  return {
+    id: row.id,
+    name: row.name,
+    specialty: row.specialty ?? "",
+    description: row.description ?? "",
+    logo: row.logo ?? "",
+    contacts: parseContacts(row.contacts),
+    status: row.status === "hidden" ? "hidden" : "published",
+    sortOrder: row.sortOrder,
+  };
+}
+
+/** Aliados visibles en la web (published), ordenados. Tolera la ausencia de BD. */
+export async function getPublishedPartners(): Promise<Partner[]> {
+  try {
+    const rows = await db
+      .select()
+      .from(partners)
+      .where(eq(partners.status, "published"))
+      .orderBy(asc(partners.sortOrder), asc(partners.createdAt));
+    return rows.map(toPartner);
+  } catch {
+    // En build/prerender la BD D1 no existe (igual que el feed de profesionales):
+    // devolvemos vacío y la lista se rellena en runtime.
+    return [];
+  }
+}
+
+/** Todos los aliados (cualquier estado) para el panel /admin, ordenados. */
+export async function getAllPartnersForAdmin(): Promise<Partner[]> {
+  const rows = await db
+    .select()
+    .from(partners)
+    .orderBy(asc(partners.sortOrder), asc(partners.createdAt));
+  return rows.map(toPartner);
+}
+
+/** Enlace directo de una vía de contacto (wa.me / tel: / instagram / web / mailto). */
+export function partnerContactHref(contact: PartnerContact): string | null {
+  const value = contact.value.trim();
+  switch (contact.type) {
+    case "whatsapp": {
+      const intl = toIntlNumber(value);
+      return intl ? `https://wa.me/${intl}` : null;
+    }
+    case "phone": {
+      const intl = toIntlNumber(value);
+      return intl ? `tel:+${intl}` : `tel:${value.replace(/\s+/g, "")}`;
+    }
+    case "instagram":
+      return `https://instagram.com/${value.replace(/^@/, "")}`;
+    case "website":
+      return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    case "email":
+      return `mailto:${value}`;
+    default:
+      return null;
+  }
+}
+
+const CONTACT_ACTION: Record<PartnerContactType, string> = {
+  whatsapp: "Escribir por WhatsApp",
+  phone: "Llamar",
+  instagram: "Ver en Instagram",
+  website: "Visitar su web",
+  email: "Escribir un correo",
+};
+
+/** Texto legible de una vía de contacto para mostrar en un botón/enlace. */
+export function partnerContactText(contact: PartnerContact): string {
+  const action = CONTACT_ACTION[contact.type];
+  const detail =
+    contact.type === "instagram"
+      ? `@${contact.value.replace(/^@/, "")}`
+      : contact.value;
+  const base = `${action} · ${detail}`;
+  return contact.label ? `${contact.label} — ${base}` : base;
+}
+
+/** ¿El enlace sale del sitio? (para decidir target/rel en los componentes). */
+export function isExternalHref(href: string): boolean {
+  return /^(https?:|tel:|mailto:)/i.test(href);
+}
+
+/**
+ * Destino del clic en el carrusel: si el aliado tiene UNA sola vía, va directo a
+ * ella; si tiene varias (o ninguna directa), lleva a su ficha en /alianzas donde
+ * están todas.
+ */
+export function partnerCarouselHref(partner: Partner): string {
+  const [primary] = partner.contacts;
+  if (partner.contacts.length === 1 && primary) {
+    return partnerContactHref(primary) ?? `/alianzas#${partner.id}`;
+  }
+  return `/alianzas#${partner.id}`;
+}

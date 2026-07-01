@@ -22,6 +22,7 @@ import {
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
+import { verifyFpvByCedula } from "@/lib/fpv";
 import { newId, nowIso } from "@/lib/ids";
 import {
   notifyAdminHelpRequest,
@@ -356,17 +357,38 @@ export async function saveProfessionalOnboarding(
     updatedAt: timestamp,
   };
 
+  // Verificación FPV: solo si aporta cédula + Nº FPV. La cédula NO se guarda
+  // (se usa únicamente para consultar el registro oficial). Si la API falla,
+  // `verifyFpvByCedula` degrada a "no verificado" sin lanzar, así el alta nunca
+  // se rompe. Al editar sin cédula, `fpvFields` es null y NO tocamos las
+  // columnas FPV (no borramos una verificación previa).
+  const fpvFields =
+    parsed.data.cedula && parsed.data.fpvNumber
+      ? await verifyFpvByCedula({
+          cedula: parsed.data.cedula,
+          fpvNumber: parsed.data.fpvNumber,
+          fullName: parsed.data.fullName,
+          university: parsed.data.university ?? null,
+        }).then((result) => ({
+          fpvVerified: result.match,
+          fpvVerifiedAt: result.match ? new Date() : null,
+          fpvSnapshot: JSON.stringify(result),
+        }))
+      : null;
+
   if (existing) {
     // ponytail: no tocamos status al editar — preserva una posible suspensión/baja del admin.
     await db
       .update(professionals)
-      .set(values)
+      .set({ ...values, ...(fpvFields ?? {}) })
       .where(eq(professionals.id, existing.id));
   } else {
     await db.insert(professionals).values({
       ...values,
+      ...(fpvFields ?? {}),
       id: newId("pro"),
-      // Sin verificación: el profesional queda activo al instante.
+      // Sin verificación previa: el profesional queda activo al instante (la
+      // marca "verificado FPV" es una señal adicional, no una puerta de acceso).
       status: "approved",
       currentActiveRequests: 0,
       createdAt: timestamp,

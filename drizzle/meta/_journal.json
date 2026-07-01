@@ -85,6 +85,20 @@
       "when": 1782942026401,
       "tag": "0011_add_alliance_preferred_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1782944461496,
+      "tag": "0012_add_partners",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1782944715946,
+      "tag": "0013_add_professional_fpv_verification",
+      "breakpoints": true
     }
   ]
 }

@@ -1347,3 +1347,131 @@ a.partner-link:focus-visible {
   font-weight: 600;
   font-size: 0.9rem;
 }
+
+/* Nombre "en limpio" cuando un aliado no tiene logo (carrusel y escaparate). */
+.partner-namechip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 72px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.partner-namechip.lg {
+  min-width: 96px;
+  min-height: 96px;
+}
+
+/* Especialidad del aliado en el escaparate. */
+.partner-specialty {
+  margin: 0;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+/* Enlaces de contacto discretos (instagram / web / correo) en el escaparate. */
+.partner-contact-link {
+  text-decoration: none;
+}
+
+.partner-contact-link:hover {
+  text-decoration: underline;
+}
+
+/* --- Panel /admin: gestión de aliados --- */
+.partner-admin {
+  margin-top: var(--space-10);
+}
+
+.partner-admin-new {
+  margin: var(--space-4) 0 var(--space-6);
+}
+
+.partner-admin-new > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.partner-admin-form {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.partner-admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.partner-admin-form label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.partner-admin-form input,
+.partner-admin-form select,
+.partner-admin-form textarea {
+  font: inherit;
+  font-weight: 400;
+}
+
+.partner-admin-logo,
+.partner-admin-contacts {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.partner-admin-logo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.partner-admin-logo-fields {
+  display: grid;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 220px;
+}
+
+.partner-contact-row {
+  display: grid;
+  grid-template-columns: 1fr 130px 1.4fr auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.partner-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.partner-admin-delete form {
+  display: inline;
+}
+
+.button.danger {
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .partner-admin-grid,
+  .partner-contact-row {
+    grid-template-columns: 1fr;
+  }
+}
