@@ -189,6 +189,105 @@ Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio d
 }
 
 /**
+ * Aviso INTERNO a los admins: un usuario llegó a la página de error por un bug.
+ * A diferencia del resto de correos, este NO va a usuarios: va al equipo, así que
+ * sí incluye el contexto técnico para poder reproducir (qué usuario, qué ruta y
+ * qué botón/enlace/acción llevó al fallo). Todo lo que viene del cliente se ESCAPA:
+ * el endpoint que lo dispara es público y estos campos son manipulables.
+ */
+export function buildErrorAlertEmail(report: {
+  userLabel: string;
+  path: string;
+  message?: string;
+  digest?: string;
+  referrer?: string;
+  userAgent?: string;
+  stack?: string;
+  lastAction?: { label?: string; href?: string; page?: string } | null;
+  when: string;
+}): BuiltEmail {
+  const rows: Array<[string, string]> = [
+    ["Usuario", report.userLabel],
+    ["Página del error", report.path],
+    ["Qué la lanzó (botón/enlace)", formatLastAction(report.lastAction)],
+    ["Venía de", report.referrer || "—"],
+    ["Mensaje", report.message || "—"],
+    ["Digest", report.digest || "—"],
+    ["Navegador", report.userAgent || "—"],
+    ["Cuándo", report.when],
+  ];
+
+  const subject = `⚠️ Error en Nido: ${(report.path || "/").slice(0, 80)}`;
+  const htmlRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:6px 12px 6px 0;font-weight:700;color:#245f47;vertical-align:top;white-space:nowrap;">${escapeHtml(
+          label,
+        )}</td><td style="padding:6px 0;color:#2b2723;word-break:break-word;">${escapeHtml(
+          value,
+        )}</td></tr>`,
+    )
+    .join("");
+  const stackHtml = report.stack
+    ? `<pre style="margin:16px 0 0;padding:12px;background:#f6f2ec;border-radius:8px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:#4a423a;">${escapeHtml(
+        report.stack,
+      )}</pre>`
+    : "";
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#c0392b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:24px 28px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#245f47;">Nido · aviso interno</p>
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Un usuario llegó a la página de error por un bug. Contexto para reproducirlo:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;line-height:1.6;">${htmlRows}</table>
+                ${stackHtml}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = [
+    "Un usuario llegó a la página de error de Nido por un bug.",
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    ...(report.stack ? ["", "Stack:", report.stack] : []),
+  ].join("\n");
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+function formatLastAction(
+  action?: { label?: string; href?: string; page?: string } | null,
+): string {
+  if (!action) return "—";
+  const label = action.label?.trim();
+  const parts: string[] = [];
+  if (label) parts.push(`"${label}"`);
+  if (action.href) parts.push(`→ ${action.href}`);
+  if (action.page) parts.push(`(en ${action.page})`);
+  return parts.length ? parts.join(" ") : "—";
+}
+
+/**
  * Aviso al profesional de que su perfil fue APROBADO y ya puede recibir
  * solicitudes. Sin PII. Lo dispara la acción admin de cambio de estado.
  */
