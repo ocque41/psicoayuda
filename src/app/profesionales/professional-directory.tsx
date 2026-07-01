@@ -397,6 +397,26 @@ export function ProfessionalDirectory({
           del todo. Nido no atiende emergencias en tiempo real. */}
       {crisisIntent ? <CrisisResources variant="callout" /> : null}
 
+      {/* Encabezado de sección para lectores de pantalla: las tarjetas usan h3,
+          así que sin este h2 la jerarquía saltaría de h1 a h3 (fallo WCAG). Se
+          oculta visualmente porque el recuento de abajo ya rotula los resultados
+          para quien ve la pantalla. */}
+      <h2
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        Resultados
+      </h2>
+
       {/* Región viva: anuncia el recuento o el "sin resultados" al filtrar en
           vivo (WCAG 4.1.3). El recuento es neutral; "disponibles" solo se afirma
           cuando ese filtro está activo (cada tarjeta muestra su cupo real). */}
