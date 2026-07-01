@@ -152,11 +152,14 @@ export function ProfessionalDirectory({
                   onClick={() => setQuery(term)}
                   aria-pressed={active}
                   style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    minHeight: 44,
                     border: `1px solid ${active ? "#245f47" : "#c5ddc5"}`,
                     background: active ? "#e6f1ea" : "#fff",
                     color: "inherit",
                     borderRadius: 999,
-                    padding: "6px 14px",
+                    padding: "8px 16px",
                     fontSize: "0.95rem",
                     cursor: "pointer",
                   }}
