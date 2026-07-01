@@ -119,6 +119,13 @@ export default function Page() {
               Pedir apoyo
             </Link>
           </p>
+          <p className="muted">
+            O{" "}
+            <Link href="/profesionales?q=niños">
+              busca un psicólogo para niñas, niños y adolescentes
+            </Link>{" "}
+            y elige tú.
+          </p>
           <p className="hint">
             El manejo formal de solicitudes de personas menores de edad está
             pendiente de revisión legal. Mientras tanto, lo más seguro es que un
