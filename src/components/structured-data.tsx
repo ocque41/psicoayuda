@@ -112,6 +112,33 @@ export function GuideJsonLd({
 }
 
 /**
+ * Datos estructurados del directorio público (`CollectionPage`).
+ *
+ * Es el `@type` correcto para una página que lista/colecciona recursos (aquí,
+ * profesionales voluntarios). No enumera personas: la lista es pública pero los
+ * voluntarios solo exponen nombre y datos mínimos, así que evitamos `Person`
+ * por privacidad. Se enlaza al grafo del sitio por `@id`.
+ */
+export function DirectoryJsonLd() {
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "@id": `${SITE_URL}/profesionales#webpage`,
+        url: absoluteUrl("/profesionales"),
+        name: "Psicólogas y psicólogos voluntarios en Venezuela",
+        description:
+          "Directorio de psicólogas y psicólogos voluntarios verificados que ofrecen apoyo psicológico gratuito y a distancia en Venezuela.",
+        inLanguage: "es",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: { "@id": `${SITE_URL}/#organization` },
+      }}
+    />
+  );
+}
+
+/**
  * `FAQPage` independiente para la página dedicada de preguntas frecuentes.
  * El texto debe coincidir con el visible (requisito de Google), por eso recibe
  * las mismas preguntas/respuestas que se renderizan en la página.

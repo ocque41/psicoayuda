@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EmergencyNotice } from "@/components/emergency-notice";
+import { DirectoryJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
 import { ProfessionalDirectory } from "./professional-directory";
 
@@ -21,6 +22,7 @@ export default async function ProfesionalesPage() {
   return (
     <section className="section">
       <div className="container">
+        <DirectoryJsonLd />
         <h1>
           Psicólogas y psicólogos voluntarios en Venezuela, listos para
           acompañarte
