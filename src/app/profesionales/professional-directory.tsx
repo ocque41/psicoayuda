@@ -22,13 +22,13 @@ const FILTER_AREAS = needCategories.filter((area) => area !== "otro");
 // encuentre al profesional aunque no use el término clínico.
 const AREA_KEYWORDS: Record<string, string> = {
   infancia_adolescencia:
-    "niños niñas adolescentes infancia adolescencia menores hijos hija hijo escolar bullying acoso escolar",
+    "niños niñas adolescentes infancia adolescencia menores hijos hija hijo escolar bullying acoso escolar infantil niñez",
   familia_pareja:
     "familia pareja matrimonio relación relaciones divorcio separación conflicto esposo esposa marido mujer novio novia mamá papá madre padre hermano hermana celos infidelidad ruptura migrante separados distancia familiar",
   duelo:
     "duelo pérdida luto muerte fallecimiento ausencia despedida migratorio migración emigrar emigración distancia",
   ansiedad_depresion:
-    "ansiedad angustia depresión tristeza estrés pánico nervios preocupación insomnio ánimo miedo miedos fobia fobias ataque ataques deprimido deprimida deprimir ansioso ansiosa decaído bajón dormir duermo sueño soledad solo sola vacío",
+    "ansiedad angustia depresión tristeza estrés pánico nervios preocupación insomnio ánimo miedo miedos fobia fobias ataque ataques deprimido deprimida deprimir ansioso ansiosa decaído bajón dormir duermo sueño soledad solo sola vacío burnout agotamiento quemado laboral trabajo cansancio económico dinero deudas plata",
   trauma_crisis:
     "trauma crisis tept estrés postraumático abuso violencia accidente desastre terremoto maltrato agresión acoso doméstica género amenaza suicidio suicida ideación autolesión autolesiones",
   adicciones: "adicciones consumo alcohol drogas dependencia juego apuestas",
