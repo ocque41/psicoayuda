@@ -1479,3 +1479,67 @@ a.partner-link:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Recursos de emergencia por el terremoto --- */
+
+/* Barra de recurso PRIORITARIO (búsqueda de niños): roja y titilante para
+   captar la atención. El "titilar" es un pulso suave de opacidad + halo; se
+   detiene si la persona pide movimiento reducido (WCAG 2.3.3 / 2.2.2) y el
+   ritmo (~0.7 Hz) queda muy por debajo del umbral de destellos (WCAG 2.3.1). */
+.emergency-priority {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: #c62828;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  animation: emergency-titilar 1.4s ease-in-out infinite;
+}
+
+.emergency-priority:hover,
+.emergency-priority:focus-visible {
+  background: #a91d1d;
+}
+
+.emergency-priority-domain {
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+@keyframes emergency-titilar {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.55);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 7px rgba(198, 40, 40, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emergency-priority {
+    animation: none;
+  }
+}
+
+/* Directorio de recursos externos: enlaces por categoría en tarjetas. */
+.emergency-links {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.emergency-links a {
+  font-weight: 600;
+  word-break: break-word;
+}

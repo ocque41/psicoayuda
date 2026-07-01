@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { EmergencyNotice } from "@/components/emergency-notice";
+import {
+  EmergencyPriorityBar,
+  EmergencyResourcesDirectory,
+} from "@/components/emergency-resources";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { SupportDirectory } from "@/components/support-directory";
@@ -44,6 +48,7 @@ export default async function HelpPage({
     <section className="section">
       <QuickExit />
       <div className="container">
+        <EmergencyPriorityBar />
         <h1>Cuéntanos cómo estás. Vamos a leerte.</h1>
         <ul className="trust-strip" aria-label="Garantías">
           <li>Gratis</li>
@@ -98,6 +103,8 @@ export default async function HelpPage({
           Detrás de Nido hay psicólogas y psicólogos voluntarios reales que dan
           su tiempo para acompañar a personas como tú.
         </p>
+
+        <EmergencyResourcesDirectory />
       </div>
     </section>
   );
