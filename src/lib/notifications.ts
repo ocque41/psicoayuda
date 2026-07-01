@@ -1,8 +1,10 @@
 import "server-only";
 
+import { getErrorAlertEmails } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 import {
   buildApprovalEmail,
+  buildErrorAlertEmail,
   buildFoundationContactEmail,
   buildNewMessageEmail,
   buildNewOfferEmail,
@@ -130,6 +132,37 @@ export async function notifySeekerOfferAccepted(input: {
   `;
 
   return sendEmail({ to: input.seekerEmail, subject, html, text });
+}
+
+/**
+ * Avisa a los admins de que un usuario llegó a la página de error por un bug,
+ * con el contexto para reproducirlo (usuario, ruta y qué botón/enlace lo lanzó).
+ * Best-effort: nunca rompe el flujo del usuario y hace no-op si no hay
+ * destinatarios ni proveedor de correo configurado.
+ */
+export async function notifyAdminClientError(report: {
+  userLabel: string;
+  path: string;
+  message?: string;
+  digest?: string;
+  referrer?: string;
+  userAgent?: string;
+  stack?: string;
+  lastAction?: { label?: string; href?: string; page?: string } | null;
+  when: string;
+}) {
+  const recipients = getErrorAlertEmails();
+  if (recipients.length === 0) return;
+  const mail = buildErrorAlertEmail(report);
+  for (const to of recipients) {
+    await sendEmail({
+      to,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      headers: mail.headers,
+    });
+  }
 }
 
 /** Avisa a un profesional recién OFERTADO en una difusión ("enviar a todos"). */

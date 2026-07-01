@@ -4,6 +4,7 @@ import { Hanken_Grotesk, Space_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LastActionTracker } from "@/components/last-action-tracker";
 import { SiteNav } from "@/components/site-nav";
 import { SiteJsonLd } from "@/components/structured-data";
 import {
@@ -160,6 +161,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
         <SiteJsonLd />
+        <LastActionTracker />
       </body>
     </html>
   );

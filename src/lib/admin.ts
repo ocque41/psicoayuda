@@ -13,6 +13,18 @@ export function isAdminEmail(email?: string | null) {
   return Boolean(email && getAdminEmails().includes(email.toLowerCase()));
 }
 
+/**
+ * Destinatarios del aviso de errores. `ERROR_ALERT_EMAILS` (lista separada por
+ * comas) manda; si está vacío cae a los admins de `ADMIN_EMAILS`.
+ */
+export function getErrorAlertEmails() {
+  const list = (process.env.ERROR_ALERT_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length ? list : getAdminEmails();
+}
+
 export async function requireAdmin() {
   const session = await getServerSession();
   const email = session?.user?.email;
