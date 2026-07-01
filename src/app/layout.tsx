@@ -1,6 +1,6 @@
 import "@/app/globals.css";
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk } from "next/font/google";
+import { Hanken_Grotesk, Space_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -21,6 +21,14 @@ const hanken = Hanken_Grotesk({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-hanken",
+  fallback: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+});
+
+// Fuente display para titulares: geométrica y con más carácter que el cuerpo.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
   fallback: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
 });
 
@@ -85,7 +93,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es" className={hanken.variable}>
+    <html lang="es" className={`${hanken.variable} ${spaceGrotesk.variable}`}>
       <body>
         <a className="skip-link" href="#contenido">
           Saltar al contenido
