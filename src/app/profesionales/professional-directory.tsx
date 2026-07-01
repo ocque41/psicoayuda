@@ -40,9 +40,10 @@ const AREA_KEYWORDS: Record<string, string> = {
 };
 
 // Términos comunes para el servicio en sí: cada voluntario ES psicólogo y ofrece
-// acompañamiento, así que estos van en TODAS las tarjetas.
+// acompañamiento GRATIS y A DISTANCIA, así que estos van en TODAS las tarjetas
+// (incluye la modalidad: gratis/online/virtual/remoto son ciertos para todos).
 const UNIVERSAL_KEYWORDS =
-  "psicólogo psicóloga psicología psicológica psicológico salud mental bienestar terapia terapeuta consulta sesión apoyo emocional ayuda profesional acompañamiento";
+  "psicólogo psicóloga psicología psicológica psicológico salud mental bienestar terapia terapeuta consulta sesión apoyo emocional ayuda profesional acompañamiento atención gratis gratuito gratuita online distancia remoto virtual internet";
 
 // Detección de riesgo (autolesión/suicidio): si la persona escribe esto, lo que
 // necesita es ayuda inmediata, no un catálogo. Términos ya normalizados (sin
