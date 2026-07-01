@@ -9,61 +9,47 @@ hacer** (dominio, verificación, enlaces). El ranking #1 depende sobre todo de l
 
 ---
 
-## 🚀 Acción inmediata: 3 pasos para empezar a rankear
+## 🚀 Acción inmediata: qué falta para rankear
 
-El SEO en código está **completo y verificado**. Para que Google lo vea y empieces a
-posicionar, haz esto **en orden** (sin el paso 1, los demás no sirven):
+**El sitio ya está desplegado y en vivo** en `https://saludmental-venezuela.com`
+(verificado el 2026-07-01: responde `200`, con dominio propio, `sitemap.xml`, `robots.txt`,
+datos estructurados y el SEO on-page publicados). El deploy por **GitHub Actions**
+("Deploy to Cloudflare") **funciona y ya se ha usado** —los secretos `CLOUDFLARE_API_TOKEN`
+(GitHub) y `BETTER_AUTH_SECRET` (Cloudflare) están puestos, dado que producción está
+publicada—. Vuelve a ejecutar ese workflow cuando quieras publicar los últimos commits de
+`main` (a veces prod va unos commits por detrás hasta el siguiente deploy).
 
-1. **Desplegar.** Fusiona el PR de SEO y publica. **OJO:** el build de producción
-   (`opennextjs-cloudflare`) **falla en Windows nativo** por permisos de symlink, así que
-   despliega desde **WSL** (Linux dentro de Windows), Linux o CI.
+Lo que **de verdad falta para posicionar #1 ya no es código ni deploy**, sino dos cosas
+que **solo tú** puedes hacer, en este orden:
 
-   **Opción A — GitHub Actions (recomendada; no instalas nada, compila en Linux):**
-   1. **GitHub → Settings → Secrets and variables → Actions → New repository secret:**
-      añade `CLOUDFLARE_API_TOKEN` (permisos: Workers Scripts:Edit, D1:Edit, Workers Routes:Edit).
-   2. Pon UNA VEZ el secreto de runtime del Worker (desde cualquier terminal con wrangler,
-      p. ej. la consola de Cloudflare o WSL):
-      ```bash
-      npx wrangler secret put BETTER_AUTH_SECRET   # pega un secreto largo y aleatorio
-      ```
-   3. **GitHub → pestaña Actions → workflow "Deploy to Cloudflare" → Run workflow.**
-      Aplica solo las migraciones D1 y despliega automáticamente. Vuelve a pulsarlo cada
-      vez que quieras publicar lo que haya en `main`.
-
-   **Opción B — Local vía WSL** (a mano; `pnpm deploy` **falla en Windows nativo** por symlinks):
-   ```bash
-   # 1) En PowerShell como ADMINISTRADOR: instala WSL (Ubuntu) y reinicia
-   wsl --install
-   # 2) Abre "Ubuntu", y dentro de WSL:
-   curl -fsSL https://get.pnpm.io/install.sh | sh -   # instala pnpm
-   git clone https://github.com/ocque41/psicoayuda.git && cd psicoayuda
-   pnpm install
-   npx wrangler login                                 # autoriza tu cuenta de Cloudflare
-   pnpm db:migrate:remote                             # esquema → BD D1 de producción
-   npx wrangler secret put BETTER_AUTH_SECRET         # (si no lo hiciste ya en la opción A)
-   pnpm deploy
-   ```
-   Comprueba (cualquier opción): abre `https://saludmental-venezuela.com/sitemap.xml` — debe
-   cargar y mostrar el dominio propio. (Detalle completo de secretos y variables: README.)
-2. **Google Search Console** (~15 min, gratis) → ver sección 3. Es lo que hace que Google
-   te descubra en días, no semanas.
-3. **Conseguir 3–5 enlaces** → usa los correos listos en [`OUTREACH.md`](./OUTREACH.md).
-   En salud, esto pesa más que cualquier ajuste técnico.
+1. **Google Search Console** (~15 min, gratis) → sección 3. Es lo que hace que Google
+   te descubra en **días, no semanas**: verifica el dominio, envía `sitemap.xml` y pide
+   indexación de `/`, `/ayuda`, `/profesionales` y `/recursos`.
+2. **Conseguir 3–5 enlaces** de sitios relevantes → correos listos en
+   [`OUTREACH.md`](./OUTREACH.md). En salud mental (YMYL), la confianza y los enlaces
+   pesan **más que cualquier ajuste técnico**.
 
 > Tras esto: paciencia. Indexar y posicionar toma de días a semanas. Revisa Search Console
 > cada pocos días.
+
+### Para publicar cambios nuevos (deploy — ya configurado y funcionando)
+
+GitHub → pestaña **Actions** → workflow **"Deploy to Cloudflare"** → **Run workflow**.
+Aplica las migraciones D1 y despliega lo que haya en `main`. (Nota Windows: el build local
+`opennextjs-cloudflare` falla en Windows nativo por symlinks; por eso se despliega desde CI
+Linux, no hace falta que instales nada.)
 
 ---
 
 ## 1. Ya implementado en el código (verificado en build)
 
 - **`metadataBase`, títulos, descripciones y canonical** en cada página (`layout.tsx` + cada `page.tsx`).
-- **`sitemap.xml`** dinámico con las 6 rutas públicas + hreflang `es-VE`/`es` (`src/app/sitemap.ts`).
+- **`sitemap.xml`** dinámico con ~30 rutas públicas (portada, `/profesionales`, `/recursos` + 15 guías, legales) + hreflang `es-VE`/`es`/`x-default` (`src/app/sitemap.ts`).
 - **`robots.txt`** que permite el contenido público y bloquea `/admin`, `/api/`, panel y onboarding profesional y `/ayuda/gracias` (`src/app/robots.ts`).
 - **`manifest.webmanifest`** (PWA, colores de marca, categorías health/medical).
 - **Iconos**: `icon.svg` (favicon), `apple-icon` (180×180).
 - **Imágenes sociales**: `opengraph-image` y `twitter-image` (1200×630) generadas con `next/og`.
-- **Datos estructurados JSON-LD**: `NGO` + `WebSite` en todo el sitio; `WebPage` + `Service` + `FAQPage` (6 preguntas) en la portada (`src/components/structured-data.tsx`).
+- **Datos estructurados JSON-LD** (`src/components/structured-data.tsx`): `NGO` + `WebSite` (con `SearchAction` para el buscador → Sitelinks Searchbox) en todo el sitio; `WebPage` + `Service` + `FAQPage` en la portada; `MedicalWebPage` + `BreadcrumbList` en las 15 guías; `CollectionPage` + `BreadcrumbList` en `/profesionales`.
 - **Contenido on-page** optimizado: el H1 de la portada y `/recursos` ahora contienen la consulta objetivo; FAQ y enlaces internos.
 - **Páginas privadas** marcadas `noindex`; **404** (`not-found.tsx`) amable y `noindex`.
 - **Verificación de Search Console lista**: define `GOOGLE_SITE_VERIFICATION` y se emite la meta sola.
