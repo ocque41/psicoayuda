@@ -61,6 +61,16 @@ const websiteNode: Json = {
   description: SITE_DESCRIPTION,
   inLanguage: "es",
   publisher: { "@id": `${SITE_URL}/#organization` },
+  // Habilita el Sitelinks Searchbox de Google: apunta al buscador real del
+  // directorio (/profesionales lee ?q= en el cliente).
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/profesionales?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
 };
 
 // Fechas de contenido del clúster de guías. `datePublished` = cuándo se publicó;
