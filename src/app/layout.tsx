@@ -51,6 +51,9 @@ export const metadata: Metadata = {
     languages: {
       "es-VE": "/",
       es: "/",
+      // Fallback para cualquier idioma/región no cubierto; coincide con el
+      // x-default que ya declara el sitemap (señales consistentes para Google).
+      "x-default": "/",
     },
   },
   openGraph: {
