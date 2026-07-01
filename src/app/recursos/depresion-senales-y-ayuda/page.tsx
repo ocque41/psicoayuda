@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Depresión: señales y cómo pedir ayuda en Venezuela",
   description:
-    "Cómo reconocer las señales de la depresión, qué puedes hacer hoy y cómo pedir apoyo psicológico gratis y a distancia en Venezuela. No estás solo y la depresión se trata.",
+    "Cómo reconocer las señales de la depresión, qué puedes hacer hoy y cómo pedir apoyo psicológico gratis en Venezuela. No estás solo/a y la depresión se trata.",
   alternates: { canonical: "/recursos/depresion-senales-y-ayuda" },
   openGraph: {
     title: "Depresión: señales y cómo pedir ayuda en Venezuela | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/depresion-senales-y-ayuda"
           name="Depresión: señales y cómo pedir ayuda en Venezuela"
-          description="Cómo reconocer las señales de la depresión, qué puedes hacer hoy y cómo pedir apoyo psicológico gratis y a distancia en Venezuela. No estás solo y la depresión se trata."
+          description="Cómo reconocer las señales de la depresión, qué puedes hacer hoy y cómo pedir apoyo psicológico gratis en Venezuela. No estás solo/a y la depresión se trata."
         />
         <Breadcrumbs
           trail={[

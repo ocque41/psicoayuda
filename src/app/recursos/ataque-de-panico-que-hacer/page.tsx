@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Ataque de pánico: qué hacer en el momento",
   description:
-    "Un ataque de pánico asusta muchísimo pero pasa y no es peligroso. Qué hacer paso a paso para calmarlo, qué hacer después y cuándo pedir ayuda psicológica gratis.",
+    "Un ataque de pánico asusta mucho pero pasa y no es peligroso. Qué hacer paso a paso para calmarlo, qué hacer después y cuándo pedir ayuda psicológica gratis.",
   alternates: { canonical: "/recursos/ataque-de-panico-que-hacer" },
   openGraph: {
     title: "Ataque de pánico: qué hacer en el momento | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/ataque-de-panico-que-hacer"
           name="Ataque de pánico: qué hacer en el momento"
-          description="Un ataque de pánico asusta muchísimo pero pasa y no es peligroso. Qué hacer paso a paso para calmarlo, qué hacer después y cuándo pedir ayuda psicológica gratis."
+          description="Un ataque de pánico asusta mucho pero pasa y no es peligroso. Qué hacer paso a paso para calmarlo, qué hacer después y cuándo pedir ayuda psicológica gratis."
         />
         <Breadcrumbs
           trail={[

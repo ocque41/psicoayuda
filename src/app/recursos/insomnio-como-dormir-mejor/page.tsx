@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Insomnio: cómo dormir mejor cuando la mente no para",
   description:
-    "Si no puedes dormir por estrés, ansiedad o preocupaciones, hay hábitos que ayudan. Qué hacer de noche cuando la mente no para y cuándo pedir apoyo psicológico gratis.",
+    "Si no puedes dormir por estrés o ansiedad, hay hábitos que ayudan. Qué hacer de noche cuando la mente no para y cuándo pedir apoyo psicológico gratis.",
   alternates: { canonical: "/recursos/insomnio-como-dormir-mejor" },
   openGraph: {
     title: "Insomnio: cómo dormir mejor cuando la mente no para | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/insomnio-como-dormir-mejor"
           name="Insomnio: cómo dormir mejor cuando la mente no para"
-          description="Si no puedes dormir por estrés, ansiedad o preocupaciones, hay hábitos que ayudan. Qué hacer de noche cuando la mente no para y cuándo pedir apoyo psicológico gratis."
+          description="Si no puedes dormir por estrés o ansiedad, hay hábitos que ayudan. Qué hacer de noche cuando la mente no para y cuándo pedir apoyo psicológico gratis."
         />
         <Breadcrumbs
           trail={[

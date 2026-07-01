@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Estrés económico: cómo cuidar tu salud mental",
   description:
-    "Cuando el dinero no alcanza, la mente también se cansa. Cómo sostener tu salud mental ante el estrés económico en Venezuela y dónde pedir apoyo psicológico gratis.",
+    "Cuando el dinero no alcanza, la mente se cansa. Cómo sostener tu salud mental ante el estrés económico en Venezuela y dónde pedir apoyo psicológico gratis.",
   alternates: { canonical: "/recursos/estres-economico-y-salud-mental" },
   openGraph: {
     title: "Estrés económico: cómo cuidar tu salud mental | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/estres-economico-y-salud-mental"
           name="Estrés económico: cómo cuidar tu salud mental"
-          description="Cuando el dinero no alcanza, la mente también se cansa. Cómo sostener tu salud mental ante el estrés económico en Venezuela y dónde pedir apoyo psicológico gratis."
+          description="Cuando el dinero no alcanza, la mente se cansa. Cómo sostener tu salud mental ante el estrés económico en Venezuela y dónde pedir apoyo psicológico gratis."
         />
         <Breadcrumbs
           trail={[

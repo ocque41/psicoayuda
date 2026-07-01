@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Estrés postraumático (TEPT): cuándo el susto no se va",
   description:
-    "Cuando el miedo tras un evento difícil no cede con las semanas, puede ser estrés postraumático. Señales del TEPT, qué ayuda y cómo pedir apoyo psicológico gratis.",
+    "Cuando el miedo tras un evento difícil no cede, puede ser estrés postraumático. Señales del TEPT, qué ayuda y cómo pedir apoyo psicológico gratis.",
   alternates: { canonical: "/recursos/estres-postraumatico-tept" },
   openGraph: {
     title: "Estrés postraumático (TEPT): cuándo el susto no se va | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/estres-postraumatico-tept"
           name="Estrés postraumático (TEPT): cuándo el susto no se va"
-          description="Cuando el miedo tras un evento difícil no cede con las semanas, puede ser estrés postraumático. Señales del TEPT, qué ayuda y cómo pedir apoyo psicológico gratis."
+          description="Cuando el miedo tras un evento difícil no cede, puede ser estrés postraumático. Señales del TEPT, qué ayuda y cómo pedir apoyo psicológico gratis."
         />
         <Breadcrumbs
           trail={[

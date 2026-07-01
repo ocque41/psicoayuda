@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Autoestima baja: cómo empezar a quererte mejor",
   description:
-    "Si te hablas con dureza o sientes que no vales, la autoestima se puede reconstruir. Por qué baja, pasos para cuidarla y cómo pedir apoyo psicológico gratis en Venezuela.",
+    "Si te hablas con dureza o sientes que no vales, la autoestima se reconstruye. Pasos para cuidarla y cómo pedir apoyo psicológico gratis en Venezuela.",
   alternates: { canonical: "/recursos/autoestima-como-mejorarla" },
   openGraph: {
     title: "Autoestima baja: cómo empezar a quererte mejor | Nido",
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/autoestima-como-mejorarla"
           name="Autoestima baja: cómo empezar a quererte mejor"
-          description="Si te hablas con dureza o sientes que no vales, la autoestima se puede reconstruir. Por qué baja, pasos para cuidarla y cómo pedir apoyo psicológico gratis en Venezuela."
+          description="Si te hablas con dureza o sientes que no vales, la autoestima se reconstruye. Pasos para cuidarla y cómo pedir apoyo psicológico gratis en Venezuela."
         />
         <Breadcrumbs
           trail={[

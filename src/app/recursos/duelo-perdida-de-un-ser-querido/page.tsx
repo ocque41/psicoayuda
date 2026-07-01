@@ -7,7 +7,7 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Duelo: cómo sobrellevar la pérdida de un ser querido",
   description:
-    "Perder a alguien que amas duele de formas difíciles de explicar. Qué es normal en el duelo, cómo sobrellevarlo y cuándo pedir apoyo psicológico gratis en Venezuela.",
+    "Perder a alguien que amas duele de formas difíciles de explicar. Qué es normal en el duelo y cuándo pedir apoyo psicológico gratis en Venezuela.",
   alternates: {
     canonical: "/recursos/duelo-perdida-de-un-ser-querido",
   },
@@ -26,7 +26,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/duelo-perdida-de-un-ser-querido"
           name="Duelo: cómo sobrellevar la pérdida de un ser querido"
-          description="Perder a alguien que amas duele de formas difíciles de explicar. Qué es normal en el duelo, cómo sobrellevarlo y cuándo pedir apoyo psicológico gratis en Venezuela."
+          description="Perder a alguien que amas duele de formas difíciles de explicar. Qué es normal en el duelo y cuándo pedir apoyo psicológico gratis en Venezuela."
         />
         <Breadcrumbs
           trail={[

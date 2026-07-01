@@ -7,12 +7,12 @@ import { GuideJsonLd } from "@/components/structured-data";
 export const metadata: Metadata = {
   title: "Soledad: qué hacer cuando te sientes solo/a",
   description:
-    "Sentirte solo/a duele y es más común de lo que crees. Por qué pasa, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis y a distancia en Venezuela.",
+    "Sentirte solo/a duele y es más común de lo que crees. Por qué pasa, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis en Venezuela.",
   alternates: { canonical: "/recursos/soledad-que-hacer" },
   openGraph: {
     title: "Soledad: qué hacer cuando te sientes solo/a | Nido",
     description:
-      "Por qué te puedes sentir solo/a, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis y a distancia en Venezuela.",
+      "Por qué te puedes sentir solo/a, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis en Venezuela.",
     url: "/recursos/soledad-que-hacer",
   },
 };
@@ -24,7 +24,7 @@ export default function Page() {
         <GuideJsonLd
           path="/recursos/soledad-que-hacer"
           name="Soledad: qué hacer cuando te sientes solo/a"
-          description="Sentirte solo/a duele y es más común de lo que crees. Por qué pasa, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis y a distancia en Venezuela."
+          description="Sentirte solo/a duele y es más común de lo que crees. Por qué pasa, pasos pequeños para reconectar y cuándo pedir apoyo psicológico gratis en Venezuela."
         />
         <Breadcrumbs
           trail={[
