@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HomeProfessionalsFilter } from "@/components/home-professionals-filter";
-import { PartnersShowcase } from "@/components/partners-showcase";
+import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
@@ -47,6 +47,8 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <PartnersCarousel />
+
       <section className="section" id="voluntarios">
         <div className="container">
           <h2>Psicólogas y psicólogos voluntarios disponibles</h2>
@@ -83,8 +85,6 @@ export default async function HomePage() {
           )}
         </div>
       </section>
-
-      <PartnersShowcase />
 
       <section className="section">
         <div className="container">
