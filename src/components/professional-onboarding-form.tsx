@@ -314,8 +314,8 @@ export function ProfessionalOnboardingForm({
             Estoy disponible para acompañar en remoto.
           </label>
           <label>
-            <input name="acceptingRequests" type="checkbox" />
-            Quiero recibir solicitudes en cuanto me aprueben.
+            <input name="acceptingRequests" type="checkbox" defaultChecked />
+            Quiero recibir solicitudes desde ya.
           </label>
           <label>
             <input name="crisisExperience" type="checkbox" />
