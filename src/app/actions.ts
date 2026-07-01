@@ -24,12 +24,14 @@ import { getFeedProfessionals } from "@/lib/feed";
 import { newId, nowIso } from "@/lib/ids";
 import {
   notifyAdminHelpRequest,
+  notifyFoundationContact,
   notifyProfessionalApproved,
   notifyProfessionalAssignment,
 } from "@/lib/notifications";
 import { offerRequestToProfessionals } from "@/lib/offers";
 import { anonymizeHelpRequest } from "@/lib/retention";
 import {
+  foundationContactSchema,
   helpRequestSchema,
   professionalSchema,
   professionalStatusSchema,
@@ -190,6 +192,35 @@ export async function createHelpRequest(
   }
 
   redirect(`/ayuda/gracias?solicitud=${id}`);
+}
+
+/**
+ * Formulario de fundaciones/organizaciones (/alianzas). Valida y avisa al buzón
+ * de coordinación con los datos que la organización facilitó. No guarda en BD:
+ * es un canal de contacto puntual, como el resto de /contacto (solo correo).
+ */
+export async function createFoundationContact(
+  _prevState: unknown,
+  formData: FormData,
+) {
+  // Honeypot anti-spam: un bot rellena el campo oculto "company". Si viene con
+  // algo, fingimos éxito y no enviamos nada (no le damos pistas al bot).
+  if (String(formData.get("company") ?? "").trim() !== "") {
+    return { ok: true as const };
+  }
+
+  const parsed = foundationContactSchema.safeParse(formEntries(formData));
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Revisa los datos e inténtalo de nuevo.",
+    };
+  }
+
+  await notifyFoundationContact(parsed.data);
+  return { ok: true as const };
 }
 
 export async function saveProfessionalOnboarding(
