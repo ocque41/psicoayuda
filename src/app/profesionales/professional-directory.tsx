@@ -181,6 +181,17 @@ export function ProfessionalDirectory({
     if (initial) setQuery(initial);
   }, []);
 
+  // Refleja la búsqueda en la URL (?q=) para poder compartir o guardar un
+  // resultado filtrado. `replaceState` no navega, no recarga y no ensucia el
+  // historial: solo mantiene la barra de direcciones en sincronía.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const trimmed = query.trim();
+    if (trimmed) url.searchParams.set("q", trimmed);
+    else url.searchParams.delete("q");
+    window.history.replaceState(null, "", url.toString());
+  }, [query]);
+
   // Índice de búsqueda: el blob normalizado se calcula UNA vez por lista, no en
   // cada tecla → la búsqueda es instantánea aunque crezca el equipo.
   const indexed = useMemo(
