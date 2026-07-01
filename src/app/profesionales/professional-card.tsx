@@ -132,14 +132,16 @@ export function FeedProfessionalCard({
               {professional.landline}
             </a>
           ) : null}
-          <a
-            className="muted"
-            href={`mailto:${professional.email}`}
-            style={{ display: "block", marginTop: "6px" }}
-          >
-            {hasPhone ? "o escribir a " : "Escribir a "}
-            {professional.email}
-          </a>
+          {professional.emailPublic ? (
+            <a
+              className="muted"
+              href={`mailto:${professional.email}`}
+              style={{ display: "block", marginTop: "6px" }}
+            >
+              {hasPhone ? "o escribir a " : "Escribir a "}
+              {professional.email}
+            </a>
+          ) : null}
         </div>
 
         {available ? (

@@ -1,0 +1,1 @@
+ALTER TABLE `professionals` ADD `email_public` integer DEFAULT true NOT NULL;

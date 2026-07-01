@@ -80,7 +80,7 @@ describe("Nido MVP smoke checks", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("requires WhatsApp or landline and rejects unusable numbers", () => {
+  it("requires at least one contact (email, landline or WhatsApp)", () => {
     const base = {
       fullName: "Ana Perez",
       licenseNumber: "CRED-1",
@@ -94,32 +94,32 @@ describe("Nido MVP smoke checks", () => {
       conductNoEmergencyGuarantee: "on",
       conductCompetence: "on",
     };
-    // Sin WhatsApp ni fijo: rechazado, incluso si llegan como campos vacíos.
+    // Sin NINGUNA vía (ni correo, ni fijo, ni WhatsApp): rechazado.
     const missingContact = professionalSchema.safeParse(base);
     expect(missingContact.success).toBe(false);
     if (!missingContact.success) {
       expect(missingContact.error.issues[0]?.message).toBe(
-        "Debes indicar un número de WhatsApp o un teléfono fijo.",
+        "Danos al menos una forma de contacto: tu correo, un teléfono fijo o WhatsApp.",
       );
     }
+    // Solo el correo público marcado: aceptado (clave para quien solo tiene correo).
     expect(
-      professionalSchema.safeParse({ ...base, phone: "", landline: "" })
-        .success,
-    ).toBe(false);
-    // WhatsApp basura no normalizable: rechazado.
-    expect(
-      professionalSchema.safeParse({ ...base, phone: "123" }).success,
-    ).toBe(false);
-    // WhatsApp válido: aceptado.
+      professionalSchema.safeParse({ ...base, emailPublic: "on" }).success,
+    ).toBe(true);
+    // Solo WhatsApp válido (sin correo): aceptado.
     expect(
       professionalSchema.safeParse({ ...base, phone: "+58 412 1234567" })
         .success,
     ).toBe(true);
-    // Teléfono fijo válido: aceptado.
+    // Solo teléfono fijo válido (sin correo): aceptado.
     expect(
       professionalSchema.safeParse({ ...base, landline: "0212-1234567" })
         .success,
     ).toBe(true);
+    // WhatsApp basura no normalizable: rechazado.
+    expect(
+      professionalSchema.safeParse({ ...base, phone: "123" }).success,
+    ).toBe(false);
     // Teléfono fijo basura: rechazado.
     expect(
       professionalSchema.safeParse({ ...base, landline: "x" }).success,

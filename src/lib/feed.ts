@@ -19,10 +19,11 @@ export type FeedProfessional = {
   phone: string | null;
   // Teléfono fijo opcional (solo llamada): se muestra como enlace `tel:`.
   landline: string | null;
-  // Público por diseño (libro amarillo): se muestra como link `mailto:` junto al
-  // teléfono. Es el correo de la cuenta, no el `contactEmail` de coordinación
-  // (ese sigue siendo interno: "no se comparte con las personas").
+  // Correo de la cuenta. Se muestra como link `mailto:` SOLO si `emailPublic`.
+  // No es el `contactEmail` de coordinación (ese es interno).
   email: string;
+  // ¿Publicar el correo como contacto en la ficha? Una de las 3 vías.
+  emailPublic: boolean;
   crisisExperience: boolean;
   acceptingRequests: boolean;
   currentActiveRequests: number;
@@ -60,6 +61,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     phone: string | null;
     landline: string | null;
     email: string;
+    emailPublic: boolean;
     crisisExperience: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
@@ -80,6 +82,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         phone: professionals.phone,
         landline: professionals.landline,
         email: professionals.email,
+        emailPublic: professionals.emailPublic,
         crisisExperience: professionals.crisisExperience,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
@@ -113,6 +116,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     phone: r.phone,
     landline: r.landline,
     email: r.email,
+    emailPublic: r.emailPublic,
     crisisExperience: r.crisisExperience,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,
