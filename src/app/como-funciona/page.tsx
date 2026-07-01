@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
 
 export const metadata: Metadata = {
-  title: "Cómo funciona",
+  title: "Cómo funciona la ayuda psicológica gratis en Venezuela",
   description:
     "Así funciona Nido: pide apoyo psicológico gratis y sin crear cuenta, o únete como profesional voluntario verificado. Acompañamiento a distancia en Venezuela.",
   alternates: { canonical: "/como-funciona" },

@@ -5,7 +5,7 @@ import { FaqJsonLd } from "@/components/structured-data";
 import { HOME_FAQ, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Preguntas frecuentes",
+  title: "Preguntas frecuentes sobre ayuda psicológica en Venezuela",
   description:
     "Preguntas frecuentes sobre Nido: ayuda psicológica gratis y a distancia en Venezuela. Cómo pedir apoyo sin crear cuenta y cómo ser psicólogo voluntario.",
   alternates: { canonical: "/preguntas-frecuentes" },
