@@ -1283,6 +1283,10 @@ body {
   border-radius: var(--radius-pill);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  /* contain: logos de proporciones distintas (cuadrados o wordmarks anchos) se
+     ajustan sin deformarse; el sobrante queda como margen dentro del círculo. */
+  object-fit: contain;
+  padding: 6px;
 }
 
 .partner-tagline {
