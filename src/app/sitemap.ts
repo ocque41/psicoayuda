@@ -8,7 +8,9 @@ import { absoluteUrl } from "@/lib/site";
  * profesional, página de gracias) que además se bloquean en robots.ts.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date("2026-06-29");
+  // Fecha de última actualización relevante del sitio (guías, buscador, etc.).
+  // Actualízala cuando cambie contenido: es señal de frescura para Google.
+  const lastModified = new Date("2026-07-01");
 
   const routes: Array<{
     path: string;
