@@ -18,7 +18,19 @@ posicionar, haz esto **en orden** (sin el paso 1, los demás no sirven):
    (`opennextjs-cloudflare`) **falla en Windows nativo** por permisos de symlink, así que
    despliega desde **WSL** (Linux dentro de Windows), Linux o CI.
 
-   **Desde cero en Windows, vía WSL (una sola vez):**
+   **Opción A — GitHub Actions (recomendada; no instalas nada, compila en Linux):**
+   1. **GitHub → Settings → Secrets and variables → Actions → New repository secret:**
+      añade `CLOUDFLARE_API_TOKEN` (permisos: Workers Scripts:Edit, D1:Edit, Workers Routes:Edit).
+   2. Pon UNA VEZ el secreto de runtime del Worker (desde cualquier terminal con wrangler,
+      p. ej. la consola de Cloudflare o WSL):
+      ```bash
+      npx wrangler secret put BETTER_AUTH_SECRET   # pega un secreto largo y aleatorio
+      ```
+   3. **GitHub → pestaña Actions → workflow "Deploy to Cloudflare" → Run workflow.**
+      Aplica solo las migraciones D1 y despliega automáticamente. Vuelve a pulsarlo cada
+      vez que quieras publicar lo que haya en `main`.
+
+   **Opción B — Local vía WSL** (a mano; `pnpm deploy` **falla en Windows nativo** por symlinks):
    ```bash
    # 1) En PowerShell como ADMINISTRADOR: instala WSL (Ubuntu) y reinicia
    wsl --install
@@ -27,19 +39,12 @@ posicionar, haz esto **en orden** (sin el paso 1, los demás no sirven):
    git clone https://github.com/ocque41/psicoayuda.git && cd psicoayuda
    pnpm install
    npx wrangler login                                 # autoriza tu cuenta de Cloudflare
-   ```
-   **Antes del primer deploy (obligatorio, ver el README sección de despliegue):**
-   ```bash
-   pnpm db:migrate:remote                 # aplica el esquema a la BD D1 de producción
-   npx wrangler secret put BETTER_AUTH_SECRET   # pega un secreto largo y aleatorio
-   ```
-   **Publicar (y cada vez que quieras actualizar):**
-   ```bash
-   git checkout main && git pull
+   pnpm db:migrate:remote                             # esquema → BD D1 de producción
+   npx wrangler secret put BETTER_AUTH_SECRET         # (si no lo hiciste ya en la opción A)
    pnpm deploy
    ```
-   Comprueba: abre `https://saludmental-venezuela.com/sitemap.xml` — debe cargar y mostrar
-   el dominio propio. (Detalle completo de secretos y variables: README.)
+   Comprueba (cualquier opción): abre `https://saludmental-venezuela.com/sitemap.xml` — debe
+   cargar y mostrar el dominio propio. (Detalle completo de secretos y variables: README.)
 2. **Google Search Console** (~15 min, gratis) → ver sección 3. Es lo que hace que Google
    te descubra en días, no semanas.
 3. **Conseguir 3–5 enlaces** → usa los correos listos en [`OUTREACH.md`](./OUTREACH.md).
