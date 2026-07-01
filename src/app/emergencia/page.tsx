@@ -7,7 +7,7 @@ import { MINORS_RESOURCES, SEISMIC_SOURCE } from "@/lib/resources";
 export const metadata: Metadata = {
   title: "Líneas de ayuda psicológica y emergencia en Venezuela",
   description:
-    "Qué hacer si estás en una emergencia o en peligro inmediato en Venezuela: servicios de emergencia, líneas de apoyo psicológico gratuitas y derivación. Nido no es un servicio de emergencia.",
+    "Qué hacer en una emergencia o peligro inmediato en Venezuela: servicios de emergencia y líneas de apoyo psicológico gratuitas. Nido no atiende emergencias.",
   alternates: { canonical: "/emergencia" },
   robots: { index: true, follow: true },
 };

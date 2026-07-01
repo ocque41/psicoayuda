@@ -7,7 +7,7 @@ import { getServerSession } from "@/lib/auth-server";
 export const metadata: Metadata = {
   title: "Voluntariado de psicólogos y fundaciones en Venezuela",
   description:
-    "¿Eres psicóloga, psicólogo o una fundación de salud mental? Únete como voluntario/a y ofrece apoyo psicológico gratuito y a distancia a personas afectadas por el terremoto en Venezuela. Tú defines tu disponibilidad.",
+    "¿Eres psicóloga, psicólogo o fundación de salud mental? Únete como voluntario/a y ofrece apoyo gratuito y a distancia en Venezuela. Tú defines tu cupo.",
   alternates: { canonical: "/pro" },
   openGraph: {
     title: "Psicólogos voluntarios y fundaciones: ayuda gratis | Nido",
