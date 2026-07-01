@@ -20,7 +20,7 @@
     "BETTER_AUTH_URL": "https://saludmental-venezuela.com",
     "NEXT_PUBLIC_SITE_URL": "https://saludmental-venezuela.com",
     "GOOGLE_SITE_VERIFICATION": "",
-    "ADMIN_EMAILS": "ocquema@gmail.com,martinezra@gmail.com",
+    "ADMIN_EMAILS": "ocquema@gmail.com,martinezra02@gmail.com",
     "NIDO_DB_TARGET": "cloudflare",
     // Remitente verificado en Resend (dominio saludmental-venezuela.com). No es
     // secreto; la API key sí va como secret: `wrangler secret put RESEND_API_KEY`.
