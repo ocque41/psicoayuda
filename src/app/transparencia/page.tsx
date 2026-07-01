@@ -76,10 +76,6 @@ export default function Page() {
             Nido es: un puente de acompañamiento, no un servicio de emergencias
             ni un sustituto de la atención clínica o presencial.
           </p>
-          <p className="hint">
-            Texto pendiente de revisión por un profesional del derecho en
-            Venezuela.
-          </p>
         </article>
 
         <article className="card">

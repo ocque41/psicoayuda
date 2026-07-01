@@ -176,10 +176,6 @@ export default function Page() {
           personas menores de edad y deber de actuar ante un riesgo grave se
           aplican con prudencia y siempre buscando proteger a la persona.
         </p>
-        <p className="hint">
-          Texto pendiente de revisión por un profesional del derecho en
-          Venezuela.
-        </p>
         <p className="muted">
           Puedes conocer más en <Link href="/como-funciona">cómo funciona</Link>
           , <Link href="/seguridad">seguridad</Link>,{" "}

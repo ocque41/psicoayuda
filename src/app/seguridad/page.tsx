@@ -121,10 +121,6 @@ export default function Page() {
           situaciones excepcionales que la ley contempla, como cuando hay un
           riesgo grave para la vida o la seguridad de una persona.
         </p>
-        <p className="hint">
-          Texto pendiente de revisión por un profesional del derecho en
-          Venezuela.
-        </p>
 
         <h2>Qué hacemos ante una situación de riesgo</h2>
         <p>

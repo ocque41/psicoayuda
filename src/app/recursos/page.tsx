@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
-import { EmergencyNotice } from "@/components/emergency-notice";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getAbuseContactEmail } from "@/lib/contact";
 
@@ -30,7 +29,6 @@ export default function ResourcesPage() {
           Aquí reunimos cómo conseguir apoyo psicológico gratuito a distancia en
           Venezuela y qué tener en cuenta antes de empezar.
         </p>
-        <EmergencyNotice />
 
         <div className="card">
           <h2>Cómo recibir apoyo psicológico gratis con Nido</h2>

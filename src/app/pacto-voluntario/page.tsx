@@ -166,10 +166,6 @@ export default function Page() {
               de responsabilidad civil profesional te da respaldo y
               tranquilidad. Es una recomendación, no un requisito de Nido.
             </p>
-            <p className="hint">
-              Texto pendiente de revisión por un profesional del derecho en
-              Venezuela.
-            </p>
           </article>
 
           <article className="card">
@@ -179,10 +175,6 @@ export default function Page() {
               es y sus límites— protege a ambas partes. Ofreceremos una
               plantilla orientativa para que la adaptes; tú decides cómo y
               cuándo usarla con cada persona.
-            </p>
-            <p className="hint">
-              Texto pendiente de revisión por un profesional del derecho en
-              Venezuela.
             </p>
           </article>
         </div>
