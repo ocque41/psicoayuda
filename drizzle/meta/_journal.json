@@ -57,6 +57,13 @@
       "when": 1782901653652,
       "tag": "0007_add_professional_landline",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1782934197925,
+      "tag": "0008_add_email_public",
+      "breakpoints": true
     }
   ]
 }

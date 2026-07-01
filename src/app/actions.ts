@@ -259,6 +259,7 @@ export async function saveProfessionalOnboarding(
     university: parsed.data.university,
     phone: parsed.data.phone ?? null,
     landline: parsed.data.landline ?? null,
+    emailPublic: parsed.data.emailPublic,
     photo: parsed.data.photo ?? null,
     // Todos acompañan en español: el idioma ya no se pregunta en el alta.
     languages: JSON.stringify(["es"]),

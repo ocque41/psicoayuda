@@ -118,9 +118,10 @@ export const professionalSchema = z
       .trim()
       .min(2, "Indica la universidad donde obtuviste tu título.")
       .max(160, "El nombre de la universidad es demasiado largo."),
-    // Contacto directo (libro amarillo). Se exige al menos WhatsApp o teléfono
-    // fijo. Ambos siguen siendo columnas opcionales para preservar sin cambios
-    // los perfiles existentes que se registraron antes de esta regla.
+    // Contacto directo (libro amarillo). El alta exige AL MENOS UNA vía de las
+    // tres: correo público, teléfono fijo o WhatsApp (ver .refine del final). Las
+    // columnas siguen siendo opcionales para preservar sin cambios los perfiles
+    // existentes registrados antes de esta regla.
     phone: z
       .string()
       .trim()
@@ -141,6 +142,9 @@ export const professionalSchema = z
         message:
           "Escribe un teléfono fijo válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
       }),
+    // ¿Mostrar el correo de la cuenta como contacto público? Es una de las tres
+    // vías válidas; por defecto sí (checkbox marcado en el alta).
+    emailPublic: checkboxBoolean.default(false),
     // Foto opcional: data URL ya redimensionada en el cliente. Acotamos formato y
     // tamaño (~225 KB) para que no pese ni permita inyectar otra cosa.
     photo: z
@@ -169,10 +173,15 @@ export const professionalSchema = z
     conductNoEmergencyGuarantee: requiredCheckbox,
     conductCompetence: requiredCheckbox,
   })
-  .refine((data) => Boolean(data.phone || data.landline), {
-    message: "Debes indicar un número de WhatsApp o un teléfono fijo.",
-    path: ["phone"],
-  });
+  .refine(
+    // Obligatorio: al menos UNA vía de contacto (correo público, fijo o WhatsApp).
+    (data) => data.emailPublic || Boolean(data.phone || data.landline),
+    {
+      message:
+        "Danos al menos una forma de contacto: tu correo, un teléfono fijo o WhatsApp.",
+      path: ["emailPublic"],
+    },
+  );
 
 export const statusSchema = z.enum(["new", "contacted", "assigned", "closed"]);
 

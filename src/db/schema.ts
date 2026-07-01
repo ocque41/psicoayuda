@@ -106,6 +106,11 @@ export const professionals = sqliteTable(
     // Teléfono fijo opcional (solo llamada). Público: se muestra en la ficha como
     // enlace tel:. Va aparte de `phone` porque un fijo no tiene WhatsApp.
     landline: text("landline"),
+    // ¿Mostrar el correo (email) como contacto público en la ficha? El alta exige
+    // al menos una vía (correo/fijo/WhatsApp); esto controla el correo.
+    emailPublic: integer("email_public", { mode: "boolean" })
+      .default(true)
+      .notNull(),
     // Foto opcional (avatar). Data URL pequeña, redimensionada en el cliente para
     // no pesar (ver professional-onboarding-form). Pública: se muestra en su ficha.
     photo: text("photo"),
