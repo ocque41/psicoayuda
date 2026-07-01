@@ -66,13 +66,16 @@ describe("sinónimos: cada síntoma enruta a su especialidad", () => {
     fakePro({ supportAreas: ["infancia_adolescencia"] }),
   );
 
-  it("burnout / insomnio / fobia social / ira / estrés económico → ansiedad_depresion", () => {
+  it("burnout / insomnio / fobia social / ira / estrés económico / ánimo bajo → ansiedad_depresion", () => {
     for (const q of [
       "burnout",
       "no puedo dormir",
       "fobia social",
       "control de la ira",
       "estrés económico",
+      "desánimo",
+      "desmotivación",
+      "llorar",
     ]) {
       expect(blobMatchesQuery(anx, q)).toBe(true);
     }
