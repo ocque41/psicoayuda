@@ -939,9 +939,16 @@ h3 {
 }
 
 .section .container > p,
+.section .container > ul,
 .section .container > ol,
 .section .container > form {
+  max-width: var(--measure);
   margin-inline: auto;
+}
+
+/* CTAs de sección centrados (las filas de botones ya son flex). */
+.section .container > p:has(> .button) {
+  justify-content: center;
 }
 
 /* Ritmo vertical de prosa. El preflight de Tailwind pone a 0 los márgenes de
