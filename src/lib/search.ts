@@ -1,5 +1,12 @@
 import { languageLabels, needLabels, needSeekerLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
+import {
+  type Organization,
+  type OrgService,
+  type OrgSpecialty,
+  orgServiceLabels,
+  orgSpecialtyLabels,
+} from "@/lib/organizations";
 import { isAvailableNow } from "@/lib/response-bucket";
 
 /**
@@ -216,5 +223,130 @@ export function matchesFilters(
 ): boolean {
   if (area && !pro.supportAreas.includes(area)) return false;
   if (onlyAvailable && !isAvailableNow(pro)) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Organizaciones aliadas: mismo buscador (una sola barra) también las encuentra.
+// ---------------------------------------------------------------------------
+
+// Sinónimos por servicio: lo que la gente escribe de verdad al buscar un servicio
+// clínico. Hace que "rayos x", "pediatra" o "medicación" caigan en el servicio
+// correcto aunque no usen el término exacto de la etiqueta.
+export const ORG_SERVICE_KEYWORDS: Record<OrgService, string> = {
+  medicina_general:
+    "medicina general medico medica doctor doctora consulta medica salud fisica chequeo",
+  radiologia:
+    "radiologia rayos x ecografia ecografias imagenes resonancia tomografia radiografia",
+  pediatria:
+    "pediatria pediatra niños bebe bebes infantil pediatrico control niño",
+  psiquiatria:
+    "psiquiatria psiquiatra medicacion medicamentos tratamiento farmacologico salud mental",
+  psicologia: "psicologia psicologo psicologa terapia emocional acompañamiento",
+  neuropsicologia:
+    "neuropsicologia neuropsicologo neuropsicologa cognitivo neurodesarrollo evaluacion neurologica atencion memoria",
+  pedagogia_infantil:
+    "pedagogia educacion infantil aprendizaje escolar desarrollo estimulacion pedagogo pedagoga",
+};
+
+// Sinónimos por enfoque/especialidad de la organización.
+export const ORG_SPECIALTY_KEYWORDS: Record<OrgSpecialty, string> = {
+  autismo:
+    "autismo tea espectro autista asperger tgd trastorno del espectro neurodesarrollo condicion del espectro autista",
+};
+
+// Términos universales de una organización: van en TODAS las tarjetas para que
+// búsquedas genéricas ("centro", "clínica", "fundación") también las encuentren.
+export const ORG_UNIVERSAL_KEYWORDS =
+  "organizacion organizaciones fundacion centro clinica institucion aliado aliada equipo profesionales atencion servicios";
+
+// Texto normalizado en el que se busca a una organización: nombre, lema, ciudad,
+// país, sus enfoques y servicios (+ etiquetas + sinónimos), la modalidad 24h y
+// los términos universales.
+export function buildOrgSearchBlob(org: Organization): string {
+  const parts: string[] = [
+    org.name,
+    org.tagline ?? "",
+    org.city ?? "",
+    org.country ?? "",
+  ];
+  for (const specialty of org.specialties) {
+    parts.push(orgSpecialtyLabels[specialty] ?? specialty);
+    parts.push(ORG_SPECIALTY_KEYWORDS[specialty] ?? "");
+  }
+  for (const service of org.services) {
+    parts.push(orgServiceLabels[service] ?? service);
+    parts.push(ORG_SERVICE_KEYWORDS[service] ?? "");
+  }
+  if (org.virtual24h) {
+    parts.push("asistencia virtual 24 horas online remoto disponible siempre");
+  }
+  parts.push(ORG_UNIVERSAL_KEYWORDS);
+  return normalize(parts.join(" "));
+}
+
+// Tipo de recurso en el directorio de apoyo. "" = todos.
+export type SupportType = "" | "psicologo" | "auxiliar" | "organizacion";
+
+// Filtros del directorio de apoyo unificado (personas + organizaciones). `topic`
+// lleva prefijo para desambiguar la taxonomía elegida en el select combinado:
+//   "area:<needCategory>"  → necesidad/especialidad de una persona
+//   "spec:<orgSpecialty>"  → enfoque de una organización
+//   "svc:<orgService>"     → servicio de una organización
+export type SupportFilters = {
+  type?: SupportType;
+  topic?: string;
+  onlyAvailable?: boolean;
+};
+
+function topicParts(topic?: string): {
+  kind: "area" | "spec" | "svc" | "";
+  value: string;
+} {
+  if (!topic) return { kind: "", value: "" };
+  const [kind, ...rest] = topic.split(":");
+  const value = rest.join(":");
+  if ((kind === "area" || kind === "spec" || kind === "svc") && value) {
+    return { kind, value };
+  }
+  return { kind: "", value: "" };
+}
+
+// ¿Una persona voluntaria pasa los filtros del directorio de apoyo? Los filtros
+// de servicio/enfoque de organización la excluyen (no aplican a personas).
+export function professionalMatchesSupport(
+  pro: FeedProfessional,
+  { type, topic, onlyAvailable }: SupportFilters,
+): boolean {
+  if (type === "organizacion") return false;
+  if (type === "psicologo" && pro.nonClinicalHelper) return false;
+  if (type === "auxiliar" && !pro.nonClinicalHelper) return false;
+
+  const { kind, value } = topicParts(topic);
+  if (kind === "spec" || kind === "svc") return false;
+  if (kind === "area" && !pro.supportAreas.includes(value)) return false;
+
+  if (onlyAvailable && !isAvailableNow(pro)) return false;
+  return true;
+}
+
+// ¿Una organización pasa los filtros? Los tipos de persona la excluyen. "Solo
+// disponibles ahora" solo mantiene organizaciones con atención virtual 24h.
+export function organizationMatchesSupport(
+  org: Organization,
+  { type, topic, onlyAvailable }: SupportFilters,
+): boolean {
+  if (type === "psicologo" || type === "auxiliar") return false;
+
+  const { kind, value } = topicParts(topic);
+  if (kind === "area") return false;
+  if (kind === "spec" && !org.specialties.includes(value as OrgSpecialty)) {
+    return false;
+  }
+  if (kind === "svc" && !org.services.includes(value as OrgService)) {
+    return false;
+  }
+
+  if (onlyAvailable && !org.virtual24h) return false;
   return true;
 }
