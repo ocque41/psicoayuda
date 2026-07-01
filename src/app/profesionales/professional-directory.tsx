@@ -55,11 +55,16 @@ const CRISIS_TERMS = [
   "quitarme la vida",
   "no quiero vivir",
   "no quiero seguir",
+  "no quiero existir",
   "me quiero morir",
   "quiero morir",
+  "quiero desaparecer",
   "hacerme dano",
   "lastimarme",
+  "cortarme",
   "acabar con todo",
+  "acabar con mi vida",
+  "terminar con mi vida",
 ];
 
 // Palabras vacías (ya sin acentos): se ignoran al buscar, para que frases como
