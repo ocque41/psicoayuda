@@ -5,7 +5,7 @@ import { CrisisResources } from "@/components/crisis-resources";
 import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
-  title: "Cómo acompañar a alguien que está pasando por un mal momento",
+  title: "Cómo acompañar a alguien en un mal momento",
   description:
     "Guía cálida para acompañar a un familiar, pareja o amigo que está triste, ansioso o en duelo: cómo escuchar sin juzgar, qué decir y cómo cuidarte tú.",
   alternates: { canonical: "/recursos/acompanar-a-alguien-en-crisis" },

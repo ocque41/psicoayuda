@@ -5,10 +5,9 @@ import { CrisisResources } from "@/components/crisis-resources";
 import { GuideJsonLd } from "@/components/structured-data";
 
 export const metadata: Metadata = {
-  title:
-    "Ayuda psicológica gratis para niñas, niños y adolescentes en Venezuela",
+  title: "Psicólogo gratis para niños y adolescentes, Venezuela",
   description:
-    "Cómo conseguir apoyo psicológico gratuito y a distancia en Venezuela para adolescentes y para madres, padres y cuidadores. Sin estigma y con acompañamiento de un adulto de confianza.",
+    "Apoyo psicológico gratuito y a distancia en Venezuela para niños, adolescentes y sus cuidadores. Sin estigma y con el acompañamiento de un adulto de confianza.",
   alternates: { canonical: "/recursos/ayuda-psicologica-para-ninos" },
   openGraph: {
     title:
