@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CrisisResources } from "@/components/crisis-resources";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getAbuseContactEmail } from "@/lib/contact";
@@ -24,6 +25,7 @@ export default function ResourcesPage() {
     <section className="section">
       <div className="container">
         <QuickExit />
+        <Breadcrumbs trail={[{ name: "Recursos", path: "/recursos" }]} />
         <h1>Recursos de salud mental y apoyo psicológico en Venezuela</h1>
         <p className="lead">
           Aquí reunimos cómo conseguir apoyo psicológico gratuito a distancia en
