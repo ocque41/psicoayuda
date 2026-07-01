@@ -4,7 +4,7 @@ import { AuthPanel } from "@/components/auth-panel";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
-  title: "Hazte voluntario/a: psicólogas y psicólogos",
+  title: "Hazte psicólogo/a voluntario/a en Venezuela",
   description:
     "Tras el terremoto en Venezuela, miles de personas cargan con un dolor que no se ve. Si eres psicóloga o psicólogo, súmate a Nido: acompaña gratis y a distancia, en la medida de tu tiempo.",
   alternates: { canonical: "/psicologos" },

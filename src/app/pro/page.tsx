@@ -5,7 +5,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
-  title: "Voluntariado: psicólogos y fundaciones que quieren ayudar",
+  title: "Voluntariado de psicólogos y fundaciones en Venezuela",
   description:
     "¿Eres psicóloga, psicólogo o una fundación de salud mental? Únete como voluntario/a y ofrece apoyo psicológico gratuito y a distancia a personas afectadas por el terremoto en Venezuela. Tú defines tu disponibilidad.",
   alternates: { canonical: "/pro" },
