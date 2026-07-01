@@ -3,10 +3,14 @@ import Link from "next/link";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { needCategories, needLabels } from "@/lib/constants";
 import { getFeedProfessionals } from "@/lib/feed";
+import { DirectoryFilter } from "./directory-filter";
 import { FeedProfessionalCard } from "./professional-card";
 
-// Lista pública (verificados, sin datos confidenciales): se cachea en el edge y
-// se revalida cada 60s. Mucho mejor TTFB/LCP en móvil que renderizar por request.
+// Lista pública (verificados, sin datos confidenciales): estática + ISR, se
+// revalida cada 60s y se sirve desde el edge. El filtro por tema es client-side
+// (ver DirectoryFilter): leer `searchParams` en el server volvía la página
+// dinámica en CADA request y anulaba este `revalidate` (causa del Error 1102 /
+// exceededCpu). El cache se invalida al aprobar/suspender (adminSetProfessionalStatus).
 export const revalidate = 60;
 
 export const metadata: Metadata = {
@@ -17,23 +21,21 @@ export const metadata: Metadata = {
 };
 
 // Temas por los que se puede filtrar (excluye "otro", poco útil como filtro).
-const FILTER_AREAS = needCategories.filter((area) => area !== "otro");
+const FILTER_AREAS = needCategories
+  .filter((area) => area !== "otro")
+  .map((area) => ({ key: area, label: needLabels[area] }));
 
-export default async function ProfesionalesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ area?: string }>;
-}) {
-  const { area } = await searchParams;
-  const activeArea =
-    area && (needCategories as readonly string[]).includes(area) ? area : null;
-
+export default async function ProfesionalesPage() {
   const all = await getFeedProfessionals();
-  const professionals = activeArea
-    ? all.filter((professional) =>
-        professional.supportAreas.includes(activeArea),
-      )
-    : all;
+  // Las tarjetas se renderizan en el servidor (SEO + coste una vez por ISR) y se
+  // pasan al filtro cliente ya montadas; este solo decide cuáles se muestran.
+  const entries = all.map((professional) => ({
+    id: professional.id,
+    areas: professional.supportAreas,
+    node: (
+      <FeedProfessionalCard key={professional.id} professional={professional} />
+    ),
+  }));
 
   return (
     <section className="section">
@@ -53,81 +55,16 @@ export default async function ProfesionalesPage({
         </p>
         <EmergencyNotice />
 
-        {all.length > 0 ? (
-          <nav
-            className="pro-filters"
-            aria-label="Filtrar por tema"
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              margin: "0 0 var(--space-6)",
-            }}
-          >
-            <Link
-              className={activeArea ? "button secondary" : "button"}
-              href="/profesionales"
-            >
-              Todas
-            </Link>
-            {FILTER_AREAS.map((areaKey) => (
-              <Link
-                key={areaKey}
-                className={
-                  activeArea === areaKey ? "button" : "button secondary"
-                }
-                href={`/profesionales?area=${areaKey}`}
-              >
-                {needLabels[areaKey]}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
-
-        {professionals.length === 0 ? (
+        {entries.length === 0 ? (
           <div className="card">
-            {activeArea ? (
-              <p>
-                Ahora mismo no hay voluntarios disponibles en “
-                {needLabels[activeArea as keyof typeof needLabels]}”.{" "}
-                <Link href="/profesionales">Ver todas las personas</Link> o{" "}
-                <Link href="/ayuda">deja tu solicitud</Link> y te conectamos con
-                alguien afín.
-              </p>
-            ) : (
-              <p>
-                Aún estamos sumando voluntarios verificados. Mientras tanto,
-                puedes <Link href="/ayuda">dejar tu solicitud</Link> y una
-                persona del equipo te contactará por correo.
-              </p>
-            )}
+            <p>
+              Aún estamos sumando voluntarios verificados. Mientras tanto,
+              puedes <Link href="/ayuda">dejar tu solicitud</Link> y una persona
+              del equipo te contactará por correo.
+            </p>
           </div>
         ) : (
-          <>
-            <p className="muted">
-              {professionals.length}{" "}
-              {professionals.length === 1
-                ? "persona disponible"
-                : "personas disponibles"}
-              {activeArea
-                ? ` en “${needLabels[activeArea as keyof typeof needLabels]}”`
-                : ""}
-              .
-            </p>
-            <div className="grid grid-2">
-              {professionals.map((professional) => (
-                <FeedProfessionalCard
-                  key={professional.id}
-                  professional={professional}
-                />
-              ))}
-            </div>
-            <p className="reassurance">
-              ¿Prefieres que te conectemos sin elegir? Deja tu mensaje en{" "}
-              <Link href="/ayuda">pedir apoyo</Link> y le llega a todo el equipo
-              voluntario.
-            </p>
-          </>
+          <DirectoryFilter filters={FILTER_AREAS} entries={entries} />
         )}
       </div>
     </section>

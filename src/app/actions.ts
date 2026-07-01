@@ -335,6 +335,9 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  // El directorio público (/profesionales) es estático/ISR: al aprobar o
+  // suspender, invalidamos su cache para que el cambio se vea sin esperar 60s.
+  revalidatePath("/profesionales");
 }
 
 export async function adminUpdateHelpRequestStatus(formData: FormData) {
