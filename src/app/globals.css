@@ -284,6 +284,62 @@ textarea {
   padding-bottom: var(--space-12);
 }
 
+/* ============================================================
+   Hero centrado: jerarquía clara y primera impresión coherente.
+   El cuerpo de las secciones sigue alineado a la izquierda para no
+   perjudicar la lectura de los textos largos.
+   ============================================================ */
+.hero .container {
+  text-align: center;
+}
+
+/* Centrar los bloques del hero sin que excedan el ancho del contenedor
+   (con flex + align-items:center el h1 se desbordaba en móvil). */
+.hero h1,
+.hero .container > p {
+  margin-inline: auto;
+}
+
+/* "Eyebrow" como cápsula con punto, centrada */
+.hero .eyebrow {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 0 var(--space-5);
+  padding: 8px 16px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+  color: var(--accent-strong);
+  line-height: 1.35;
+}
+
+.hero .eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Franja de garantías y fila de botones, centradas */
+.hero .trust-strip {
+  justify-content: center;
+}
+
+.hero p:has(> .button) {
+  justify-content: center;
+}
+
+/* Aviso del hero centrado, sin la barra lateral (rompería el centro) */
+.hero .safety-note {
+  border-left: none;
+  border-radius: var(--radius);
+  text-align: center;
+  max-width: 44rem;
+}
+
 .lead {
   max-width: 680px;
   font-size: var(--step-1);
