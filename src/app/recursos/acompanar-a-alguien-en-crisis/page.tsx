@@ -129,6 +129,9 @@ export default function Page() {
           <p>
             <Link className="button human" href="/ayuda">
               Pedir apoyo
+            </Link>{" "}
+            <Link className="button secondary" href="/profesionales">
+              Ver psicólogos voluntarios
             </Link>
           </p>
         </div>

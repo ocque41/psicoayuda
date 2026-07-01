@@ -117,6 +117,13 @@ export default function Page() {
           hacemos es ponerte en contacto con un profesional verificado que
           decide contigo cómo seguir.
         </p>
+        <p>
+          Si quieres,{" "}
+          <Link href="/profesionales">
+            mira a las psicólogas y psicólogos voluntarios
+          </Link>{" "}
+          y elige tú con quién hablar, estés donde estés.
+        </p>
         <p className="muted">
           Nido no es un servicio de emergencia. Si estás en tu país de
           residencia y atraviesas una crisis o sientes que tu vida corre
