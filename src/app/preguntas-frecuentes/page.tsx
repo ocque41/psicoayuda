@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description:
     "Preguntas frecuentes sobre Nido: ayuda psicológica gratis y a distancia en Venezuela. Cómo pedir apoyo sin crear cuenta y cómo ser psicólogo voluntario.",
   alternates: { canonical: "/preguntas-frecuentes" },
+  openGraph: {
+    title: "Preguntas frecuentes: ayuda psicológica en Venezuela | Nido",
+    description:
+      "Preguntas frecuentes sobre Nido: ayuda psicológica gratis y a distancia en Venezuela. Cómo pedir apoyo sin crear cuenta y cómo ser psicólogo voluntario.",
+    url: "/preguntas-frecuentes",
+  },
 };
 
 const PRO_FAQ: ReadonlyArray<{ question: string; answer: string }> = [

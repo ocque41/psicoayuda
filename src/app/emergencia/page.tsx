@@ -10,6 +10,12 @@ export const metadata: Metadata = {
     "Qué hacer en una emergencia o peligro inmediato en Venezuela: servicios de emergencia y líneas de apoyo psicológico gratuitas. Nido no atiende emergencias.",
   alternates: { canonical: "/emergencia" },
   robots: { index: true, follow: true },
+  openGraph: {
+    title: "Líneas de ayuda psicológica y emergencia en Venezuela | Nido",
+    description:
+      "Qué hacer en una emergencia o peligro inmediato en Venezuela: servicios de emergencia y líneas de apoyo psicológico gratuitas. Nido no atiende emergencias.",
+    url: "/emergencia",
+  },
 };
 
 export default function EmergencyPage() {

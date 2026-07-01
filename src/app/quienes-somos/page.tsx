@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description:
     "Nido es una iniciativa sin fines de lucro que conecta gratis a personas en Venezuela con psicólogas y psicólogos voluntarios verificados. Conoce nuestra misión.",
   alternates: { canonical: "/quienes-somos" },
+  openGraph: {
+    title: "Quiénes somos | Nido",
+    description:
+      "Nido es una iniciativa sin fines de lucro que conecta gratis a personas en Venezuela con psicólogas y psicólogos voluntarios verificados. Conoce nuestra misión.",
+    url: "/quienes-somos",
+  },
 };
 
 export default function Page() {

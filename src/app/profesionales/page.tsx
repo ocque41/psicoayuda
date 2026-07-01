@@ -15,6 +15,12 @@ export const metadata: Metadata = {
   description:
     "Psicólogas y psicólogos voluntarios verificados en Venezuela. Busca por cómo te sientes, especialidad o nombre y elige con quién hablar. Gratis y a distancia.",
   alternates: { canonical: "/profesionales" },
+  openGraph: {
+    title: "Psicólogas y psicólogos voluntarios en Venezuela | Nido",
+    description:
+      "Psicólogas y psicólogos voluntarios verificados en Venezuela. Busca por cómo te sientes, especialidad o nombre y elige con quién hablar. Gratis y a distancia.",
+    url: "/profesionales",
+  },
 };
 
 export default async function ProfesionalesPage() {
