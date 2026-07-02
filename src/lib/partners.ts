@@ -212,7 +212,7 @@ export function partnersToOrganizations(list: Partner[]): Organization[] {
       specialties: [],
       services: [psychology],
       virtual24h: false,
-      searchHints: partner.description || undefined,
+      description: partner.description || undefined,
     };
   });
 }

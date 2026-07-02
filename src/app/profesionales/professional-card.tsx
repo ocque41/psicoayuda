@@ -1,4 +1,5 @@
 import { createConversation } from "@/app/actions-chat";
+import { ExpandableText } from "@/components/expandable-text";
 import { needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
 import { toIntlNumber } from "@/lib/phone";
@@ -104,7 +105,11 @@ export function FeedProfessionalCard({
       ) : null}
 
       {professional.shortBio ? (
-        <p className="pro-bio">{professional.shortBio}</p>
+        <ExpandableText
+          text={professional.shortBio}
+          className="pro-bio"
+          limit={150}
+        />
       ) : null}
 
       <div className="pro-card-actions">

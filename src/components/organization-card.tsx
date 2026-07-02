@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ExpandableText } from "@/components/expandable-text";
 import {
   type Organization,
   orgServiceLabels,
@@ -58,7 +59,13 @@ export function OrganizationCard({
         Organización
       </p>
 
-      {organization.tagline ? (
+      {organization.description ? (
+        <ExpandableText
+          text={organization.description}
+          className="pro-bio"
+          limit={150}
+        />
+      ) : organization.tagline ? (
         <p className="pro-bio">{organization.tagline}</p>
       ) : null}
 

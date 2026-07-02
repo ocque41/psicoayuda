@@ -66,10 +66,10 @@ export type Organization = {
   readonly services: readonly OrgService[];
   /** ¿Ofrecen asistencia virtual 24 horas? */
   readonly virtual24h: boolean;
-  /** Texto extra SOLO para la búsqueda (no se muestra en la ficha): p. ej. la
-   *  descripción larga de una fundación mapeada desde `partners`, para que se
-   *  pueda encontrar por su contenido y no solo por su nombre/enfoque. */
-  readonly searchHints?: string;
+  /** Descripción larga (p. ej. de una fundación mapeada desde `partners`). Se
+   *  MUESTRA en la ficha del buscador (recortada con "Mostrar más") y entra en
+   *  la búsqueda, para encontrarla por su contenido y no solo por nombre/enfoque. */
+  readonly description?: string;
 };
 
 export const ORGANIZATIONS: readonly Organization[] = [

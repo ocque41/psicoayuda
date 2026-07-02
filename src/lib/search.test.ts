@@ -194,14 +194,14 @@ describe("búsqueda de organizaciones", () => {
     expect(blobMatchesQuery(blob, "centro")).toBe(true);
   });
 
-  it("indexa searchHints (p. ej. la descripción de una fundación)", () => {
-    const withHints = buildOrgSearchBlob(
+  it("indexa la descripción (p. ej. de una fundación)", () => {
+    const withDesc = buildOrgSearchBlob(
       fakeOrg({
-        searchHints: "primeros auxilios psicológicos en emergencias",
+        description: "primeros auxilios psicológicos en emergencias",
       }),
     );
-    expect(blobMatchesQuery(withHints, "primeros auxilios")).toBe(true);
-    expect(blobMatchesQuery(withHints, "emergencias")).toBe(true);
+    expect(blobMatchesQuery(withDesc, "primeros auxilios")).toBe(true);
+    expect(blobMatchesQuery(withDesc, "emergencias")).toBe(true);
   });
 });
 
