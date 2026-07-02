@@ -2087,6 +2087,16 @@ a.partner-link:focus-visible {
   font-weight: 600;
 }
 
+/* Fila de acciones del modal de confirmación (Cancelar / Sí, eliminar).
+   Alineadas a la derecha; hacen wrap si no caben en pantallas estrechas. */
+.org-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
 /* Lista de contactos: todos IGUALES, sin viñetas, apilados. */
 .org-contact-list {
   display: flex;
