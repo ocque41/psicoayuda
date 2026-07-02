@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  EmergencyPriorityBar,
+  EmergencyResourcesDirectory,
+} from "@/components/emergency-resources";
 import { HomeProfessionalsFilter } from "@/components/home-professionals-filter";
 import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
@@ -19,6 +23,7 @@ export default async function HomePage() {
     <>
       <section className="hero">
         <div className="container">
+          <EmergencyPriorityBar />
           <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
           <h1>
             Ayuda psicológica gratis en Venezuela, también tras los terremotos
@@ -44,6 +49,12 @@ export default async function HomePage() {
             ayuda presencial ahora mismo.{" "}
             <Link href="/emergencia">Más líneas de ayuda y qué hacer →</Link>
           </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <EmergencyResourcesDirectory />
         </div>
       </section>
 
