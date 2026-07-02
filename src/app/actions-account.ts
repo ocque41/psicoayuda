@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditLogs, professionals, user } from "@/db/schema";
-import { purgeAccount } from "@/lib/account";
+import { purgeAccount, reclamarUsuarioHuerfano } from "@/lib/account";
 import { isAdminEmail, requireAdmin } from "@/lib/admin";
 import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { auth } from "@/lib/auth";
@@ -36,6 +36,18 @@ export async function deleteMyAccount() {
   await purgeAccount(userId);
 
   redirect("/");
+}
+
+/**
+ * Acción pública (sin sesión: quien la necesita no puede iniciarla) que repara
+ * un registro huérfano antes de reintentar el alta. Todas las comprobaciones
+ * viven en reclamarUsuarioHuerfano; para cualquier cuenta real con credencial,
+ * sesión o perfil es un no-op.
+ */
+export async function repararRegistroHuerfano(emailCrudo: string) {
+  const email = String(emailCrudo ?? "").slice(0, 254);
+  const reparado = await reclamarUsuarioHuerfano(email);
+  return { reparado };
 }
 
 /**
