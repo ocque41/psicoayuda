@@ -434,7 +434,17 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   } as const;
   const updates =
     status === "approved"
-      ? { status, updatedAt: timestamp }
+      ? {
+          status,
+          // Al aprobar, hazlo VISIBLE y contactable en el directorio: el feed
+          // público exige remoteAvailable=true, así que sin esto un aprobado con
+          // remoteAvailable=false quedaba oculto en home y /profesionales. Mismo
+          // criterio que adminApproveIncompleteRegistration. Se puede ocultar
+          // luego con el botón Mostrar/Ocultar (adminSetProfessionalVisibility).
+          remoteAvailable: true,
+          acceptingRequests: true,
+          updatedAt: timestamp,
+        }
       : { status, acceptingRequests: false, updatedAt: timestamp };
 
   await db

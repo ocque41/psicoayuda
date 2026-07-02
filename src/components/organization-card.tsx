@@ -5,6 +5,7 @@ import {
   orgSpecialtyLabels,
 } from "@/lib/organizations";
 import { toIntlNumber } from "@/lib/phone";
+import { withUtm } from "@/lib/utm";
 
 /**
  * Ficha pública de una organización aliada dentro del directorio de "pedir
@@ -92,7 +93,11 @@ export function OrganizationCard({
             <>
               <a
                 className="button human block"
-                href={`https://wa.me/${intlWhatsApp}?text=${waText}`}
+                href={withUtm(`https://wa.me/${intlWhatsApp}?text=${waText}`, {
+                  medium: "whatsapp",
+                  campaign: "organizaciones",
+                  content: "organization-card",
+                })}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -134,7 +139,10 @@ export function OrganizationCard({
           {organization.url ? (
             <a
               className="muted"
-              href={organization.url}
+              href={withUtm(organization.url, {
+                campaign: "organizaciones",
+                content: "organization-card",
+              })}
               target="_blank"
               rel="noopener noreferrer"
               style={{ display: "block", marginTop: "6px" }}

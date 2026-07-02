@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { partners } from "@/db/schema";
 import { toIntlNumber } from "@/lib/phone";
+import { withUtm } from "@/lib/utm";
 
 /**
  * Organizaciones ALIADAS verificadas de Nido (carrusel de la portada + escaparate
@@ -115,19 +116,25 @@ export async function getAllPartnersForAdmin(): Promise<Partner[]> {
 /** Enlace directo de una vía de contacto (wa.me / tel: / instagram / web / mailto). */
 export function partnerContactHref(contact: PartnerContact): string | null {
   const value = contact.value.trim();
+  const utm = { campaign: "aliados", content: "partner-contact" } as const;
   switch (contact.type) {
     case "whatsapp": {
       const intl = toIntlNumber(value);
-      return intl ? `https://wa.me/${intl}` : null;
+      return intl
+        ? withUtm(`https://wa.me/${intl}`, { ...utm, medium: "whatsapp" })
+        : null;
     }
     case "phone": {
       const intl = toIntlNumber(value);
       return intl ? `tel:+${intl}` : `tel:${value.replace(/\s+/g, "")}`;
     }
     case "instagram":
-      return `https://instagram.com/${value.replace(/^@/, "")}`;
+      return withUtm(`https://instagram.com/${value.replace(/^@/, "")}`, utm);
     case "website":
-      return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+      return withUtm(
+        /^https?:\/\//i.test(value) ? value : `https://${value}`,
+        utm,
+      );
     case "email":
       return `mailto:${value}`;
     default:

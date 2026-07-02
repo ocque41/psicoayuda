@@ -4,6 +4,7 @@ import {
   type EmergencyLink,
   priorityCategory,
 } from "@/lib/emergency-resources";
+import { withUtm } from "@/lib/utm";
 
 // Una fila: punto de color + enlace externo (abre en otra pestaña) + flecha a la
 // derecha. El aviso de estado ("parece no estar operativa") va en gris. Los
@@ -14,7 +15,7 @@ function LinkRow({ resource }: { resource: EmergencyLink }) {
       <span className="emergency-dot" aria-hidden="true" />
       <a
         className="emergency-row-link"
-        href={resource.url}
+        href={withUtm(resource.url, { campaign: "emergencia" })}
         target="_blank"
         rel="noopener noreferrer"
       >

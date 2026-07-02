@@ -6,6 +6,7 @@ import {
   isAvailableNow,
   professionalResponseSignal,
 } from "@/lib/response-bucket";
+import { withUtm } from "@/lib/utm";
 
 function areaName(code: string) {
   return needLabels[code as keyof typeof needLabels] ?? code;
@@ -118,7 +119,11 @@ export function FeedProfessionalCard({
             <>
               <a
                 className="button human block"
-                href={`https://wa.me/${intlWhatsApp}?text=${waText}`}
+                href={withUtm(`https://wa.me/${intlWhatsApp}?text=${waText}`, {
+                  medium: "whatsapp",
+                  campaign: "profesionales",
+                  content: "professional-card",
+                })}
                 target="_blank"
                 rel="noopener noreferrer"
               >

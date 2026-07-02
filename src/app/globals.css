@@ -897,6 +897,15 @@ p:has(> .button) {
   color: #fff;
 }
 
+/* Variante secundaria destructiva (p. ej. "Eliminar" en listas de /admin):
+   contorno rojo legible, no un bloque rojo. Mayor especificidad que
+   .button.secondary y .button.danger, así que gana el fondo transparente. */
+.button.secondary.danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .status-message {
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
@@ -1555,10 +1564,6 @@ a.partner-link:focus-visible {
 
 .partner-admin-delete form {
   display: inline;
-}
-
-.button.danger {
-  color: var(--danger);
 }
 
 @media (max-width: 640px) {
