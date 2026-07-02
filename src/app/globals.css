@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  /* La paleta es solo clara: sin esto, el "auto-dark" de algunos navegadores
+     (p. ej. Chrome Android) recolorea fondos y rojos por su cuenta y rompe
+     contrastes que en la hoja son correctos (botones danger del admin). */
+  color-scheme: light;
   /* ---- Color: calma cromática AA (crema cálido + salvia + terracota) ---- */
   --background: #faf6f0;
   --surface: #ffffff;
@@ -904,6 +908,24 @@ p:has(> .button) {
   background: transparent;
   border-color: var(--danger);
   color: var(--danger);
+}
+
+/* Estados hover/focus explícitos: sin ellos, .button.danger pisaba a
+   .button:hover y .button.secondary.danger a .button.secondary:hover (misma o
+   mayor especificidad, orden posterior) y los botones destructivos no daban
+   ningún feedback. Rojo más oscuro manteniendo AA. */
+.button.danger:hover,
+.button.danger:focus-visible {
+  background: #7f2f24;
+  border-color: #7f2f24;
+  color: #fff;
+}
+
+.button.secondary.danger:hover,
+.button.secondary.danger:focus-visible {
+  background: rgba(154, 59, 46, 0.08);
+  border-color: #7f2f24;
+  color: #7f2f24;
 }
 
 .status-message {
