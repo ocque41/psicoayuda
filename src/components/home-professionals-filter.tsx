@@ -11,16 +11,19 @@ function areaLabel(code: string) {
 
 function chipStyle(active: boolean): CSSProperties {
   return {
-    padding: "8px 16px",
+    padding: "6px 14px",
     borderRadius: "999px",
     border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
     background: active ? "var(--accent-soft)" : "var(--surface)",
     color: active ? "var(--accent-strong)" : "var(--foreground)",
     fontWeight: active ? 650 : 500,
-    fontSize: "0.95rem",
+    fontSize: "0.9rem",
     lineHeight: 1.2,
     cursor: "pointer",
     fontFamily: "inherit",
+    // No se encogen ni parten: la tira se desliza en horizontal en vez de apilarse.
+    flex: "0 0 auto",
+    whiteSpace: "nowrap",
     transition: "border-color 0.15s ease, background 0.15s ease",
   };
 }
@@ -101,11 +104,13 @@ export function HomeProfessionalsFilter({
           aria-label="Filtrar por tipo de acompañante"
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            justifyContent: "center",
-            margin: "0 auto var(--space-3)",
+            flexWrap: "nowrap",
+            gap: "8px",
+            overflowX: "auto",
+            justifyContent: "flex-start",
+            margin: "0 auto var(--space-2)",
             maxWidth: "var(--measure)",
+            paddingBottom: "4px",
           }}
         >
           <button
@@ -141,11 +146,13 @@ export function HomeProfessionalsFilter({
         aria-label="Filtrar por lo que necesitas"
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          gap: "10px",
-          justifyContent: "center",
-          margin: "0 auto var(--space-4)",
+          flexWrap: "nowrap",
+          gap: "8px",
+          overflowX: "auto",
+          justifyContent: "flex-start",
+          margin: "0 auto var(--space-3)",
           maxWidth: "var(--measure)",
+          paddingBottom: "4px",
         }}
       >
         <button
