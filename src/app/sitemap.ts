@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/profesionales", priority: 0.9, changeFrequency: "daily" },
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
     { path: "/situacion", priority: 0.7, changeFrequency: "weekly" },
+    { path: "/alianzas", priority: 0.6, changeFrequency: "monthly" },
     { path: "/recursos", priority: 0.8, changeFrequency: "weekly" },
     {
       path: "/recursos/psicologo-online-gratis-venezuela",
