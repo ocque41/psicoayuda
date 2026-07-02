@@ -506,6 +506,36 @@ export async function adminSetProfessionalKind(formData: FormData) {
   revalidatePath("/admin");
 }
 
+// Muestra u oculta a un profesional del directorio público (remoteAvailable).
+// Sirve para publicar a quien se aprobó con ficha mínima (p. ej. auxiliares dados
+// de alta manualmente, que antes quedaban ocultos) o para retirar a alguien sin
+// rechazarlo. El feed público exige status='approved' Y remoteAvailable.
+export async function adminSetProfessionalVisibility(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const professionalId = String(formData.get("professionalId") ?? "");
+  if (!professionalId) return;
+  const remoteAvailable = formData.get("visible") === "true";
+  const timestamp = nowIso();
+
+  await db
+    .update(professionals)
+    .set({ remoteAvailable, updatedAt: timestamp })
+    .where(eq(professionals.id, professionalId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: remoteAvailable ? "professional_shown" : "professional_hidden",
+    entityType: "professional",
+    entityId: professionalId,
+    createdAt: timestamp,
+  });
+
+  revalidatePath("/admin");
+}
+
 // Alta manual desde /admin de una cuenta que se registró pero no completó el
 // onboarding. Crea un perfil aprobado con el tipo elegido (certificado o
 // auxiliar no clínico), pero FUERA del directorio público (remoteAvailable=false)
@@ -552,10 +582,11 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
     supportAreas: JSON.stringify([]),
     nonClinicalHelper,
     status: "approved",
-    // Oculto del directorio y sin recibir solicitudes hasta que complete su
-    // perfil (áreas/contacto). El onboarding activará ambos.
-    remoteAvailable: false,
-    acceptingRequests: false,
+    // Visible en el directorio y aceptando contacto desde el alta: el admin lo
+    // aprueba para que ayude ya. La ficha empieza mínima (sin áreas ni bio); al
+    // completar su perfil en /pro/onboarding se enriquece y entra en el matching.
+    remoteAvailable: true,
+    acceptingRequests: true,
     currentActiveRequests: 0,
     conductAcceptedAt: timestamp,
     createdAt: timestamp,
@@ -577,9 +608,6 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
     professionalEmail: account.email,
     professionalName: account.name?.trim() || account.email,
     nonClinicalHelper,
-    // Alta manual: el perfil aún no tiene datos, así que el correo lo invita a
-    // completar su perfil en vez de anunciar que ya puede recibir solicitudes.
-    needsProfileCompletion: true,
   });
 
   revalidatePath("/admin");

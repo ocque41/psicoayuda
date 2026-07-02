@@ -6,6 +6,7 @@ import {
   adminApproveIncompleteRegistration,
   adminAssignRequest,
   adminSetProfessionalKind,
+  adminSetProfessionalVisibility,
   adminUpdateAllianceStatus,
   adminUpdateHelpRequestStatus,
   adminUpdateProfessionalStatus,
@@ -255,6 +256,27 @@ export default async function AdminPage({
                     {professional.maxActiveRequests}
                     <br />
                     {professional.acceptingRequests ? "Acepta" : "No acepta"}
+                    <br />
+                    <span className="muted">
+                      {professional.remoteAvailable
+                        ? "En el directorio"
+                        : "Oculto"}
+                    </span>{" "}
+                    <form action={adminSetProfessionalVisibility}>
+                      <input
+                        name="professionalId"
+                        type="hidden"
+                        value={professional.id}
+                      />
+                      <input
+                        name="visible"
+                        type="hidden"
+                        value={professional.remoteAvailable ? "false" : "true"}
+                      />
+                      <button className="button secondary" type="submit">
+                        {professional.remoteAvailable ? "Ocultar" : "Mostrar"}
+                      </button>
+                    </form>
                   </td>
                   <td>
                     <form action={adminUpdateProfessionalStatus}>

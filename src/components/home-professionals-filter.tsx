@@ -25,18 +25,32 @@ function chipStyle(active: boolean): CSSProperties {
   };
 }
 
+type TypeFilter = "all" | "psicologo" | "auxiliar";
+
 /**
- * Filtro por área para la portada: en vez de un buscador de texto, muestra chips
- * con las áreas de las personas voluntarias disponibles; al elegir una, la tira
- * de abajo se reduce a quienes acompañan en esa área. "Todas" limpia el filtro.
- * Filtra en cliente sobre la lista ya cargada (no pega a la BD por clic).
+ * Filtros para la portada: por tipo (psicólogas/os con licencia vs auxiliares no
+ * clínicos) y por área. El filtro por tipo solo aparece si hay de ambos, para no
+ * ofrecer un filtro sin efecto. Filtra en cliente sobre la lista ya cargada (no
+ * pega a la BD por clic).
  */
 export function HomeProfessionalsFilter({
   professionals,
 }: {
   professionals: FeedProfessional[];
 }) {
+  const [type, setType] = useState<TypeFilter>("all");
   const [area, setArea] = useState<string | null>(null);
+
+  // Solo ofrecemos el filtro por tipo si hay de ambos: con un único grupo, el
+  // filtro no daría resultados distintos y solo añadiría ruido.
+  const hasAux = useMemo(
+    () => professionals.some((p) => p.nonClinicalHelper),
+    [professionals],
+  );
+  const hasPsy = useMemo(
+    () => professionals.some((p) => !p.nonClinicalHelper),
+    [professionals],
+  );
 
   // Áreas presentes entre las personas disponibles, las más comunes primero (así
   // los filtros con resultados salen antes). Solo se ofrecen filtros que existen.
@@ -54,16 +68,73 @@ export function HomeProfessionalsFilter({
 
   const filtered = useMemo(
     () =>
-      area
-        ? professionals.filter((professional) =>
-            professional.supportAreas.includes(area),
-          )
-        : professionals,
-    [professionals, area],
+      professionals.filter((professional) => {
+        if (type === "psicologo" && professional.nonClinicalHelper)
+          return false;
+        if (type === "auxiliar" && !professional.nonClinicalHelper)
+          return false;
+        if (area && !professional.supportAreas.includes(area)) return false;
+        return true;
+      }),
+    [professionals, type, area],
   );
+
+  const countLabel =
+    type === "auxiliar"
+      ? filtered.length === 1
+        ? "1 auxiliar no clínico disponible"
+        : `${filtered.length} auxiliares no clínicos disponibles`
+      : type === "psicologo"
+        ? filtered.length === 1
+          ? "1 psicóloga o psicólogo disponible"
+          : `${filtered.length} psicólogas y psicólogos disponibles`
+        : filtered.length === 1
+          ? "1 persona voluntaria disponible"
+          : `${filtered.length} personas voluntarias disponibles`;
 
   return (
     <div>
+      {hasAux && hasPsy ? (
+        // biome-ignore lint/a11y/useSemanticElements: role="group" + aria-label es ARIA válido para un grupo de filtros; un <fieldset> añadiría borde/legend innecesarios
+        <div
+          role="group"
+          aria-label="Filtrar por tipo de acompañante"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+            justifyContent: "center",
+            margin: "0 auto var(--space-3)",
+            maxWidth: "var(--measure)",
+          }}
+        >
+          <button
+            type="button"
+            aria-pressed={type === "all"}
+            onClick={() => setType("all")}
+            style={chipStyle(type === "all")}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            aria-pressed={type === "psicologo"}
+            onClick={() => setType("psicologo")}
+            style={chipStyle(type === "psicologo")}
+          >
+            Psicólogas y psicólogos
+          </button>
+          <button
+            type="button"
+            aria-pressed={type === "auxiliar"}
+            onClick={() => setType("auxiliar")}
+            style={chipStyle(type === "auxiliar")}
+          >
+            Auxiliares no clínicos
+          </button>
+        </div>
+      ) : null}
+
       {/* biome-ignore lint/a11y/useSemanticElements: role="group" + aria-label es ARIA válido para un grupo de filtros; un <fieldset> añadiría borde/legend innecesarios */}
       <div
         role="group"
@@ -101,9 +172,7 @@ export function HomeProfessionalsFilter({
       </div>
 
       <p className="muted" aria-live="polite">
-        {filtered.length === 1
-          ? "1 psicóloga o psicólogo disponible"
-          : `${filtered.length} psicólogas y psicólogos disponibles`}
+        {countLabel}
         {area ? ` en ${areaLabel(area).toLowerCase()}` : ""}.
       </p>
 
@@ -111,7 +180,7 @@ export function HomeProfessionalsFilter({
         <HomeProfessionalsStrip professionals={filtered} />
       ) : (
         <p className="muted">
-          Ahora mismo no hay nadie disponible en esa área. Prueba con otra o{" "}
+          Ahora mismo no hay nadie disponible con ese filtro. Prueba con otro o{" "}
           <a href="/ayuda">deja tu solicitud</a> y te conectamos con alguien
           afín.
         </p>
