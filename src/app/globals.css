@@ -1056,6 +1056,42 @@ h3 {
   justify-content: center;
 }
 
+/* ============================================================
+   Página /pro (unirse como profesional u organización): el hero ya se centra,
+   pero la tarjeta de registro (.signin) y su nota quedaban pegadas a la
+   izquierda. Las centramos, y la vía de organización pasa de un aviso discreto
+   al pie a su propia llamada visible (tarjeta con acento + botón). Scopeado a
+   .pro-join para no tocar otras pantallas con .signin (p. ej. login de /admin).
+   ============================================================ */
+.pro-join .signin,
+.pro-join .auth-foot {
+  margin-inline: auto;
+}
+
+.pro-join .auth-foot {
+  text-align: center;
+}
+
+.pro-join .org-cta {
+  max-width: 560px;
+  margin: var(--space-8) auto 0;
+  padding: var(--space-6);
+  text-align: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-tint);
+  border-radius: var(--radius-lg);
+}
+
+.pro-join .org-cta h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--step-1);
+}
+
+.pro-join .org-cta p {
+  margin: 0 0 var(--space-5);
+  color: var(--foreground);
+}
+
 /* Ritmo vertical de prosa. El preflight de Tailwind pone a 0 los márgenes de
    bloque, pero el diseño asume que los párrafos llevan aire (de ahí overrides
    como `.faq .card p { margin-bottom: 0 }` y los `style={{ margin: 0 }}` de los

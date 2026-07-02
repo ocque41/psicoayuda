@@ -32,7 +32,7 @@ export default async function ProPage({
   );
 
   return (
-    <section className="section">
+    <section className="section pro-join">
       <div className="container">
         <h1>Este es tu lugar para ayudar</h1>
         <p className="lead">
@@ -75,13 +75,15 @@ export default async function ProPage({
             </p>
           </div>
         )}
-        <div className="notice" style={{ marginTop: "var(--space-8)" }}>
-          <p style={{ margin: 0 }}>
-            <strong>¿Eres una fundación u organización de salud mental?</strong>{" "}
+        <div className="org-cta">
+          <h2>¿Representas a una fundación u organización?</h2>
+          <p>
             Aliémonos para llegar a más personas. Tus profesionales pueden
-            registrarse aquí, y si quieres coordinar una alianza,{" "}
-            <Link href="/alianzas">déjanos tus datos</Link>.
+            registrarse arriba; para coordinar una alianza, déjanos tus datos.
           </p>
+          <Link className="button" href="/alianzas">
+            Coordinar una alianza
+          </Link>
         </div>
       </div>
     </section>
