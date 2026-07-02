@@ -95,69 +95,99 @@ export function OrganizationCard({
       ) : null}
 
       <div className="pro-card-actions">
-        <div className="pro-contact">
-          {intlWhatsApp ? (
-            <>
+        {organization.contactLinks?.length ? (
+          <div className="pro-contact">
+            {organization.contactLinks.map((link, index) => (
               <a
-                className="button human block"
-                href={withUtm(`https://wa.me/${intlWhatsApp}?text=${waText}`, {
-                  medium: "whatsapp",
+                key={link.href}
+                className={
+                  link.tone === "human"
+                    ? "button human block"
+                    : link.tone === "secondary"
+                      ? "button secondary block"
+                      : "muted"
+                }
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={
+                  index === 0
+                    ? undefined
+                    : { display: "block", marginTop: "6px" }
+                }
+              >
+                {link.text}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="pro-contact">
+            {intlWhatsApp ? (
+              <>
+                <a
+                  className="button human block"
+                  href={withUtm(
+                    `https://wa.me/${intlWhatsApp}?text=${waText}`,
+                    {
+                      medium: "whatsapp",
+                      campaign: "organizaciones",
+                      content: "organization-card",
+                    },
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Escribir por WhatsApp · {organization.phone}
+                </a>
+                <a
+                  className="muted"
+                  href={`tel:+${intlWhatsApp}`}
+                  style={{ display: "inline-block", marginTop: "6px" }}
+                >
+                  o llamar al {organization.phone}
+                </a>
+              </>
+            ) : null}
+            {intlLandline ? (
+              <a
+                className={intlWhatsApp ? "muted" : "button human block"}
+                href={`tel:+${intlLandline}`}
+                style={
+                  intlWhatsApp
+                    ? { display: "block", marginTop: "6px" }
+                    : undefined
+                }
+              >
+                {intlWhatsApp ? "o llamar al fijo " : "Llamar al "}
+                {organization.landline}
+              </a>
+            ) : null}
+            {organization.email ? (
+              <a
+                className="muted"
+                href={`mailto:${organization.email}`}
+                style={{ display: "block", marginTop: "6px" }}
+              >
+                {intlWhatsApp || intlLandline ? "o escribir a " : "Escribir a "}
+                {organization.email}
+              </a>
+            ) : null}
+            {organization.url ? (
+              <a
+                className="muted"
+                href={withUtm(organization.url, {
                   campaign: "organizaciones",
                   content: "organization-card",
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
+                style={{ display: "block", marginTop: "6px" }}
               >
-                Escribir por WhatsApp · {organization.phone}
+                Visitar su web
               </a>
-              <a
-                className="muted"
-                href={`tel:+${intlWhatsApp}`}
-                style={{ display: "inline-block", marginTop: "6px" }}
-              >
-                o llamar al {organization.phone}
-              </a>
-            </>
-          ) : null}
-          {intlLandline ? (
-            <a
-              className={intlWhatsApp ? "muted" : "button human block"}
-              href={`tel:+${intlLandline}`}
-              style={
-                intlWhatsApp
-                  ? { display: "block", marginTop: "6px" }
-                  : undefined
-              }
-            >
-              {intlWhatsApp ? "o llamar al fijo " : "Llamar al "}
-              {organization.landline}
-            </a>
-          ) : null}
-          {organization.email ? (
-            <a
-              className="muted"
-              href={`mailto:${organization.email}`}
-              style={{ display: "block", marginTop: "6px" }}
-            >
-              {intlWhatsApp || intlLandline ? "o escribir a " : "Escribir a "}
-              {organization.email}
-            </a>
-          ) : null}
-          {organization.url ? (
-            <a
-              className="muted"
-              href={withUtm(organization.url, {
-                campaign: "organizaciones",
-                content: "organization-card",
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: "block", marginTop: "6px" }}
-            >
-              Visitar su web
-            </a>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </article>
   );

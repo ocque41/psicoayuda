@@ -201,6 +201,35 @@ export function partnersToOrganizations(list: Partner[]): Organization[] {
       : instagram
         ? `https://instagram.com/${instagram.replace(/^@/, "")}`
         : undefined;
+    // TODAS las vías resueltas (una fundación puede tener varias, p. ej. una
+    // línea de WhatsApp por psicóloga). La 1ª va destacada; las demás, como
+    // enlaces discretos, para no apilar botones enormes en la ficha.
+    const contactLinks = partner.contacts.flatMap(
+      (
+        contact,
+        index,
+      ): {
+        href: string;
+        text: string;
+        tone: "human" | "secondary" | "muted";
+      }[] => {
+        const href = partnerContactHref(contact);
+        if (!href) return [];
+        const natural =
+          contact.type === "whatsapp"
+            ? "human"
+            : contact.type === "phone"
+              ? "secondary"
+              : "muted";
+        return [
+          {
+            href,
+            text: partnerContactText(contact),
+            tone: index === 0 ? natural : "muted",
+          },
+        ];
+      },
+    );
     return {
       id: partner.id,
       name: partner.name,
@@ -213,6 +242,7 @@ export function partnersToOrganizations(list: Partner[]): Organization[] {
       services: [psychology],
       virtual24h: false,
       description: partner.description || undefined,
+      contactLinks: contactLinks.length ? contactLinks : undefined,
     };
   });
 }

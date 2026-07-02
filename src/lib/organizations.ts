@@ -70,6 +70,14 @@ export type Organization = {
    *  MUESTRA en la ficha del buscador (recortada con "Mostrar más") y entra en
    *  la búsqueda, para encontrarla por su contenido y no solo por nombre/enfoque. */
   readonly description?: string;
+  /** Vías de contacto YA resueltas (href + texto). Para fundaciones que tienen
+   *  VARIOS números/enlaces (p. ej. una línea por psicóloga): si está presente,
+   *  la ficha las muestra TODAS en vez de un único teléfono/correo/web. */
+  readonly contactLinks?: readonly {
+    readonly href: string;
+    readonly text: string;
+    readonly tone: "human" | "secondary" | "muted";
+  }[];
 };
 
 export const ORGANIZATIONS: readonly Organization[] = [
