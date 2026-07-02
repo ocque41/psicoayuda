@@ -852,6 +852,58 @@ p:has(> .button) {
   color: var(--danger);
 }
 
+/* ============================================================
+   Panel del profesional (/pro/dashboard): chips de estado bajo el saludo y
+   barra de secciones para moverse sin perderse. Los anclajes dejan hueco al
+   header con scroll-margin. */
+.panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 var(--space-5);
+}
+
+.panel-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.panel-chip.ok {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+
+.panel-chip.off {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.panel-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 var(--space-6);
+}
+
+.panel-nav .button {
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  border-radius: var(--radius-pill);
+}
+
+h2[id] {
+  scroll-margin-top: 96px;
+}
+
 .checks {
   display: grid;
   gap: 10px;

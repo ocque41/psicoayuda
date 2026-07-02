@@ -59,6 +59,11 @@ export default async function ProDashboardPage({
     return (
       <section className="section">
         <div className="container">
+          <p>
+            <Link className="button secondary" href="/">
+              ← Volver al inicio
+            </Link>
+          </p>
           <h1>Tu panel</h1>
           <p>Aún no completaste tu perfil. Es el paso para poder acompañar.</p>
           <Link className="button human" href="/pro/onboarding">
@@ -77,12 +82,17 @@ export default async function ProDashboardPage({
     return (
       <section className="section">
         <div className="container">
+          <p>
+            <Link className="button secondary" href="/">
+              ← Volver al inicio
+            </Link>
+          </p>
           <h1>Tu panel</h1>
           <div className="card">
             <h2>{copy.title}</h2>
             <p>{copy.body}</p>
             <Link className="button secondary" href="/pro/onboarding">
-              Actualizar mi perfil
+              Actualizar mi información
             </Link>
           </div>
           <AccountActions />
@@ -110,10 +120,60 @@ export default async function ProDashboardPage({
   const offers = await pendingOffersForProfessional(professional.id);
   const chats = await conversationsForProfessional(professional.id);
 
+  const nombrePanel =
+    professional.displayName || professional.fullName.split(" ")[0] || "";
+
   return (
     <section className="section">
       <div className="container">
-        <h1>Listo. Ya eres parte de la red.</h1>
+        <h1>{nombrePanel ? `Hola, ${nombrePanel}` : "Tu panel"}</h1>
+        <div className="panel-chips">
+          <span
+            className={`panel-chip ${professional.remoteAvailable ? "ok" : "off"}`}
+          >
+            {professional.remoteAvailable
+              ? "Visible en el directorio"
+              : "Oculto del directorio"}
+          </span>
+          <span
+            className={`panel-chip ${professional.acceptingRequests ? "ok" : "off"}`}
+          >
+            {professional.acceptingRequests
+              ? "Recibiendo solicitudes"
+              : "En pausa"}
+          </span>
+          <span className="panel-chip">
+            {professional.currentActiveRequests}/
+            {professional.maxActiveRequests} personas
+          </span>
+        </div>
+
+        {/* Todas las secciones a un toque: nadie navega este panel a ciegas. */}
+        <nav className="panel-nav" aria-label="Secciones de tu panel">
+          <Link className="button secondary" href="/">
+            ← Inicio
+          </Link>
+          <Link className="button secondary" href="/pro/onboarding">
+            ✎ Editar mi información
+          </Link>
+          <a className="button secondary" href="#disponibilidad">
+            Disponibilidad
+          </a>
+          <a className="button secondary" href="#bandeja">
+            Solicitudes
+          </a>
+          <a className="button secondary" href="#chats">
+            Chats
+          </a>
+          <a className="button secondary" href="#personas">
+            Personas
+          </a>
+          <a className="button secondary" href="#cuenta">
+            Mi cuenta
+          </a>
+        </nav>
+
+        <h2 id="disponibilidad">Tu disponibilidad</h2>
         <div className="card">
           <p>
             Estás acompañando a{" "}
@@ -217,7 +277,7 @@ export default async function ProDashboardPage({
           </p>
         )}
 
-        <h2>Personas que acompañas</h2>
+        <h2 id="personas">Personas que acompañas</h2>
         <div className="table-wrap">
           <table>
             <thead>
@@ -260,6 +320,7 @@ export default async function ProDashboardPage({
             </tbody>
           </table>
         </div>
+        <h2 id="cuenta">Tu cuenta</h2>
         <AccountActions />
       </div>
     </section>

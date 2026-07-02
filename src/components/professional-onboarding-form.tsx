@@ -86,26 +86,62 @@ function resizeDocumentToDataUrl(file: File): Promise<string> {
   });
 }
 
+// Datos actuales del perfil para precargar el formulario al EDITAR. Sin esto,
+// quien entraba a actualizar su información veía todo vacío y al guardar
+// machacaba su perfil con blancos (pasó con voluntarias reales).
+export type ExistingProfessional = {
+  fullName: string;
+  displayName: string | null;
+  country: string | null;
+  city: string | null;
+  photo: string | null;
+  nonClinicalHelper: boolean;
+  fpvNumber: string | null;
+  supervisionInfo: string | null;
+  licenseNumber: string | null;
+  licenseCountry: string | null;
+  university: string | null;
+  supportAreas: string[];
+  maxActiveRequests: number;
+  remoteAvailable: boolean;
+  acceptingRequests: boolean;
+  crisisExperience: boolean;
+  shortBio: string | null;
+  emailPublic: boolean;
+  phone: string | null;
+  landline: string | null;
+  contactEmail: string | null;
+  contactNotes: string | null;
+};
+
 export function ProfessionalOnboardingForm({
   email,
   name,
+  existing,
 }: {
   email: string;
   name?: string | null;
+  existing?: ExistingProfessional | null;
 }) {
+  const editing = Boolean(existing);
   const [state, action, pending] = useActionState(
     saveProfessionalOnboarding,
     null,
   );
   const formId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
   const [photoError, setPhotoError] = useState("");
-  const [phone, setPhone] = useState("");
-  const [landline, setLandline] = useState("");
-  const [emailPublic, setEmailPublic] = useState(true);
+  const [phone, setPhone] = useState(existing?.phone ?? "");
+  const [landline, setLandline] = useState(existing?.landline ?? "");
+  const [emailPublic, setEmailPublic] = useState(existing?.emailPublic ?? true);
   // Credencial flexible: auxiliar no clínico exime de todo; si no, basta una vía.
-  const [nonClinical, setNonClinical] = useState(false);
+  const [nonClinical, setNonClinical] = useState(
+    existing?.nonClinicalHelper ?? false,
+  );
+  // El tipo de comprobante NO se precarga a propósito: el adjunto ya fue
+  // revisado por el equipo y precargarlo obligaría a re-subir el documento
+  // cada vez que se edita cualquier otra cosa.
   const [registrationType, setRegistrationType] = useState("");
   const [proofDoc, setProofDoc] = useState<string | null>(null);
   const [proofName, setProofName] = useState("");
@@ -209,7 +245,7 @@ export function ProfessionalOnboardingForm({
             <input
               id={ids.fullName}
               name="fullName"
-              defaultValue={name ?? ""}
+              defaultValue={existing?.fullName ?? name ?? ""}
               required
             />
           </div>
@@ -222,6 +258,7 @@ export function ProfessionalOnboardingForm({
             <input
               id={ids.displayName}
               name="displayName"
+              defaultValue={existing?.displayName ?? ""}
               aria-describedby={ids.displayNameHint}
             />
           </div>
@@ -233,7 +270,7 @@ export function ProfessionalOnboardingForm({
               id={ids.country}
               name="country"
               autoComplete="country-name"
-              defaultValue="Venezuela"
+              defaultValue={existing?.country ?? "Venezuela"}
             >
               {countries.map((country) => (
                 <option key={country} value={country}>
@@ -244,7 +281,11 @@ export function ProfessionalOnboardingForm({
           </div>
           <div className="field">
             <label htmlFor={ids.city}>Ciudad</label>
-            <input id={ids.city} name="city" />
+            <input
+              id={ids.city}
+              name="city"
+              defaultValue={existing?.city ?? ""}
+            />
           </div>
         </div>
 
@@ -344,6 +385,7 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.fpvNumber}
                 name="fpvNumber"
+                defaultValue={existing?.fpvNumber ?? ""}
                 aria-describedby={ids.fpvHint}
               />
               <label
@@ -377,6 +419,7 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.supervisionInfo}
                 name="supervisionInfo"
+                defaultValue={existing?.supervisionInfo ?? ""}
                 aria-describedby={ids.supervisionHint}
               />
             </div>
@@ -464,6 +507,7 @@ export function ProfessionalOnboardingForm({
                 <input
                   id={ids.licenseNumber}
                   name="licenseNumber"
+                  defaultValue={existing?.licenseNumber ?? ""}
                   aria-describedby={ids.licenseHint}
                 />
               </div>
@@ -474,7 +518,7 @@ export function ProfessionalOnboardingForm({
                 <select
                   id={ids.licenseCountry}
                   name="licenseCountry"
-                  defaultValue="Venezuela"
+                  defaultValue={existing?.licenseCountry ?? "Venezuela"}
                 >
                   {countries.map((country) => (
                     <option key={country} value={country}>
@@ -495,6 +539,7 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.university}
                 name="university"
+                defaultValue={existing?.university ?? ""}
                 required
                 aria-describedby={ids.universityHint}
               />
@@ -526,7 +571,12 @@ export function ProfessionalOnboardingForm({
           <div className="checks">
             {needCategories.map((value) => (
               <label key={value}>
-                <input name="supportAreas" type="checkbox" value={value} />
+                <input
+                  name="supportAreas"
+                  type="checkbox"
+                  value={value}
+                  defaultChecked={existing?.supportAreas.includes(value)}
+                />
                 {needLabels[value]}
               </label>
             ))}
@@ -546,22 +596,34 @@ export function ProfessionalOnboardingForm({
             type="number"
             min="1"
             max="10"
-            defaultValue="3"
+            defaultValue={existing?.maxActiveRequests ?? 3}
             aria-describedby={ids.maxHint}
           />
         </div>
 
         <div className="checks">
           <label>
-            <input name="remoteAvailable" type="checkbox" defaultChecked />
+            <input
+              name="remoteAvailable"
+              type="checkbox"
+              defaultChecked={existing?.remoteAvailable ?? true}
+            />
             Estoy disponible para acompañar en remoto.
           </label>
           <label>
-            <input name="acceptingRequests" type="checkbox" defaultChecked />
+            <input
+              name="acceptingRequests"
+              type="checkbox"
+              defaultChecked={existing?.acceptingRequests ?? true}
+            />
             Quiero recibir solicitudes desde ya.
           </label>
           <label>
-            <input name="crisisExperience" type="checkbox" />
+            <input
+              name="crisisExperience"
+              type="checkbox"
+              defaultChecked={existing?.crisisExperience ?? false}
+            />
             Tengo experiencia acompañando situaciones de crisis.
           </label>
         </div>
@@ -579,6 +641,7 @@ export function ProfessionalOnboardingForm({
             id={ids.shortBio}
             name="shortBio"
             rows={4}
+            defaultValue={existing?.shortBio ?? ""}
             aria-describedby={ids.shortBioHint}
           />
         </div>
@@ -645,13 +708,18 @@ export function ProfessionalOnboardingForm({
               id={ids.contactEmail}
               name="contactEmail"
               type="email"
-              defaultValue={email}
+              defaultValue={existing?.contactEmail ?? email}
               aria-describedby={ids.contactEmailHint}
             />
           </div>
           <div className="field">
             <label htmlFor={ids.contactNotes}>Notas para coordinación</label>
-            <textarea id={ids.contactNotes} name="contactNotes" rows={3} />
+            <textarea
+              id={ids.contactNotes}
+              name="contactNotes"
+              rows={3}
+              defaultValue={existing?.contactNotes ?? ""}
+            />
           </div>
         </div>
       </fieldset>
@@ -661,31 +729,57 @@ export function ProfessionalOnboardingForm({
         <p className="field-help">
           Esto cuida tanto a quien pide ayuda como a ti.
         </p>
+        {editing ? (
+          <p className="hint" style={{ margin: "0 0 10px" }}>
+            Ya los aceptaste al darte de alta; quedan marcados.
+          </p>
+        ) : null}
         <div className="checks">
           <label>
-            <input name="conductFreeService" type="checkbox" required />
+            <input
+              name="conductFreeService"
+              type="checkbox"
+              defaultChecked={editing}
+              required
+            />
             Acepto que el servicio es gratuito para las personas contactadas
             mediante Nido.
           </label>
           <label>
-            <input name="conductNoClientCapture" type="checkbox" required />
+            <input
+              name="conductNoClientCapture"
+              type="checkbox"
+              defaultChecked={editing}
+              required
+            />
             Acepto no usar Nido para captar clientes pagos ni hacer publicidad
             engañosa.
           </label>
           <label>
-            <input name="conductConfidentiality" type="checkbox" required />
+            <input
+              name="conductConfidentiality"
+              type="checkbox"
+              defaultChecked={editing}
+              required
+            />
             Acepto mantener confidencialidad sobre la información recibida.
           </label>
           <label>
             <input
               name="conductNoEmergencyGuarantee"
               type="checkbox"
+              defaultChecked={editing}
               required
             />
             Entiendo que Nido no garantiza respuesta de emergencia.
           </label>
           <label>
-            <input name="conductCompetence" type="checkbox" required />
+            <input
+              name="conductCompetence"
+              type="checkbox"
+              defaultChecked={editing}
+              required
+            />
             Acepto trabajar solo dentro de mi competencia profesional.
           </label>
         </div>
@@ -702,7 +796,13 @@ export function ProfessionalOnboardingForm({
         aria-busy={pending}
         type="submit"
       >
-        {pending ? "Enviando tu perfil…" : "Quiero empezar a ayudar"}
+        {pending
+          ? editing
+            ? "Guardando tus cambios…"
+            : "Enviando tu perfil…"
+          : editing
+            ? "Guardar cambios"
+            : "Quiero empezar a ayudar"}
       </button>
     </form>
   );
