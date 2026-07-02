@@ -23,10 +23,27 @@ const devOrigins =
     ? []
     : ["http://localhost:*", "http://127.0.0.1:*"];
 
+// El dominio público puede servirse con y sin `www.`, y better-auth compara
+// el Origin literal: si solo confiamos en el apex, todo login iniciado desde
+// www.saludmental-venezuela.com muere con INVALID_ORIGIN ("no me deja
+// entrar"). Confiamos en ambas variantes.
+function conVariantesWww(url: string): string[] {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return [url];
+    const alterna = u.hostname.startsWith("www.")
+      ? url.replace("://www.", "://")
+      : `${u.protocol}//www.${u.host}`;
+    return [url, alterna];
+  } catch {
+    return [url];
+  }
+}
+
 const trustedOrigins = Array.from(
   new Set(
-    [baseURL, SITE_URL, ...devOrigins].filter((value): value is string =>
-      Boolean(value),
+    [baseURL, ...conVariantesWww(SITE_URL), ...devOrigins].filter(
+      (value): value is string => Boolean(value),
     ),
   ),
 );
@@ -94,6 +111,14 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 20,
+    // El default de Better Auth para /sign-in* es 3 intentos/10s: demasiado
+    // agresivo para un humano que teclea mal la clave (caps lock, autofill con
+    // espacio, teclado móvil) — al 4º intento recibe 429 y lo vive como "no me
+    // deja entrar". Damos margen humano (10/min) sin abrir la puerta a fuerza
+    // bruta real; el hash PBKDF2 y el kill-switch en D1 siguen protegiendo.
+    customRules: {
+      "/sign-in/email": { window: 60, max: 10 },
+    },
   },
   plugins: [nextCookies()],
   appName: "Nido",

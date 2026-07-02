@@ -10,8 +10,27 @@ const CALLBACK_URL = "/pro/onboarding";
 
 type Mode = "signin" | "signup";
 
-function translateError(error: { code?: string; message?: string } | null) {
+function translateError(
+  error: {
+    code?: string;
+    message?: string;
+    status?: number;
+    statusText?: string;
+  } | null,
+) {
   const code = error?.code ?? "";
+  // Rate limit (429): Better Auth limita /sign-in a 3 intentos/10s. Sin este
+  // caso, un pro que teclea mal la clave un par de veces caía al mensaje
+  // genérico "revisa tus datos", que invita a reintentar y lo deja en bucle
+  // bloqueado ("no me deja entrar"). El 429 no siempre trae `code`, así que
+  // miramos también status/statusText.
+  if (
+    error?.status === 429 ||
+    /TOO_MANY_REQUESTS|RATE_LIMIT/i.test(code) ||
+    /too many|rate.?limit/i.test(error?.statusText ?? "")
+  ) {
+    return "Demasiados intentos seguidos. Espera unos 30 segundos y vuelve a intentar. Si no recuerdas tu clave, usa «¿Olvidaste tu contraseña?».";
+  }
   if (
     /INVALID_EMAIL_OR_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIALS/.test(code)
   ) {
@@ -153,6 +172,28 @@ export function AuthPanel({
             name: name.trim() || correo,
             callbackURL,
           });
+        }
+      }
+
+      // La misma trampa desde "Entrar": quien volvía con un registro huérfano
+      // veía "Correo o contraseña incorrectos" para siempre (la reparación
+      // solo corría en el alta). Si el correo era un huérfano puro, se limpia
+      // y se le guía a crear la cuenta de nuevo; para cuentas reales con
+      // credencial la reparación es un no-op y cae al error normal.
+      if (
+        mode === "signin" &&
+        /INVALID_EMAIL_OR_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIALS/.test(
+          result.error?.code ?? "",
+        )
+      ) {
+        const { reparado } = await repararRegistroHuerfano(correo);
+        if (reparado) {
+          setMode("signup");
+          setPending(false);
+          setInfo(
+            "Tu registro anterior quedó a medias y ya lo limpiamos. Crea tu cuenta de nuevo con este correo para continuar.",
+          );
+          return;
         }
       }
 
