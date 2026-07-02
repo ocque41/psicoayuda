@@ -94,6 +94,14 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 20,
+    // El default de Better Auth para /sign-in* es 3 intentos/10s: demasiado
+    // agresivo para un humano que teclea mal la clave (caps lock, autofill con
+    // espacio, teclado móvil) — al 4º intento recibe 429 y lo vive como "no me
+    // deja entrar". Damos margen humano (10/min) sin abrir la puerta a fuerza
+    // bruta real; el hash PBKDF2 y el kill-switch en D1 siguen protegiendo.
+    customRules: {
+      "/sign-in/email": { window: 60, max: 10 },
+    },
   },
   plugins: [nextCookies()],
   appName: "Nido",
