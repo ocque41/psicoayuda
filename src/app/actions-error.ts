@@ -1,6 +1,7 @@
 "use server";
 
 import { getServerSession } from "@/lib/auth-server";
+import { createErrorIssue } from "@/lib/error-issue";
 import { notifyAdminClientError } from "@/lib/notifications";
 
 export type ClientErrorReport = {
@@ -28,13 +29,13 @@ function clamp(value: unknown, max: number): string {
  */
 export async function reportClientError(report: ClientErrorReport) {
   const session = await getServerSession().catch(() => null);
+  const authenticated = Boolean(session?.user?.id);
   const userLabel = session?.user?.email
     ? `${session.user.email}${session.user.id ? ` (${session.user.id})` : ""}`
     : "anónimo (sin sesión)";
 
   const action = report.lastAction;
-  await notifyAdminClientError({
-    userLabel,
+  const shared = {
     path: clamp(report.path, 300) || "—",
     message: clamp(report.message, 500),
     digest: clamp(report.digest, 120),
@@ -49,5 +50,13 @@ export async function reportClientError(report: ClientErrorReport) {
         }
       : null,
     when: new Date().toISOString(),
-  }).catch(() => {});
+  };
+
+  // Aviso por correo (incluye al usuario) e issue en GitHub (SIN PII, para que un
+  // agente proponga el arreglo). Ambos best-effort e independientes: si uno falla
+  // no afecta al otro ni al flujo del usuario.
+  await Promise.allSettled([
+    notifyAdminClientError({ userLabel, ...shared }),
+    createErrorIssue({ ...shared, authenticated }),
+  ]);
 }
