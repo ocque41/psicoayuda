@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthPanel } from "@/components/auth-panel";
+import { RegistroPasos } from "@/components/registro-pasos";
 import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 
@@ -65,6 +66,7 @@ export default async function ProPage({
           )
         ) : (
           <div className="signin">
+            <RegistroPasos actual={1} />
             <AuthPanel
               defaultMode={defaultMode}
               googleEnabled={googleEnabled}

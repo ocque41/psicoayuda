@@ -7,6 +7,7 @@ import {
   type ExistingProfessional,
   ProfessionalOnboardingForm,
 } from "@/components/professional-onboarding-form";
+import { RegistroPasos } from "@/components/registro-pasos";
 import { db } from "@/db";
 import { professionals } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
@@ -90,9 +91,13 @@ export default async function ProOnboardingPage() {
                 ← Volver al inicio
               </Link>
             </p>
-            <h1>Onboarding profesional</h1>
+            <RegistroPasos actual={2} />
+            <h1>Ya casi: completa tu perfil</h1>
             <p className="muted">
-              Estos datos quedan pendientes de verificación por un coordinador.
+              Son 5 secciones cortas (unos 4 minutos). Al guardar, tu ficha
+              aparece en el directorio y ya puedes recibir solicitudes. Si
+              añades tu credencial, el equipo la revisa y suma el sello de
+              verificación a tu ficha.
             </p>
           </>
         )}

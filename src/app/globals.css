@@ -904,6 +904,81 @@ h2[id] {
   scroll-margin-top: 96px;
 }
 
+/* ============================================================
+   Indicador "Paso X de 2" del alta de voluntarios: nombra los pasos y marca
+   dónde estás. Se muestra sobre el formulario de cuenta (/pro) y sobre el
+   perfil (/pro/onboarding). */
+.registro-pasos {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+}
+
+.registro-paso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.registro-paso.actual {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+.registro-paso.hecho {
+  border-color: var(--accent);
+}
+
+.registro-paso-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--foreground);
+  font-weight: 700;
+  flex: none;
+}
+
+.registro-paso.actual .registro-paso-num,
+.registro-paso.hecho .registro-paso-num {
+  background: var(--accent);
+  color: #fff;
+}
+
+.registro-paso-textos {
+  display: grid;
+  line-height: 1.25;
+}
+
+.registro-paso-etiqueta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 650;
+}
+
+.registro-paso-titulo {
+  font-weight: 650;
+}
+
+@media (max-width: 560px) {
+  .registro-pasos {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 .checks {
   display: grid;
   gap: 10px;

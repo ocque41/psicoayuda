@@ -238,7 +238,7 @@ export function ProfessionalOnboardingForm({
       <p className="muted">Tu cuenta: {email}</p>
 
       <fieldset className="card">
-        <legend>Quién eres</legend>
+        <legend>1 de 5 · Quién eres</legend>
         <div className="grid grid-2">
           <div className="field">
             <label htmlFor={ids.fullName}>Nombre completo *</label>
@@ -340,7 +340,7 @@ export function ProfessionalOnboardingForm({
       </fieldset>
 
       <fieldset className="card">
-        <legend>Tu credencial profesional</legend>
+        <legend>2 de 5 · Tu credencial profesional</legend>
         <p className="field-help">
           La revisa una persona del equipo para confirmar que puedes acompañar.
           Nunca se muestra públicamente. Con acreditar <strong>una</strong> vía
@@ -549,7 +549,7 @@ export function ProfessionalOnboardingForm({
       </fieldset>
 
       <fieldset className="card">
-        <legend>Cómo y a quién quieres acompañar</legend>
+        <legend>3 de 5 · Cómo y a quién quieres acompañar</legend>
         <p className="field-help">
           Tú defines tus límites. Todo esto lo puedes cambiar más adelante.
         </p>
@@ -630,7 +630,7 @@ export function ProfessionalOnboardingForm({
       </fieldset>
 
       <fieldset className="card">
-        <legend>Tu presentación y cómo te coordinamos</legend>
+        <legend>4 de 5 · Tu presentación y cómo te coordinamos</legend>
         <div className="field">
           <label htmlFor={ids.shortBio}>Bio breve</label>
           <p className="hint" id={ids.shortBioHint}>
@@ -725,7 +725,7 @@ export function ProfessionalOnboardingForm({
       </fieldset>
 
       <fieldset className="card">
-        <legend>Nuestro acuerdo compartido *</legend>
+        <legend>5 de 5 · Nuestro acuerdo compartido *</legend>
         <p className="field-help">
           Esto cuida tanto a quien pide ayuda como a ti.
         </p>
