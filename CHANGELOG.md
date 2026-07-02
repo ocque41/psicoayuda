@@ -2,6 +2,107 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.7.1 - 2026-07-02
+
+Registro guiado paso a paso, basado en datos reales del embudo (14 cuentas
+creadas → solo 6 perfiles completados) y prácticas contrastadas de formularios
+multi-paso.
+
+- **`RegistroPasos`** (`src/components/registro-pasos.tsx`): indicador
+  "Paso 1 de 2 · Crea tu cuenta → Paso 2 de 2 · Completa tu perfil" con check
+  al completar, en `/pro` y `/pro/onboarding`.
+- **Secciones numeradas** en el formulario de perfil ("1 de 5 · Quién eres" …
+  "5 de 5 · Nuestro acuerdo").
+- **Copy corregida**: el onboarding decía "pendiente de verificación por un
+  coordinador", pero `saveProfessionalOnboarding` publica el perfil al
+  instante (la verificación FPV solo añade el sello). Ahora comunica el
+  beneficio real: "al guardar, tu ficha aparece en el directorio".
+
+## 0.7.0 - 2026-07-02
+
+Panel del profesional renovado: nadie vuelve a quedarse atrapado.
+
+- **Navegación por secciones** en `/pro/dashboard`: ← Inicio, ✎ Editar mi
+  información, Disponibilidad, Solicitudes, Chats, Personas y Mi cuenta
+  (anclas con `scroll-margin-top`). Antes no existía NINGÚN enlace para editar
+  la información propia.
+- **Edición precargada**: `/pro/onboarding` detecta el perfil existente y
+  precarga TODOS los campos (`ExistingProfessional` en
+  `professional-onboarding-form.tsx`). Antes el formulario cargaba vacío y
+  guardar machacaba el perfil con blancos. El comprobante de registro no se
+  precarga a propósito (ya revisado; evita re-subidas forzadas).
+- **Saludo con estado**: "Hola, {nombre}" + chips (visible/oculto,
+  recibiendo/en pausa, cupo X/Y).
+
+## 0.6.1 - 2026-07-02
+
+Login más amable (contra los "contraseña incorrecta" evitables):
+
+- **Mostrar/Ocultar contraseña** dentro del campo (login, registro y
+  restablecer), con `aria-pressed`.
+- **Aviso de Bloq Mayús** en vivo (`getModifierState`).
+- **Correo a prueba de teclado móvil**: `autocapitalize=none`,
+  `autocorrect=off`, `inputmode=email` y `trim()` antes de cada llamada — el
+  autocompletado móvil colaba espacios finales que rompían el login.
+
+## 0.6.0 - 2026-07-02
+
+Recuperación de contraseña y guardado de credenciales.
+
+- **"¿Olvidaste tu contraseña?"**: `emailAndPassword.sendResetPassword`
+  (Better Auth) + plantilla `buildPasswordResetEmail` (Resend) + página
+  `/pro/restablecer`. Enlace de un solo uso, caduca en 1 h, respuesta neutra
+  (sin revelar si el correo existe), manejo de token caducado/reutilizado.
+- **Credential Management API**: tras login/registro correcto se pide al
+  navegador guardar la credencial (en Chrome/Android el login por `fetch` no
+  disparaba el guardado heurístico) + atributos `name`/`autocomplete`.
+- **Rate limit por IP real**: `advanced.ipAddress.ipAddressHeaders =
+  ["cf-connecting-ip"]`. Antes Better Auth no resolvía la IP en Workers y el
+  rate limit degradaba a UN cupo global compartido entre todos los usuarios.
+- `vitest` con `fileParallelism: false` (dos suites de BD sobre `local.db`
+  daban `SQLITE_BUSY` intermitente).
+
+## 0.5.1 - 2026-07-02
+
+Hotfix del registro roto en producción (caso real: usuaria bloqueada).
+
+- **Causa raíz**: el scrypt JS de Better Auth excedía el límite de CPU del
+  plan Free de Workers y el alta moría ENTRE crear la fila `user` y guardar la
+  credencial → cuenta huérfana ("ya existe una cuenta" al registrarse,
+  "contraseña incorrecta" al entrar), sin salida posible.
+- **PBKDF2-SHA256 vía WebCrypto** (`src/lib/password-hash.ts`): hashing en
+  código nativo con CPU de worker mínima; formato
+  `pbkdf2:<iter>:<salt>:<hash>` con verify compatible con los hashes scrypt
+  previos.
+- **Auto-reparación de huérfanos** (`reclamarUsuarioHuerfano` +
+  `repararRegistroHuerfano`): si el alta devuelve `USER_ALREADY_EXISTS` y la
+  cuenta es un huérfano puro (0 credenciales, 0 sesiones, sin perfil), se
+  elimina con audit log y el registro se reintenta solo. Para cuentas reales
+  es un no-op.
+
+## 0.5.0 - 2026-07-02
+
+Visibilidad de aprobados, botón de admin y auditoría de seguridad pre-merge.
+
+- **Migración 0016** (backfill con guardas de consentimiento): publica SOLO a
+  los perfiles de alta manual pre-4541b16 que quedaron ocultos sin elección
+  propia (`remote_available=0`, `support_areas='[]'`, con log
+  `professional_manual_approval_*` y sin `professional_hidden`). La versión
+  inicial del backfill publicaba también a quien se auto-ocultó (opt-out del
+  checkbox de onboarding); la auditoría de seguridad lo detectó como bypass de
+  consentimiento/PII y se corrigió ANTES de desplegar.
+- **`revalidateDirectoryViews()`**: las 6 acciones que cambian quién aparece
+  en el directorio revalidan `/`, `/profesionales` y `/ayuda` (hoy defensivo —
+  la caché de OpenNext es dummy y todo se renderiza por request — pero
+  imprescindible si se configura caché real).
+- **Botón "Panel admin"** en el nav (PR #24) con endpoint `/api/admin/status`
+  que solo expone el booleano.
+- **`color-scheme: light`** (neutraliza el auto-dark de Chrome Android que
+  rompía el contraste del botón Eliminar) + estados hover/focus de los
+  botones danger.
+- UTM: auditoría de cobertura completa — todos los enlaces salientes pasan por
+  `withUtm` desde 8848c71.
+
 ## 0.4.0 - 2026-06-30
 
 Endurecimiento de integridad de datos, concurrencia, seguridad y privacidad.
