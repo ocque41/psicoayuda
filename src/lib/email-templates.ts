@@ -589,3 +589,79 @@ Gracias por sumarse. Nido · apoyo psicológico voluntario, gratis y a distancia
 
   return { subject, html, text, headers: {} };
 }
+
+/**
+ * Correo de restablecimiento de contraseña ("¿olvidaste tu contraseña?").
+ * Enlace de un solo uso que caduca en 1 hora. Si la persona no lo pidió puede
+ * ignorarlo: su contraseña actual sigue sirviendo. Alta prioridad: quien lo
+ * pide está esperándolo delante de la pantalla.
+ */
+export function buildPasswordResetEmail(input: {
+  resetUrl: string;
+  name?: string | null;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const url = input.resetUrl;
+  const urlAttr = escapeHtml(url);
+
+  const subject = "Crea una contraseña nueva para tu cuenta de Nido";
+  const preheader = "Enlace para crear una contraseña nueva. Caduca en 1 hora.";
+  const lead =
+    "Pediste crear una contraseña nueva para tu cuenta de Nido. Haz clic en el botón y elige una (mínimo 8 caracteres). El enlace es de un solo uso y caduca en 1 hora.";
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#2f7a5b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#245f47;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">${greeting}</p>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:999px;background:#2f7a5b;">
+                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Crear contraseña nueva</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Si tú no pediste este cambio, ignora este correo: tu contraseña actual sigue funcionando. Si el botón no funciona, copia este enlace:<br /><a href="${urlAttr}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${escapeHtml(url)}</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Pediste crear una contraseña nueva para tu cuenta de Nido. Abre este enlace y elige una (mínimo 8 caracteres). Es de un solo uso y caduca en 1 hora:
+${url}
+
+Si tú no pediste este cambio, ignora este correo: tu contraseña actual sigue funcionando.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
