@@ -146,6 +146,14 @@ export function ProfessionalOnboardingForm({
   const [proofDoc, setProofDoc] = useState<string | null>(null);
   const [proofName, setProofName] = useState("");
   const [proofError, setProofError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const [borradorRestaurado, setBorradorRestaurado] = useState(false);
+  // Borrador local contra pérdidas: si el envío explota (p. ej. un deploy en
+  // medio rota las server actions y el POST devuelve 404 "Failed to find
+  // Server Action" — pasó con una voluntaria real) o se recarga la página, lo
+  // escrito se restaura en vez de perderse. Solo aplica al alta: al editar, la
+  // fuente de verdad es el servidor. Los adjuntos no se guardan (pesados).
+  const claveBorrador = `nido-borrador-perfil:${email}`;
   const ids = {
     fullName: `${formId}-full-name`,
     displayName: `${formId}-display-name`,
@@ -188,6 +196,100 @@ export function ProfessionalOnboardingForm({
       errorRef.current?.focus();
     }
   }, [state]);
+
+  // Restauración única al montar. Escribe en el DOM (campos no controlados)
+  // tras la hidratación para no provocar desajustes SSR/cliente.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: debe correr solo una vez
+  useEffect(() => {
+    if (editing) {
+      // Perfil ya guardado en el servidor: cualquier borrador viejo sobra.
+      localStorage.removeItem(claveBorrador);
+      return;
+    }
+    try {
+      const crudo = localStorage.getItem(claveBorrador);
+      if (!crudo) return;
+      const { t, datos } = JSON.parse(crudo) as {
+        t: number;
+        datos: Record<string, string | boolean | string[]>;
+      };
+      if (!datos || Date.now() - t > 7 * 24 * 3_600_000) {
+        localStorage.removeItem(claveBorrador);
+        return;
+      }
+      const form = formRef.current;
+      if (!form) return;
+      let restauroAlgo = false;
+      for (const el of Array.from(form.elements)) {
+        const campo = el as HTMLInputElement;
+        if (!campo.name || campo.type === "file" || campo.type === "hidden") {
+          continue;
+        }
+        const valor = datos[campo.name];
+        if (valor === undefined) continue;
+        if (campo.type === "checkbox") {
+          const marcado = Array.isArray(valor)
+            ? valor.includes(campo.value)
+            : Boolean(valor);
+          if (campo.checked !== marcado) {
+            campo.checked = marcado;
+            restauroAlgo = true;
+          }
+        } else if (typeof valor === "string" && campo.value !== valor) {
+          campo.value = valor;
+          restauroAlgo = true;
+        }
+      }
+      // Los campos controlados van por estado de React, no por el DOM.
+      if (typeof datos.phone === "string") setPhone(datos.phone);
+      if (typeof datos.landline === "string") setLandline(datos.landline);
+      if (typeof datos.emailPublic === "boolean") {
+        setEmailPublic(datos.emailPublic);
+      }
+      if (typeof datos.nonClinicalHelper === "boolean") {
+        setNonClinical(datos.nonClinicalHelper);
+      }
+      if (typeof datos.registrationType === "string") {
+        setRegistrationType(datos.registrationType);
+      }
+      if (restauroAlgo) setBorradorRestaurado(true);
+    } catch {
+      // Borrador corrupto: mejor descartarlo que romper el formulario.
+      localStorage.removeItem(claveBorrador);
+    }
+  }, []);
+
+  function guardarBorrador() {
+    if (editing) return;
+    const form = formRef.current;
+    if (!form) return;
+    const datos: Record<string, string | boolean | string[]> = {};
+    for (const el of Array.from(form.elements)) {
+      const campo = el as HTMLInputElement;
+      if (!campo.name || campo.type === "file" || campo.type === "hidden") {
+        continue;
+      }
+      if (campo.type === "checkbox") {
+        if (campo.name === "supportAreas") {
+          const lista = (datos.supportAreas as string[]) ?? [];
+          if (campo.checked) lista.push(campo.value);
+          datos.supportAreas = lista;
+        } else {
+          datos[campo.name] = campo.checked;
+        }
+      } else {
+        datos[campo.name] = campo.value;
+      }
+    }
+    try {
+      localStorage.setItem(
+        claveBorrador,
+        JSON.stringify({ t: Date.now(), datos }),
+      );
+    } catch {
+      // localStorage lleno o bloqueado: el borrador es best-effort.
+    }
+  }
 
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -234,8 +336,21 @@ export function ProfessionalOnboardingForm({
   }
 
   return (
-    <form action={action} className="card" aria-busy={pending}>
+    <form
+      action={action}
+      className="card"
+      aria-busy={pending}
+      ref={formRef}
+      onInput={guardarBorrador}
+      onChange={guardarBorrador}
+    >
       <p className="muted">Tu cuenta: {email}</p>
+
+      {borradorRestaurado ? (
+        <p className="status-message" role="status">
+          Recuperamos lo que habías escrito ✓ Revisa y continúa donde ibas.
+        </p>
+      ) : null}
 
       <fieldset className="card">
         <legend>1 de 5 · Quién eres</legend>

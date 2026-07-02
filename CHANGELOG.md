@@ -2,6 +2,23 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.7.2 - 2026-07-02
+
+Borrador automático del formulario de perfil (caso real: una voluntaria
+completó todo el alta y un deploy simultáneo rotó los IDs de las server
+actions — su POST devolvió 404 "Failed to find Server Action", vio "Algo
+salió mal" y perdió los ~4 minutos de formulario).
+
+- **Borrador local en `localStorage`** (`nido-borrador-perfil:<email>`): se
+  guarda en cada tecleo/cambio (campos de texto, selects y checkboxes; los
+  adjuntos no) y se restaura al volver a montar el formulario, con aviso
+  "Recuperamos lo que habías escrito ✓". TTL de 7 días.
+- Solo aplica al ALTA: en modo edición la fuente de verdad es el servidor y
+  cualquier borrador viejo se descarta. Al completar el alta, la siguiente
+  visita (ya en modo edición) limpia el borrador.
+- Con esto, un deploy a mitad de formulario (o un cierre accidental) cuesta
+  una recarga, no volver a escribirlo todo.
+
 ## 0.7.1 - 2026-07-02
 
 Registro guiado paso a paso, basado en datos reales del embudo (14 cuentas
