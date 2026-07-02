@@ -281,6 +281,7 @@ export function buildOrgSearchBlob(org: Organization): string {
   if (org.virtual24h) {
     parts.push("asistencia virtual 24 horas online remoto disponible siempre");
   }
+  if (org.searchHints) parts.push(org.searchHints);
   parts.push(ORG_UNIVERSAL_KEYWORDS);
   return normalize(parts.join(" "));
 }

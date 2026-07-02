@@ -193,6 +193,16 @@ describe("búsqueda de organizaciones", () => {
     expect(blobMatchesQuery(blob, "24 horas")).toBe(true);
     expect(blobMatchesQuery(blob, "centro")).toBe(true);
   });
+
+  it("indexa searchHints (p. ej. la descripción de una fundación)", () => {
+    const withHints = buildOrgSearchBlob(
+      fakeOrg({
+        searchHints: "primeros auxilios psicológicos en emergencias",
+      }),
+    );
+    expect(blobMatchesQuery(withHints, "primeros auxilios")).toBe(true);
+    expect(blobMatchesQuery(withHints, "emergencias")).toBe(true);
+  });
 });
 
 describe("filtros del directorio de apoyo unificado", () => {

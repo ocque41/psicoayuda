@@ -3,6 +3,7 @@ import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { partners } from "@/db/schema";
+import type { Organization, OrgService } from "@/lib/organizations";
 import { toIntlNumber } from "@/lib/phone";
 import { withUtm } from "@/lib/utm";
 
@@ -177,4 +178,41 @@ export function partnerCarouselHref(partner: Partner): string {
     return partnerContactHref(primary) ?? `/alianzas#${partner.id}`;
   }
   return `/alianzas#${partner.id}`;
+}
+
+/**
+ * Adapta los aliados (`partners`, D1) al tipo `Organization` para que TAMBIÉN
+ * salgan en el buscador de /ayuda y /profesionales (bajo "Todos" y
+ * "Organizaciones"). El contacto se resuelve a un único enlace; la ficha completa
+ * con todas las vías vive en /alianzas. La `description` va a `searchHints` para
+ * que la fundación se encuentre por su contenido, no solo por su nombre/enfoque.
+ */
+export function partnersToOrganizations(list: Partner[]): Organization[] {
+  const psychology: OrgService = "psicologia";
+  return list.map((partner): Organization => {
+    const contactValue = (type: PartnerContact["type"]) =>
+      partner.contacts.find((contact) => contact.type === type)?.value;
+    const website = contactValue("website");
+    const instagram = contactValue("instagram");
+    const url = website
+      ? /^https?:\/\//i.test(website)
+        ? website
+        : `https://${website}`
+      : instagram
+        ? `https://instagram.com/${instagram.replace(/^@/, "")}`
+        : undefined;
+    return {
+      id: partner.id,
+      name: partner.name,
+      tagline: partner.specialty || undefined,
+      logo: partner.logo || undefined,
+      phone: contactValue("whatsapp") ?? contactValue("phone"),
+      email: contactValue("email"),
+      url,
+      specialties: [],
+      services: [psychology],
+      virtual24h: false,
+      searchHints: partner.description || undefined,
+    };
+  });
 }
