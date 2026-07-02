@@ -36,7 +36,7 @@ export const ALLIED_CATEGORIES: readonly AlliedCategory[] = [
     links: [
       {
         name: "Búsqueda de niñas y niños (prioritario)",
-        url: "https://busca.nexosignal.co/",
+        url: "https://terremotovenezuela.com/",
       },
       {
         name: "Reporte de personas desaparecidas",

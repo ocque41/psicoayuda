@@ -36,7 +36,7 @@ export const EMERGENCY_RESOURCES: readonly EmergencyCategory[] = [
     id: "busqueda-ninos",
     title: "Búsqueda de niños (prioritario)",
     priority: true,
-    links: [link("busca.nexosignal.co")],
+    links: [link("terremotovenezuela.com")],
   },
   {
     id: "personas-desaparecidas",
