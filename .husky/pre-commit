@@ -1,0 +1,23 @@
+# pre-commit (husky): auto-formatea con Biome (equivalente a Black para JS/TS)
+# antes de cada commit. Formatea SOLO los archivos staged y los re-agrega.
+
+# Resuelve el binario de biome: 1) worktree actual, 2) worktree principal
+# (repo comun), 3) npx. Rutas quoteadas (soportan espacios en la ruta).
+run_biome() {
+  if [ -x "./node_modules/.bin/biome" ]; then
+    "./node_modules/.bin/biome" "$@"
+    return $?
+  fi
+  common=$(git rev-parse --git-common-dir 2>/dev/null)
+  if [ -n "$common" ] && [ -x "$common/../node_modules/.bin/biome" ]; then
+    "$common/../node_modules/.bin/biome" "$@"
+    return $?
+  fi
+  npx --no-install biome "$@"
+}
+
+# Formatea en sitio los archivos staged (no bloquea el commit si algo falla)
+run_biome format --write --staged --no-errors-on-unmatched . || exit 0
+
+# Re-agrega al index los cambios de formato aplicados a archivos ya staged
+git update-index --again

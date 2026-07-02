@@ -40,7 +40,8 @@
     "typecheck:worker": "tsc -p tsconfig.worker.json",
     "test": "vitest run",
     "test:workers": "vitest run --config vitest.workers.config.mts",
-    "test:chat-e2e": "node test/run-chat-e2e.mjs"
+    "test:chat-e2e": "node test/run-chat-e2e.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -70,6 +71,7 @@
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "0.31.10",
+    "husky": "^9.1.7",
     "tailwindcss": "4.3.1",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
