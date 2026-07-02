@@ -1409,6 +1409,22 @@ body {
   gap: var(--space-4);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  /* Desvanecido en los bordes: los logos se difuminan al entrar/salir. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent
+  );
 }
 
 .partner-slide {
@@ -1437,8 +1453,11 @@ body {
 
 a.partner-link:hover,
 a.partner-link:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
+  transform: translateY(-3px);
+  /* Elevación + anillo sutil con el verde claro de marca. */
+  box-shadow:
+    var(--shadow),
+    0 0 0 1.5px var(--accent-tint);
 }
 
 .partner-cta {
@@ -1447,6 +1466,22 @@ a.partner-link:focus-visible {
   color: var(--accent-strong);
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+/* Respeta prefers-reduced-motion: sin desplazamientos ni transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  .partner-link {
+    transition: none;
+  }
+
+  a.partner-link:hover,
+  a.partner-link:focus-visible {
+    transform: none;
+  }
+
+  .partners-carousel {
+    scroll-behavior: auto;
+  }
 }
 
 /* Nombre "en limpio" cuando un aliado no tiene logo (carrusel y escaparate). */
