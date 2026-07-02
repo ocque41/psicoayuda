@@ -1853,3 +1853,52 @@ a.partner-link:focus-visible {
 .link-button:hover {
   color: var(--accent-strong);
 }
+
+/* Pop-up "ver todos los datos de contacto" (fundaciones con varias líneas). */
+.org-dialog {
+  width: 100%;
+  max-width: min(460px, 92vw);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow);
+}
+
+.org-dialog::backdrop {
+  background: rgba(43, 39, 35, 0.45);
+}
+
+.org-dialog-body {
+  padding: var(--space-6);
+}
+
+.org-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.org-dialog-close {
+  flex: 0 0 auto;
+  margin: -4px -4px 0 0;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.org-dialog-close:hover {
+  color: var(--foreground);
+}
+
+.org-dialog-label {
+  margin: var(--space-5) 0 var(--space-2);
+  font-weight: 600;
+}

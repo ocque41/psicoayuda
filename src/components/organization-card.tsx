@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { ExpandableText } from "@/components/expandable-text";
+import { OrgContactsDialog } from "@/components/org-contacts-dialog";
 import {
   type Organization,
   orgServiceLabels,
@@ -97,28 +98,29 @@ export function OrganizationCard({
       <div className="pro-card-actions">
         {organization.contactLinks?.length ? (
           <div className="pro-contact">
-            {organization.contactLinks.map((link, index) => (
-              <a
-                key={link.href}
-                className={
-                  link.tone === "human"
-                    ? "button human block"
-                    : link.tone === "secondary"
-                      ? "button secondary block"
-                      : "muted"
-                }
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={
-                  index === 0
-                    ? undefined
-                    : { display: "block", marginTop: "6px" }
-                }
-              >
-                {link.text}
-              </a>
-            ))}
+            {/* Vía principal directa; el resto (varias líneas/números) se abren
+                en el pop-up para no alargar la tarjeta. */}
+            <a
+              className={
+                organization.contactLinks[0].tone === "human"
+                  ? "button human block"
+                  : organization.contactLinks[0].tone === "secondary"
+                    ? "button secondary block"
+                    : "muted"
+              }
+              href={organization.contactLinks[0].href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {organization.contactLinks[0].text}
+            </a>
+            {organization.contactLinks.length > 1 ? (
+              <OrgContactsDialog
+                orgName={organization.name}
+                description={organization.description}
+                links={organization.contactLinks}
+              />
+            ) : null}
           </div>
         ) : (
           <div className="pro-contact">
