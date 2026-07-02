@@ -106,6 +106,13 @@
       "when": 1782944800000,
       "tag": "0014_set_partner_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1782945000000,
+      "tag": "0015_add_partners_batch2",
+      "breakpoints": true
     }
   ]
 }
