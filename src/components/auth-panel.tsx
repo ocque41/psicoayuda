@@ -63,10 +63,13 @@ export function AuthPanel({
 }) {
   const router = useRouter();
   const ids = useId();
-  const [mode, setMode] = useState<Mode>(defaultMode);
+  // "reset" es una vista interna (¿olvidaste tu contraseña?): no entra por
+  // defaultMode, que sigue siendo solo entrar/crear cuenta.
+  const [mode, setMode] = useState<Mode | "reset">(defaultMode);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -96,8 +99,29 @@ export function AuthPanel({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setInfo("");
     setPending(true);
     try {
+      if (mode === "reset") {
+        // Respuesta neutra exista o no la cuenta: no confirmamos correos
+        // registrados a terceros (el servidor tampoco lo hace).
+        const res = await authClient.requestPasswordReset({
+          email,
+          redirectTo: "/pro/restablecer",
+        });
+        setPending(false);
+        if (res.error) {
+          setError(
+            "No pudimos enviar el enlace. Espera un minuto e intenta de nuevo.",
+          );
+          return;
+        }
+        setInfo(
+          "Si ese correo tiene cuenta, te enviamos un enlace para crear una contraseña nueva. Revisa también el spam; caduca en 1 hora.",
+        );
+        return;
+      }
+
       let result =
         mode === "signup"
           ? await authClient.signUp.email({
@@ -132,6 +156,25 @@ export function AuthPanel({
         setPending(false);
         return;
       }
+      // Pide al navegador guardar/actualizar la contraseña. En Chrome/Android
+      // (la mayoría aquí) el guardado solo es fiable con la Credential
+      // Management API: el login va por fetch y la heurística del formulario
+      // no siempre salta. En Safari bastan los autocomplete del formulario.
+      try {
+        const w = window as unknown as {
+          PasswordCredential?: new (data: {
+            id: string;
+            password: string;
+          }) => Credential;
+        };
+        if (w.PasswordCredential && navigator.credentials?.store) {
+          await navigator.credentials.store(
+            new w.PasswordCredential({ id: email, password }),
+          );
+        }
+      } catch {
+        // best-effort: si el navegador lo bloquea, el login sigue igual
+      }
       router.push(callbackURL);
       router.refresh();
     } catch {
@@ -144,7 +187,7 @@ export function AuthPanel({
 
   return (
     <div className="card auth-panel">
-      {googleEnabled ? (
+      {googleEnabled && mode !== "reset" ? (
         <>
           <button
             type="button"
@@ -179,33 +222,60 @@ export function AuthPanel({
           <label htmlFor={`${ids}-email`}>Correo</label>
           <input
             id={`${ids}-email`}
+            name="email"
             type="email"
             required
-            autoComplete="email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
-        <div className="field">
-          <label htmlFor={`${ids}-password`}>Contraseña</label>
-          <input
-            id={`${ids}-password`}
-            type="password"
-            required
-            minLength={8}
-            autoComplete={
-              mode === "signup" ? "new-password" : "current-password"
-            }
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {mode === "signup" && <p className="hint">Al menos 8 caracteres.</p>}
-        </div>
+        {mode !== "reset" && (
+          <div className="field">
+            <label htmlFor={`${ids}-password`}>Contraseña</label>
+            <input
+              id={`${ids}-password`}
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete={
+                mode === "signup" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {mode === "signup" && (
+              <p className="hint">Al menos 8 caracteres.</p>
+            )}
+          </div>
+        )}
+
+        {mode === "signin" && (
+          <p className="auth-toggle">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("reset");
+                setError("");
+                setInfo("");
+              }}
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </p>
+        )}
 
         {error ? (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        ) : null}
+
+        {info ? (
+          <p className="status-message" role="status">
+            {info}
           </p>
         ) : null}
 
@@ -219,7 +289,9 @@ export function AuthPanel({
             ? "Un momento…"
             : mode === "signup"
               ? "Crear mi cuenta"
-              : "Entrar"}
+              : mode === "reset"
+                ? "Enviarme el enlace"
+                : "Entrar"}
         </button>
       </form>
 
@@ -232,6 +304,7 @@ export function AuthPanel({
               onClick={() => {
                 setMode("signup");
                 setError("");
+                setInfo("");
               }}
             >
               Crea una
@@ -245,6 +318,7 @@ export function AuthPanel({
               onClick={() => {
                 setMode("signin");
                 setError("");
+                setInfo("");
               }}
             >
               Entra
