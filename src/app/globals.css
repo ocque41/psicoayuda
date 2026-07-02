@@ -1906,10 +1906,27 @@ a.partner-link:focus-visible {
   color: var(--accent-strong);
 }
 
-/* Pop-up "ver todos los datos de contacto" (fundaciones con varias líneas). */
+/* Pop-up "ver todos los datos de contacto" (fundaciones con varias líneas).
+   Modal centrado con TODOS los contactos en filas tappables IGUALES: badge verde
+   con icono de WhatsApp + texto legible del nombre/línea/número, sobre superficie
+   suave para que el número resalte. Coherente con la estética "libro amarillo". */
 .org-dialog {
-  width: 100%;
+  /* CENTRADO a prueba de balas. El Preflight de Tailwind v4 aplica `margin: 0`
+     a `*,::backdrop`, y eso PISA el `margin:auto` con el que el navegador centra
+     un <dialog> abierto con showModal() -> se iba arriba-izquierda. Al reponer
+     `margin:auto` aquí (0-1-0 gana al reset 0-0-0, sin !important) el UA vuelve a
+     centrarlo H y V respecto al viewport. `inset:0` fija la caja de contención al
+     viewport para que margin:auto reparta el hueco por los 4 lados. NO usamos
+     position:fixed propio: el navegador ya promueve el dialog modal al top-layer
+     como fixed; redefinirlo rompería el apilado/backdrop. */
+  margin: auto;
+  inset: 0;
+  width: min(460px, 92vw);
   max-width: min(460px, 92vw);
+  /* Alto acotado + scroll interno vertical (en el cuerpo): en móvil evita
+     desbordes verticales sin llegar nunca a scroll horizontal. */
+  max-height: min(85vh, 640px);
+  overflow: hidden;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1923,6 +1940,11 @@ a.partner-link:focus-visible {
 }
 
 .org-dialog-body {
+  /* El cuerpo es quien scrollea (no el <dialog>) para respetar max-height. */
+  max-height: min(85vh, 640px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: var(--space-6);
 }
 
@@ -1931,26 +1953,160 @@ a.partner-link:focus-visible {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.org-dialog-title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--step-1, 1.25rem);
+  line-height: 1.25;
+  /* Nombres largos de organización no deben desbordar en ~375px. */
+  overflow-wrap: anywhere;
 }
 
 .org-dialog-close {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   margin: -4px -4px 0 0;
-  padding: 0 6px;
+  padding: 0;
   border: 0;
+  border-radius: var(--radius-pill);
   background: none;
-  font-size: 1.6rem;
-  line-height: 1.2;
+  font-size: 1.5rem;
+  line-height: 1;
   color: var(--muted);
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .org-dialog-close:hover {
+  background: var(--surface-soft);
   color: var(--foreground);
 }
 
+.org-dialog-close:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Descripción completa dentro de una caja muted redondeada. */
+.org-dialog-desc {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .org-dialog-label {
-  margin: var(--space-5) 0 var(--space-2);
+  margin: var(--space-5) 0 var(--space-3);
   font-weight: 600;
+}
+
+/* Lista de contactos: todos IGUALES, sin viñetas, apilados. */
+.org-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada contacto = fila tappable uniforme (ignora `tone`). Fondo suave para que
+   el badge verde y el número del teléfono destaquen y sean fáciles de escanear. */
+.org-contact-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--foreground);
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+
+.org-contact-row:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.org-contact-row:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.org-contact-row:active {
+  transform: translateY(1px);
+}
+
+/* Círculo verde con el icono de WhatsApp: comunica el canal de un vistazo. */
+.org-contact-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+}
+
+.org-contact-icon {
+  display: block;
+}
+
+/* Texto ("Línea 1 — Escribir por WhatsApp · 0414 121 7882"): envuelve en varias
+   líneas y parte el número sin provocar scroll horizontal en ~375px. */
+.org-contact-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.org-contact-chevron {
+  flex: 0 0 auto;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.org-contact-row:hover .org-contact-chevron,
+.org-contact-row:focus-visible .org-contact-chevron {
+  color: var(--accent);
+}
+
+/* Respetar prefers-reduced-motion: sin transiciones ni desplazamientos. */
+@media (prefers-reduced-motion: reduce) {
+  .org-contact-row,
+  .org-dialog-close {
+    transition: none;
+  }
+
+  .org-contact-row:active {
+    transform: none;
+  }
 }
