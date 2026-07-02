@@ -113,6 +113,13 @@
       "when": 1782945000000,
       "tag": "0015_add_partners_batch2",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1782960600000,
+      "tag": "0016_backfill_visibilidad_aprobados",
+      "breakpoints": true
     }
   ]
 }

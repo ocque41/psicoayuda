@@ -396,6 +396,7 @@ export async function saveProfessionalOnboarding(
     });
   }
 
+  revalidateDirectoryViews();
   redirect("/pro/dashboard");
 }
 
@@ -417,6 +418,16 @@ export async function updateProfessionalAvailability(formData: FormData) {
     );
 
   revalidatePath("/pro/dashboard");
+  revalidateDirectoryViews();
+}
+
+// Revalida las vistas públicas donde se lista a los profesionales. Llamar tras
+// cualquier cambio que altere quién aparece o cómo (estado, visibilidad, tipo,
+// disponibilidad). Mismo patrón que revalidatePartnerViews en actions-partners.
+function revalidateDirectoryViews() {
+  revalidatePath("/");
+  revalidatePath("/profesionales");
+  revalidatePath("/ayuda");
 }
 
 export async function adminUpdateProfessionalStatus(formData: FormData) {
@@ -483,6 +494,7 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidateDirectoryViews();
 }
 
 // Reclasifica el tipo de un profesional ya dado de alta: certificado (con
@@ -514,6 +526,7 @@ export async function adminSetProfessionalKind(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidateDirectoryViews();
 }
 
 // Muestra u oculta a un profesional del directorio público (remoteAvailable).
@@ -544,15 +557,16 @@ export async function adminSetProfessionalVisibility(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidateDirectoryViews();
 }
 
 // Alta manual desde /admin de una cuenta que se registró pero no completó el
 // onboarding. Crea un perfil aprobado con el tipo elegido (certificado o
-// auxiliar no clínico), pero FUERA del directorio público (remoteAvailable=false)
-// y sin aceptar solicitudes: no tiene áreas, bio ni credencial todavía. Cuando la
-// persona complete su perfil en /pro/onboarding, ese formulario rellena los datos
-// y activa su disponibilidad (saveProfessionalOnboarding no toca el status, así
-// que sigue aprobado).
+// auxiliar no clínico), VISIBLE en el directorio y aceptando contacto desde el
+// alta (desde 4541b16; antes quedaba oculto). La ficha empieza mínima —sin
+// áreas, bio ni credencial— y se enriquece cuando la persona complete
+// /pro/onboarding (saveProfessionalOnboarding no toca el status, así que sigue
+// aprobado). El admin puede retirarla con el botón Ocultar.
 export async function adminApproveIncompleteRegistration(formData: FormData) {
   const admin = await requireAdmin();
   if (!admin) redirect("/pro");
@@ -621,6 +635,7 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidateDirectoryViews();
 }
 
 export async function adminUpdateHelpRequestStatus(formData: FormData) {
