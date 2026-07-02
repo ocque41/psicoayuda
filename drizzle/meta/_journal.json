@@ -99,6 +99,13 @@
       "when": 1782944715946,
       "tag": "0013_add_professional_fpv_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1782944800000,
+      "tag": "0014_set_partner_logos",
+      "breakpoints": true
     }
   ]
 }
