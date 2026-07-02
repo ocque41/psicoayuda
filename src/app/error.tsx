@@ -12,6 +12,30 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Auto-recuperación de "chunk viejo": tras un deploy, un tab abierto con el
+    // bundle anterior puede pedir al navegar (clic en un Link) un chunk que ese
+    // deploy ya borró → ChunkLoadError → esta pantalla. Una recarga completa trae
+    // el bundle nuevo y lo arregla sola. Guardia de tiempo para no entrar en bucle
+    // si la recarga no lo resuelve (chunk realmente caído): en ese caso, se reporta.
+    const isChunkError =
+      error.name === "ChunkLoadError" ||
+      /loading chunk|loading css chunk|dynamically imported module|module script failed/i.test(
+        `${error.name} ${error.message}`,
+      );
+    if (isChunkError) {
+      try {
+        const last = Number(sessionStorage.getItem("nido:chunk-reload") ?? "0");
+        if (Date.now() - last > 15000) {
+          sessionStorage.setItem("nido:chunk-reload", String(Date.now()));
+          location.reload();
+          return;
+        }
+      } catch {
+        location.reload();
+        return;
+      }
+    }
+
     // Deduplica por sesión: si el usuario reintenta o un bug se repite, no
     // inundamos el buzón de los admins con el mismo error en la misma ruta.
     const key = `nido:err:${error.digest ?? error.message}:${location.pathname}`;
