@@ -149,6 +149,41 @@ export function DirectoryJsonLd() {
 }
 
 /**
+ * `ItemList` del listado del directorio (para que los buscadores entiendan que la
+ * página es una lista ordenada de recursos). Enumera SOLO por posición + nombre
+ * público, con `ListItem` (no `Person`, sin contacto ni ubicación), coherente con
+ * el criterio de privacidad de `DirectoryJsonLd`. Recibe los nombres ya
+ * renderizados en la página (mismo texto visible que exige Google).
+ */
+export function DirectoryItemListJsonLd({
+  path,
+  names,
+}: {
+  path: string;
+  names: readonly string[];
+}) {
+  if (names.length === 0) return null;
+  return (
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "@id": `${SITE_URL}${path}#itemlist`,
+        url: absoluteUrl(path),
+        inLanguage: "es",
+        numberOfItems: names.length,
+        itemListOrder: "https://schema.org/ItemListOrderAscending",
+        itemListElement: names.map((name, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name,
+        })),
+      }}
+    />
+  );
+}
+
+/**
  * `FAQPage` independiente para la página dedicada de preguntas frecuentes.
  * El texto debe coincidir con el visible (requisito de Google), por eso recibe
  * las mismas preguntas/respuestas que se renderizan en la página.

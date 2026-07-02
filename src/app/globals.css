@@ -1719,3 +1719,56 @@ a.partner-link:focus-visible {
   color: var(--muted);
   font-weight: 400;
 }
+
+/* --- Buscador de apoyo: entrada escalonada (stagger) al filtrar --- */
+/* Solo con movimiento permitido (respeta prefers-reduced-motion). Las rejillas
+   se re-montan al cambiar filtros (key), así que la animación se reproduce. El
+   retardo se escalona por posición y se topa a partir de la 7ª tarjeta para que
+   listas largas no arrastren esperas. */
+@media (prefers-reduced-motion: no-preference) {
+  .support-stagger > * {
+    animation: support-card-in 300ms ease both;
+  }
+  .support-stagger > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .support-stagger > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .support-stagger > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .support-stagger > *:nth-child(5) {
+    animation-delay: 160ms;
+  }
+  .support-stagger > *:nth-child(6) {
+    animation-delay: 200ms;
+  }
+  .support-stagger > *:nth-child(n + 7) {
+    animation-delay: 240ms;
+  }
+
+  .support-count {
+    animation: support-count-in 260ms ease both;
+  }
+}
+
+@keyframes support-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes support-count-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

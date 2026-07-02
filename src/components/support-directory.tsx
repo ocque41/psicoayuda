@@ -35,45 +35,89 @@ const QUICK_SEARCHES = [
   "Autoestima",
 ];
 
+// Espera antes de aplicar lo tecleado (no filtra ni reescribe la URL en cada
+// pulsación). Los clics (atajos, limpiar) se aplican al instante, sin esperar.
+const SEARCH_DEBOUNCE_MS = 250;
+
+function normalizeType(value: string | undefined): SupportType {
+  return value === "psicologo" ||
+    value === "auxiliar" ||
+    value === "organizacion"
+    ? value
+    : "";
+}
+
+export type SupportInitialFilters = {
+  q?: string;
+  type?: string;
+  topic?: string;
+  onlyAvailable?: boolean;
+};
+
 /**
  * Directorio público de "pedir ayuda": una sola barra de búsqueda + filtros sobre
- * la lista (pública, pequeña) que llega ya renderizada del servidor. Reúne en un
- * mismo sitio a las personas voluntarias (psicólogas/os con licencia y auxiliares
- * no clínicos) y a las organizaciones aliadas, con filtros por tipo, por tema
- * (necesidad, enfoque o servicio) y por disponibilidad. Todo el filtrado ocurre
- * en el cliente (sin recargas, conservando el SSR/ISR). Si la búsqueda sugiere
- * riesgo, antepone los recursos de crisis verificados.
+ * la lista (pública, pequeña) que llega ya renderizada del servidor. Reúne a las
+ * personas voluntarias (psicólogas/os y auxiliares no clínicos) y a las
+ * organizaciones aliadas, con filtros por tipo, por tema y por disponibilidad.
+ *
+ * Estado de filtros COMPARTIBLE: se inicializa desde `initialFilters` (que la
+ * página lee de la URL en el servidor → el primer render ya sale filtrado, sin
+ * parpadeo ni spinner) y se refleja en la URL (`?q`, `?tipo`, `?tema`, `?disp`)
+ * con `replaceState`. La barra lleva debounce. Si la búsqueda sugiere riesgo,
+ * antepone los recursos de crisis verificados.
  */
 export function SupportDirectory({
   professionals,
   organizations,
+  initialFilters,
 }: {
   professionals: FeedProfessional[];
   organizations: Organization[];
+  initialFilters?: SupportInitialFilters;
 }) {
-  const [query, setQuery] = useState("");
-  const [type, setType] = useState<SupportType>("");
-  const [topic, setTopic] = useState("");
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  // `input` controla la barra (inmediato); `query` es lo que filtra y va a la URL
+  // (con debounce). Ambos arrancan del valor inicial que llega del servidor.
+  const initialQuery = initialFilters?.q ?? "";
+  const [input, setInput] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
+  const [type, setType] = useState<SupportType>(
+    normalizeType(initialFilters?.type),
+  );
+  const [topic, setTopic] = useState(initialFilters?.topic ?? "");
+  const [onlyAvailable, setOnlyAvailable] = useState(
+    initialFilters?.onlyAvailable ?? false,
+  );
   const searchId = useId();
   const typeId = useId();
   const topicId = useId();
 
-  // Si llega ?q= (p. ej. desde el buscador de la portada), precarga la consulta.
+  // Debounce: la barra actualiza `input` al instante, pero `query` (filtrado +
+  // URL) espera a que dejes de teclear.
   useEffect(() => {
-    const initial = new URLSearchParams(window.location.search).get("q");
-    if (initial) setQuery(initial);
-  }, []);
+    const timer = setTimeout(() => setQuery(input), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [input]);
 
-  // Refleja la búsqueda en la URL (?q=) para poder compartir el resultado.
+  // Refleja los filtros en la URL para poder compartir/guardar el resultado.
   // `replaceState` no navega, no recarga y no ensucia el historial.
   useEffect(() => {
     const url = new URL(window.location.href);
-    const trimmed = query.trim();
-    if (trimmed) url.searchParams.set("q", trimmed);
-    else url.searchParams.delete("q");
+    const setParam = (key: string, value: string) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    };
+    setParam("q", query.trim());
+    setParam("tipo", type);
+    setParam("tema", topic);
+    setParam("disp", onlyAvailable ? "1" : "");
     window.history.replaceState(null, "", url.toString());
-  }, [query]);
+  }, [query, type, topic, onlyAvailable]);
+
+  // Aplica una consulta al instante (atajos, limpiar): sin esperar al debounce.
+  function applyQuery(value: string) {
+    setInput(value);
+    setQuery(value);
+  }
 
   // Grupos realmente presentes: solo ofrecemos filtros que pueden dar resultados.
   const hasAux = professionals.some((pro) => pro.nonClinicalHelper);
@@ -145,15 +189,19 @@ export function SupportDirectory({
 
   const total = matchedPros.length + matchedOrgs.length;
 
+  // Firma de los filtros: al cambiar, re-montamos las rejillas para que la
+  // animación de entrada (stagger) se reproduzca de nuevo.
+  const resultKey = `${type}|${topic}|${onlyAvailable ? "1" : "0"}|${query}`;
+
   // Riesgo: si la consulta sugiere autolesión/suicidio, anteponemos los recursos
   // de crisis (Nido no atiende emergencias en tiempo real).
   const crisisIntent = useMemo(() => detectCrisis(query), [query]);
 
   const hasActiveFilters =
-    query.trim() !== "" || type !== "" || topic !== "" || onlyAvailable;
+    input.trim() !== "" || type !== "" || topic !== "" || onlyAvailable;
 
   function clearFilters() {
-    setQuery("");
+    applyQuery("");
     setType("");
     setTopic("");
     setOnlyAvailable(false);
@@ -187,8 +235,8 @@ export function SupportDirectory({
           <input
             id={searchId}
             type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
             placeholder="Ej.: ansiedad, no puedo dormir, duelo, niños, autismo…"
             autoComplete="off"
             style={{ minHeight: 54 }}
@@ -205,12 +253,12 @@ export function SupportDirectory({
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {QUICK_SEARCHES.map((term) => {
-              const active = query.trim().toLowerCase() === term.toLowerCase();
+              const active = input.trim().toLowerCase() === term.toLowerCase();
               return (
                 <button
                   key={term}
                   type="button"
-                  onClick={() => setQuery(term)}
+                  onClick={() => applyQuery(term)}
                   aria-pressed={active}
                   style={{
                     display: "inline-flex",
@@ -382,7 +430,7 @@ export function SupportDirectory({
       </h2>
 
       {/* Región viva: anuncia el recuento o el "sin resultados" al filtrar en
-          vivo (WCAG 4.1.3). */}
+          vivo (WCAG 4.1.3). El `key` reproduce un fundido sutil al cambiar. */}
       <div role="status" aria-live="polite" aria-atomic="true">
         {total === 0 ? (
           <div className="card">
@@ -394,7 +442,7 @@ export function SupportDirectory({
             </p>
           </div>
         ) : (
-          <p className="muted">
+          <p className="muted support-count" key={total}>
             {total} {total === 1 ? "resultado" : "resultados"}
             {matchedPros.length && matchedOrgs.length
               ? ` · ${matchedPros.length} ${
@@ -411,7 +459,10 @@ export function SupportDirectory({
       {matchedPros.length ? (
         <>
           {matchedOrgs.length ? <h3>Personas voluntarias</h3> : null}
-          <div className="grid grid-2">
+          <div
+            className="grid grid-2 support-stagger"
+            key={`pros-${resultKey}`}
+          >
             {matchedPros.map((professional) => (
               <FeedProfessionalCard
                 key={professional.id}
@@ -425,7 +476,10 @@ export function SupportDirectory({
       {matchedOrgs.length ? (
         <>
           <h3>Organizaciones aliadas</h3>
-          <div className="grid grid-2">
+          <div
+            className="grid grid-2 support-stagger"
+            key={`orgs-${resultKey}`}
+          >
             {matchedOrgs.map((organization) => (
               <OrganizationCard
                 key={organization.id}

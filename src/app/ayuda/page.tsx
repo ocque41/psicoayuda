@@ -6,6 +6,7 @@ import {
 } from "@/components/emergency-resources";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
+import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
 import { getFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
@@ -26,11 +27,28 @@ export const metadata: Metadata = {
 export default async function HelpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ profesional?: string; acceso?: string }>;
+  searchParams: Promise<{
+    profesional?: string;
+    acceso?: string;
+    q?: string;
+    tipo?: string;
+    tema?: string;
+    disp?: string;
+  }>;
 }) {
-  const { profesional, acceso } = await searchParams;
+  const { profesional, acceso, q, tipo, tema, disp } = await searchParams;
   const professionals = await getFeedProfessionals();
   const organizations = [...publishedOrganizations];
+  const initialFilters = {
+    q,
+    type: tipo,
+    topic: tema,
+    onlyAvailable: disp === "1",
+  };
+  const itemNames = [
+    ...professionals.map((professional) => professional.name),
+    ...organizations.map((organization) => organization.name),
+  ];
 
   let preferred: { id: string; name: string; nonClinical: boolean } | null =
     null;
@@ -80,9 +98,11 @@ export default async function HelpPage({
               <strong>envía tu solicitud a todas a la vez</strong> — responde
               quien pueda.
             </p>
+            <DirectoryItemListJsonLd path="/ayuda" names={itemNames} />
             <SupportDirectory
               professionals={professionals}
               organizations={organizations}
+              initialFilters={initialFilters}
             />
           </>
         ) : null}
