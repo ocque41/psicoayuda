@@ -3,6 +3,7 @@
 import { createAuthClient } from "better-auth/react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
+import { repararRegistroHuerfano } from "@/app/actions-account";
 
 const authClient = createAuthClient();
 const CALLBACK_URL = "/pro/onboarding";
@@ -97,7 +98,7 @@ export function AuthPanel({
     setError("");
     setPending(true);
     try {
-      const result =
+      let result =
         mode === "signup"
           ? await authClient.signUp.email({
               email,
@@ -106,6 +107,25 @@ export function AuthPanel({
               callbackURL,
             })
           : await authClient.signIn.email({ email, password });
+
+      // Registro que quedó a medias (fila user sin credencial, p. ej. si el
+      // worker murió al hashear la contraseña): se repara en el servidor y se
+      // reintenta una vez, para que nadie quede atrapado entre "ya existe una
+      // cuenta" y "contraseña incorrecta".
+      if (
+        mode === "signup" &&
+        /USER_ALREADY_EXISTS|EXISTING/.test(result.error?.code ?? "")
+      ) {
+        const { reparado } = await repararRegistroHuerfano(email);
+        if (reparado) {
+          result = await authClient.signUp.email({
+            email,
+            password,
+            name: name.trim() || email,
+            callbackURL,
+          });
+        }
+      }
 
       if (result.error) {
         setError(translateError(result.error));

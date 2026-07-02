@@ -1,10 +1,11 @@
 import "server-only";
 
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   account,
   assignments,
+  auditLogs,
   conversations,
   professionals,
   responseSamples,
@@ -12,6 +13,7 @@ import {
   session,
   user,
 } from "@/db/schema";
+import { newId, nowIso } from "@/lib/ids";
 
 /**
  * Borra por completo y de forma atómica al usuario `userId` y todo su rastro: el
@@ -69,4 +71,63 @@ export async function purgeAccount(userId: string): Promise<void> {
     ...professionalDeletes,
     db.delete(user).where(eq(user.id, userId)),
   ]);
+}
+
+/**
+ * Repara un registro que quedó a medias: si el alta muere entre crear la fila
+ * `user` y guardar la credencial (pasó en producción por el límite de CPU del
+ * Worker al hashear con scrypt), la persona queda bloqueada — "ya existe una
+ * cuenta" al registrarse y "contraseña incorrecta" al entrar, sin vía de
+ * recuperación. Si la cuenta es un huérfano puro (cero credenciales o
+ * proveedores, cero sesiones y sin perfil profesional), la borramos para que
+ * el registro pueda repetirse limpio. En seguridad equivale a que la fila
+ * nunca hubiera existido: no hay nada que un tercero pueda robar o secuestrar
+ * que no pudiera obtener registrando ese correo desde cero. Deja rastro en
+ * audit_logs.
+ */
+export async function reclamarUsuarioHuerfano(
+  emailCrudo: string,
+): Promise<boolean> {
+  const email = emailCrudo.trim().toLowerCase();
+  if (!email) return false;
+
+  const [fila] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(sql`lower(${user.email}) = ${email}`)
+    .limit(1);
+  if (!fila) return false;
+
+  const [credencial] = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(eq(account.userId, fila.id))
+    .limit(1);
+  if (credencial) return false;
+
+  const [sesion] = await db
+    .select({ id: session.id })
+    .from(session)
+    .where(eq(session.userId, fila.id))
+    .limit(1);
+  if (sesion) return false;
+
+  const perfil = await db.query.professionals.findFirst({
+    where: eq(professionals.userId, fila.id),
+    columns: { id: true },
+  });
+  if (perfil) return false;
+
+  await db.batch([
+    db.delete(user).where(eq(user.id, fila.id)),
+    db.insert(auditLogs).values({
+      id: newId("log"),
+      actorEmail: email,
+      action: "user_orphan_reclaimed",
+      entityType: "user",
+      entityId: fila.id,
+      createdAt: nowIso(),
+    }),
+  ]);
+  return true;
 }

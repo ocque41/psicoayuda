@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
+import { hashPassword, verifyPassword } from "@/lib/password-hash";
 import { SITE_URL } from "@/lib/site";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
@@ -53,6 +54,11 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     minPasswordLength: 8,
+    // PBKDF2 nativo (WebCrypto) en lugar del scrypt JS por defecto: el límite
+    // de CPU de Workers mataba el hash del registro y dejaba cuentas a medias
+    // (fila user sin credencial). verify acepta también los hashes scrypt de
+    // las cuentas creadas antes de este cambio.
+    password: { hash: hashPassword, verify: verifyPassword },
   },
   socialProviders,
   // Limita intentos de login/callback (defensa básica contra fuerza bruta y
