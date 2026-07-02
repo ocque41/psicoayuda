@@ -75,7 +75,6 @@ export default async function HelpPage({
           <li>Voluntarios verificados</li>
         </ul>
         <EmergencyNotice />
-        <QuickExitNote />
 
         {acceso === "invalido" ? (
           <div className="notice" role="alert">
@@ -91,12 +90,9 @@ export default async function HelpPage({
           <>
             <h2>Quiénes pueden acompañarte</h2>
             <p className="lead">
-              Personas voluntarias verificadas —psicólogas y psicólogos y
-              auxiliares no clínicos— y organizaciones aliadas. Busca por cómo
-              te sientes, por servicio o por nombre, escríbele directo a quien
-              sientas más afín, o cuéntanos un poco más abajo y{" "}
-              <strong>envía tu solicitud a todas a la vez</strong> — responde
-              quien pueda.
+              Voluntarios verificados y organizaciones aliadas. Escríbele directo
+              a quien prefieras, o{" "}
+              <strong>envía tu solicitud a todas a la vez</strong> más abajo.
             </p>
             <DirectoryItemListJsonLd path="/ayuda" names={itemNames} />
             <SupportDirectory
@@ -106,6 +102,8 @@ export default async function HelpPage({
             />
           </>
         ) : null}
+
+        <QuickExitNote />
 
         <h2 id="formulario">
           O cuéntanos y envía tu solicitud a varios a la vez
