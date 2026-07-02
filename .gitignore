@@ -6,6 +6,9 @@ node_modules
 local.db
 local.db-*
 .env
+# Backups de base de datos: NUNCA al repo (pueden contener datos reales)
+backup-*.sql
+*.bigr-backup
 *.tsbuildinfo
 _references/
 goal.md
