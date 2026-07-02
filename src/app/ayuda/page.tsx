@@ -9,7 +9,16 @@ import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
 import { getFeedProfessionals } from "@/lib/feed";
-import { publishedOrganizations } from "@/lib/organizations";
+import {
+  type Organization,
+  type OrgService,
+  publishedOrganizations,
+} from "@/lib/organizations";
+import {
+  getPublishedPartners,
+  type Partner,
+  type PartnerContact,
+} from "@/lib/partners";
 
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis en Venezuela",
@@ -23,6 +32,40 @@ export const metadata: Metadata = {
     url: "/ayuda",
   },
 };
+
+// Los aliados verificados viven en D1 (`partners`, los mismos del carrusel). Aquí
+// los adaptamos al tipo `Organization` para que TAMBIÉN salgan en el buscador de
+// /ayuda (bajo "Todos", "Organizaciones" y el filtro de psicología). El contacto
+// se resuelve a un único enlace (WhatsApp/tel/web/Instagram); la ficha completa,
+// con todas las vías, vive en /alianzas.
+function partnersToOrganizations(partners: Partner[]): Organization[] {
+  const psychology: OrgService = "psicologia";
+  return partners.map((partner): Organization => {
+    const contactValue = (type: PartnerContact["type"]) =>
+      partner.contacts.find((contact) => contact.type === type)?.value;
+    const website = contactValue("website");
+    const instagram = contactValue("instagram");
+    const url = website
+      ? /^https?:\/\//i.test(website)
+        ? website
+        : `https://${website}`
+      : instagram
+        ? `https://instagram.com/${instagram.replace(/^@/, "")}`
+        : undefined;
+    return {
+      id: partner.id,
+      name: partner.name,
+      tagline: partner.specialty || undefined,
+      logo: partner.logo || undefined,
+      phone: contactValue("whatsapp") ?? contactValue("phone"),
+      email: contactValue("email"),
+      url,
+      specialties: [],
+      services: [psychology],
+      virtual24h: false,
+    };
+  });
+}
 
 export default async function HelpPage({
   searchParams,
@@ -38,7 +81,10 @@ export default async function HelpPage({
 }) {
   const { profesional, acceso, q, tipo, tema, disp } = await searchParams;
   const professionals = await getFeedProfessionals();
-  const organizations = [...publishedOrganizations];
+  const organizations = [
+    ...publishedOrganizations,
+    ...partnersToOrganizations(await getPublishedPartners()),
+  ];
   const initialFilters = {
     q,
     type: tipo,
@@ -90,8 +136,8 @@ export default async function HelpPage({
           <>
             <h2>Quiénes pueden acompañarte</h2>
             <p className="lead">
-              Voluntarios verificados y organizaciones aliadas. Escríbele directo
-              a quien prefieras, o{" "}
+              Voluntarios verificados y organizaciones aliadas. Escríbele
+              directo a quien prefieras, o{" "}
               <strong>envía tu solicitud a todas a la vez</strong> más abajo.
             </p>
             <DirectoryItemListJsonLd path="/ayuda" names={itemNames} />

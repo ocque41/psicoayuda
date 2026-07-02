@@ -11,8 +11,8 @@ export function EmergencyNotice() {
     <div className="notice" role="note">
       <span aria-hidden="true">🛟</span>
       <span>
-        <strong>Si es una emergencia ahora mismo</strong> y sientes que tu vida
-        o la de alguien corre riesgo, llama de inmediato al{" "}
+        <strong>¿Es una emergencia?</strong> Si tu vida o la de alguien corre
+        riesgo, llama ya al{" "}
         {phone ? (
           <a href={phone.href}>
             <strong>{phone.value}</strong>
@@ -20,9 +20,8 @@ export function EmergencyNotice() {
         ) : (
           <strong>911</strong>
         )}{" "}
-        (emergencias en Venezuela) o al número de emergencias de tu país si
-        estás fuera, o acude a un centro cercano. Este espacio coordina apoyo
-        psicológico por correo y no atiende crisis en tiempo real.{" "}
+        (o al de tu país). Aquí coordinamos apoyo por correo, no atendemos
+        crisis en tiempo real.{" "}
         <Link href="/emergencia">Ver líneas de ayuda</Link>.
       </span>
     </div>
