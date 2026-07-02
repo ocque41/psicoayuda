@@ -70,6 +70,8 @@ export function AuthPanel({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -101,12 +103,15 @@ export function AuthPanel({
     setError("");
     setInfo("");
     setPending(true);
+    // El autocompletado (sobre todo el móvil) cuela espacios al final del
+    // correo y el login falla por un carácter invisible: normaliza siempre.
+    const correo = email.trim();
     try {
       if (mode === "reset") {
         // Respuesta neutra exista o no la cuenta: no confirmamos correos
         // registrados a terceros (el servidor tampoco lo hace).
         const res = await authClient.requestPasswordReset({
-          email,
+          email: correo,
           redirectTo: "/pro/restablecer",
         });
         setPending(false);
@@ -125,12 +130,12 @@ export function AuthPanel({
       let result =
         mode === "signup"
           ? await authClient.signUp.email({
-              email,
+              email: correo,
               password,
-              name: name.trim() || email,
+              name: name.trim() || correo,
               callbackURL,
             })
-          : await authClient.signIn.email({ email, password });
+          : await authClient.signIn.email({ email: correo, password });
 
       // Registro que quedó a medias (fila user sin credencial, p. ej. si el
       // worker murió al hashear la contraseña): se repara en el servidor y se
@@ -140,12 +145,12 @@ export function AuthPanel({
         mode === "signup" &&
         /USER_ALREADY_EXISTS|EXISTING/.test(result.error?.code ?? "")
       ) {
-        const { reparado } = await repararRegistroHuerfano(email);
+        const { reparado } = await repararRegistroHuerfano(correo);
         if (reparado) {
           result = await authClient.signUp.email({
-            email,
+            email: correo,
             password,
-            name: name.trim() || email,
+            name: name.trim() || correo,
             callbackURL,
           });
         }
@@ -169,7 +174,7 @@ export function AuthPanel({
         };
         if (w.PasswordCredential && navigator.credentials?.store) {
           await navigator.credentials.store(
-            new w.PasswordCredential({ id: email, password }),
+            new w.PasswordCredential({ id: correo, password }),
           );
         }
       } catch {
@@ -226,6 +231,10 @@ export function AuthPanel({
             type="email"
             required
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -234,18 +243,36 @@ export function AuthPanel({
         {mode !== "reset" && (
           <div className="field">
             <label htmlFor={`${ids}-password`}>Contraseña</label>
-            <input
-              id={`${ids}-password`}
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="password-field">
+              <input
+                id={`${ids}-password`}
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                autoComplete={
+                  mode === "signup" ? "new-password" : "current-password"
+                }
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+                onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+                onBlur={() => setCapsLock(false)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
+            {capsLock && (
+              <p className="caps-warning" role="status">
+                Ojo: tienes las mayúsculas activadas (Bloq Mayús).
+              </p>
+            )}
             {mode === "signup" && (
               <p className="hint">Al menos 8 caracteres.</p>
             )}

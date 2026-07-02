@@ -22,6 +22,9 @@ export function ResetPasswordForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  // Un solo interruptor para ambos campos: si muestras una, muestras las dos.
+  const [show, setShow] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
   if (linkError || !token) {
     return (
@@ -73,16 +76,34 @@ export function ResetPasswordForm() {
     <form onSubmit={onSubmit}>
       <div className="field">
         <label htmlFor={`${ids}-password`}>Contraseña nueva</label>
-        <input
-          id={`${ids}-password`}
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="password-field">
+          <input
+            id={`${ids}-password`}
+            name="password"
+            type={show ? "text" : "password"}
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+            onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
+            onBlur={() => setCapsLock(false)}
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            aria-pressed={show}
+            onClick={() => setShow((v) => !v)}
+          >
+            {show ? "Ocultar" : "Mostrar"}
+          </button>
+        </div>
+        {capsLock && (
+          <p className="caps-warning" role="status">
+            Ojo: tienes las mayúsculas activadas (Bloq Mayús).
+          </p>
+        )}
         <p className="hint">Al menos 8 caracteres.</p>
       </div>
 
@@ -91,7 +112,7 @@ export function ResetPasswordForm() {
         <input
           id={`${ids}-confirm`}
           name="confirm"
-          type="password"
+          type={show ? "text" : "password"}
           required
           minLength={8}
           autoComplete="new-password"

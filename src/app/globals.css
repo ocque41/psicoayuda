@@ -812,6 +812,46 @@ p:has(> .button) {
   box-shadow: var(--shadow-focus);
 }
 
+/* Campo de contraseña con botón "Mostrar/Ocultar" integrado. El padding
+   derecho reserva sitio para el botón, que va superpuesto dentro del input. */
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 96px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Aviso de Bloq Mayús: evita el clásico "contraseña incorrecta" por teclear
+   en mayúsculas sin darse cuenta. */
+.caps-warning {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--danger);
+}
+
 .checks {
   display: grid;
   gap: 10px;
