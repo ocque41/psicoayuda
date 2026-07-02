@@ -316,7 +316,21 @@ export async function saveProfessionalOnboarding(
   });
 
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Error" };
+    // React 19 resetea los campos no controlados del <form> al terminar la
+    // action; sin devolver lo enviado, un alta nueva perdía TODO lo tecleado
+    // ante cualquier error de validación (pasó con psicólogas reales). Re-
+    // emitimos los valores para que el formulario los repueble. Excluimos la
+    // foto y el comprobante (van por estado del cliente, ya persisten) y la
+    // cédula (no se guarda ni se re-muestra).
+    const { photo: _p, registrationProofDoc: _d, cedula: _c, ...rest } = raw;
+    return {
+      ok: false as const,
+      message: parsed.error.issues[0]?.message ?? "Error",
+      values: {
+        ...rest,
+        supportAreas: formData.getAll("supportAreas").map(String),
+      } as Record<string, string> & { supportAreas: string[] },
+    };
   }
 
   const timestamp = nowIso();

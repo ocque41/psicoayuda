@@ -128,6 +128,18 @@ export function ProfessionalOnboardingForm({
     saveProfessionalOnboarding,
     null,
   );
+  // Al terminar la action, React 19 resetea los campos no controlados a su
+  // defaultValue. Cuando la action devuelve error, nos re-emite lo enviado en
+  // `values`; lo usamos como fuente de los defaultValue/defaultChecked para
+  // que ese reset REPUEBLE el formulario en vez de vaciarlo. Sin esto, un alta
+  // nueva perdía todo lo tecleado al primer error de validación.
+  const submitted = state?.values;
+  const areaChecked = (value: string) =>
+    submitted
+      ? submitted.supportAreas.includes(value)
+      : (existing?.supportAreas.includes(value) ?? false);
+  const conductChecked = (key: string) =>
+    submitted ? submitted[key] === "on" : editing;
   const formId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
   const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
@@ -245,7 +257,9 @@ export function ProfessionalOnboardingForm({
             <input
               id={ids.fullName}
               name="fullName"
-              defaultValue={existing?.fullName ?? name ?? ""}
+              defaultValue={
+                submitted?.fullName ?? existing?.fullName ?? name ?? ""
+              }
               required
             />
           </div>
@@ -258,7 +272,9 @@ export function ProfessionalOnboardingForm({
             <input
               id={ids.displayName}
               name="displayName"
-              defaultValue={existing?.displayName ?? ""}
+              defaultValue={
+                submitted?.displayName ?? existing?.displayName ?? ""
+              }
               aria-describedby={ids.displayNameHint}
             />
           </div>
@@ -270,7 +286,9 @@ export function ProfessionalOnboardingForm({
               id={ids.country}
               name="country"
               autoComplete="country-name"
-              defaultValue={existing?.country ?? "Venezuela"}
+              defaultValue={
+                submitted?.country ?? existing?.country ?? "Venezuela"
+              }
             >
               {countries.map((country) => (
                 <option key={country} value={country}>
@@ -284,7 +302,7 @@ export function ProfessionalOnboardingForm({
             <input
               id={ids.city}
               name="city"
-              defaultValue={existing?.city ?? ""}
+              defaultValue={submitted?.city ?? existing?.city ?? ""}
             />
           </div>
         </div>
@@ -385,7 +403,7 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.fpvNumber}
                 name="fpvNumber"
-                defaultValue={existing?.fpvNumber ?? ""}
+                defaultValue={submitted?.fpvNumber ?? existing?.fpvNumber ?? ""}
                 aria-describedby={ids.fpvHint}
               />
               <label
@@ -419,7 +437,9 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.supervisionInfo}
                 name="supervisionInfo"
-                defaultValue={existing?.supervisionInfo ?? ""}
+                defaultValue={
+                  submitted?.supervisionInfo ?? existing?.supervisionInfo ?? ""
+                }
                 aria-describedby={ids.supervisionHint}
               />
             </div>
@@ -459,6 +479,7 @@ export function ProfessionalOnboardingForm({
                   <input
                     id={ids.registrationDetail}
                     name="registrationDetail"
+                    defaultValue={submitted?.registrationDetail ?? ""}
                   />
                 </div>
                 <div className="field">
@@ -507,7 +528,9 @@ export function ProfessionalOnboardingForm({
                 <input
                   id={ids.licenseNumber}
                   name="licenseNumber"
-                  defaultValue={existing?.licenseNumber ?? ""}
+                  defaultValue={
+                    submitted?.licenseNumber ?? existing?.licenseNumber ?? ""
+                  }
                   aria-describedby={ids.licenseHint}
                 />
               </div>
@@ -518,7 +541,11 @@ export function ProfessionalOnboardingForm({
                 <select
                   id={ids.licenseCountry}
                   name="licenseCountry"
-                  defaultValue={existing?.licenseCountry ?? "Venezuela"}
+                  defaultValue={
+                    submitted?.licenseCountry ??
+                    existing?.licenseCountry ??
+                    "Venezuela"
+                  }
                 >
                   {countries.map((country) => (
                     <option key={country} value={country}>
@@ -539,7 +566,9 @@ export function ProfessionalOnboardingForm({
               <input
                 id={ids.university}
                 name="university"
-                defaultValue={existing?.university ?? ""}
+                defaultValue={
+                  submitted?.university ?? existing?.university ?? ""
+                }
                 required
                 aria-describedby={ids.universityHint}
               />
@@ -575,7 +604,7 @@ export function ProfessionalOnboardingForm({
                   name="supportAreas"
                   type="checkbox"
                   value={value}
-                  defaultChecked={existing?.supportAreas.includes(value)}
+                  defaultChecked={areaChecked(value)}
                 />
                 {needLabels[value]}
               </label>
@@ -596,7 +625,9 @@ export function ProfessionalOnboardingForm({
             type="number"
             min="1"
             max="10"
-            defaultValue={existing?.maxActiveRequests ?? 3}
+            defaultValue={
+              submitted?.maxActiveRequests ?? existing?.maxActiveRequests ?? 3
+            }
             aria-describedby={ids.maxHint}
           />
         </div>
@@ -606,7 +637,11 @@ export function ProfessionalOnboardingForm({
             <input
               name="remoteAvailable"
               type="checkbox"
-              defaultChecked={existing?.remoteAvailable ?? true}
+              defaultChecked={
+                submitted
+                  ? submitted.remoteAvailable === "on"
+                  : (existing?.remoteAvailable ?? true)
+              }
             />
             Estoy disponible para acompañar en remoto.
           </label>
@@ -614,7 +649,11 @@ export function ProfessionalOnboardingForm({
             <input
               name="acceptingRequests"
               type="checkbox"
-              defaultChecked={existing?.acceptingRequests ?? true}
+              defaultChecked={
+                submitted
+                  ? submitted.acceptingRequests === "on"
+                  : (existing?.acceptingRequests ?? true)
+              }
             />
             Quiero recibir solicitudes desde ya.
           </label>
@@ -622,7 +661,11 @@ export function ProfessionalOnboardingForm({
             <input
               name="crisisExperience"
               type="checkbox"
-              defaultChecked={existing?.crisisExperience ?? false}
+              defaultChecked={
+                submitted
+                  ? submitted.crisisExperience === "on"
+                  : (existing?.crisisExperience ?? false)
+              }
             />
             Tengo experiencia acompañando situaciones de crisis.
           </label>
@@ -641,7 +684,7 @@ export function ProfessionalOnboardingForm({
             id={ids.shortBio}
             name="shortBio"
             rows={4}
-            defaultValue={existing?.shortBio ?? ""}
+            defaultValue={submitted?.shortBio ?? existing?.shortBio ?? ""}
             aria-describedby={ids.shortBioHint}
           />
         </div>
@@ -708,7 +751,9 @@ export function ProfessionalOnboardingForm({
               id={ids.contactEmail}
               name="contactEmail"
               type="email"
-              defaultValue={existing?.contactEmail ?? email}
+              defaultValue={
+                submitted?.contactEmail ?? existing?.contactEmail ?? email
+              }
               aria-describedby={ids.contactEmailHint}
             />
           </div>
@@ -718,7 +763,9 @@ export function ProfessionalOnboardingForm({
               id={ids.contactNotes}
               name="contactNotes"
               rows={3}
-              defaultValue={existing?.contactNotes ?? ""}
+              defaultValue={
+                submitted?.contactNotes ?? existing?.contactNotes ?? ""
+              }
             />
           </div>
         </div>
@@ -739,7 +786,7 @@ export function ProfessionalOnboardingForm({
             <input
               name="conductFreeService"
               type="checkbox"
-              defaultChecked={editing}
+              defaultChecked={conductChecked("conductFreeService")}
               required
             />
             Acepto que el servicio es gratuito para las personas contactadas
@@ -749,7 +796,7 @@ export function ProfessionalOnboardingForm({
             <input
               name="conductNoClientCapture"
               type="checkbox"
-              defaultChecked={editing}
+              defaultChecked={conductChecked("conductNoClientCapture")}
               required
             />
             Acepto no usar Nido para captar clientes pagos ni hacer publicidad
@@ -759,7 +806,7 @@ export function ProfessionalOnboardingForm({
             <input
               name="conductConfidentiality"
               type="checkbox"
-              defaultChecked={editing}
+              defaultChecked={conductChecked("conductConfidentiality")}
               required
             />
             Acepto mantener confidencialidad sobre la información recibida.
@@ -768,7 +815,7 @@ export function ProfessionalOnboardingForm({
             <input
               name="conductNoEmergencyGuarantee"
               type="checkbox"
-              defaultChecked={editing}
+              defaultChecked={conductChecked("conductNoEmergencyGuarantee")}
               required
             />
             Entiendo que Nido no garantiza respuesta de emergencia.
@@ -777,7 +824,7 @@ export function ProfessionalOnboardingForm({
             <input
               name="conductCompetence"
               type="checkbox"
-              defaultChecked={editing}
+              defaultChecked={conductChecked("conductCompetence")}
               required
             />
             Acepto trabajar solo dentro de mi competencia profesional.
