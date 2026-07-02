@@ -1568,47 +1568,43 @@ a.partner-link:focus-visible {
   }
 }
 
-/* --- Recursos de emergencia por el terremoto --- */
+/* --- Recursos de emergencia por el terremoto (directorio de plataformas) --- */
 
-/* Barra de recurso PRIORITARIO (búsqueda de niños): roja y titilante para
-   captar la atención. El "titilar" es un pulso suave de opacidad + halo; se
-   detiene si la persona pide movimiento reducido (WCAG 2.3.3 / 2.2.2) y el
-   ritmo (~0.7 Hz) queda muy por debajo del umbral de destellos (WCAG 2.3.1). */
+/* Caja del recurso PRIORITARIO (búsqueda de niños): rojo suave con borde y un
+   halo titilante para captar la atención. El "titilar" es un pulso de sombra que
+   se detiene bajo prefers-reduced-motion (WCAG 2.3.3 / 2.2.2); su ritmo (~0.6 Hz)
+   queda muy por debajo del umbral de destellos (WCAG 2.3.1). */
 .emergency-priority {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-1) var(--space-4);
+  display: block;
   margin: 0 0 var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius);
-  background: #c62828;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  animation: emergency-titilar 1.4s ease-in-out infinite;
+  padding: var(--space-1) var(--space-5) var(--space-2);
+  border: 2px solid #eda69d;
+  border-radius: var(--radius-lg);
+  background: #fdecea;
+  animation: emergency-titilar 1.6s ease-in-out infinite;
 }
 
-.emergency-priority:hover,
-.emergency-priority:focus-visible {
-  background: #a91d1d;
+.emergency-priority .emergency-cat-title {
+  margin-top: var(--space-3);
+  color: #c62828;
 }
 
-.emergency-priority-domain {
-  font-weight: 500;
-  opacity: 0.95;
+.emergency-priority .emergency-row {
+  border-bottom: 0;
+}
+
+.emergency-priority .emergency-row-link {
+  color: #c62828;
+  font-weight: 600;
 }
 
 @keyframes emergency-titilar {
   0%,
   100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.55);
+    box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.45);
   }
   50% {
-    opacity: 0.7;
-    box-shadow: 0 0 0 7px rgba(198, 40, 40, 0);
+    box-shadow: 0 0 0 8px rgba(198, 40, 40, 0);
   }
 }
 
@@ -1618,16 +1614,68 @@ a.partner-link:focus-visible {
   }
 }
 
-/* Directorio de recursos externos: enlaces por categoría en tarjetas. */
-.emergency-links {
-  list-style: none;
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-2);
+/* Cabecera de categoría: gris, mayúscula, discreta. */
+.emergency-cat-title {
+  margin: var(--space-6) 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.emergency-links a {
-  font-weight: 600;
+/* Filas de enlaces: punto de color a la izquierda, flecha a la derecha,
+   divisores finos entre filas. */
+.emergency-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.emergency-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.emergency-row:last-child {
+  border-bottom: 0;
+}
+
+.emergency-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: #c62828;
+}
+
+.emergency-row-link {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  color: var(--foreground);
+  text-decoration: none;
+  font-weight: 500;
   word-break: break-word;
+}
+
+.emergency-row-link:hover span:first-child,
+.emergency-row-link:focus-visible span:first-child {
+  text-decoration: underline;
+}
+
+.emergency-arrow {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.emergency-note {
+  color: var(--muted);
+  font-weight: 400;
 }

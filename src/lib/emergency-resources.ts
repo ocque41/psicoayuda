@@ -45,6 +45,7 @@ export const EMERGENCY_RESOURCES: readonly EmergencyCategory[] = [
       link("desaparecidosterremotovenezuela.com"),
       link("facebook.com/crisisresponse"),
       link("terremotovenezuela.app"),
+      link("terremotovenezuela.com"),
       link("venezuela.tiltely.com"),
       link("venezuelareporta.org"),
       link("venezuelatebusca.com"),

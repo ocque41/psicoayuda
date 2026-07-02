@@ -52,12 +52,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section">
-        <div className="container">
-          <EmergencyResourcesDirectory />
-        </div>
-      </section>
-
       <PartnersCarousel />
 
       <section className="section" id="voluntarios">
@@ -94,6 +88,12 @@ export default async function HomePage() {
               </p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <EmergencyResourcesDirectory />
         </div>
       </section>
 
