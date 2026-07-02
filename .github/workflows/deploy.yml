@@ -60,3 +60,40 @@ jobs:
           NIDO_DB_TARGET: cloudflare
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
+
+      - name: Smoke test + rollback automático
+        # Red de seguridad contra el bug NO determinista del bundler RSC de
+        # OpenNext/Next: a veces publica un bundle donde un componente cliente
+        # (p. ej. AuthPanel en /pro) falta en el React Client Manifest y la ruta
+        # responde 500 aunque el build "pase". Aquí probamos las rutas clave ya
+        # en producción; si alguna no da 200 tras varios reintentos (margen para
+        # la propagación al edge), revertimos al deploy anterior y dejamos el job
+        # en rojo. Re-lanzar el workflow suele producir un build sano.
+        run: |
+          set -uo pipefail
+          check() {
+            local path="$1" code=""
+            for i in 1 2 3 4 5 6; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" "https://saludmental-venezuela.com${path}" || echo 000)
+              if [ "$code" = "200" ]; then
+                echo "OK  GET ${path} -> 200"
+                return 0
+              fi
+              echo "... GET ${path} -> ${code} (reintento ${i}/6)"
+              sleep 5
+            done
+            echo "FALLO GET ${path} -> ${code}"
+            return 1
+          }
+          ok=1
+          check "/" || ok=0
+          check "/pro" || ok=0
+          if [ "$ok" != "1" ]; then
+            echo "::error::Smoke test falló tras el deploy. Revirtiendo al deploy anterior."
+            pnpm exec wrangler rollback --message "Auto-rollback: el smoke test post-deploy detectó 500 (probable manifest RSC flaky de OpenNext)."
+            exit 1
+          fi
+          echo "Smoke test OK: producción sana."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
