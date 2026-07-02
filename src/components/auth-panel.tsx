@@ -175,6 +175,28 @@ export function AuthPanel({
         }
       }
 
+      // La misma trampa desde "Entrar": quien volvía con un registro huérfano
+      // veía "Correo o contraseña incorrectos" para siempre (la reparación
+      // solo corría en el alta). Si el correo era un huérfano puro, se limpia
+      // y se le guía a crear la cuenta de nuevo; para cuentas reales con
+      // credencial la reparación es un no-op y cae al error normal.
+      if (
+        mode === "signin" &&
+        /INVALID_EMAIL_OR_PASSWORD|INVALID_PASSWORD|INVALID_CREDENTIALS/.test(
+          result.error?.code ?? "",
+        )
+      ) {
+        const { reparado } = await repararRegistroHuerfano(correo);
+        if (reparado) {
+          setMode("signup");
+          setPending(false);
+          setInfo(
+            "Tu registro anterior quedó a medias y ya lo limpiamos. Crea tu cuenta de nuevo con este correo para continuar.",
+          );
+          return;
+        }
+      }
+
       if (result.error) {
         setError(translateError(result.error));
         setPending(false);
