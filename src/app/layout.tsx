@@ -157,6 +157,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/terminos">Términos</Link>
             </nav>
             <p className="footer-note">
+              ¿Eres una organización o quieres escribirnos? Contáctanos en{" "}
+              <a href="mailto:equipo@saludmental-venezuela.com">
+                equipo@saludmental-venezuela.com
+              </a>
+              .
+            </p>
+            <p className="footer-note">
               Nido es un proyecto sin fines de lucro y de código abierto. La
               atención la brindan personas voluntarias verificadas. No atiende
               emergencias en tiempo real.
