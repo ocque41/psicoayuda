@@ -34,7 +34,7 @@ function link(label: string, note?: string): EmergencyLink {
 export const EMERGENCY_RESOURCES: readonly EmergencyCategory[] = [
   {
     id: "busqueda-ninos",
-    title: "Búsqueda de niños (prioritario)",
+    title: "Todas las actualizaciones",
     priority: true,
     links: [link("terremotovenezuela.com")],
   },
