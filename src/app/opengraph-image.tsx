@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { NIDO_LOGO_DATA_URL } from "./_og-assets";
 
 // Metadatos de la imagen (Open Graph / redes sociales)
 export const alt =
@@ -9,10 +8,10 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpengraphImage() {
-  const logo = await readFile(
-    join(process.cwd(), "public/brand/nido-logo-800.png"),
-  );
-  const mark = `data:image/png;base64,${logo.toString("base64")}`;
+  // El logo va embebido (ver _og-assets.ts): el Worker de Cloudflare no puede
+  // leer public/ con fs.readFile en runtime, lo que hacía que esta ruta
+  // devolviera 500 y las redes mostraran la tarjeta sin imagen.
+  const mark = NIDO_LOGO_DATA_URL;
 
   return new ImageResponse(
     <div

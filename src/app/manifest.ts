@@ -37,9 +37,9 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     icons: [
       {
-        src: "/icon.svg",
-        type: "image/svg+xml",
-        sizes: "any",
+        src: "/icon.png",
+        type: "image/png",
+        sizes: "192x192",
         purpose: "any",
       },
       {
