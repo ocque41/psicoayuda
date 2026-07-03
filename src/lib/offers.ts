@@ -231,13 +231,14 @@ export async function acceptOffer(input: {
         })
         .where(eq(professionals.id, input.professionalId));
       // La solicitud ya la tomó otro flujo (admin u otra oferta): esta oferta
-      // nunca podrá ganar, así que la CERRAMOS. Devolverla a "offered" la
-      // resucitaría como oferta fantasma en el panel del profesional (re-aparece
-      // y nunca se puede aceptar). Esto es distinto del catch de más abajo, donde
-      // el batch atómico revirtió todo y la solicitud sí vuelve a ser reclamable.
+      // nunca podrá ganar. La marcamos "missed" (no "offered", para que no
+      // reaparezca como oferta fantasma) y así el profesional VE en su panel que
+      // ya la tomó otro, en vez de que desaparezca en silencio. Esto es distinto
+      // del catch de más abajo, donde el batch atómico revirtió todo y la
+      // solicitud sí vuelve a ser reclamable.
       await db
         .update(assignments)
-        .set({ status: "closed", updatedAt: nowIso() })
+        .set({ status: "missed", updatedAt: nowIso() })
         .where(eq(assignments.id, offer.id));
       return { ok: false as const, reason: "capacity_or_status" as const };
     }
@@ -261,10 +262,11 @@ export async function acceptOffer(input: {
     );
 
     // Las cuatro escrituras van en UN batch atómico (D1 soporta batch aunque
-    // rechace BEGIN/COMMIT): conversación + sesión del seeker, cierre de las
-    // ofertas hermanas y auditoría. Todo-o-nada: si algo falla, no queda nada
-    // escrito, así que no hay conversaciones huérfanas/duplicadas ni ofertas
-    // hermanas cerradas a medias (la solicitud ya se reclamó arriba).
+    // rechace BEGIN/COMMIT): conversación + sesión del seeker, las ofertas
+    // hermanas pasan a "missed" (el resto de profesionales las verá en su panel
+    // como "ya la tomó otro") y auditoría. Todo-o-nada: si algo falla, no queda
+    // nada escrito, así que no hay conversaciones huérfanas/duplicadas ni ofertas
+    // hermanas a medias (la solicitud ya se reclamó arriba).
     await db.batch([
       db.insert(conversations).values({
         id: conversationId,
@@ -286,7 +288,7 @@ export async function acceptOffer(input: {
       }),
       db
         .update(assignments)
-        .set({ status: "closed", updatedAt: timestamp })
+        .set({ status: "missed", updatedAt: timestamp })
         .where(
           and(
             eq(assignments.helpRequestId, offer.helpRequestId),
@@ -362,6 +364,31 @@ export async function pendingOffersForProfessional(professionalId: string) {
       ),
     );
   return rows;
+}
+
+/**
+ * Ofertas que este profesional recibió pero tomó OTRO ("missed"), recientes
+ * primero. Son informativas (sin acción): se muestran en el panel para que no
+ * desaparezcan en silencio cuando otro las agarra. Cap para no acumular ruido.
+ */
+export async function missedOffersForProfessional(professionalId: string) {
+  return db
+    .select({
+      assignmentId: assignments.id,
+      updatedAt: assignments.updatedAt,
+      needCategory: helpRequests.needCategory,
+      urgency: helpRequests.urgency,
+    })
+    .from(assignments)
+    .innerJoin(helpRequests, eq(assignments.helpRequestId, helpRequests.id))
+    .where(
+      and(
+        eq(assignments.professionalId, professionalId),
+        eq(assignments.status, "missed"),
+      ),
+    )
+    .orderBy(desc(assignments.updatedAt))
+    .limit(6);
 }
 
 /** Conversaciones del profesional (su bandeja de chats), más recientes primero. */

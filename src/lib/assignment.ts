@@ -151,11 +151,12 @@ export async function assignRequestToProfessional(input: {
     return { ok: false as const, reason: "already_assigned" as const };
   }
 
-  // Con la solicitud ya asignada, cierra cualquier oferta hermana pendiente para
-  // que nadie más pueda aceptarla (cierra el doble binding admin vs oferta).
+  // Con la solicitud ya asignada, marca "missed" cualquier oferta hermana
+  // pendiente: nadie más puede aceptarla (cierra el doble binding admin vs
+  // oferta) y esos profesionales la ven en su panel como "ya la tomó otro".
   await db
     .update(assignments)
-    .set({ status: "closed", updatedAt: timestamp })
+    .set({ status: "missed", updatedAt: timestamp })
     .where(
       and(
         eq(assignments.helpRequestId, input.helpRequestId),

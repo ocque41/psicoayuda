@@ -11,6 +11,7 @@ import { getServerSession } from "@/lib/auth-server";
 import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
 import {
   conversationsForProfessional,
+  missedOffersForProfessional,
   pendingOffersForProfessional,
 } from "@/lib/offers";
 
@@ -118,6 +119,7 @@ export default async function ProDashboardPage({
     );
 
   const offers = await pendingOffersForProfessional(professional.id);
+  const missed = await missedOffersForProfessional(professional.id);
   const chats = await conversationsForProfessional(professional.id);
 
   const nombrePanel =
@@ -247,6 +249,37 @@ export default async function ProDashboardPage({
         ) : (
           <p className="muted">No tienes solicitudes nuevas por ahora.</p>
         )}
+
+        {missed.length > 0 ? (
+          <>
+            <p className="muted" style={{ marginTop: 20 }}>
+              Estas ya las tomó otro profesional. Las dejamos aquí un momento
+              para que sepas que se atendieron.
+            </p>
+            <ul className="offer-list">
+              {missed.map((m) => (
+                <li
+                  key={m.assignmentId}
+                  className="card"
+                  style={{ opacity: 0.6 }}
+                >
+                  <p style={{ margin: "0 0 4px" }}>
+                    <strong>
+                      {needLabels[m.needCategory as keyof typeof needLabels] ??
+                        m.needCategory}
+                    </strong>{" "}
+                    ·{" "}
+                    {urgencyLabels[m.urgency as keyof typeof urgencyLabels] ??
+                      m.urgency}
+                  </p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Ya la tomó otro profesional 💚
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
         <h2 id="chats">Tus conversaciones</h2>
         {chats.length > 0 ? (
