@@ -1,4 +1,4 @@
-import { desc, sql } from "drizzle-orm";
+import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -22,7 +22,13 @@ import {
 import { AdminPartnersSection } from "@/components/admin-partners";
 import { AuthPanel } from "@/components/auth-panel";
 import { db } from "@/db";
-import { allianceRequests, helpRequests, user } from "@/db/schema";
+import {
+  allianceRequests,
+  assignments,
+  helpRequests,
+  professionals,
+  user,
+} from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels, preferredContactLabels } from "@/lib/constants";
@@ -167,6 +173,51 @@ export default async function AdminPage({
     ),
   );
 
+  // Distribución de cada solicitud entre los profesionales: para COMPROBAR de un
+  // vistazo a cuántos paneles llegó, quién la tiene y cuántos la vieron pasar.
+  // Una sola consulta para las solicitudes de la página (no una por fila).
+  const requestIds = requestRows.map((request) => request.id);
+  const assignmentRows = requestIds.length
+    ? await db
+        .select({
+          helpRequestId: assignments.helpRequestId,
+          status: assignments.status,
+          displayName: professionals.displayName,
+          fullName: professionals.fullName,
+        })
+        .from(assignments)
+        .innerJoin(
+          professionals,
+          eq(assignments.professionalId, professionals.id),
+        )
+        .where(inArray(assignments.helpRequestId, requestIds))
+    : [];
+
+  const distribution = new Map<
+    string,
+    { offered: number; missed: number; takers: string[] }
+  >();
+  for (const row of assignmentRows) {
+    const entry = distribution.get(row.helpRequestId) ?? {
+      offered: 0,
+      missed: 0,
+      takers: [],
+    };
+    const name = row.displayName || row.fullName;
+    if (row.status === "offered") entry.offered += 1;
+    else if (row.status === "missed") entry.missed += 1;
+    else if (row.status === "accepted" || row.status === "assigned")
+      entry.takers.push(name);
+    distribution.set(row.helpRequestId, entry);
+  }
+
+  // Total de solicitudes SIN atender (para el atajo del menú superior).
+  const [newRequestRow] = await db
+    .select({ total: count() })
+    .from(helpRequests)
+    .where(eq(helpRequests.status, "new"));
+  const newRequestCount = newRequestRow?.total ?? 0;
+
   return (
     <section className="section admin">
       <div className="container">
@@ -188,13 +239,23 @@ export default async function AdminPage({
             La cuenta ya no existe o no se pudo identificar.
           </p>
         ) : null}
-        <p>
+        <nav className="panel-nav" aria-label="Secciones del panel de admin">
+          <a className="button secondary" href="#solicitudes">
+            Solicitudes
+            {newRequestCount > 0 ? ` (${newRequestCount} nuevas)` : ""}
+          </a>
+          <a className="button secondary" href="#profesionales">
+            Profesionales
+          </a>
+          <a className="button secondary" href="#alianzas">
+            Alianzas
+          </a>
           <Link className="button secondary" href="/admin/export">
             Exportar solicitudes CSV
           </Link>
-        </p>
+        </nav>
 
-        <h2>Profesionales</h2>
+        <h2 id="profesionales">Profesionales</h2>
         <div className="table-wrap">
           <table>
             <thead>
@@ -319,7 +380,7 @@ export default async function AdminPage({
           approveAction={adminApproveIncompleteRegistration}
         />
 
-        <h2>Alianzas y organizaciones</h2>
+        <h2 id="alianzas">Alianzas y organizaciones</h2>
         {allianceRows.length ? (
           <div className="grid">
             {allianceRows.map((alliance) => {
@@ -432,10 +493,16 @@ export default async function AdminPage({
           deleteAction={adminDeletePartner}
         />
 
-        <h2>Solicitudes</h2>
+        <h2 id="solicitudes">Solicitudes</h2>
+        <p className="muted">
+          Cada persona que pidió apoyo. La “distribución” muestra en cuántos
+          paneles de profesionales está la solicitud, quién la tomó y cuántos la
+          vieron pasar — así compruebas que les llega a los psicólogos.
+        </p>
         <div className="grid">
           {requestRows.map((request) => {
             const requestSuggestions = suggestions.get(request.id) ?? [];
+            const dist = distribution.get(request.id);
             return (
               <article className="card" key={request.id}>
                 <h3>{request.email}</h3>
@@ -449,6 +516,15 @@ export default async function AdminPage({
                   {request.city || "Ciudad no indicada"},{" "}
                   {request.state || "estado no indicado"},{" "}
                   {request.country || "país no indicado"}
+                </p>
+                <p className="muted">
+                  <strong>Distribución:</strong>{" "}
+                  {dist?.takers.length
+                    ? `la tiene ${dist.takers.join(", ")}`
+                    : dist?.offered
+                      ? `en el panel de ${dist.offered} profesional${dist.offered === 1 ? "" : "es"} (pendiente de que alguien la tome)`
+                      : "no difundida a profesionales todavía"}
+                  {dist?.missed ? ` · ${dist.missed} la vieron pasar` : ""}
                 </p>
 
                 <form action={adminUpdateHelpRequestStatus}>
