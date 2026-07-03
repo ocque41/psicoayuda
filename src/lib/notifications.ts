@@ -1,6 +1,10 @@
 import "server-only";
 
-import { getAllianceRecipients, getErrorAlertEmails } from "@/lib/admin";
+import {
+  getAllianceRecipients,
+  getErrorAlertEmails,
+  getHelpRequestRecipients,
+} from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 import {
   buildAllianceApprovedEmail,
@@ -36,8 +40,8 @@ function onboardingUrl() {
  * que revisar; los datos viven tras el panel gateado por ADMIN_EMAILS.
  */
 export async function notifyAdminHelpRequest(_helpRequestId: string) {
-  const to = process.env.NOTIFICATION_EMAIL;
-  if (!to) return;
+  const recipients = getHelpRequestRecipients();
+  if (recipients.length === 0) return;
   const adminUrl = `${appBaseUrl()}/admin`;
   const text = [
     "Entró una nueva solicitud de apoyo en Nido.",
@@ -46,12 +50,15 @@ export async function notifyAdminHelpRequest(_helpRequestId: string) {
     "",
     "Por privacidad no incluimos datos de la persona en este correo.",
   ].join("\n");
-  return sendEmail({
-    to,
-    subject: "Nueva solicitud de apoyo — Nido",
-    html: `<p>Entró una nueva solicitud de apoyo en Nido.</p><p><a href="${adminUrl}">Revísala en el panel</a>.</p><p>Por privacidad no incluimos datos de la persona en este correo.</p>`,
-    text,
-  });
+  const html = `<p>Entró una nueva solicitud de apoyo en Nido.</p><p><a href="${adminUrl}">Revísala en el panel</a>.</p><p>Por privacidad no incluimos datos de la persona en este correo.</p>`;
+  for (const to of recipients) {
+    await sendEmail({
+      to,
+      subject: "Nueva solicitud de apoyo — Nido",
+      html,
+      text,
+    });
+  }
 }
 
 /**
