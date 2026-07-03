@@ -738,8 +738,11 @@ export function ProfessionalOnboardingForm({
             id={ids.maxActiveRequests}
             name="maxActiveRequests"
             type="number"
+            inputMode="numeric"
             min="1"
             max="10"
+            step="1"
+            required
             defaultValue={
               submitted?.maxActiveRequests ?? existing?.maxActiveRequests ?? 3
             }
@@ -799,6 +802,7 @@ export function ProfessionalOnboardingForm({
             id={ids.shortBio}
             name="shortBio"
             rows={4}
+            maxLength={600}
             defaultValue={submitted?.shortBio ?? existing?.shortBio ?? ""}
             aria-describedby={ids.shortBioHint}
           />

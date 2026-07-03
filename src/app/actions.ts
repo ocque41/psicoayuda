@@ -47,6 +47,49 @@ function formEntries(formData: FormData) {
   return Object.fromEntries(formData.entries());
 }
 
+// Etiquetas humanas de los campos del alta profesional. El formulario ocupa 5
+// secciones y el error se pinta al final: sin decir QUÉ campo falló, la persona
+// no sabía dónde mirar (varias psicólogas abandonaron el registro por esto).
+const PROFESSIONAL_FIELD_LABELS: Record<string, string> = {
+  fullName: "Nombre completo",
+  displayName: "Nombre para mostrar",
+  country: "País",
+  city: "Ciudad",
+  university: "Universidad",
+  fpvNumber: "Número FPV",
+  cedula: "Cédula",
+  supervisionInfo: "Supervisión",
+  registrationType: "Tipo de registro",
+  registrationDetail: "Detalle del registro",
+  registrationProofDoc: "Comprobante de registro",
+  phone: "WhatsApp",
+  landline: "Teléfono fijo",
+  emailPublic: "Correo público",
+  photo: "Foto",
+  supportAreas: "Áreas de apoyo",
+  contactEmail: "Correo para coordinación",
+  contactNotes: "Notas de contacto",
+  shortBio: "Tu presentación",
+  maxActiveRequests: "Personas a acompañar",
+  conductFreeService: "Pacto voluntario",
+  conductNoClientCapture: "Pacto voluntario",
+  conductConfidentiality: "Pacto voluntario",
+  conductNoEmergencyGuarantee: "Pacto voluntario",
+  conductCompetence: "Pacto voluntario",
+};
+
+// "«Campo»: mensaje" a partir del primer issue de Zod, para que la persona
+// sepa exactamente qué corregir aunque el campo esté varias secciones arriba.
+function firstIssueMessage(
+  error: { issues: { message: string; path: PropertyKey[] }[] },
+  labels: Record<string, string> = {},
+) {
+  const issue = error.issues[0];
+  if (!issue) return "Revisa los datos del formulario.";
+  const label = labels[String(issue.path[0])];
+  return label ? `${label}: ${issue.message}` : issue.message;
+}
+
 async function getRequesterHash() {
   const requestHeaders = await headers();
   const forwardedFor = requestHeaders.get("x-forwarded-for");
@@ -325,7 +368,7 @@ export async function saveProfessionalOnboarding(
     const { photo: _p, registrationProofDoc: _d, cedula: _c, ...rest } = raw;
     return {
       ok: false as const,
-      message: parsed.error.issues[0]?.message ?? "Error",
+      message: firstIssueMessage(parsed.error, PROFESSIONAL_FIELD_LABELS),
       values: {
         ...rest,
         supportAreas: formData.getAll("supportAreas").map(String),

@@ -33,6 +33,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // El alta profesional envía el comprobante (hasta ~1,2 MB en base64) y la foto
+  // (~300 KB) dentro del body de la server action. El límite por defecto de Next
+  // es 1 MB: con un documento cercano al máximo, la petición se rechazaba entera
+  // y el registro fallaba justo al enviar. 3 MB cubre documento + foto + campos.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "3mb",
+    },
+  },
   // Don't advertise the framework on every response (tiny header savings + less fingerprinting).
   poweredByHeader: false,
   // Surface unsafe lifecycles / side effects early; no production runtime cost.

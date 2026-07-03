@@ -2,6 +2,26 @@ import { z } from "zod";
 import { languages, needCategories, urgencyLevels } from "@/lib/constants";
 import { toIntlNumber } from "@/lib/phone";
 
+// Red de seguridad: cualquier error de Zod sin mensaje propio sale en español
+// en vez del "Invalid input" en inglés que confundía a los profesionales.
+z.config(z.locales.es());
+
+// Correo opcional tolerante: recorta espacios y baja a minúsculas ANTES de
+// validar. Con `z.email().trim()` el orden era al revés (Zod v4 valida primero
+// y transforma después), así que "ana@gmail.com " —el espacio que agregan los
+// teclados móviles al autocompletar— fallaba con un error críptico en inglés.
+const optionalEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(200, "El correo es demasiado largo.")
+  .optional()
+  .transform((value) => value || undefined)
+  .refine(
+    (value) => value === undefined || z.email().safeParse(value).success,
+    "Escribe un correo válido (ej. nombre@correo.com).",
+  );
+
 const checkboxBoolean = z.preprocess(
   (value) => value === "on" || value === "true" || value === true,
   z.boolean(),
@@ -26,13 +46,7 @@ const optionalNumber = z.preprocess(
 export const helpRequestSchema = z.object({
   // Opcional: quien pide ayuda puede dejar correo para que le escriban, o no
   // darlo y hablar por chat con un profesional. Vacío o ausente = sin correo.
-  email: z
-    .email("Escribe un correo válido.")
-    .trim()
-    .toLowerCase()
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => value || undefined),
+  email: optionalEmail,
   // Alias opcional: cómo quiere que la llamen. No es identidad legal; la persona
   // decide qué compartir. Se muestra al profesional en el aviso de mensaje.
   seekerName: z
@@ -102,7 +116,13 @@ export const foundationContactSchema = z
           /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}([/?#]\S*)?$/i.test(value),
         "Escribe una dirección web válida (ej. fundacion.org).",
       ),
-    email: z.email("Escribe un correo válido.").trim().toLowerCase(),
+    // Recortamos y bajamos a minúsculas ANTES de validar: un espacio final del
+    // autocompletado móvil no debe rechazar un correo bien escrito.
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email("Escribe un correo válido.")),
     // Teléfono opcional en general, pero OBLIGATORIO si eligen WhatsApp o llamada
     // como vía rápida (ver el .refine de abajo). Debe ser un número válido: lo
     // normalizamos con la misma heurística que la ficha profesional.
@@ -270,15 +290,33 @@ export const professionalSchema = z
       .optional()
       .transform((value) => value || undefined),
     supportAreas: z
-      .array(z.enum(needCategories))
+      .array(
+        z.enum(needCategories, {
+          error: "Elige las áreas de apoyo desde la lista del formulario.",
+        }),
+      )
       .min(1, "Elige al menos un área de apoyo."),
     remoteAvailable: checkboxBoolean.default(false),
     crisisExperience: checkboxBoolean.default(false),
-    contactEmail: z.email().trim().toLowerCase().optional().or(z.literal("")),
+    contactEmail: optionalEmail,
     contactNotes: optionalText,
-    shortBio: z.string().trim().max(600).optional(),
+    shortBio: z
+      .string()
+      .trim()
+      .max(600, "Tu presentación es demasiado larga (máximo 600 caracteres).")
+      .optional(),
     acceptingRequests: checkboxBoolean.default(false),
-    maxActiveRequests: z.coerce.number().int().min(1).max(10),
+    // Cupo de acompañamiento. Si llega vacío o ausente (borrador viejo, campo
+    // borrado) usamos el valor por defecto del formulario (3) en vez de romper
+    // el alta con "Invalid input: expected number, received NaN".
+    maxActiveRequests: z.preprocess(
+      (value) => (value === "" || value == null ? 3 : value),
+      z.coerce
+        .number("Indica con un número a cuántas personas puedes acompañar.")
+        .int("Escribe un número entero, sin decimales.")
+        .min(1, "El mínimo es acompañar a 1 persona.")
+        .max(10, "El máximo es acompañar a 10 personas a la vez."),
+    ),
     conductFreeService: requiredCheckbox,
     conductNoClientCapture: requiredCheckbox,
     conductConfidentiality: requiredCheckbox,
