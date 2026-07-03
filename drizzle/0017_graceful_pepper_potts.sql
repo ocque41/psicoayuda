@@ -1,0 +1,1 @@
+ALTER TABLE `professionals` ADD `credential_confirmed` integer DEFAULT false NOT NULL;

@@ -624,6 +624,37 @@ export async function adminSetProfessionalVisibility(formData: FormData) {
 // áreas, bio ni credencial— y se enriquece cuando la persona complete
 // /pro/onboarding (saveProfessionalOnboarding no toca el status, así que sigue
 // aprobado). El admin puede retirarla con el botón Ocultar.
+// Confirma (o revierte) MANUALMENTE la credencial de un profesional sin
+// verificación automática (fuera de Venezuela, donde no hay FPV). El admin la
+// marca tras cotejar su nº de colegiado / cédula profesional con el registro
+// oficial del país. Es un sello interno (solo /admin), no toca el directorio
+// público ni el estado de aprobación: el profesional sigue activo mientras tanto.
+export async function adminSetCredentialConfirmed(formData: FormData) {
+  const admin = await requireAdmin();
+  if (!admin) redirect("/pro");
+
+  const professionalId = String(formData.get("professionalId") ?? "");
+  if (!professionalId) return;
+  const confirmed = formData.get("confirmed") === "true";
+  const timestamp = nowIso();
+
+  await db
+    .update(professionals)
+    .set({ credentialConfirmed: confirmed, updatedAt: timestamp })
+    .where(eq(professionals.id, professionalId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: admin.email,
+    action: confirmed ? "credential_confirmed" : "credential_unconfirmed",
+    entityType: "professional",
+    entityId: professionalId,
+    createdAt: timestamp,
+  });
+
+  revalidatePath("/admin");
+}
+
 export async function adminApproveIncompleteRegistration(formData: FormData) {
   const admin = await requireAdmin();
   if (!admin) redirect("/pro");

@@ -12,22 +12,36 @@ function parseSnapshot(raw: string | null): FpvVerification | null {
   }
 }
 
-// Badge compacto del estado de verificación FPV en la tabla de /admin.
-// - verificado: el cruce cédula → Nº FPV + nombre coincidió al dar de alta.
-// - no coincide: se consultó FPV pero el Nº o el nombre no cuadran (revisar).
-// - declarado sin verificar: dio Nº FPV pero no cédula, así que nunca se cruzó.
-// - sin datos: no aportó Nº FPV (otra vía de acreditación).
+// Badge compacto del estado de verificación de credencial en /admin.
+// - Auxiliar no clínico: no tiene credencial que verificar.
+// - ✅ FPV verificado: el cruce cédula → Nº FPV + nombre coincidió (Venezuela, automático).
+// - ✅ Credencial confirmada: un admin la cotejó a mano (fuera de Venezuela: colegiado/cédula profesional).
+// - ⚠️ No coincide: se consultó FPV pero el Nº o el nombre no cuadran (revisar).
+// - ⏳ Verificación pendiente: aprobado y activo, pero su credencial aún no se confirmó.
 export function AdminFpvBadge({
   fpvVerified,
   fpvNumber,
   fpvSnapshot,
+  credentialConfirmed = false,
+  nonClinicalHelper = false,
 }: {
   fpvVerified: boolean;
   fpvNumber: string | null;
   fpvSnapshot: string | null;
+  credentialConfirmed?: boolean;
+  nonClinicalHelper?: boolean;
 }) {
   const snapshot = parseSnapshot(fpvSnapshot);
   const official = snapshot?.official ?? null;
+
+  // Auxiliar no clínico: declara que no ejerce con licencia, no hay credencial que verificar.
+  if (nonClinicalHelper) {
+    return (
+      <span className="muted">
+        Auxiliar no clínico · sin credencial que verificar
+      </span>
+    );
+  }
 
   if (fpvVerified && official) {
     return (
@@ -38,6 +52,17 @@ export function AdminFpvBadge({
           Nº {official.fpv} · {official.nombreCompleto}
           {official.universidad ? ` · ${official.universidad}` : ""}
         </span>
+      </span>
+    );
+  }
+
+  // Confirmada a mano por el equipo (España, México, etc., donde no hay FPV).
+  if (credentialConfirmed) {
+    return (
+      <span>
+        <strong style={{ color: "#137333" }}>✅ Credencial confirmada</strong>
+        <br />
+        <span className="muted">Revisada manualmente por el equipo.</span>
       </span>
     );
   }
@@ -68,17 +93,23 @@ export function AdminFpvBadge({
     );
   }
 
-  if (fpvNumber) {
-    return (
-      <span>
-        <span className="muted">Nº {fpvNumber} — sin verificar</span>
-        <br />
-        <a href={FPV_CONSULTA_URL} target="_blank" rel="noreferrer">
-          Consultar FPV
-        </a>
+  // Pendiente: aprobado y activo, pero su credencial aún no se confirmó.
+  return (
+    <span>
+      <strong style={{ color: "#a15c00" }}>⏳ Verificación pendiente</strong>
+      <br />
+      <span className="muted">
+        {fpvNumber ? (
+          <>
+            Declaró Nº FPV {fpvNumber}.{" "}
+            <a href={FPV_CONSULTA_URL} target="_blank" rel="noreferrer">
+              Consultar FPV
+            </a>
+          </>
+        ) : (
+          "Confírmalo con el registro oficial de su país (colegiado / cédula profesional)."
+        )}
       </span>
-    );
-  }
-
-  return <span className="muted">—</span>;
+    </span>
+  );
 }

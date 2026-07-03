@@ -5,6 +5,7 @@ import {
   adminAnonymizeHelpRequest,
   adminApproveIncompleteRegistration,
   adminAssignRequest,
+  adminSetCredentialConfirmed,
   adminSetProfessionalKind,
   adminSetProfessionalVisibility,
   adminUpdateAllianceStatus,
@@ -264,7 +265,7 @@ export default async function AdminPage({
                 <th>Correo</th>
                 <th>Estado</th>
                 <th>Tipo</th>
-                <th>FPV</th>
+                <th>Verificación</th>
                 <th>Capacidad</th>
                 <th>Acción</th>
               </tr>
@@ -310,7 +311,36 @@ export default async function AdminPage({
                       fpvVerified={professional.fpvVerified}
                       fpvNumber={professional.fpvNumber}
                       fpvSnapshot={professional.fpvSnapshot}
+                      credentialConfirmed={professional.credentialConfirmed}
+                      nonClinicalHelper={professional.nonClinicalHelper}
                     />
+                    {/* Confirmación manual solo para clínicos SIN verificación
+                        automática FPV (p. ej. España, México). */}
+                    {!professional.nonClinicalHelper &&
+                    !professional.fpvVerified ? (
+                      <form
+                        action={adminSetCredentialConfirmed}
+                        style={{ marginTop: "6px" }}
+                      >
+                        <input
+                          name="professionalId"
+                          type="hidden"
+                          value={professional.id}
+                        />
+                        <input
+                          name="confirmed"
+                          type="hidden"
+                          value={
+                            professional.credentialConfirmed ? "false" : "true"
+                          }
+                        />
+                        <button className="button secondary" type="submit">
+                          {professional.credentialConfirmed
+                            ? "Marcar pendiente"
+                            : "Confirmar credencial"}
+                        </button>
+                      </form>
+                    ) : null}
                   </td>
                   <td>
                     {professional.currentActiveRequests}/

@@ -156,6 +156,14 @@ export const professionals = sqliteTable(
       .notNull(),
     fpvVerifiedAt: integer("fpv_verified_at", { mode: "timestamp_ms" }),
     fpvSnapshot: text("fpv_snapshot"),
+    // Confirmación MANUAL de credencial para profesionales sin verificación
+    // automática (fuera de Venezuela: España, México, etc., donde no hay FPV).
+    // El admin la marca tras cotejar su nº de colegiado / cédula profesional con
+    // el registro oficial del país. Por defecto false = "pendiente de
+    // confirmación". Solo se usa en /admin (no sale en la ficha pública).
+    credentialConfirmed: integer("credential_confirmed", { mode: "boolean" })
+      .default(false)
+      .notNull(),
     status: text("status").default("pending_verification").notNull(),
     acceptingRequests: integer("accepting_requests", { mode: "boolean" })
       .default(false)
