@@ -162,8 +162,9 @@ describe("SEO — archivos de metadatos requeridos", () => {
       "src/app/sitemap.ts",
       "src/app/robots.ts",
       "src/app/manifest.ts",
-      "src/app/icon.svg",
-      "src/app/apple-icon.tsx",
+      "src/app/icon.png",
+      "src/app/apple-icon.png",
+      "src/app/favicon.ico",
       "src/app/opengraph-image.tsx",
       "src/app/twitter-image.tsx",
     ]) {
