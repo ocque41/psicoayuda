@@ -151,6 +151,11 @@ export function ProfessionalOnboardingForm({
   const [nonClinical, setNonClinical] = useState(
     existing?.nonClinicalHelper ?? false,
   );
+  // País controlado: la cédula es obligatoria solo si ejerce en Venezuela (para
+  // verificar el FPV). Fuera de Venezuela no aplica, así que la etiqueta cambia.
+  const [country, setCountry] = useState(
+    submitted?.country ?? existing?.country ?? "Venezuela",
+  );
   // El tipo de comprobante NO se precarga a propósito: el adjunto ya fue
   // revisado por el equipo y precargarlo obligaría a re-subir el documento
   // cada vez que se edita cualquier otra cosa.
@@ -401,13 +406,12 @@ export function ProfessionalOnboardingForm({
               id={ids.country}
               name="country"
               autoComplete="country-name"
-              defaultValue={
-                submitted?.country ?? existing?.country ?? "Venezuela"
-              }
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
             >
-              {countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
+              {countries.map((option) => (
+                <option key={option} value={option}>
+                  {option}
                 </option>
               ))}
             </select>
@@ -525,11 +529,17 @@ export function ProfessionalOnboardingForm({
                 htmlFor={ids.cedula}
                 style={{ marginTop: "10px", display: "block" }}
               >
-                Cédula <span className="muted">(opcional, para verificar)</span>
+                Cédula{" "}
+                <span className="muted">
+                  {country === "Venezuela"
+                    ? "(obligatoria para verificar tu FPV)"
+                    : "(opcional, para verificar)"}
+                </span>
               </label>
               <p className="hint" id={ids.cedulaHint}>
-                Solo se usa para confirmar tu Nº FPV con la Federación en este
-                momento. No la guardamos ni se muestra en tu perfil.
+                {country === "Venezuela"
+                  ? "Obligatoria para quienes ejercen en Venezuela: nos permite confirmar tu Nº FPV con la Federación. No la guardamos ni se muestra en tu perfil."
+                  : "Solo se usa para confirmar tu Nº FPV con la Federación en este momento. No la guardamos ni se muestra en tu perfil."}
               </p>
               <input
                 id={ids.cedula}

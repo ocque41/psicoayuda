@@ -358,6 +358,21 @@ export const professionalSchema = z
       message: "Sube el comprobante de tu registro (una imagen o un PDF).",
       path: ["registrationProofDoc"],
     },
+  )
+  .refine(
+    // Cédula OBLIGATORIA para psicólogos que ejercen en Venezuela: es lo que nos
+    // permite verificar su registro en la Federación de Psicólogos (FPV). Fuera
+    // de Venezuela no aplica (no hay FPV), y el auxiliar no clínico tampoco la
+    // necesita (no tiene credencial que verificar).
+    (data) =>
+      data.nonClinicalHelper ||
+      data.country !== "Venezuela" ||
+      Boolean(data.cedula),
+    {
+      message:
+        "Para verificar tu registro FPV en Venezuela, la cédula es obligatoria. Si no ejerces en Venezuela, elige tu país arriba y no hará falta.",
+      path: ["cedula"],
+    },
   );
 
 export const statusSchema = z.enum(["new", "contacted", "assigned", "closed"]);
