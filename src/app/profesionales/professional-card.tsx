@@ -124,6 +124,7 @@ export function FeedProfessionalCard({
             <>
               <a
                 className="button human block"
+                data-track-label={professional.name}
                 href={withUtm(`https://wa.me/${intlWhatsApp}?text=${waText}`, {
                   medium: "whatsapp",
                   campaign: "profesionales",
@@ -136,6 +137,7 @@ export function FeedProfessionalCard({
               </a>
               <a
                 className="muted"
+                data-track-label={professional.name}
                 href={`tel:+${intlWhatsApp}`}
                 style={{ display: "inline-block", marginTop: "6px" }}
               >
@@ -146,6 +148,7 @@ export function FeedProfessionalCard({
           {intlLandline ? (
             <a
               className={intlWhatsApp ? "muted" : "button human block"}
+              data-track-label={professional.name}
               href={`tel:+${intlLandline}`}
               style={
                 intlWhatsApp
@@ -160,6 +163,7 @@ export function FeedProfessionalCard({
           {professional.emailPublic ? (
             <a
               className="muted"
+              data-track-label={professional.name}
               href={`mailto:${professional.email}`}
               style={{ display: "block", marginTop: "6px" }}
             >
