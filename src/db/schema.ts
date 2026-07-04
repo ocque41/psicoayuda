@@ -417,3 +417,42 @@ export const partners = sqliteTable(
     index("partners_status_order_idx").on(table.status, table.sortOrder),
   ],
 );
+
+// Analítica propia de clics (sin PII). Registra QUÉ pulsa la gente (los CTAs y
+// los enlaces salientes a WhatsApp/webs) y de qué campaña UTM llegó su sesión,
+// para medir qué canal trae gente y qué funciona. Complementa a Cloudflare Web
+// Analytics: aquél cuenta VISITAS, esto cuenta ACCIONES. No guarda IP ni nada
+// identificable; `country` viene del edge de Cloudflare (cf-ipcountry) y solo
+// sirve a nivel agregado. Es una tabla desechable: se puede purgar sin afectar
+// a ningún otro flujo.
+export const clickEvents = sqliteTable(
+  "click_events",
+  {
+    id: text("id").primaryKey(),
+    // 'outbound' (wa.me/tel/mailto/web externa) | 'cta' (botón interno) | valor
+    // libre si el elemento trae `data-track`.
+    type: text("type").notNull(),
+    // Texto del botón/enlace (truncado) para saber QUÉ se pulsó.
+    label: text("label"),
+    // Destino del enlace: para salientes el wa.me/tel/web; para CTAs, la ruta.
+    href: text("href"),
+    // Ruta interna donde ocurrió el clic (window.location.pathname).
+    page: text("page"),
+    // Atribución de ENTRADA (first-touch de la sesión): de qué campaña vino
+    // quien hizo el clic. Se rellena desde los UTM de la URL de aterrizaje.
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    // País del edge de Cloudflare (cf-ipcountry), agregado y no identificable.
+    country: text("country"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+  },
+  (table) => [
+    index("click_events_created_idx").on(table.createdAt),
+    index("click_events_type_created_idx").on(table.type, table.createdAt),
+    index("click_events_campaign_idx").on(table.utmCampaign),
+  ],
+);
