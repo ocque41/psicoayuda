@@ -89,6 +89,52 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="section">
+        <div className="container">
+          <h2>No tienes que pasar por esto solo/a</h2>
+          <p className="lead">
+            Sabemos que estos momentos son de lo peor y que muy pocas cosas las
+            ves claras. Pero al menos no pases por esto solo/a: no te lo
+            mereces. Aquí hay gente dispuesta a ayudarte en lo que haga falta.
+          </p>
+          <div className="grid grid-2">
+            <article className="card">
+              <h3>100% gratis</h3>
+              <p>
+                Psicólogas y psicólogos voluntarios donan su tiempo. Nunca se te
+                pide un pago ni datos de tarjeta.
+              </p>
+            </article>
+            <article className="card">
+              <h3>Confidencial</h3>
+              <p>
+                Solo el equipo y quien te acompañe ven tu mensaje. No vendemos
+                datos ni hacemos publicidad.
+              </p>
+            </article>
+            <article className="card">
+              <h3>A distancia, desde donde estés</h3>
+              <p>
+                Con internet o un correo basta. Funciona en toda Venezuela y
+                también si estás fuera del país.
+              </p>
+            </article>
+            <article className="card">
+              <h3>Sin crear cuenta</h3>
+              <p>
+                Pides apoyo sin dar tu nombre, cédula ni ubicación. Un correo
+                basta para que te escriban.
+              </p>
+            </article>
+          </div>
+          <p>
+            <Link className="button human" href="/ayuda">
+              Quiero que me acompañen
+            </Link>
+          </p>
+        </div>
+      </section>
+
       <PartnersCarousel />
 
       <section className="section">
