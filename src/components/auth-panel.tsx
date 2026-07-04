@@ -4,6 +4,7 @@ import { createAuthClient } from "better-auth/react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { repararRegistroHuerfano } from "@/app/actions-account";
+import { trackConversion } from "@/components/click-tracker";
 
 const authClient = createAuthClient();
 const CALLBACK_URL = "/pro/onboarding";
@@ -202,6 +203,10 @@ export function AuthPanel({
         setPending(false);
         return;
       }
+      // Alta exitosa: registra la conversión con el UTM de entrada (atribuye la
+      // campaña al registro de un profesional). Solo en signup; "entrar" no es
+      // conversión nueva.
+      if (mode === "signup") trackConversion("signup");
       // Pide al navegador guardar/actualizar la contraseña. En Chrome/Android
       // (la mayoría aquí) el guardado solo es fiable con la Credential
       // Management API: el login va por fetch y la heurística del formulario
