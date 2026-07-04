@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { sendRequestToProfessionals } from "@/app/actions-offers";
+import { ConversionBeacon } from "@/components/conversion-beacon";
 import { FocusHeading } from "@/components/focus-heading";
 import { needLabels } from "@/lib/constants";
 import { getFeedProfessionals } from "@/lib/feed";
@@ -35,6 +36,10 @@ export default async function ThanksPage({
   return (
     <section className="section">
       <div className="container">
+        {/* Conversión real: llegar aquí = solicitud enviada. Atribuye la campaña. */}
+        {solicitud ? (
+          <ConversionBeacon type="lead" dedupeKey={solicitud} />
+        ) : null}
         <FocusHeading>Recibimos tu mensaje. No estás solo/a.</FocusHeading>
 
         {sent !== null && sent > 0 ? (

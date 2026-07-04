@@ -125,6 +125,20 @@ function send(payload: Record<string, unknown>) {
   } catch {}
 }
 
+// Registra una CONVERSIÓN (envío de formulario, alta) con el UTM de entrada.
+// La llaman componentes cliente en las páginas de éxito, para atribuir la
+// conversión real a la campaña — no basta con el clic en el botón (se dispara
+// aunque el formulario sea inválido).
+export function trackConversion(type: string, label?: string) {
+  send({
+    type,
+    label: label ?? null,
+    href: null,
+    page: location.pathname,
+    utm: readUtm(),
+  });
+}
+
 export function ClickTracker() {
   useEffect(() => {
     captureLandingUtm();
