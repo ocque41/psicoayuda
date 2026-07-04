@@ -117,7 +117,14 @@ export const EMERGENCY_RESOURCES: readonly EmergencyCategory[] = [
   {
     id: "medico-emergencias",
     title: "Apoyo médico y emergencias",
-    links: [link("nueveonce.com"), link("venemergencia.com")],
+    links: [
+      link(
+        "medicosporvenezuela.org",
+        "Teleconsulta médica y psicológica gratuita, 24/7",
+      ),
+      link("nueveonce.com"),
+      link("venemergencia.com"),
+    ],
   },
   {
     id: "mascotas",
