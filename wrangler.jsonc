@@ -24,7 +24,12 @@
     "NIDO_DB_TARGET": "cloudflare",
     // Remitente verificado en Resend (dominio saludmental-venezuela.com). No es
     // secreto; la API key sí va como secret: `wrangler secret put RESEND_API_KEY`.
-    "CONTACT_FROM_EMAIL": "Nido <avisos@saludmental-venezuela.com>"
+    "CONTACT_FROM_EMAIL": "Nido <avisos@saludmental-venezuela.com>",
+    // Token del beacon de Cloudflare Web Analytics (cuenta visitas, sin cookies).
+    // Se copia del panel: Cloudflare → Analytics & Logs → Web Analytics → añadir
+    // sitio saludmental-venezuela.com → token del snippet. No es secreto (va en el
+    // HTML). Vacío = analítica de visitas desactivada; el resto funciona igual.
+    "CF_BEACON_TOKEN": ""
   },
   "d1_databases": [
     {

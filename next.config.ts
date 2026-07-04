@@ -12,8 +12,12 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "img-src 'self' data: https:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
-  "connect-src 'self'",
+  // static.cloudflareinsights.com: script del beacon de Cloudflare Web Analytics
+  // (cuenta visitas, sin cookies). cloudflareinsights.com en connect-src: adonde
+  // el beacon envía las métricas. El resto sigue restringido a 'self' (nuestro
+  // propio beacon de clics va a /api/track, mismo origen).
+  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+  "connect-src 'self' https://cloudflareinsights.com",
   "font-src 'self' data:",
 ].join("; ");
 

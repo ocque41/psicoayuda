@@ -3,7 +3,9 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Space_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 import type { ReactNode } from "react";
+import { ClickTracker } from "@/components/click-tracker";
 import { LastActionTracker } from "@/components/last-action-tracker";
 import { SiteNav } from "@/components/site-nav";
 import { SiteJsonLd } from "@/components/structured-data";
@@ -96,6 +98,10 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // Token del beacon de Cloudflare Web Analytics (cuenta visitas, sin cookies).
+  // Se saca del panel de Cloudflare y se pone en la var CF_BEACON_TOKEN (no es
+  // secreto). Si no está, no se carga nada: la web funciona igual.
+  const cfBeaconToken = process.env.CF_BEACON_TOKEN?.trim();
   return (
     <html lang="es" className={`${hanken.variable} ${spaceGrotesk.variable}`}>
       <body>
@@ -172,6 +178,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </footer>
         <SiteJsonLd />
         <LastActionTracker />
+        <ClickTracker />
+        {cfBeaconToken ? (
+          <Script
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: cfBeaconToken })}
+            strategy="afterInteractive"
+          />
+        ) : null}
       </body>
     </html>
   );
