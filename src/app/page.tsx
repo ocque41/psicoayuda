@@ -52,8 +52,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <PartnersCarousel />
-
       <section className="section" id="voluntarios">
         <div className="container">
           <h2>Psicólogas y psicólogos voluntarios disponibles</h2>
@@ -90,6 +88,8 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      <PartnersCarousel />
 
       <section className="section">
         <div className="container">
