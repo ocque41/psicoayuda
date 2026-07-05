@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { professionals } from "@/db/schema";
 import { isAvailableNow } from "@/lib/response-bucket";
@@ -27,6 +27,8 @@ export type FeedProfessional = {
   crisisExperience: boolean;
   // Etiqueta pública: acompaña sin credencial clínica (estudiante/voluntario).
   nonClinicalHelper: boolean;
+  // También atiende presencial (en su ciudad, Venezuela), además de/en vez de remoto.
+  inPersonAvailable: boolean;
   acceptingRequests: boolean;
   currentActiveRequests: number;
   maxActiveRequests: number;
@@ -66,6 +68,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     emailPublic: boolean;
     crisisExperience: boolean;
     nonClinicalHelper: boolean;
+    inPersonAvailable: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
     maxActiveRequests: number;
@@ -88,6 +91,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         emailPublic: professionals.emailPublic,
         crisisExperience: professionals.crisisExperience,
         nonClinicalHelper: professionals.nonClinicalHelper,
+        inPersonAvailable: professionals.inPersonAvailable,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
         maxActiveRequests: professionals.maxActiveRequests,
@@ -96,7 +100,12 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
       .where(
         and(
           eq(professionals.status, "approved"),
-          eq(professionals.remoteAvailable, true),
+          // Visible si atiende remoto O presencial (antes solo remoto, lo que
+          // ocultaba a quien solo ofrece presencial).
+          or(
+            eq(professionals.remoteAvailable, true),
+            eq(professionals.inPersonAvailable, true),
+          ),
         ),
       );
   } catch (error) {
@@ -123,6 +132,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     emailPublic: r.emailPublic,
     crisisExperience: r.crisisExperience,
     nonClinicalHelper: r.nonClinicalHelper,
+    inPersonAvailable: r.inPersonAvailable,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,
     maxActiveRequests: r.maxActiveRequests,

@@ -405,6 +405,7 @@ export async function saveProfessionalOnboarding(
     languages: JSON.stringify(["es"]),
     supportAreas: JSON.stringify(parsed.data.supportAreas),
     remoteAvailable: parsed.data.remoteAvailable,
+    inPersonAvailable: parsed.data.inPersonAvailable,
     crisisExperience: parsed.data.crisisExperience,
     contactEmail: parsed.data.contactEmail || session.user.email,
     contactNotes: parsed.data.contactNotes,

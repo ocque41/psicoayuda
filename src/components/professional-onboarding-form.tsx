@@ -104,6 +104,7 @@ export type ExistingProfessional = {
   supportAreas: string[];
   maxActiveRequests: number;
   remoteAvailable: boolean;
+  inPersonAvailable: boolean;
   acceptingRequests: boolean;
   crisisExperience: boolean;
   shortBio: string | null;
@@ -772,6 +773,19 @@ export function ProfessionalOnboardingForm({
               }
             />
             Estoy disponible para acompañar en remoto.
+          </label>
+          <label>
+            <input
+              name="inPersonAvailable"
+              type="checkbox"
+              defaultChecked={
+                submitted
+                  ? submitted.inPersonAvailable === "on"
+                  : (existing?.inPersonAvailable ?? false)
+              }
+            />
+            También puedo atender presencial en mi ciudad (para quien esté en
+            Venezuela).
           </label>
           <label>
             <input

@@ -1,0 +1,1 @@
+ALTER TABLE `professionals` ADD `in_person_available` integer DEFAULT false NOT NULL;
