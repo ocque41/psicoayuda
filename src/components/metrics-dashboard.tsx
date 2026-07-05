@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 type Row = { label: string; n: number };
 type Recent = {
+  id: string;
   type: string;
   label: string | null;
   page: string | null;
@@ -174,8 +175,8 @@ export function MetricsDashboard() {
               </tr>
             </thead>
             <tbody>
-              {data.recent.map((r, i) => (
-                <tr key={`${r.ts}-${i}`}>
+              {data.recent.map((r) => (
+                <tr key={r.id}>
                   <td>{hora(r.ts)}</td>
                   <td>{r.type}</td>
                   <td>{r.label ?? "—"}</td>

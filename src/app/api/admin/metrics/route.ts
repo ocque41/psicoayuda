@@ -68,7 +68,7 @@ export async function GET() {
     ),
     db
       .prepare(
-        `SELECT type, label, page, utm_source AS source, created_at AS ts FROM click_events WHERE ${notTest} ORDER BY created_at DESC LIMIT 15`,
+        `SELECT id, type, label, page, utm_source AS source, created_at AS ts FROM click_events WHERE ${notTest} ORDER BY created_at DESC LIMIT 15`,
       )
       .all()
       .then((r) => r.results ?? []),
