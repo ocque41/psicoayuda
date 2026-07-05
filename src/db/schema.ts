@@ -132,6 +132,11 @@ export const professionals = sqliteTable(
     remoteAvailable: integer("remote_available", { mode: "boolean" })
       .default(true)
       .notNull(),
+    // Atención presencial (además de o en vez de remota). Para voluntarios en
+    // Venezuela que pueden ver a la persona en su ciudad. Pública en la ficha.
+    inPersonAvailable: integer("in_person_available", { mode: "boolean" })
+      .default(false)
+      .notNull(),
     crisisExperience: integer("crisis_experience", { mode: "boolean" })
       .default(false)
       .notNull(),

@@ -93,6 +93,16 @@ export function FeedProfessionalCard({
         </p>
       ) : null}
 
+      {professional.inPersonAvailable ? (
+        <p
+          className="badge badge-new"
+          title="Además de a distancia, puede atender de forma presencial."
+        >
+          También presencial
+          {professional.city ? ` · ${professional.city}` : ""}
+        </p>
+      ) : null}
+
       {professional.supportAreas.length ? (
         <ul className="chips" aria-label="Áreas de apoyo">
           {professional.supportAreas.slice(0, 4).map((area) => (

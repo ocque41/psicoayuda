@@ -297,6 +297,7 @@ export const professionalSchema = z
       )
       .min(1, "Elige al menos un área de apoyo."),
     remoteAvailable: checkboxBoolean.default(false),
+    inPersonAvailable: checkboxBoolean.default(false),
     crisisExperience: checkboxBoolean.default(false),
     contactEmail: optionalEmail,
     contactNotes: optionalText,

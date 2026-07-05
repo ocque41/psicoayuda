@@ -57,6 +57,7 @@ export default async function ProOnboardingPage() {
         supportAreas: parseJsonList(profile.supportAreas),
         maxActiveRequests: profile.maxActiveRequests,
         remoteAvailable: profile.remoteAvailable,
+        inPersonAvailable: profile.inPersonAvailable,
         acceptingRequests: profile.acceptingRequests,
         crisisExperience: profile.crisisExperience,
         shortBio: profile.shortBio,
