@@ -22,6 +22,7 @@ import {
 } from "@/components/admin-incomplete-registrations";
 import { AdminPartnersSection } from "@/components/admin-partners";
 import { AuthPanel } from "@/components/auth-panel";
+import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { db } from "@/db";
 import {
   allianceRequests,
@@ -30,7 +31,6 @@ import {
   professionals,
   user,
 } from "@/db/schema";
-import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels, preferredContactLabels } from "@/lib/constants";
