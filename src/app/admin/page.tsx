@@ -30,6 +30,7 @@ import {
   professionals,
   user,
 } from "@/db/schema";
+import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { needLabels, preferredContactLabels } from "@/lib/constants";
@@ -241,6 +242,9 @@ export default async function AdminPage({
           </p>
         ) : null}
         <nav className="panel-nav" aria-label="Secciones del panel de admin">
+          <a className="button secondary" href="#metricas">
+            Métricas
+          </a>
           <a className="button secondary" href="#solicitudes">
             Solicitudes
             {newRequestCount > 0 ? ` (${newRequestCount} nuevas)` : ""}
@@ -255,6 +259,9 @@ export default async function AdminPage({
             Exportar solicitudes CSV
           </Link>
         </nav>
+
+        <h2 id="metricas">Métricas</h2>
+        <MetricsDashboard />
 
         <h2 id="profesionales">Profesionales</h2>
         <div className="table-wrap">
