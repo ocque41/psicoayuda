@@ -16,9 +16,9 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const professionals = await getFeedProfessionals();
-  // Rejilla compacta en la portada: mostramos hasta 6 para no empujar el
-  // contenido tranquilizador hacia abajo. El resto en /profesionales.
-  const featured = professionals.slice(0, 6);
+  // Carrusel de la portada: 3 visibles que avanzan solos; mostramos hasta 9
+  // para que rote sin alargar la sección. El resto en /profesionales.
+  const featured = professionals.slice(0, 9);
   return (
     <>
       <section className="hero">
