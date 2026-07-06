@@ -39,18 +39,23 @@ export function HomeProfessionalsStrip({
     el.addEventListener("focusin", pause);
     el.addEventListener("focusout", resume);
 
+    // Avanza por páginas alineadas a las tarjetas: siempre deja tarjetas
+    // completas pegadas al borde izquierdo (nunca a medias) y vuelve al inicio
+    // antes de dejar hueco al final. Usamos offsetLeft de la tarjeta destino, así
+    // no hay que calcular anchos ni gaps a mano.
+    let index = 0;
     const id = window.setInterval(() => {
       if (paused) return;
-      const first = el.querySelector("li");
-      const step = first
-        ? first.getBoundingClientRect().width + 16
-        : el.clientWidth;
-      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
-      el.scrollTo({
-        left: atEnd ? 0 : el.scrollLeft + step,
-        behavior: "smooth",
-      });
-    }, 3500);
+      const cards = el.querySelectorAll<HTMLElement>(":scope > li");
+      if (cards.length < 2) return;
+      const perView = Math.max(
+        1,
+        Math.floor(el.clientWidth / cards[0].getBoundingClientRect().width),
+      );
+      index += perView;
+      if (index > cards.length - perView) index = 0;
+      el.scrollTo({ left: cards[index].offsetLeft, behavior: "smooth" });
+    }, 4000);
 
     return () => {
       window.clearInterval(id);
