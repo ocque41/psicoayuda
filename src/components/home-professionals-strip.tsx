@@ -1,4 +1,3 @@
-// biome-ignore-all lint/a11y/noNoninteractiveTabindex: el carrusel horizontal debe poder recibir foco para desplazarse con teclado
 import Link from "next/link";
 import { needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
@@ -8,30 +7,24 @@ function areaName(code: string) {
   return needLabels[code as keyof typeof needLabels] ?? code;
 }
 
-// Carrusel compacto para la home: una tira horizontal de mini-fichas que se
-// desliza. El detalle y el contacto viven en /profesionales (fichas completas).
-// Estilos en línea a propósito: globals.css tiene cambios de otras sesiones sin
-// commitear; reutilizamos clases existentes (.card/.avatar/.chips/.badge) para
-// el aspecto y solo el layout de la tira va inline.
+// Rejilla responsive para la home: mini-fichas que se acomodan en columnas según
+// el ancho (sin tira horizontal que corte la última tarjeta). El detalle y el
+// contacto viven en /profesionales (fichas completas). Estilos de layout inline;
+// el aspecto reutiliza clases existentes (.card/.avatar/.chips/.badge).
 export function HomeProfessionalsStrip({
   professionals,
 }: {
   professionals: FeedProfessional[];
 }) {
   return (
-    // tabIndex=0: Firefox y Safari no hacen enfocables por teclado los
-    // contenedores con overflow, así que sin esto un usuario de teclado no podría
-    // desplazar la tira horizontalmente (WCAG 2.1.1). El aria-label le da nombre.
     <ul
       aria-label="Psicólogas y psicólogos voluntarios"
-      tabIndex={0}
       style={{
-        display: "flex",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
         gap: "16px",
-        overflowX: "auto",
-        scrollSnapType: "x mandatory",
         listStyle: "none",
-        padding: "4px 4px 12px",
+        padding: 0,
         margin: "0 0 var(--space-4)",
       }}
     >
@@ -39,10 +32,7 @@ export function HomeProfessionalsStrip({
         const signal = professionalResponseSignal(professional);
         const initial = professional.name.charAt(0).toUpperCase() || "·";
         return (
-          <li
-            key={professional.id}
-            style={{ flex: "0 0 min(260px, 80vw)", scrollSnapAlign: "start" }}
-          >
+          <li key={professional.id}>
             <Link
               href="/profesionales"
               className="card"
