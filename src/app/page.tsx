@@ -3,7 +3,7 @@ import {
   EmergencyPriorityBar,
   EmergencyResourcesDirectory,
 } from "@/components/emergency-resources";
-import { HomeProfessionalsFilter } from "@/components/home-professionals-filter";
+import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
 import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
 import { getFeedProfessionals } from "@/lib/feed";
@@ -54,7 +54,9 @@ export default async function HomePage() {
 
       <section className="section" id="voluntarios">
         <div className="container">
-          <h2>Psicólogas y psicólogos voluntarios disponibles</h2>
+          <h2 style={{ fontSize: "clamp(2.1rem, 4.5vw, 3rem)" }}>
+            Psicólogas y psicólogos voluntarios disponibles
+          </h2>
           <p className="lead">
             Estas personas profesionales, verificadas, donan su tiempo para
             acompañarte gratis y a distancia. Elige con quién hablar o deja tu
@@ -62,7 +64,7 @@ export default async function HomePage() {
           </p>
           {featured.length > 0 ? (
             <>
-              <HomeProfessionalsFilter professionals={featured} />
+              <HomeProfessionalsStrip professionals={featured} />
               <p>
                 <Link className="button secondary" href="/profesionales">
                   Ver y buscar todas las personas voluntarias
