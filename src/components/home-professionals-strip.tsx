@@ -41,8 +41,10 @@ export function HomeProfessionalsStrip({
 
     // Avanza por páginas alineadas a las tarjetas: siempre deja tarjetas
     // completas pegadas al borde izquierdo (nunca a medias) y vuelve al inicio
-    // antes de dejar hueco al final. Usamos offsetLeft de la tarjeta destino, así
-    // no hay que calcular anchos ni gaps a mano.
+    // antes de dejar hueco al final. La posición de scroll se calcula como la
+    // distancia entre la tarjeta destino y la primera (offsetLeft - offsetLeft de
+    // la 1ª), que es independiente de dónde esté el contenedor en la página (el
+    // offsetLeft "absoluto" incluía el margen del contenedor y sobre-desplazaba).
     let index = 0;
     const id = window.setInterval(() => {
       if (paused) return;
@@ -54,7 +56,8 @@ export function HomeProfessionalsStrip({
       );
       index += perView;
       if (index > cards.length - perView) index = 0;
-      el.scrollTo({ left: cards[index].offsetLeft, behavior: "smooth" });
+      const left = cards[index].offsetLeft - cards[0].offsetLeft;
+      el.scrollTo({ left, behavior: "smooth" });
     }, 4000);
 
     return () => {
