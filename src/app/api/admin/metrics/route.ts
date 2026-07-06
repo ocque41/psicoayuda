@@ -69,8 +69,9 @@ export async function GET() {
     ),
     rows(
       `SELECT label, COUNT(*) n FROM click_events
-       WHERE type = 'outbound' AND label IS NOT NULL
-       AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')
+       WHERE label IS NOT NULL
+       AND (type = 'aliado'
+            OR (type = 'outbound' AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')))
        GROUP BY 1 ORDER BY n DESC LIMIT 25`,
     ),
     db
