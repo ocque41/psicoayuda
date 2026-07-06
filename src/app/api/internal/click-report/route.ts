@@ -60,6 +60,15 @@ export async function POST(request: Request) {
        AND label NOT LIKE '%Guardianes%' AND label NOT LIKE '%Francys%' AND label NOT LIKE '%0424%'
        GROUP BY s ORDER BY n DESC LIMIT 12`,
     );
+    // Aliados y recursos externos: clics a los contactos/webs de las
+    // asociaciones (/alianzas), los recursos (/recursos) y cualquier enlace
+    // externo (etiqueta con ↗). Agrupado por lo que se pulsó.
+    const aliados = await all(
+      `SELECT label AS s, COUNT(*) AS n FROM click_events WHERE created_at >= ?
+       AND type = 'outbound' AND label IS NOT NULL
+       AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')
+       GROUP BY s ORDER BY n DESC LIMIT 15`,
+    );
 
     const li = (rows: Count[]) =>
       rows.length
@@ -84,6 +93,9 @@ ${li(byType)}
 Psicólogos contactados por WhatsApp:
 ${li(psych)}
 
+Aliados y recursos externos (clics a sus contactos/webs):
+${li(aliados)}
+
 — Nido · saludmental-venezuela.com`;
 
     const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:560px">
@@ -93,6 +105,7 @@ ${li(psych)}
 <p style="margin:0 0 2px"><strong>Origen</strong></p><ul style="margin:0 0 14px">${liHtml(bySource)}</ul>
 <p style="margin:0 0 2px"><strong>Tipo</strong></p><ul style="margin:0 0 14px">${liHtml(byType)}</ul>
 <p style="margin:0 0 2px"><strong>Psicólogos contactados por WhatsApp</strong></p><ul style="margin:0 0 14px">${liHtml(psych)}</ul>
+<p style="margin:0 0 2px"><strong>Aliados y recursos externos</strong> (clics a sus contactos/webs)</p><ul style="margin:0 0 14px">${liHtml(aliados)}</ul>
 <p style="color:#6e655b;font-size:13px;border-top:1px solid #eee;padding-top:12px">Informe automático cada 12h · Nido</p>
 </div>`;
 
