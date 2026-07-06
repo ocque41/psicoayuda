@@ -43,6 +43,7 @@ export async function GET() {
     bySource,
     byType,
     psychologists,
+    aliados,
     recent,
     approvedPros,
     inPersonPros,
@@ -66,6 +67,12 @@ export async function GET() {
        AND label NOT LIKE '%Guardianes%' AND label NOT LIKE '%Francys%' AND label NOT LIKE '%0424%'
        GROUP BY 1 ORDER BY n DESC LIMIT 25`,
     ),
+    rows(
+      `SELECT label, COUNT(*) n FROM click_events
+       WHERE type = 'outbound' AND label IS NOT NULL
+       AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')
+       GROUP BY 1 ORDER BY n DESC LIMIT 25`,
+    ),
     db
       .prepare(
         `SELECT id, type, label, page, utm_source AS source, created_at AS ts FROM click_events WHERE ${notTest} ORDER BY created_at DESC LIMIT 15`,
@@ -87,6 +94,7 @@ export async function GET() {
       bySource,
       byType,
       psychologists,
+      aliados,
       recent,
       approvedPros,
       inPersonPros,

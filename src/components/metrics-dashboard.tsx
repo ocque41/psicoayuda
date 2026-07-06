@@ -23,6 +23,7 @@ type Metrics = {
   bySource: Row[];
   byType: Row[];
   psychologists: Row[];
+  aliados: Row[];
   recent: Recent[];
   approvedPros: number;
   inPersonPros: number;
@@ -159,6 +160,14 @@ export function MetricsDashboard() {
       <article className="card">
         <h3>Psicólogos contactados por WhatsApp</h3>
         <BarList rows={data.psychologists} />
+      </article>
+
+      <article className="card">
+        <h3>Aliados y recursos externos</h3>
+        <p className="muted" style={{ margin: "0 0 8px" }}>
+          Clics a los contactos y webs de las asociaciones y recursos.
+        </p>
+        <BarList rows={data.aliados} />
       </article>
 
       <article className="card">

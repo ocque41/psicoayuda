@@ -138,15 +138,17 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     maxActiveRequests: r.maxActiveRequests,
   }));
 
-  // Disponibles primero; dentro de cada grupo, desempate determinista por cupo
-  // restante (más libre antes) y luego por id, para no fijar el orden al orden
-  // físico de filas (que congelaba siempre a los primeros aprobados).
-  return mapped.sort((a, b) => {
-    const availability = Number(isAvailableNow(b)) - Number(isAvailableNow(a));
-    if (availability !== 0) return availability;
-    const remainingA = a.maxActiveRequests - a.currentActiveRequests;
-    const remainingB = b.maxActiveRequests - b.currentActiveRequests;
-    if (remainingA !== remainingB) return remainingB - remainingA;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
+  // Disponibles primero (pueden responder ya); DENTRO de cada grupo, orden
+  // ALEATORIO. Con ISR (revalidación ~60s) el orden rota, así no salen siempre
+  // los mismos arriba y todos tienen la misma oportunidad de aparecer primero.
+  const shuffle = <T>(arr: T[]): T[] => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+  const disponibles = shuffle(mapped.filter((p) => isAvailableNow(p)));
+  const resto = shuffle(mapped.filter((p) => !isAvailableNow(p)));
+  return [...disponibles, ...resto];
 }
