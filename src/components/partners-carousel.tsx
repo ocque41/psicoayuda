@@ -38,6 +38,8 @@ export async function PartnersCarousel() {
                 <a
                   className="card partner-link"
                   href={href}
+                  data-track="aliado"
+                  data-track-label={partner.name}
                   aria-label={`Contactar a ${partner.name}`}
                   target={external ? "_blank" : undefined}
                   rel={external ? "noopener noreferrer" : undefined}

@@ -65,8 +65,9 @@ export async function POST(request: Request) {
     // externo (etiqueta con ↗). Agrupado por lo que se pulsó.
     const aliados = await all(
       `SELECT label AS s, COUNT(*) AS n FROM click_events WHERE created_at >= ?
-       AND type = 'outbound' AND label IS NOT NULL
-       AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')
+       AND label IS NOT NULL
+       AND (type = 'aliado'
+            OR (type = 'outbound' AND (page IN ('/alianzas','/recursos') OR label LIKE '%↗%')))
        GROUP BY s ORDER BY n DESC LIMIT 15`,
     );
 
