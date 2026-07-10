@@ -68,4 +68,16 @@ export default {
     ctx.waitUntil(task);
     await task;
   },
+
+  // Reenvío del correo entrante del dominio (p. ej. respuestas a `equipo@` del
+  // envío de feedback) SIEMPRE a las dos cuentas del equipo. Requiere Email
+  // Routing activado en Cloudflare y AMBOS destinos verificados; la regla de
+  // enrutado (equipo@ o catch-all → este Worker) se configura en el panel.
+  // Nunca @implicacf.com (regla del proyecto).
+  async email(message: ForwardableEmailMessage): Promise<void> {
+    await Promise.all([
+      message.forward("martinezra02@gmail.com"),
+      message.forward("ocquema@hotmail.com"),
+    ]);
+  },
 } satisfies ExportedHandler<Env>;
