@@ -85,6 +85,28 @@ export default function ResourcesPage() {
         </div>
 
         <div className="card">
+          <h2>Otras iniciativas de apoyo</h2>
+          <p>
+            <strong>Contigo</strong> es una iniciativa de acompañamiento
+            emocional y psicológico gratuito con terapeutas voluntarios en
+            Venezuela, surgida para apoyar a quienes viven los terremotos.
+            Acompañan por WhatsApp, videollamada, llamada o en persona.
+          </p>
+          <p>
+            <a
+              className="button secondary"
+              href="https://contigo-venezuela.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-track="aliado"
+              data-track-label="Contigo Venezuela ↗"
+            >
+              Visitar Contigo ↗
+            </a>
+          </p>
+        </div>
+
+        <div className="card">
           <h2>Guías de apoyo</h2>
           <p>
             Lecturas breves y cálidas, escritas con cuidado, para distintos
