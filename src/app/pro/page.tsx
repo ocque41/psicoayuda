@@ -21,11 +21,11 @@ export const metadata: Metadata = {
 export default async function ProPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modo?: string }>;
+  searchParams: Promise<{ cuenta?: string; modo?: string }>;
 }) {
   const session = await getServerSession();
   const isAdmin = isAdminEmail(session?.user?.email);
-  const { modo } = await searchParams;
+  const { cuenta, modo } = await searchParams;
   const defaultMode = modo === "registro" ? "signup" : "signin";
   const googleEnabled = Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() &&
@@ -42,6 +42,11 @@ export default async function ProPage({
           coste para nadie. Y si representas a una fundación u organización de
           salud mental, también queremos sumarte. Gracias por estar aquí.
         </p>
+        {cuenta === "borrada" ? (
+          <p className="status-message" role="status">
+            Tu cuenta se borró correctamente.
+          </p>
+        ) : null}
         <ul className="trust-strip" aria-label="Lo que te ofrecemos">
           <li>Tú defines tu cupo</li>
           <li>Verificamos y coordinamos por ti</li>

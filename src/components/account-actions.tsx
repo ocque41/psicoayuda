@@ -2,8 +2,11 @@
 
 import { createAuthClient } from "better-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { deleteMyAccount } from "@/app/actions-account";
+import { useActionState, useState } from "react";
+import {
+  type DeleteMyAccountState,
+  deleteMyAccount,
+} from "@/app/actions-account";
 
 const authClient = createAuthClient();
 
@@ -14,7 +17,11 @@ const authClient = createAuthClient();
 export function AccountActions() {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const initialDeleteState: DeleteMyAccountState = { error: null };
+  const [deleteState, deleteAction, deleting] = useActionState(
+    deleteMyAccount,
+    initialDeleteState,
+  );
 
   async function onSignOut() {
     setSigningOut(true);
@@ -53,22 +60,25 @@ export function AccountActions() {
         <div className="disclosure-body">
           <p className="hint">
             Se eliminarán de forma permanente tu cuenta y, si lo creaste, tu
-            perfil profesional. Esta acción no se puede deshacer.
+            perfil profesional. Los mensajes que hayas enviado al equipo de
+            coordinación se conservan para poder darles seguimiento; puedes
+            pedir que los eliminemos desde la página de contacto. Esta acción no
+            se puede deshacer.
           </p>
-          <form action={deleteMyAccount} onSubmit={() => setDeleting(true)}>
+          <form action={deleteAction}>
             <button
               type="submit"
-              className="button"
+              className="button danger"
               disabled={deleting}
               aria-busy={deleting}
-              style={{
-                background: "var(--danger)",
-                borderColor: "var(--danger)",
-                color: "#fff",
-              }}
             >
               {deleting ? "Borrando…" : "Sí, borrar mi cuenta definitivamente"}
             </button>
+            {deleteState.error ? (
+              <p className="form-error" role="alert">
+                {deleteState.error}
+              </p>
+            ) : null}
           </form>
         </div>
       </details>

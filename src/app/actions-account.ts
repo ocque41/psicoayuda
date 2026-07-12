@@ -5,37 +5,64 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { auditLogs, professionals, user } from "@/db/schema";
+import { auditLogs, user } from "@/db/schema";
 import { purgeAccount, reclamarUsuarioHuerfano } from "@/lib/account";
 import { isAdminEmail, requireAdmin } from "@/lib/admin";
-import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
 
+export type DeleteMyAccountState = { error: string | null };
+
+function revalidateAccountViews() {
+  for (const path of ["/", "/ayuda", "/profesionales", "/admin", "/pro"]) {
+    try {
+      revalidatePath(path);
+    } catch (error) {
+      // La cuenta ya se borró. Un fallo de caché no debe convertir una baja
+      // real en un mensaje falso de error.
+      console.error("account view revalidation failed", { path, error });
+    }
+  }
+}
+
 /**
- * Borra la cuenta del profesional autenticado y todo su rastro. Está disponible
- * aunque no haya terminado el onboarding: `purgeAccount` maneja el caso sin
- * perfil profesional. Cierra la sesión (limpia la cookie) antes de borrar y
- * redirige a la home.
+ * Borra la cuenta y sus datos operativos. Está disponible aunque no haya
+ * terminado el onboarding. Solo confirma el éxito después de completar la baja;
+ * si D1 falla, mantiene la sesión y muestra un mensaje para reintentar.
  */
-export async function deleteMyAccount() {
+export async function deleteMyAccount(
+  _previousState: DeleteMyAccountState,
+  _formData: FormData,
+): Promise<DeleteMyAccountState> {
   const authSession = await getServerSession();
   if (!authSession?.user?.id) redirect("/pro");
   const userId = authSession.user.id;
 
-  // Cerramos la sesión primero (mientras aún existe) para limpiar la cookie. Si
-  // fallara, no pasa nada: al borrar las filas `session` la cookie queda muerta
-  // y `getSession` devolverá null.
+  // Primero completamos el borrado. Si la base de datos falla, la persona
+  // conserva su sesión y puede reintentar; no la dejamos fuera de una cuenta
+  // que todavía existe.
+  try {
+    await purgeAccount(userId);
+  } catch (error) {
+    console.error("self account deletion failed", { userId, error });
+    return {
+      error:
+        "No pudimos borrar tu cuenta. Sigue activa; inténtalo de nuevo en un momento.",
+    };
+  }
+
+  revalidateAccountViews();
+
+  // Las filas de sesión ya no existen. Intentamos además limpiar la cookie; si
+  // falla, queda inservible y getSession devolverá null igualmente.
   try {
     await auth.api.signOut({ headers: await headers() });
   } catch {
     // best-effort
   }
 
-  await purgeAccount(userId);
-
-  redirect("/");
+  redirect("/pro?cuenta=borrada");
 }
 
 /**
@@ -70,17 +97,7 @@ export async function adminDeleteAccount(formData: FormData) {
   if (!target) redirect("/admin?cuenta=no-encontrada");
   if (isAdminEmail(target.email)) redirect("/admin?cuenta=protegida");
 
-  const professional = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, target.id),
-    columns: { id: true },
-  });
-
-  // Una baja con casos activos no puede dejar solicitudes huérfanas: primero
-  // las devuelve a la cola y revoca las conversaciones/sesiones abiertas.
-  if (professional) {
-    await releaseProfessionalAssignments(professional.id);
-  }
-
+  // purgeAccount también devuelve cualquier caso activo a la cola.
   await purgeAccount(target.id);
 
   await db.insert(auditLogs).values({
@@ -92,6 +109,6 @@ export async function adminDeleteAccount(formData: FormData) {
     createdAt: nowIso(),
   });
 
-  revalidatePath("/admin");
+  revalidateAccountViews();
   redirect("/admin?cuenta=borrada");
 }

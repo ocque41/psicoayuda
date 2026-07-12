@@ -16,7 +16,10 @@ const contentSecurityPolicy = [
   // (cuenta visitas, sin cookies). cloudflareinsights.com en connect-src: adonde
   // el beacon envía las métricas. El resto sigue restringido a 'self' (nuestro
   // propio beacon de clics va a /api/track, mismo origen).
-  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+  // Turbopack usa eval para reconstruir módulos solo durante `next dev`. Sin
+  // esta excepción local React no hidrata y no se pueden probar formularios ni
+  // métricas en el navegador. El build de producción mantiene la CSP estricta.
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"} https://static.cloudflareinsights.com`,
   "connect-src 'self' https://cloudflareinsights.com",
   "font-src 'self' data:",
 ].join("; ");
