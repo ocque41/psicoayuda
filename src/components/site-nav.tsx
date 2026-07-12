@@ -15,7 +15,13 @@ const authClient = createAuthClient();
  */
 export function SiteNav() {
   const { data: session, isPending } = authClient.useSession();
-  const isPro = !isPending && Boolean(session?.user);
+  const [mounted, setMounted] = useState(false);
+  // Better Auth puede resolver la cookie inmediatamente en el navegador. Si la
+  // usamos en el primer render, el servidor pinta el menú público y el cliente
+  // intenta hidratar el profesional, lo que provoca un mismatch de React. La
+  // primera pintura queda estable y cambiamos de menú justo después de montar.
+  useEffect(() => setMounted(true), []);
+  const isPro = mounted && !isPending && Boolean(session?.user);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Solo con sesión preguntamos al servidor si esta cuenta es admin. La lista de
@@ -48,6 +54,7 @@ export function SiteNav() {
       <div className="nav-links">
         <Link href="/pro/dashboard">Perfil</Link>
         <Link href="/pro/dashboard#chats">Chats</Link>
+        <Link href="/pro/dashboard#contacto">Contacto</Link>
         {isAdmin ? (
           <Link
             href="/admin"

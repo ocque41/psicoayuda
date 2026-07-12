@@ -1,9 +1,7 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { and, count, eq, gte, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
@@ -20,7 +18,6 @@ import {
   releaseAssignmentsForRequest,
   releaseProfessionalAssignments,
 } from "@/lib/assignment";
-import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
 import { verifyFpvByCedula } from "@/lib/fpv";
@@ -33,6 +30,7 @@ import {
   notifyProfessionalAssignment,
 } from "@/lib/notifications";
 import { offerRequestToProfessionals } from "@/lib/offers";
+import { getRequesterHash } from "@/lib/requester-hash";
 import { anonymizeHelpRequest } from "@/lib/retention";
 import {
   allianceStatusSchema,
@@ -90,19 +88,6 @@ function firstIssueMessage(
   return label ? `${label}: ${issue.message}` : issue.message;
 }
 
-async function getRequesterHash() {
-  const requestHeaders = await headers();
-  const forwardedFor = requestHeaders.get("x-forwarded-for");
-  const ip =
-    requestHeaders.get("cf-connecting-ip") ||
-    forwardedFor?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip");
-
-  if (!ip) return undefined;
-
-  return createHash("sha256").update(`${getAuthSecret()}:${ip}`).digest("hex");
-}
-
 async function isRateLimited(
   email: string | undefined,
   requesterHash?: string,
@@ -147,7 +132,7 @@ export async function createHelpRequest(
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Error" };
   }
 
-  const requesterHash = await getRequesterHash();
+  const requesterHash = await getRequesterHash("help_request");
   if (await isRateLimited(parsed.data.email, requesterHash)) {
     return {
       ok: false,

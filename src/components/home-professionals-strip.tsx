@@ -1,7 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef } from "react";
 import { needLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
 import { professionalResponseSignal } from "@/lib/response-bucket";
@@ -10,107 +7,32 @@ function areaName(code: string) {
   return needLabels[code as keyof typeof needLabels] ?? code;
 }
 
-// Carrusel de la home: muestra 3 fichas a la vez y avanza solo, suave, de una en
-// una (aparecen "poco a poco"). Pausa al pasar el ratón/tocar y respeta
-// prefers-reduced-motion. El scroll manual sigue disponible. El detalle y el
-// contacto viven en /profesionales (fichas completas). Layout inline; el aspecto
-// reutiliza clases existentes (.card/.avatar/.chips/.badge).
+// Carrusel de la home: misma interacción que el carrusel de aliados
+// (scroll horizontal, snap y fade lateral). El detalle y el contacto viven en
+// /profesionales (fichas completas).
 export function HomeProfessionalsStrip({
   professionals,
 }: {
   professionals: FeedProfessional[];
 }) {
-  const trackRef = useRef<HTMLUListElement>(null);
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let paused = false;
-    const pause = () => {
-      paused = true;
-    };
-    const resume = () => {
-      paused = false;
-    };
-    el.addEventListener("pointerenter", pause);
-    el.addEventListener("pointerleave", resume);
-    el.addEventListener("focusin", pause);
-    el.addEventListener("focusout", resume);
-
-    // Avanza por páginas alineadas a las tarjetas: siempre deja tarjetas
-    // completas pegadas al borde izquierdo (nunca a medias) y vuelve al inicio
-    // antes de dejar hueco al final. La posición de scroll se calcula como la
-    // distancia entre la tarjeta destino y la primera (offsetLeft - offsetLeft de
-    // la 1ª), que es independiente de dónde esté el contenedor en la página (el
-    // offsetLeft "absoluto" incluía el margen del contenedor y sobre-desplazaba).
-    let index = 0;
-    const id = window.setInterval(() => {
-      if (paused) return;
-      const cards = el.querySelectorAll<HTMLElement>(":scope > li");
-      if (cards.length < 2) return;
-      const perView = Math.max(
-        1,
-        Math.floor(el.clientWidth / cards[0].getBoundingClientRect().width),
-      );
-      index += perView;
-      if (index > cards.length - perView) index = 0;
-      const left = cards[index].offsetLeft - cards[0].offsetLeft;
-      el.scrollTo({ left, behavior: "smooth" });
-    }, 4000);
-
-    return () => {
-      window.clearInterval(id);
-      el.removeEventListener("pointerenter", pause);
-      el.removeEventListener("pointerleave", resume);
-      el.removeEventListener("focusin", pause);
-      el.removeEventListener("focusout", resume);
-    };
-  }, []);
-
   return (
     <ul
-      ref={trackRef}
       aria-label="Psicólogas y psicólogos voluntarios"
+      className="professionals-carousel"
       // tabIndex=0: Firefox y Safari no hacen enfocables por teclado los
       // contenedores con overflow; sin esto no se podría desplazar con teclado
       // (WCAG 2.1.1). El aria-label le da nombre.
       // biome-ignore lint/a11y/noNoninteractiveTabindex: contenedor con overflow enfocable por teclado (WCAG 2.1.1)
       tabIndex={0}
-      style={{
-        display: "flex",
-        gap: "16px",
-        overflowX: "auto",
-        scrollSnapType: "x mandatory",
-        listStyle: "none",
-        padding: "4px 4px 12px",
-        margin: "0 0 var(--space-4)",
-      }}
     >
       {professionals.map((professional) => {
         const signal = professionalResponseSignal(professional);
         const initial = professional.name.charAt(0).toUpperCase() || "·";
         return (
-          <li
-            key={professional.id}
-            style={{
-              // 3 visibles en escritorio (2 huecos de 16px); en móvil el mínimo
-              // manda y el carrusel se desliza mostrando ~1,5 fichas.
-              flex: "0 0 calc((100% - 32px) / 3)",
-              minWidth: "240px",
-              scrollSnapAlign: "start",
-            }}
-          >
+          <li className="professional-slide" key={professional.id}>
             <Link
               href="/profesionales"
-              className="card"
-              style={{
-                display: "block",
-                height: "100%",
-                textDecoration: "none",
-                color: "inherit",
-              }}
+              className="card professional-carousel-link"
             >
               <div className="pro-card-head">
                 {professional.photo ? (
@@ -128,7 +50,7 @@ export function HomeProfessionalsStrip({
                   </span>
                 )}
                 <div>
-                  <h3 style={{ margin: 0 }}>{professional.name}</h3>
+                  <h3>{professional.name}</h3>
                   {professional.city ? (
                     <p className="muted pro-loc">
                       {professional.city}

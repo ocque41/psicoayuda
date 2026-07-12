@@ -278,6 +278,39 @@ export function buildErrorAlertEmail(report: {
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
 
+/** Aviso interno sin datos personales: el contenido vive tras /admin. */
+export function buildContactMessageAlertEmail(input: {
+  adminUrl: string;
+  sourceLabel: string;
+  categoryLabel: string;
+}): BuiltEmail {
+  const url = input.adminUrl;
+  const urlAttr = escapeHtml(url);
+  const subject = `Nuevo contacto: ${input.categoryLabel} — Nido`;
+  const html = `<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(subject)}</title></head>
+  <body style="margin:0;padding:24px;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <div style="max-width:560px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e7decf;border-radius:14px;">
+      <p style="margin:0 0 4px;font-weight:700;color:#245f47;">Nido · nuevo contacto</p>
+      <h1 style="margin:0 0 16px;font-size:22px;">${escapeHtml(input.categoryLabel)}</h1>
+      <p style="line-height:1.6;">Llegó un mensaje desde ${escapeHtml(input.sourceLabel)}. Por privacidad, el contenido y los datos de contacto se ven únicamente en el panel protegido.</p>
+      <p><a href="${urlAttr}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#2f7a5b;color:#fff;text-decoration:none;font-weight:700;">Abrir bandeja de contactos</a></p>
+    </div>
+  </body>
+</html>`;
+  const text = [
+    "Llegó un nuevo contacto a Nido.",
+    `Motivo: ${input.categoryLabel}`,
+    `Origen: ${input.sourceLabel}`,
+    "",
+    "Por privacidad, revisa el contenido en el panel protegido:",
+    url,
+  ].join("\n");
+
+  return { subject, html, text, headers: {} };
+}
+
 function formatLastAction(
   action?: { label?: string; href?: string; page?: string } | null,
 ): string {

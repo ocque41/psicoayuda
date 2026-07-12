@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { rankProfessionalsForRequest, scoreProfessional } from "@/lib/matching";
+import {
+  explainProfessionalMatch,
+  rankProfessionalsForRequest,
+  scoreProfessional,
+} from "@/lib/matching";
 
 type Candidate = Parameters<typeof scoreProfessional>[0] & { id: string };
 
@@ -46,6 +50,27 @@ describe("scoreProfessional", () => {
 
     // 30 (es) + 20 (duelo) + 0 (crisis but not alta) + 1 (free capacity)
     expect(score).toBe(51);
+  });
+});
+
+describe("explainProfessionalMatch", () => {
+  it("explains language, area, crisis experience, and free capacity", () => {
+    expect(
+      explainProfessionalMatch(
+        professional({
+          id: "a",
+          crisisExperience: true,
+          currentActiveRequests: 1,
+          maxActiveRequests: 3,
+        }),
+        request,
+      ),
+    ).toEqual([
+      "Idioma: Español",
+      "Área: Duelo y pérdidas",
+      "Experiencia en crisis",
+      "Cupo libre: 2",
+    ]);
   });
 });
 

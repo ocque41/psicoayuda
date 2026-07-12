@@ -71,11 +71,9 @@ function toRows(contacts: PartnerContact[]): ContactRow[] {
 function PartnerForm({
   partner,
   saveAction,
-  deleteAction,
 }: {
   partner?: Partner;
   saveAction: SaveAction;
-  deleteAction: DeleteAction;
 }) {
   const [state, formAction, pending] = useActionState<SaveState, FormData>(
     saveAction,
@@ -351,15 +349,6 @@ function PartnerForm({
         <button className="button" type="submit" disabled={pending}>
           {pending ? "Guardando…" : isNew ? "Crear aliado" : "Guardar cambios"}
         </button>
-        {partner ? (
-          <span
-            // Confirmación de borrado: el submit sale de un botón dentro de esta
-            // forma anidada lógicamente; usamos una forma aparte para el delete.
-            className="partner-admin-delete"
-          >
-            <DeleteButton partnerId={partner.id} deleteAction={deleteAction} />
-          </span>
-        ) : null}
         {state?.message ? (
           <span
             className={state.ok ? "status-message" : "form-error"}
@@ -382,6 +371,7 @@ function DeleteButton({
 }) {
   return (
     <form
+      className="partner-admin-delete-form"
       action={deleteAction}
       onSubmit={(event) => {
         if (!confirm("¿Eliminar este aliado? No se puede deshacer.")) {
@@ -417,7 +407,7 @@ export function AdminPartnersSection({
 
       <details className="partner-admin-new">
         <summary>+ Añadir un aliado</summary>
-        <PartnerForm saveAction={saveAction} deleteAction={deleteAction} />
+        <PartnerForm saveAction={saveAction} />
       </details>
 
       {partners.length === 0 ? (
@@ -430,11 +420,13 @@ export function AdminPartnersSection({
                 {partner.status === "hidden" ? "Oculto" : "Publicado"} · orden{" "}
                 {partner.sortOrder}
               </p>
-              <PartnerForm
-                partner={partner}
-                saveAction={saveAction}
-                deleteAction={deleteAction}
-              />
+              <PartnerForm partner={partner} saveAction={saveAction} />
+              <div className="partner-admin-delete">
+                <DeleteButton
+                  partnerId={partner.id}
+                  deleteAction={deleteAction}
+                />
+              </div>
             </article>
           ))}
         </div>

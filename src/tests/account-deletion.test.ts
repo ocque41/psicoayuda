@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   account,
   assignments,
+  contactMessages,
   conversations,
   helpRequests,
   professionals,
@@ -28,6 +29,7 @@ const id = {
   vConversation: `${P}-victim-conv`,
   vSid: `${P}-victim-sid`,
   vSample: `${P}-victim-sample`,
+  vContact: `${P}-victim-contact`,
   help: `${P}-help`,
   bUser: `${P}-bystander-user`,
   bPro: `${P}-bystander-pro`,
@@ -37,6 +39,7 @@ const id = {
 
 // Idempotente: deja la base como estaba, aun si un run anterior falló a medias.
 async function cleanup() {
+  await db.delete(contactMessages).where(eq(contactMessages.id, id.vContact));
   await db.delete(responseSamples).where(eq(responseSamples.id, id.vSample));
   await db.delete(seekerSessions).where(eq(seekerSessions.sid, id.vSid));
   await db.delete(conversations).where(eq(conversations.id, id.vConversation));
@@ -99,6 +102,7 @@ describe("purgeAccount", () => {
       email: "seeker@test.local",
       needCategory: "duelo",
       urgency: "alta",
+      status: "assigned",
       createdAt: iso,
       updatedAt: iso,
     });
@@ -106,6 +110,7 @@ describe("purgeAccount", () => {
       id: id.vAssignment,
       helpRequestId: id.help,
       professionalId: id.vPro,
+      status: "assigned",
       createdAt: iso,
       updatedAt: iso,
     });
@@ -129,11 +134,23 @@ describe("purgeAccount", () => {
       conversationId: id.vConversation,
       sampledAt: now,
     });
+    await db.insert(contactMessages).values({
+      id: id.vContact,
+      source: "professional_dashboard",
+      category: "question",
+      name: "Víctima Pro",
+      email: `${id.vPro}@test.local`,
+      professionalId: id.vPro,
+      message: "Mensaje que el equipo debe conservar tras borrar la cuenta.",
+      status: "new",
+      createdAt: iso,
+      updatedAt: iso,
+    });
   });
 
   afterAll(cleanup);
 
-  it("borra al usuario y TODO su rastro, sin tocar datos ajenos", async () => {
+  it("borra la cuenta y sus datos operativos, sin tocar datos ajenos", async () => {
     await purgeAccount(id.vUser);
 
     // Todo lo de la cuenta borrada desaparece.
@@ -172,6 +189,14 @@ describe("purgeAccount", () => {
       }),
     ).toBeUndefined();
 
+    // El historial de contacto del equipo se conserva, pero ya no identifica
+    // un perfil profesional eliminado.
+    const retainedContact = await db.query.contactMessages.findFirst({
+      where: eq(contactMessages.id, id.vContact),
+    });
+    expect(retainedContact).toBeDefined();
+    expect(retainedContact?.professionalId).toBeNull();
+
     // Datos ajenos intactos: otro profesional y la solicitud de ayuda.
     expect(
       await db.query.user.findFirst({ where: eq(user.id, id.bUser) }),
@@ -181,11 +206,11 @@ describe("purgeAccount", () => {
         where: eq(professionals.id, id.bPro),
       }),
     ).toBeDefined();
-    expect(
-      await db.query.helpRequests.findFirst({
-        where: eq(helpRequests.id, id.help),
-      }),
-    ).toBeDefined();
+    const retainedRequest = await db.query.helpRequests.findFirst({
+      where: eq(helpRequests.id, id.help),
+    });
+    expect(retainedRequest).toBeDefined();
+    expect(retainedRequest?.status).toBe("new");
   });
 
   it("funciona con onboarding incompleto (usuario sin perfil profesional)", async () => {

@@ -228,6 +228,7 @@ Copia `.env.example` a `.env` y rellena los valores. Resumen de cada variable:
 | `GOOGLE_CLIENT_ID` | Sí (para login real) | Client ID de OAuth de Google (Web Client, termina en `.apps.googleusercontent.com`). |
 | `GOOGLE_CLIENT_SECRET` | Sí (para login real) | Client Secret de OAuth de Google. |
 | `ADMIN_EMAILS` | Sí (para `/admin`) | Lista de correos de administradores separados por comas. Solo estos usuarios ven datos de administración. |
+| `PUBLIC_CONTACT_EMAILS` | Recomendada | Lista separada por comas de los correos que se muestran públicamente en `/contacto` y en el panel profesional. Se mantiene separada de `ADMIN_EMAILS` para no publicar automáticamente a futuros administradores. |
 | `DATABASE_URL` | Sí (local) | Cadena de conexión SQLite local, p. ej. `file:./local.db`. |
 | `ABUSE_CONTACT_EMAIL` | Recomendada | Correo público de contacto para reportes de abuso. |
 | `PRIVACY_CONTACT_EMAIL` | Recomendada | Correo público de contacto de privacidad (se muestra en `/privacidad`). |

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountActions } from "@/components/account-actions";
+import { ConversionBeacon } from "@/components/conversion-beacon";
 import {
   type ExistingProfessional,
   ProfessionalOnboardingForm,
@@ -28,7 +29,11 @@ function parseJsonList(value: string | null): string[] {
   }
 }
 
-export default async function ProOnboardingPage() {
+export default async function ProOnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ conversion?: string }>;
+}) {
   const session = await getServerSession();
   if (!session?.user?.email) redirect("/pro");
   // Los admins no son profesionales: no pasan por el onboarding. Como el callback
@@ -40,6 +45,7 @@ export default async function ProOnboardingPage() {
   const profile = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
   });
+  const { conversion } = await searchParams;
 
   const existing: ExistingProfessional | null = profile
     ? {
@@ -72,6 +78,13 @@ export default async function ProOnboardingPage() {
   return (
     <section className="section">
       <div className="container">
+        {conversion === "signup" ? (
+          <ConversionBeacon
+            type="signup"
+            dedupeKey={session.user.id}
+            removeSearchParam="conversion"
+          />
+        ) : null}
         {existing ? (
           <>
             <p>

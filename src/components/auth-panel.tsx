@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { repararRegistroHuerfano } from "@/app/actions-account";
 import { trackConversion } from "@/components/click-tracker";
+import { buildProfessionalNewUserCallbackUrl } from "@/lib/contact-messages";
 
 const authClient = createAuthClient();
 const CALLBACK_URL = "/pro/onboarding";
@@ -100,9 +101,15 @@ export function AuthPanel({
     setError("");
     setGoogleLoading(true);
     try {
+      const newUserCallbackURL =
+        buildProfessionalNewUserCallbackUrl(callbackURL);
       const res = await authClient.signIn.social({
         provider: "google",
         callbackURL,
+        // Better Auth usa esta URL únicamente cuando Google acaba de crear la
+        // cuenta. Un acceso de una cuenta existente sigue `callbackURL`, por lo
+        // que no se infla la métrica de registros.
+        newUserCallbackURL,
       });
       // En éxito redirige a Google; si volvemos aquí con error (p. ej. proveedor
       // no configurado), lo mostramos en vez de dejar "Conectando…" colgado.

@@ -1,4 +1,14 @@
-import { count, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  like,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -13,7 +23,9 @@ import {
   adminUpdateProfessionalStatus,
 } from "@/app/actions";
 import { adminDeleteAccount } from "@/app/actions-account";
+import { adminUpdateContactMessageStatus } from "@/app/actions-contact";
 import { adminDeletePartner, adminSavePartner } from "@/app/actions-partners";
+import { AdminContactInbox } from "@/components/admin-contact-inbox";
 import { AdminDeleteAccountForm } from "@/components/admin-delete-account-form";
 import { AdminFpvBadge } from "@/components/admin-fpv-badge";
 import {
@@ -21,19 +33,29 @@ import {
   selectIncompleteRegistrations,
 } from "@/components/admin-incomplete-registrations";
 import { AdminPartnersSection } from "@/components/admin-partners";
+import { AdminRequestCard } from "@/components/admin-request-card";
 import { AuthPanel } from "@/components/auth-panel";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
 import { db } from "@/db";
 import {
   allianceRequests,
   assignments,
+  contactMessages,
   helpRequests,
   professionals,
   user,
 } from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
-import { needLabels, preferredContactLabels } from "@/lib/constants";
+import { preferredContactLabels, urgencyLabels } from "@/lib/constants";
+import {
+  type ContactCategory,
+  type ContactSource,
+  type ContactStatus,
+  contactCategories,
+  contactSources,
+  contactStatuses,
+} from "@/lib/contact-messages";
 import { rankProfessionalsForRequest } from "@/lib/matching";
 import { getAllPartnersForAdmin } from "@/lib/partners";
 import { whatsappUrl } from "@/lib/phone";
@@ -45,11 +67,34 @@ export const metadata: Metadata = {
 
 // Cap the help-request page so its cost stays flat as historical rows grow.
 const REQUESTS_PAGE_SIZE = 25;
+const requestStatusOptions = [
+  "new",
+  "contacted",
+  "assigned",
+  "closed",
+] as const;
+const requestUrgencyOptions = ["baja", "media", "alta"] as const;
+
+function normalizeOption<T extends readonly string[]>(
+  value: string | undefined,
+  options: T,
+): T[number] | "" {
+  return options.includes(value ?? "") ? (value as T[number]) : "";
+}
 
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; cuenta?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    cuenta?: string;
+    estado?: string;
+    urgencia?: string;
+    q?: string;
+    contacto_estado?: string;
+    contacto_origen?: string;
+    contacto_motivo?: string;
+  }>;
 }) {
   const admin = await requireAdmin();
   if (!admin) {
@@ -91,54 +136,123 @@ export default async function AdminPage({
     );
   }
 
-  const { page: pageParam, cuenta: accountResult } = await searchParams;
+  const {
+    page: pageParam,
+    cuenta: accountResult,
+    estado,
+    urgencia,
+    q,
+    contacto_estado,
+    contacto_origen,
+    contacto_motivo,
+  } = await searchParams;
   const requestedPage = Number.parseInt(pageParam ?? "1", 10);
   const page =
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const offset = (page - 1) * REQUESTS_PAGE_SIZE;
+  const statusFilter = normalizeOption(estado, requestStatusOptions);
+  const urgencyFilter = normalizeOption(urgencia, requestUrgencyOptions);
+  const queryFilter = (q ?? "").trim().slice(0, 80);
+  const contactStatusFilter = normalizeOption(contacto_estado, contactStatuses);
+  const contactSourceFilter = normalizeOption(contacto_origen, contactSources);
+  const contactCategoryFilter = normalizeOption(
+    contacto_motivo,
+    contactCategories,
+  );
+  const requestFilters: SQL[] = [];
+  if (statusFilter) requestFilters.push(eq(helpRequests.status, statusFilter));
+  if (urgencyFilter)
+    requestFilters.push(eq(helpRequests.urgency, urgencyFilter));
+  if (queryFilter) {
+    const term = `%${queryFilter}%`;
+    const queryWhere = or(
+      like(helpRequests.email, term),
+      like(helpRequests.seekerName, term),
+      like(helpRequests.city, term),
+      like(helpRequests.state, term),
+      like(helpRequests.country, term),
+      like(helpRequests.needCategory, term),
+    );
+    if (queryWhere) requestFilters.push(queryWhere);
+  }
+  const requestWhere = requestFilters.length
+    ? and(...requestFilters)
+    : undefined;
+  const contactFilters: SQL[] = [];
+  if (contactStatusFilter)
+    contactFilters.push(eq(contactMessages.status, contactStatusFilter));
+  if (contactSourceFilter)
+    contactFilters.push(eq(contactMessages.source, contactSourceFilter));
+  if (contactCategoryFilter)
+    contactFilters.push(eq(contactMessages.category, contactCategoryFilter));
+  const contactWhere = contactFilters.length
+    ? and(...contactFilters)
+    : undefined;
+  const adminPageHref = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("estado", statusFilter);
+    if (urgencyFilter) params.set("urgencia", urgencyFilter);
+    if (queryFilter) params.set("q", queryFilter);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const query = params.toString();
+    return query ? `/admin?${query}` : "/admin";
+  };
 
-  const [proRows, requestPage, accountRows, allianceRows, partnerRows] =
-    await Promise.all([
-      // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
-      // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
-      // el incidente de CPU de /profesionales). Se leería aparte al revisar uno.
-      db.query.professionals.findMany({
-        columns: { registrationProofDoc: false },
-        orderBy: (p, { desc: descOp }) => [descOp(p.createdAt)],
-      }),
-      // Surface actionable requests first (new, then contacted), newest within
-      // each bucket. Fetch one extra row to detect a next page without a count.
-      db
-        .select()
-        .from(helpRequests)
-        .orderBy(
-          sql`case ${helpRequests.status} when 'new' then 0 when 'contacted' then 1 when 'assigned' then 2 else 3 end`,
-          desc(helpRequests.createdAt),
-        )
-        .limit(REQUESTS_PAGE_SIZE + 1)
-        .offset(offset),
-      db
-        .select({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          createdAt: user.createdAt,
-          emailVerified: user.emailVerified,
-        })
-        .from(user),
-      // Solicitudes de alianza: pendientes primero, luego las ya revisadas; dentro
-      // de cada grupo, las más recientes arriba.
-      db
-        .select()
-        .from(allianceRequests)
-        .orderBy(
-          sql`case ${allianceRequests.status} when 'pending' then 0 when 'approved' then 1 else 2 end`,
-          desc(allianceRequests.createdAt),
-        )
-        .limit(100),
-      // Aliados (carrusel/escaparate) para gestionarlos desde el panel.
-      getAllPartnersForAdmin(),
-    ]);
+  const [
+    proRows,
+    requestPage,
+    accountRows,
+    allianceRows,
+    partnerRows,
+    contactRows,
+  ] = await Promise.all([
+    // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
+    // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
+    // el incidente de CPU de /profesionales). Se leería aparte al revisar uno.
+    db.query.professionals.findMany({
+      columns: { registrationProofDoc: false },
+      orderBy: (p, { desc: descOp }) => [descOp(p.createdAt)],
+    }),
+    // Surface actionable requests first (new, then contacted), newest within
+    // each bucket. Fetch one extra row to detect a next page without a count.
+    db
+      .select()
+      .from(helpRequests)
+      .where(requestWhere)
+      .orderBy(
+        sql`case ${helpRequests.status} when 'new' then 0 when 'contacted' then 1 when 'assigned' then 2 else 3 end`,
+        desc(helpRequests.createdAt),
+      )
+      .limit(REQUESTS_PAGE_SIZE + 1)
+      .offset(offset),
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        emailVerified: user.emailVerified,
+      })
+      .from(user),
+    // Solicitudes de alianza: pendientes primero, luego las ya revisadas; dentro
+    // de cada grupo, las más recientes arriba.
+    db
+      .select()
+      .from(allianceRequests)
+      .orderBy(
+        sql`case ${allianceRequests.status} when 'pending' then 0 when 'approved' then 1 else 2 end`,
+        desc(allianceRequests.createdAt),
+      )
+      .limit(100),
+    // Aliados (carrusel/escaparate) para gestionarlos desde el panel.
+    getAllPartnersForAdmin(),
+    db
+      .select()
+      .from(contactMessages)
+      .where(contactWhere)
+      .orderBy(desc(contactMessages.createdAt))
+      .limit(100),
+  ]);
 
   const hasNextPage = requestPage.length > REQUESTS_PAGE_SIZE;
   const requestRows = hasNextPage
@@ -219,6 +333,20 @@ export default async function AdminPage({
     .from(helpRequests)
     .where(eq(helpRequests.status, "new"));
   const newRequestCount = newRequestRow?.total ?? 0;
+  const contactCountRows = await db
+    .select({ status: contactMessages.status, total: count() })
+    .from(contactMessages)
+    .groupBy(contactMessages.status);
+  const contactCounts: Record<ContactStatus, number> = {
+    new: 0,
+    in_review: 0,
+    resolved: 0,
+  };
+  for (const row of contactCountRows) {
+    if (contactStatuses.includes(row.status as ContactStatus)) {
+      contactCounts[row.status as ContactStatus] = row.total;
+    }
+  }
 
   return (
     <section className="section admin">
@@ -249,6 +377,10 @@ export default async function AdminPage({
             Solicitudes
             {newRequestCount > 0 ? ` (${newRequestCount} nuevas)` : ""}
           </a>
+          <a className="button secondary" href="#contactos">
+            Contactos
+            {contactCounts.new > 0 ? ` (${contactCounts.new} nuevos)` : ""}
+          </a>
           <a className="button secondary" href="#profesionales">
             Profesionales
           </a>
@@ -262,6 +394,20 @@ export default async function AdminPage({
 
         <h2 id="metricas">Métricas</h2>
         <MetricsDashboard />
+
+        <h2 id="contactos">Contactos</h2>
+        <p className="muted">
+          Preguntas, ideas y avisos enviados desde la web y los paneles
+          profesionales. Los mensajes nuevos aparecen primero.
+        </p>
+        <AdminContactInbox
+          rows={contactRows}
+          counts={contactCounts}
+          statusFilter={contactStatusFilter as ContactStatus | ""}
+          sourceFilter={contactSourceFilter as ContactSource | ""}
+          categoryFilter={contactCategoryFilter as ContactCategory | ""}
+          updateStatusAction={adminUpdateContactMessageStatus}
+        />
 
         <h2 id="profesionales">Profesionales</h2>
         <div className="table-wrap">
@@ -280,14 +426,14 @@ export default async function AdminPage({
             <tbody>
               {proRows.map((professional) => (
                 <tr key={professional.id}>
-                  <td>
+                  <td data-label="Nombre">
                     <strong>{professional.fullName}</strong>
                     <br />
                     <span className="muted">{professional.licenseCountry}</span>
                   </td>
-                  <td>{professional.email}</td>
-                  <td>{professional.status}</td>
-                  <td>
+                  <td data-label="Correo">{professional.email}</td>
+                  <td data-label="Estado">{professional.status}</td>
+                  <td data-label="Tipo">
                     <form action={adminSetProfessionalKind}>
                       <input
                         name="professionalId"
@@ -313,7 +459,7 @@ export default async function AdminPage({
                       </button>
                     </form>
                   </td>
-                  <td>
+                  <td data-label="Verificación">
                     <AdminFpvBadge
                       fpvVerified={professional.fpvVerified}
                       fpvNumber={professional.fpvNumber}
@@ -349,7 +495,7 @@ export default async function AdminPage({
                       </form>
                     ) : null}
                   </td>
-                  <td>
+                  <td data-label="Capacidad">
                     {professional.currentActiveRequests}/
                     {professional.maxActiveRequests}
                     <br />
@@ -376,7 +522,7 @@ export default async function AdminPage({
                       </button>
                     </form>
                   </td>
-                  <td>
+                  <td data-label="Acción">
                     <form action={adminUpdateProfessionalStatus}>
                       <input
                         name="professionalId"
@@ -536,113 +682,59 @@ export default async function AdminPage({
           paneles de profesionales está la solicitud, quién la tomó y cuántos la
           vieron pasar — así compruebas que les llega a los psicólogos.
         </p>
-        <div className="grid">
-          {requestRows.map((request) => {
-            const requestSuggestions = suggestions.get(request.id) ?? [];
-            const dist = distribution.get(request.id);
-            return (
-              <article className="card" key={request.id}>
-                <h3>{request.email}</h3>
-                <p>
-                  {needLabels[
-                    request.needCategory as keyof typeof needLabels
-                  ] ?? request.needCategory}{" "}
-                  · urgencia {request.urgency} · estado {request.status}
-                </p>
-                <p className="muted">
-                  {request.city || "Ciudad no indicada"},{" "}
-                  {request.state || "estado no indicado"},{" "}
-                  {request.country || "país no indicado"}
-                </p>
-                <p className="muted">
-                  <strong>Distribución:</strong>{" "}
-                  {dist?.takers.length
-                    ? `la tiene ${dist.takers.join(", ")}`
-                    : dist?.offered
-                      ? `en el panel de ${dist.offered} profesional${dist.offered === 1 ? "" : "es"} (pendiente de que alguien la tome)`
-                      : "no difundida a profesionales todavía"}
-                  {dist?.missed ? ` · ${dist.missed} la vieron pasar` : ""}
-                </p>
-
-                <form action={adminUpdateHelpRequestStatus}>
-                  <input name="requestId" type="hidden" value={request.id} />
-                  <select name="status" defaultValue={request.status}>
-                    <option value="new">Nueva</option>
-                    <option value="contacted">Contactada</option>
-                    <option value="assigned">Asignada</option>
-                    <option value="closed">Cerrada</option>
-                  </select>{" "}
-                  <button className="button secondary" type="submit">
-                    Cambiar estado
-                  </button>
-                </form>
-
-                <form action={adminAnonymizeHelpRequest}>
-                  <input name="requestId" type="hidden" value={request.id} />
-                  <button className="button secondary" type="submit">
-                    Anonimizar datos
-                  </button>
-                </form>
-
-                <h4>Sugerencias</h4>
-                {requestSuggestions.length ? (
-                  <div className="grid">
-                    {requestSuggestions.map(({ professional, score }) => (
-                      <form action={adminAssignRequest} key={professional.id}>
-                        <input
-                          name="helpRequestId"
-                          type="hidden"
-                          value={request.id}
-                        />
-                        <input
-                          name="professionalId"
-                          type="hidden"
-                          value={professional.id}
-                        />
-                        <span>
-                          {professional.displayName || professional.fullName} ·
-                          score {score} · {professional.currentActiveRequests}/
-                          {professional.maxActiveRequests}
-                        </span>{" "}
-                        <button className="button" type="submit">
-                          Asignar
-                        </button>
-                      </form>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="muted">No hay sugerencias bajo capacidad.</p>
-                )}
-
-                <h4>Asignación manual</h4>
-                {eligibleProfessionals.length ? (
-                  <form action={adminAssignRequest}>
-                    <input
-                      name="helpRequestId"
-                      type="hidden"
-                      value={request.id}
-                    />
-                    <select name="professionalId" aria-label="Profesional">
-                      {eligibleProfessionals.map((professional) => (
-                        <option key={professional.id} value={professional.id}>
-                          {professional.displayName || professional.fullName} (
-                          {professional.currentActiveRequests}/
-                          {professional.maxActiveRequests})
-                        </option>
-                      ))}
-                    </select>{" "}
-                    <button className="button" type="submit">
-                      Asignar seleccionado
-                    </button>
-                  </form>
-                ) : (
-                  <p className="muted">
-                    No hay profesionales aprobados disponibles bajo capacidad.
-                  </p>
-                )}
-              </article>
-            );
-          })}
+        <form action="/admin" className="admin-request-filters">
+          <label>
+            Estado
+            <select name="estado" defaultValue={statusFilter}>
+              <option value="">Todos</option>
+              <option value="new">Nueva</option>
+              <option value="contacted">Contactada</option>
+              <option value="assigned">Asignada</option>
+              <option value="closed">Cerrada</option>
+            </select>
+          </label>
+          <label>
+            Urgencia
+            <select name="urgencia" defaultValue={urgencyFilter}>
+              <option value="">Todas</option>
+              {requestUrgencyOptions.map((option) => (
+                <option key={option} value={option}>
+                  {urgencyLabels[option]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Buscar
+            <input
+              name="q"
+              type="search"
+              defaultValue={queryFilter}
+              placeholder="Correo, ciudad, país o tipo de apoyo"
+            />
+          </label>
+          <div className="admin-request-filter-actions">
+            <button className="button" type="submit">
+              Filtrar
+            </button>
+            <Link className="button secondary" href="/admin#solicitudes">
+              Limpiar
+            </Link>
+          </div>
+        </form>
+        <div className="grid admin-request-list">
+          {requestRows.map((request) => (
+            <AdminRequestCard
+              anonymizeAction={adminAnonymizeHelpRequest}
+              assignAction={adminAssignRequest}
+              distribution={distribution.get(request.id)}
+              eligibleProfessionals={eligibleProfessionals}
+              key={request.id}
+              request={request}
+              suggestions={suggestions.get(request.id) ?? []}
+              updateStatusAction={adminUpdateHelpRequestStatus}
+            />
+          ))}
         </div>
 
         {requestRows.length === 0 ? (
@@ -652,10 +744,7 @@ export default async function AdminPage({
         {hasPrevPage || hasNextPage ? (
           <nav className="pagination" aria-label="Paginación de solicitudes">
             {hasPrevPage ? (
-              <Link
-                className="button secondary"
-                href={`/admin?page=${page - 1}`}
-              >
+              <Link className="button secondary" href={adminPageHref(page - 1)}>
                 ← Anteriores
               </Link>
             ) : (
@@ -663,10 +752,7 @@ export default async function AdminPage({
             )}
             <span className="muted">Página {page}</span>
             {hasNextPage ? (
-              <Link
-                className="button secondary"
-                href={`/admin?page=${page + 1}`}
-              >
+              <Link className="button secondary" href={adminPageHref(page + 1)}>
                 Siguientes →
               </Link>
             ) : (

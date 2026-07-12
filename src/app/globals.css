@@ -22,6 +22,9 @@
   /* Acción "humana"/secundaria: ahora verde de marca, ya no terracota. */
   --human: #2f7a5b;
   --human-strong: #245f47;
+  --human-soft: #f7e8df;
+  --safety: #1b3a63;
+  --safety-soft: #eaf1f9;
   --success: #2f7a5b;
   --danger: #9a3b2e;
 
@@ -1184,6 +1187,367 @@ tr:last-child td {
   cursor: pointer;
 }
 
+.admin-request-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(220px, 1.4fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+  max-width: none;
+  margin: var(--space-5) 0 var(--space-6);
+}
+
+.admin-request-filters label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.admin-request-filters input,
+.admin-request-filters select,
+.admin-manual-assignment select,
+.admin-request-actions select,
+.admin-suggestion select {
+  min-height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 8px 12px;
+}
+
+.admin-request-filter-actions,
+.admin-request-actions,
+.admin-manual-assignment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.admin-request-list {
+  margin-top: var(--space-5);
+}
+
+.admin-request-card h3 {
+  margin: 0;
+}
+
+.admin-request-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.admin-request-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+
+.admin-request-meta dt,
+.metric-breakdown dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-request-meta dd,
+.metric-breakdown dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-suggestions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.admin-suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.admin-suggestion-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.admin-reason-list {
+  margin: var(--space-1) 0 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.metric-window-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-5);
+  margin: 0 0 var(--space-6);
+}
+
+.metric-window h3 {
+  margin-top: 0;
+}
+
+.metric-window-total {
+  display: grid;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+}
+
+.metric-window-total strong {
+  color: var(--accent-strong);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.metric-window-total span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.metric-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.metric-breakdown div {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+/* Contacto público y profesional: formulario principal + vías de correo. */
+.contact-main-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(250px, 0.65fr);
+  gap: var(--space-6);
+  margin: var(--space-8) 0;
+  padding: var(--space-6);
+  border: 1px solid var(--accent-tint);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0 68%,
+    var(--accent-soft) 100%
+  );
+  box-shadow: var(--shadow-sm);
+}
+
+.contact-message-form {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  max-width: none;
+  margin: var(--space-5) 0 0;
+}
+
+.contact-message-form label,
+.contact-form-grid label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 650;
+}
+
+.contact-message-form input,
+.contact-message-form select,
+.contact-message-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.contact-message-form textarea {
+  min-height: 128px;
+  resize: vertical;
+}
+
+.contact-message-form :is(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.contact-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.contact-email-panel {
+  align-self: start;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 78%);
+}
+
+.contact-email-panel h3,
+.contact-form-success h3 {
+  margin-top: 0;
+}
+
+.contact-email-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.contact-email-list .button {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.contact-form-success {
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--accent-tint);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.contact-form-success p {
+  margin-bottom: 0;
+}
+
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.referral-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  border-color: var(--accent-tint);
+}
+
+.referral-card h3 {
+  margin-top: 0;
+}
+
+.referral-card p:last-child {
+  margin-bottom: 0;
+}
+
+/* Bandeja central del admin. */
+.contact-inbox-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.admin-contact-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) auto;
+  gap: var(--space-3);
+  align-items: end;
+  max-width: none;
+  margin: 0 0 var(--space-6);
+}
+
+.admin-contact-filters label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.admin-contact-filters select,
+.admin-contact-actions select {
+  width: 100%;
+  min-height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 8px 12px;
+}
+
+.admin-contact-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-contact-card {
+  min-width: 0;
+}
+
+.admin-contact-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.admin-contact-head h3 {
+  margin: 0;
+}
+
+.admin-contact-message {
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-contact-actions,
+.admin-contact-actions form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.contact-status-new {
+  background: var(--human-soft);
+  color: var(--human-strong);
+}
+
+.contact-status-in_review {
+  background: var(--safety-soft);
+  color: var(--safety);
+}
+
+.contact-status-resolved {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 h1 {
   max-width: 760px;
   font-family: var(--font-display);
@@ -1334,6 +1698,202 @@ p {
     flex-direction: column;
     padding: 12px 0;
   }
+
+  .nav-links > a,
+  .nav-links > button {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin .container {
+    width: min(100% - 24px, 1040px);
+  }
+
+  .admin .button,
+  .admin table .button,
+  .admin table select,
+  .admin button,
+  .admin input,
+  .admin select {
+    min-height: 44px;
+  }
+
+  .admin a[href^="mailto:"] {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .admin .panel-nav,
+  .admin-request-filter-actions,
+  .admin-request-actions,
+  .admin-manual-assignment,
+  .admin-contact-actions,
+  .admin-contact-actions form,
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin .panel-nav .button,
+  .admin-request-filter-actions .button,
+  .admin-request-actions .button,
+  .admin-manual-assignment .button,
+  .admin-contact-actions .button,
+  .admin-contact-actions form,
+  .pagination .button,
+  .pagination .muted {
+    width: 100%;
+  }
+
+  .admin-request-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-contact-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-request-filters input,
+  .admin-request-filters select,
+  .admin-request-actions select,
+  .admin-manual-assignment select,
+  .admin-contact-filters select,
+  .admin-contact-actions select {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .admin-request-head {
+    flex-direction: column;
+  }
+
+  .admin-contact-head {
+    flex-direction: column;
+  }
+
+  .admin-request-meta,
+  .metric-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-suggestion {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-suggestion .button {
+    width: 100%;
+  }
+
+  .admin .table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .admin .table-wrap table,
+  .admin .table-wrap tbody,
+  .admin .table-wrap tr,
+  .admin .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin .table-wrap thead {
+    display: none;
+  }
+
+  .admin .table-wrap tr {
+    margin-bottom: var(--space-4);
+    padding: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .admin .table-wrap td {
+    display: grid;
+    grid-template-columns: minmax(96px, 0.42fr) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+
+  .admin .table-wrap td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin .table-wrap td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .admin td form,
+  .admin td form > select,
+  .admin td form > .button,
+  .admin td form > button,
+  .admin td .button {
+    width: 100%;
+  }
+
+  .admin td form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .partner-admin-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .partner-admin-actions .button,
+  .partner-admin-actions .status-message,
+  .partner-admin-actions .form-error,
+  .partner-admin-delete,
+  .partner-admin-delete-form {
+    display: block;
+    width: 100%;
+  }
+
+  .admin .grid > .card,
+  .admin .card,
+  .partner-admin-form,
+  .partner-admin-form label,
+  .partner-admin-logo,
+  .partner-admin-contacts,
+  .partner-admin-logo-row,
+  .partner-admin-logo-fields,
+  .partner-contact-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .partner-admin-form input,
+  .partner-admin-form select,
+  .partner-admin-form textarea,
+  .partner-admin-logo-fields input,
+  .partner-contact-row input,
+  .partner-contact-row select,
+  .partner-contact-row .button,
+  .partner-admin-delete-form .button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-contact-card,
+  .admin-contact-message {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* Respetar prefers-reduced-motion (WCAG 2.3.3) */
@@ -1341,9 +1901,13 @@ p {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: la preferencia de accesibilidad debe ganar a cualquier animación */
     animation-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: la preferencia de accesibilidad debe ganar a cualquier animación */
     animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: la preferencia de accesibilidad debe ganar a cualquier transición */
     transition-duration: 0.001ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: la preferencia de accesibilidad debe ganar al desplazamiento suave */
     scroll-behavior: auto !important;
   }
 }
@@ -1420,6 +1984,31 @@ body {
 
   .contact-emergency-notice > p > .button {
     width: 100%;
+  }
+
+  .contact-main-card,
+  .contact-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-main-card {
+    gap: var(--space-4);
+    padding: var(--space-5);
+    background: var(--surface);
+  }
+
+  .contact-email-panel {
+    padding: var(--space-4);
+  }
+
+  .contact-message-form .button,
+  .referral-card .button {
+    width: 100%;
+  }
+
+  .referral-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   /* Recuperar ancho útil donde hay padding sobre padding */
@@ -1616,8 +2205,38 @@ body {
   );
 }
 
+.professionals-carousel {
+  list-style: none;
+  margin: var(--space-6) 0 var(--space-4);
+  padding: var(--space-1) var(--space-1) var(--space-3);
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent
+  );
+}
+
 .partner-slide {
   flex: 0 0 min(220px, 78vw);
+  scroll-snap-align: start;
+}
+
+.professional-slide {
+  flex: 0 0 min(320px, 82vw);
   scroll-snap-align: start;
 }
 
@@ -1640,8 +2259,25 @@ body {
     box-shadow 0.15s ease;
 }
 
+.professional-carousel-link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.professional-carousel-link h3 {
+  margin: 0;
+}
+
 a.partner-link:hover,
-a.partner-link:focus-visible {
+a.partner-link:focus-visible,
+a.professional-carousel-link:hover,
+a.professional-carousel-link:focus-visible {
   transform: translateY(-3px);
   /* Elevación + anillo sutil con el verde claro de marca. */
   box-shadow:
@@ -1663,12 +2299,19 @@ a.partner-link:focus-visible {
     transition: none;
   }
 
+  .professional-carousel-link {
+    transition: none;
+  }
+
   a.partner-link:hover,
-  a.partner-link:focus-visible {
+  a.partner-link:focus-visible,
+  a.professional-carousel-link:hover,
+  a.professional-carousel-link:focus-visible {
     transform: none;
   }
 
-  .partners-carousel {
+  .partners-carousel,
+  .professionals-carousel {
     scroll-behavior: auto;
   }
 }
@@ -1786,7 +2429,7 @@ a.partner-link:focus-visible {
   flex-wrap: wrap;
 }
 
-.partner-admin-delete form {
+.partner-admin-delete-form {
   display: inline;
 }
 

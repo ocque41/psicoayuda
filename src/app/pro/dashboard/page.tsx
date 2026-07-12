@@ -3,17 +3,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updateProfessionalAvailability } from "@/app/actions";
+import { createProfessionalContactMessage } from "@/app/actions-contact";
 import { acceptRequestOffer } from "@/app/actions-offers";
 import { AccountActions } from "@/components/account-actions";
+import { ContactMessageForm } from "@/components/contact-message-form";
 import { db } from "@/db";
 import { assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
 import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
+import { getPublicContactEmails } from "@/lib/contact";
+import {
+  buildPreparedEmailUrl,
+  buildProfessionalReferralWhatsAppUrl,
+} from "@/lib/contact-messages";
 import {
   conversationsForProfessional,
   missedOffersForProfessional,
   pendingOffersForProfessional,
 } from "@/lib/offers";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Panel profesional",
@@ -124,6 +132,8 @@ export default async function ProDashboardPage({
 
   const nombrePanel =
     professional.displayName || professional.fullName.split(" ")[0] || "";
+  const referralUrl = buildProfessionalReferralWhatsAppUrl(SITE_URL);
+  const publicContactEmails = getPublicContactEmails();
 
   return (
     <section className="section">
@@ -169,6 +179,12 @@ export default async function ProDashboardPage({
           </a>
           <a className="button secondary" href="#personas">
             Personas
+          </a>
+          <a className="button secondary" href="#compartir">
+            Invitar a un colega
+          </a>
+          <a className="button secondary" href="#contacto">
+            Contacto
           </a>
           <a className="button secondary" href="#cuenta">
             Mi cuenta
@@ -353,6 +369,65 @@ export default async function ProDashboardPage({
             </tbody>
           </table>
         </div>
+
+        <h2 id="compartir">Cadena de confianza</h2>
+        <div className="card referral-card">
+          <div>
+            <p className="eyebrow">Ayúdanos a sumar más manos</p>
+            <h3>Invita a otro profesional</h3>
+            <p>
+              Las recomendaciones entre colegas nos ayudan a encontrar personas
+              voluntarias comprometidas. Compartiremos un mensaje preparado; tú
+              eliges a quién enviarlo.
+            </p>
+          </div>
+          <a
+            className="button human"
+            data-track="professional_referral_share"
+            data-track-label="Intento de compartir invitación profesional"
+            href={referralUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Invitar por WhatsApp
+          </a>
+        </div>
+
+        <h2 id="contacto">Cuéntanos</h2>
+        <div className="contact-main-card professional-contact-card">
+          <div>
+            <h3>¿Tienes una pregunta o una idea?</h3>
+            <p>
+              También puedes avisarnos si algo no funciona como esperabas. Tu
+              mensaje quedará en la bandeja del equipo para que no se pierda.
+            </p>
+            <ContactMessageForm
+              action={createProfessionalContactMessage}
+              audience="professional"
+            />
+          </div>
+          <aside className="contact-email-panel">
+            <h3>¿Prefieres escribir desde tu correo?</h3>
+            <div className="contact-email-list">
+              {publicContactEmails.map((email) => (
+                <a
+                  className="button secondary"
+                  data-track="contact_email"
+                  data-track-label={`Contacto profesional · ${email}`}
+                  href={buildPreparedEmailUrl(
+                    email,
+                    "Consulta desde el panel profesional de Nido",
+                    "Hola, equipo de Nido:\n\nQuiero comentarles lo siguiente:\n\n",
+                  )}
+                  key={email}
+                >
+                  {email}
+                </a>
+              ))}
+            </div>
+          </aside>
+        </div>
+
         <h2 id="cuenta">Tu cuenta</h2>
         <AccountActions />
       </div>

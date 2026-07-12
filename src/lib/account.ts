@@ -6,6 +6,7 @@ import {
   account,
   assignments,
   auditLogs,
+  contactMessages,
   conversations,
   professionals,
   responseSamples,
@@ -13,28 +14,32 @@ import {
   session,
   user,
 } from "@/db/schema";
+import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { newId, nowIso } from "@/lib/ids";
 
 /**
- * Borra por completo y de forma atómica al usuario `userId` y todo su rastro: el
- * perfil profesional (si existe) con sus asignaciones, conversaciones, muestras
- * de respuesta y sesiones de seeker, más las filas de autenticación
- * (session/account/user).
+ * Borra la cuenta y los datos operativos del usuario `userId`. Antes de borrar
+ * un perfil profesional devuelve sus casos activos a la cola y revoca sus
+ * chats; después elimina en un batch atómico las filas de la cuenta. Los
+ * mensajes enviados al equipo se conservan por la política del buzón, pero se
+ * desligan del perfil eliminado.
  *
  * No dependemos de `ON DELETE CASCADE`: el driver sqlite-proxy (libSQL local /
  * D1 en prod) no garantiza `PRAGMA foreign_keys = ON`, así que borramos los
  * hijos explícitamente, hijos→padres, en un único `db.batch()` (todo-o-nada).
  *
- * ponytail: no reengancha al pool las help_requests que el pro tuviera
- * "assigned" — es un caso raro (pro aprobado con casos activos que se borra) y
- * quien pide ayuda puede volver a solicitar; replicar el flujo de ofertas sería
- * desproporcionado.
  */
 export async function purgeAccount(userId: string): Promise<void> {
   const professional = await db.query.professionals.findFirst({
     where: eq(professionals.userId, userId),
     columns: { id: true },
   });
+
+  // Nunca dejamos a una persona sin acompañante visible: una baja profesional
+  // devuelve sus solicitudes a la cola antes de eliminar el perfil.
+  if (professional) {
+    await releaseProfessionalAssignments(professional.id);
+  }
 
   const professionalDeletes = professional
     ? [
@@ -58,6 +63,13 @@ export async function purgeAccount(userId: string): Promise<void> {
         db
           .delete(assignments)
           .where(eq(assignments.professionalId, professional.id)),
+        // Conservamos los mensajes enviados al equipo, pero desligados del
+        // perfil borrado. No confiamos solo en ON DELETE SET NULL porque D1
+        // puede ejecutar con las claves foráneas desactivadas.
+        db
+          .update(contactMessages)
+          .set({ professionalId: null, updatedAt: nowIso() })
+          .where(eq(contactMessages.professionalId, professional.id)),
         db.delete(professionals).where(eq(professionals.id, professional.id)),
       ]
     : [];

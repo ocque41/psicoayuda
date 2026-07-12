@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { languages, needCategories, urgencyLevels } from "@/lib/constants";
+import { contactCategories, contactStatuses } from "@/lib/contact-messages";
 import { toIntlNumber } from "@/lib/phone";
 
 // Red de seguridad: cualquier error de Zod sin mensaje propio sale en español
@@ -37,6 +38,31 @@ const optionalText = z
   .max(300)
   .optional()
   .transform((value) => value || undefined);
+
+export const contactMessageSchema = z.object({
+  category: z.enum(contactCategories, {
+    error: "Elige el motivo de tu mensaje.",
+  }),
+  name: z
+    .string()
+    .trim()
+    .max(120, "El nombre es demasiado largo.")
+    .optional()
+    .transform((value) => value || undefined),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200, "El correo es demasiado largo.")
+    .pipe(z.email("Escribe un correo válido.")),
+  message: z
+    .string()
+    .trim()
+    .min(10, "Cuéntanos un poco más para poder ayudarte.")
+    .max(2000, "El mensaje es demasiado largo (máximo 2000 caracteres)."),
+});
+
+export const contactStatusSchema = z.enum(contactStatuses);
 
 const optionalNumber = z.preprocess(
   (value) => (value === "" || value === null ? undefined : value),

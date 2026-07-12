@@ -16,14 +16,31 @@ type Recent = {
   source: string | null;
   ts: number;
 };
+type WindowMetric = {
+  key: "24h" | "7d" | "30d";
+  label: string;
+  total: number;
+  professionalContacts: number;
+  allyContacts: number;
+  ctas: number;
+  leads: number;
+  signups: number;
+  emailClicks: number;
+  contactForms: number;
+  referralShares: number;
+  referralSignups: number;
+};
 type Metrics = {
   generatedAt: number;
+  windows: WindowMetric[];
   total: number;
   last24: number;
   bySource: Row[];
+  byCampaign: Row[];
   byType: Row[];
   psychologists: Row[];
   aliados: Row[];
+  contactEmails: Row[];
   recent: Recent[];
   approvedPros: number;
   inPersonPros: number;
@@ -41,6 +58,10 @@ function hora(ms: number): string {
   } catch {
     return "";
   }
+}
+
+function num(value: number): string {
+  return new Intl.NumberFormat("es").format(value);
 }
 
 function BarList({ rows }: { rows: Row[] }) {
@@ -86,6 +107,56 @@ function BarList({ rows }: { rows: Row[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function MetricWindowCard({ metric }: { metric: WindowMetric }) {
+  return (
+    <article className="card metric-window">
+      <h3>{metric.label}</h3>
+      <div className="metric-window-total">
+        <strong>{num(metric.total)}</strong>
+        <span>acciones registradas</span>
+      </div>
+      <dl className="metric-breakdown">
+        <div>
+          <dt>Profesionales</dt>
+          <dd>{num(metric.professionalContacts)}</dd>
+        </div>
+        <div>
+          <dt>Aliados</dt>
+          <dd>{num(metric.allyContacts)}</dd>
+        </div>
+        <div>
+          <dt>CTAs</dt>
+          <dd>{num(metric.ctas)}</dd>
+        </div>
+        <div>
+          <dt>Solicitudes</dt>
+          <dd>{num(metric.leads)}</dd>
+        </div>
+        <div>
+          <dt>Altas pro</dt>
+          <dd>{num(metric.signups)}</dd>
+        </div>
+        <div>
+          <dt>Clics en correos</dt>
+          <dd>{num(metric.emailClicks)}</dd>
+        </div>
+        <div>
+          <dt>Formularios</dt>
+          <dd>{num(metric.contactForms)}</dd>
+        </div>
+        <div>
+          <dt>Intentos de compartir</dt>
+          <dd>{num(metric.referralShares)}</dd>
+        </div>
+        <div>
+          <dt>Altas por invitación</dt>
+          <dd>{num(metric.referralSignups)}</dd>
+        </div>
+      </dl>
+    </article>
   );
 }
 
@@ -137,13 +208,21 @@ export function MetricsDashboard() {
       </p>
 
       <div className="panel-chips" style={{ marginBottom: 16 }}>
-        <span className="panel-chip ok">{data.total} clics totales</span>
-        <span className="panel-chip">{data.last24} en 24h</span>
+        <span className="panel-chip ok">{num(data.total)} clics totales</span>
+        <span className="panel-chip">{num(data.last24)} en 24h</span>
         <span className="panel-chip">
-          {data.approvedPros} psicólogos aprobados
+          {num(data.approvedPros)} psicólogos aprobados
         </span>
-        <span className="panel-chip">{data.inPersonPros} presenciales</span>
-        <span className="panel-chip">{data.requests} solicitudes</span>
+        <span className="panel-chip">
+          {num(data.inPersonPros)} presenciales
+        </span>
+        <span className="panel-chip">{num(data.requests)} solicitudes</span>
+      </div>
+
+      <div className="metric-window-grid">
+        {data.windows.map((metric) => (
+          <MetricWindowCard key={metric.key} metric={metric} />
+        ))}
       </div>
 
       <div className="grid grid-2">
@@ -152,8 +231,11 @@ export function MetricsDashboard() {
           <BarList rows={data.bySource} />
         </article>
         <article className="card">
-          <h3>Tipo de clic</h3>
-          <BarList rows={data.byType} />
+          <h3>Campañas con más acciones</h3>
+          <p className="muted" style={{ margin: "0 0 8px" }}>
+            Fuente y campaña de entrada en los últimos 30 días.
+          </p>
+          <BarList rows={data.byCampaign} />
         </article>
       </div>
 
@@ -168,6 +250,19 @@ export function MetricsDashboard() {
           Clics a los contactos y webs de las asociaciones y recursos.
         </p>
         <BarList rows={data.aliados} />
+      </article>
+
+      <article className="card">
+        <h3>Correos de contacto</h3>
+        <p className="muted" style={{ margin: "0 0 8px" }}>
+          Clics separados por página y dirección pública.
+        </p>
+        <BarList rows={data.contactEmails} />
+      </article>
+
+      <article className="card">
+        <h3>Tipos de acción</h3>
+        <BarList rows={data.byType} />
       </article>
 
       <article className="card">
@@ -186,11 +281,11 @@ export function MetricsDashboard() {
             <tbody>
               {data.recent.map((r) => (
                 <tr key={r.id}>
-                  <td>{hora(r.ts)}</td>
-                  <td>{r.type}</td>
-                  <td>{r.label ?? "—"}</td>
-                  <td>{r.page ?? "—"}</td>
-                  <td>{r.source ?? "directo"}</td>
+                  <td data-label="Hora">{hora(r.ts)}</td>
+                  <td data-label="Tipo">{r.type}</td>
+                  <td data-label="Qué">{r.label ?? "—"}</td>
+                  <td data-label="Página">{r.page ?? "—"}</td>
+                  <td data-label="Fuente">{r.source ?? "directo"}</td>
                 </tr>
               ))}
             </tbody>

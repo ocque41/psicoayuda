@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { helpRequests, professionals } from "@/db/schema";
+import { languageLabels, needLabels } from "@/lib/constants";
 
 type ProfessionalRow = typeof professionals.$inferSelect;
 type HelpRequestRow = typeof helpRequests.$inferSelect;
@@ -43,6 +44,45 @@ export function scoreProfessional(
   return score;
 }
 
+export function explainProfessionalMatch(
+  professional: Pick<
+    ProfessionalRow,
+    | "languages"
+    | "supportAreas"
+    | "crisisExperience"
+    | "currentActiveRequests"
+    | "maxActiveRequests"
+  >,
+  request: Pick<HelpRequestRow, "language" | "needCategory" | "urgency">,
+) {
+  const proLanguages = parseList(professional.languages);
+  const supportAreas = parseList(professional.supportAreas);
+  const freeCapacity = Math.max(
+    0,
+    professional.maxActiveRequests - professional.currentActiveRequests,
+  );
+  const reasons: string[] = [];
+
+  if (proLanguages.includes(request.language)) {
+    reasons.push(
+      `Idioma: ${languageLabels[request.language as keyof typeof languageLabels] ?? request.language}`,
+    );
+  }
+  if (supportAreas.includes(request.needCategory)) {
+    reasons.push(
+      `Área: ${needLabels[request.needCategory as keyof typeof needLabels] ?? request.needCategory}`,
+    );
+  }
+  if (request.urgency === "alta" && professional.crisisExperience) {
+    reasons.push("Experiencia en crisis");
+  }
+  if (freeCapacity > 0) {
+    reasons.push(`Cupo libre: ${freeCapacity}`);
+  }
+
+  return reasons;
+}
+
 const MAX_SUGGESTIONS = 3;
 
 /**
@@ -69,6 +109,7 @@ export function rankProfessionalsForRequest<
     .map((professional) => ({
       professional,
       score: scoreProfessional(professional, request),
+      reasons: explainProfessionalMatch(professional, request),
     }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;

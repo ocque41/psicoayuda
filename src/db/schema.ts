@@ -390,6 +390,57 @@ export const allianceRequests = sqliteTable(
   ],
 );
 
+// Consultas, ideas y avisos enviados desde /contacto o desde el panel
+// profesional. La fila es la fuente de verdad: el correo a los admins es solo
+// un aviso best-effort, así que un fallo del proveedor no pierde el mensaje.
+export const contactMessages = sqliteTable(
+  "contact_messages",
+  {
+    id: text("id").primaryKey(),
+    // 'public_contact' | 'professional_dashboard'
+    source: text("source").notNull(),
+    // 'question' | 'improvement' | 'problem' | 'other'
+    category: text("category").notNull(),
+    name: text("name"),
+    email: text("email").notNull(),
+    professionalId: text("professional_id").references(() => professionals.id, {
+      onDelete: "set null",
+    }),
+    message: text("message").notNull(),
+    // 'new' | 'in_review' | 'resolved'
+    status: text("status").default("new").notNull(),
+    // Hash irreversible de la conexión para limitar abuso; nunca guardamos IP.
+    requesterHash: text("requester_hash"),
+    handledBy: text("handled_by"),
+    handledAt: text("handled_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("contact_messages_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("contact_messages_source_created_idx").on(
+      table.source,
+      table.createdAt,
+    ),
+    index("contact_messages_email_created_idx").on(
+      table.email,
+      table.createdAt,
+    ),
+    index("contact_messages_professional_created_idx").on(
+      table.professionalId,
+      table.createdAt,
+    ),
+    index("contact_messages_requester_created_idx").on(
+      table.requesterHash,
+      table.createdAt,
+    ),
+    index("contact_messages_created_idx").on(table.createdAt),
+  ],
+);
+
 // Organizaciones ALIADAS que se muestran en la web (carrusel de la portada y
 // escaparate de /alianzas). Antes eran una constante en código; ahora viven en
 // D1 para que el equipo las gestione desde /admin (crear, editar, logo, ocultar)

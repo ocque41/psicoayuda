@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { createPublicContactMessage } from "@/app/actions-contact";
+import { ContactMessageForm } from "@/components/contact-message-form";
 import { CrisisResources } from "@/components/crisis-resources";
-import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+import {
+  getAbuseContactEmail,
+  getPrivacyContactEmail,
+  getPublicContactEmails,
+} from "@/lib/contact";
+import { buildPreparedEmailUrl } from "@/lib/contact-messages";
 
 export const metadata: Metadata = {
   title: "Contacto",
@@ -13,6 +20,7 @@ export const metadata: Metadata = {
 export default function Page() {
   const privacyEmail = getPrivacyContactEmail();
   const abuseEmail = getAbuseContactEmail();
+  const publicEmails = getPublicContactEmails();
 
   return (
     <section className="section">
@@ -49,6 +57,8 @@ export default function Page() {
             <p>
               <Link
                 className="button secondary"
+                data-track="contact_email"
+                data-track-label={`Privacidad · ${privacyEmail}`}
                 href={`mailto:${privacyEmail}`}
               >
                 {privacyEmail}
@@ -69,7 +79,12 @@ export default function Page() {
               notas algo que creas que pone en peligro a otras personas:
             </p>
             <p>
-              <Link className="button secondary" href={`mailto:${abuseEmail}`}>
+              <Link
+                className="button secondary"
+                data-track="contact_email"
+                data-track-label={`Abuso y seguridad · ${abuseEmail}`}
+                href={`mailto:${abuseEmail}`}
+              >
                 {abuseEmail}
               </Link>
             </p>
@@ -78,6 +93,46 @@ export default function Page() {
               eso nos ayuda a actuar y a cuidar a más personas.
             </p>
           </article>
+        </div>
+
+        <div className="contact-main-card" id="preguntas">
+          <div>
+            <p className="eyebrow">Preguntas, ideas y ayuda con la web</p>
+            <h2>Escríbenos directamente</h2>
+            <p>
+              Si tienes una pregunta general, una idea para mejorar Nido o hay
+              algo que no funciona como esperabas, puedes usar el formulario. El
+              mensaje queda guardado para que el equipo pueda darle seguimiento.
+            </p>
+            <ContactMessageForm
+              action={createPublicContactMessage}
+              audience="public"
+            />
+          </div>
+          <aside className="contact-email-panel">
+            <h3>También puedes usar tu correo</h3>
+            <p className="muted">
+              Estos son los correos públicos de las personas administradoras.
+              Registramos el clic para saber qué vías se usan más, pero no vemos
+              el contenido de tu correo.
+            </p>
+            <div className="contact-email-list">
+              {publicEmails.map((email) => (
+                <a
+                  className="button secondary"
+                  data-track="contact_email"
+                  data-track-label={`Contacto público · ${email}`}
+                  href={buildPreparedEmailUrl(
+                    email,
+                    "Pregunta o comentario sobre Nido",
+                  )}
+                  key={email}
+                >
+                  {email}
+                </a>
+              ))}
+            </div>
+          </aside>
         </div>
 
         <div className="card" style={{ borderColor: "var(--accent)" }}>

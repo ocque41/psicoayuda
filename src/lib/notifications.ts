@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  getAdminEmails,
   getAllianceRecipients,
   getErrorAlertEmails,
   getHelpRequestRecipients,
@@ -9,6 +10,7 @@ import { sendEmail } from "@/lib/email";
 import {
   buildAllianceApprovedEmail,
   buildApprovalEmail,
+  buildContactMessageAlertEmail,
   buildErrorAlertEmail,
   buildFoundationContactEmail,
   buildNewMessageEmail,
@@ -229,6 +231,33 @@ export async function notifyFoundationContact(input: {
       headers: mail.headers,
     });
   }
+}
+
+/** Avisa de un contacto nuevo sin copiar PII fuera de la bandeja protegida. */
+export async function notifyAdminContactMessage(input: {
+  sourceLabel: string;
+  categoryLabel: string;
+}) {
+  const recipients = getAdminEmails();
+  if (recipients.length === 0) return;
+  const mail = buildContactMessageAlertEmail({
+    ...input,
+    adminUrl: `${appBaseUrl()}/admin#contactos`,
+  });
+  // Se inician todos los avisos a la vez: si el proveedor rechaza una
+  // dirección, la otra administradora aún recibe el suyo. El llamador trata la
+  // notificación como best-effort porque el mensaje ya quedó guardado.
+  await Promise.allSettled(
+    recipients.map((to) =>
+      sendEmail({
+        to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        headers: mail.headers,
+      }),
+    ),
+  );
 }
 
 /**

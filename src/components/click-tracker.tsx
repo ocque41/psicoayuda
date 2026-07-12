@@ -56,6 +56,11 @@ function readUtm(): StoredUtm {
 function classify(
   el: Element,
 ): { type: string; label: string; href: string | null } | null {
+  // El panel contiene correos y datos operativos. No medimos acciones del admin:
+  // además de no aportar a las conversiones públicas, guardarlas copiaría PII en
+  // la tabla de analítica, cuyo contrato es explícitamente "sin PII".
+  if (location.pathname.startsWith("/admin")) return null;
+
   const trackable = el.closest<HTMLElement>(
     "a, button, [role='button'], [data-track]",
   );
@@ -92,12 +97,7 @@ function classify(
   }
 
   // CTAs internos: los enlaces con pinta de botón (clase "button" del sitio).
-  if (
-    anchor &&
-    /\bbutton\b/.test(anchor.className) &&
-    href &&
-    href.startsWith("/")
-  ) {
+  if (anchor && /\bbutton\b/.test(anchor.className) && href?.startsWith("/")) {
     return { type: "cta", label, href };
   }
 
@@ -143,7 +143,7 @@ export function ClickTracker() {
   useEffect(() => {
     captureLandingUtm();
 
-    function onPointerDown(event: Event) {
+    function onActivation(event: Event) {
       const target = event.target as Element | null;
       if (!target) return;
       const hit = classify(target);
@@ -158,10 +158,11 @@ export function ClickTracker() {
       });
     }
 
-    // pointerdown: dispara antes de que la navegación se lleve la página.
-    document.addEventListener("pointerdown", onPointerDown, { capture: true });
+    // `click` ocurre antes de la navegación y cubre ratón, toque y activación
+    // con Enter. sendBeacon sobrevive al cambio de página.
+    document.addEventListener("click", onActivation, { capture: true });
     return () =>
-      document.removeEventListener("pointerdown", onPointerDown, {
+      document.removeEventListener("click", onActivation, {
         capture: true,
       });
   }, []);

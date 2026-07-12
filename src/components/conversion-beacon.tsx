@@ -9,19 +9,34 @@ import { trackConversion } from "@/components/click-tracker";
 export function ConversionBeacon({
   type,
   dedupeKey,
+  removeSearchParam,
 }: {
   type: string;
   dedupeKey?: string;
+  removeSearchParam?: string;
 }) {
   useEffect(() => {
     const key = dedupeKey ? `nido:conv:${type}:${dedupeKey}` : null;
     try {
-      if (key && sessionStorage.getItem(key)) return;
-      trackConversion(type);
-      if (key) sessionStorage.setItem(key, "1");
+      if (!key || !sessionStorage.getItem(key)) {
+        trackConversion(type);
+        if (key) sessionStorage.setItem(key, "1");
+      }
     } catch {
       trackConversion(type);
     }
-  }, [type, dedupeKey]);
+
+    // La URL especial de alta social es de un solo uso. La quitamos después de
+    // medir para que recargar la página no vuelva a parecer otro registro.
+    if (removeSearchParam) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete(removeSearchParam);
+      window.history.replaceState(
+        null,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }
+  }, [type, dedupeKey, removeSearchParam]);
   return null;
 }

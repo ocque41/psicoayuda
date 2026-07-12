@@ -10,6 +10,7 @@ declare global {
     ADMIN_EMAILS?: string;
     ABUSE_CONTACT_EMAIL?: string;
     PRIVACY_CONTACT_EMAIL?: string;
+    PUBLIC_CONTACT_EMAILS?: string;
     CONTACT_FROM_EMAIL?: string;
     NOTIFICATION_EMAIL?: string;
     RESEND_API_KEY?: string;

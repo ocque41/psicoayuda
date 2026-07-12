@@ -16,7 +16,7 @@ export default function PrivacyPage() {
     <section className="section">
       <div className="container legal">
         <h1>Política de Privacidad</h1>
-        <p className="muted">Última actualización: 29 de junio de 2026</p>
+        <p className="muted">Última actualización: 12 de julio de 2026</p>
         <p>
           Nido es una plataforma gratuita para conectar personas que necesitan
           apoyo psicológico remoto con profesionales voluntarios verificados.
@@ -91,7 +91,24 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>3. Cómo usamos los datos</h2>
+          <h2>3. Mensajes enviados al equipo</h2>
+          <p>
+            Si usas el formulario de contacto público, guardamos el motivo que
+            eliges, tu nombre si decides darlo, tu correo, el mensaje, su estado
+            de revisión y las fechas de seguimiento. También guardamos un código
+            irreversible de la conexión, separado del usado en las solicitudes
+            de ayuda, únicamente para limitar envíos repetidos. No guardamos tu
+            dirección IP en claro.
+          </p>
+          <p>
+            Si escribes desde el panel profesional, el nombre y correo se toman
+            de tu cuenta para evitar suplantaciones. No debes incluir datos
+            privados de las personas que acompañas.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>4. Cómo usamos los datos</h2>
           <ul>
             <li>Recibir solicitudes de ayuda.</li>
             <li>Sugerir o asignar profesionales voluntarios disponibles.</li>
@@ -112,7 +129,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>4. Quién puede ver los datos</h2>
+          <h2>5. Quién puede ver los datos</h2>
           <ul>
             <li>Administradores o coordinadores de Nido.</li>
             <li>
@@ -131,7 +148,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>5. Ubicación</h2>
+          <h2>6. Ubicación</h2>
           <p>
             La ubicación es opcional. Si una persona no desea compartir
             ubicación desde el navegador, puede escribir manualmente su ciudad o
@@ -144,7 +161,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>6. Retención y eliminación</h2>
+          <h2>7. Retención y eliminación</h2>
           <p>
             Guardamos los datos solo durante el tiempo necesario para operar la
             plataforma, coordinar solicitudes, prevenir abuso y cumplir
@@ -159,6 +176,13 @@ export default function PrivacyPage() {
             derivado de la IP.
           </p>
           <p>
+            Los mensajes enviados al equipo no se eliminan ni anonimizan de
+            forma automática en la versión actual. Se conservan para dar
+            seguimiento, incluso si una persona profesional borra su cuenta; en
+            ese caso se desvinculan de su perfil. Puedes pedir que revisemos o
+            eliminemos tus mensajes escribiendo al correo de privacidad.
+          </p>
+          <p>
             Tienes derecho a solicitar, en cualquier momento, acceder a los
             datos que guardamos sobre ti, corregirlos o pedir que los
             eliminemos. Atenderemos tu solicitud por correo.
@@ -170,7 +194,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>7. Seguridad</h2>
+          <h2>8. Seguridad</h2>
           <p>
             Aplicamos medidas razonables para proteger los datos, incluyendo
             control de acceso administrativo, autenticación de profesionales,
@@ -183,7 +207,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>8. Niñas, niños y adolescentes</h2>
+          <h2>9. Niñas, niños y adolescentes</h2>
           <p>
             Si eres menor de edad, también mereces ayuda y eres bienvenido/a.
             Cuando sea posible, te animamos a apoyarte en una persona adulta de
@@ -199,7 +223,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>9. Emergencias</h2>
+          <h2>10. Emergencias</h2>
           <p>
             Nido no atiende emergencias en tiempo real. Si una persona está en
             peligro inmediato, debe llamar a emergencias locales o buscar ayuda
@@ -208,7 +232,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>10. Cambios a esta política</h2>
+          <h2>11. Cambios a esta política</h2>
           <p>
             Podemos actualizar esta política. Si los cambios son importantes,
             los publicaremos en esta página.
@@ -216,7 +240,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="card">
-          <h2>11. Contacto</h2>
+          <h2>12. Contacto</h2>
           <p>
             Para preguntas de privacidad o solicitudes de eliminación de datos,
             escribe a: <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.

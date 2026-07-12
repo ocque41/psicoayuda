@@ -69,27 +69,27 @@ export function IncompleteRegistrationsSection({
             <tbody>
               {registrations.map((registration) => (
                 <tr key={registration.id}>
-                  <td>
+                  <td data-label="Nombre">
                     <strong>{registration.name}</strong>
                   </td>
-                  <td>{registration.email}</td>
-                  <td>
+                  <td data-label="Correo">{registration.email}</td>
+                  <td data-label="Creación">
                     <time dateTime={registration.createdAt.toISOString()}>
                       {accountDateFormatter.format(registration.createdAt)}
                     </time>
                   </td>
-                  <td>
+                  <td data-label="Correo verificado">
                     {registration.emailVerified
                       ? "Verificado"
                       : "Sin verificar"}
                   </td>
-                  <td>
+                  <td data-label="Estado">
                     <span className="badge badge-new">
                       Onboarding incompleto
                     </span>
                   </td>
                   {hasActions ? (
-                    <td>
+                    <td data-label="Acción">
                       {approveAction ? (
                         <form action={approveAction}>
                           <input

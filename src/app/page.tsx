@@ -16,8 +16,8 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const professionals = await getFeedProfessionals();
-  // Carrusel de la portada: 3 visibles que avanzan solos; mostramos hasta 9
-  // para que rote sin alargar la sección. El resto en /profesionales.
+  // Carrusel de la portada: mismo desplazamiento manual que el de aliados;
+  // mostramos hasta 9 para no alargar la sección. El resto en /profesionales.
   const featured = professionals.slice(0, 9);
   return (
     <>
