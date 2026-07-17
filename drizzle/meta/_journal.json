@@ -148,6 +148,13 @@
       "when": 1783855053919,
       "tag": "0020_add_contact_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1784196463452,
+      "tag": "0021_add_sopps_partner",
+      "breakpoints": true
     }
   ]
 }
