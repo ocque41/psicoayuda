@@ -5,7 +5,10 @@ export default function HomePage() {
     <>
       <section className="hero">
         <div className="container">
-          <h1>¿Estás pasando por un momento difícil? No tienes que atravesarlo en silencio.</h1>
+          <h1>
+            ¿Estás pasando por un momento difícil? No tienes que atravesarlo en
+            silencio.
+          </h1>
           <p className="lead">
             Te ayudamos a conectar, gratis y a distancia, con psicólogas y
             psicólogos voluntarios. Sin crear cuenta y sin coste.

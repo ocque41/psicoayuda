@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import Link from "next/link";
 import {
   adminAnonymizeHelpRequest,
@@ -10,9 +10,16 @@ import { db } from "@/db";
 import { helpRequests, professionals } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
 import { needLabels } from "@/lib/constants";
-import { suggestProfessionalsForRequest } from "@/lib/matching";
+import { rankProfessionalsForRequest } from "@/lib/matching";
 
-export default async function AdminPage() {
+// Cap the help-request page so its cost stays flat as historical rows grow.
+const REQUESTS_PAGE_SIZE = 25;
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const admin = await requireAdmin();
   if (!admin) {
     return (
@@ -25,28 +32,51 @@ export default async function AdminPage() {
     );
   }
 
-  const [proRows, requestRows] = await Promise.all([
+  const { page: pageParam } = await searchParams;
+  const requestedPage = Number.parseInt(pageParam ?? "1", 10);
+  const page =
+    Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const offset = (page - 1) * REQUESTS_PAGE_SIZE;
+
+  const [proRows, requestPage] = await Promise.all([
     db.select().from(professionals).orderBy(desc(professionals.createdAt)),
-    db.select().from(helpRequests).orderBy(desc(helpRequests.createdAt)),
+    // Surface actionable requests first (new, then contacted), newest within
+    // each bucket. Fetch one extra row to detect a next page without a count.
+    db
+      .select()
+      .from(helpRequests)
+      .orderBy(
+        sql`case ${helpRequests.status} when 'new' then 0 when 'contacted' then 1 when 'assigned' then 2 else 3 end`,
+        desc(helpRequests.createdAt),
+      )
+      .limit(REQUESTS_PAGE_SIZE + 1)
+      .offset(offset),
   ]);
 
-  const suggestions = new Map(
-    await Promise.all(
-      requestRows.map(
-        async (request) =>
-          [
-            request.id,
-            await suggestProfessionalsForRequest(request.id),
-          ] as const,
-      ),
-    ),
-  );
+  const hasNextPage = requestPage.length > REQUESTS_PAGE_SIZE;
+  const requestRows = hasNextPage
+    ? requestPage.slice(0, REQUESTS_PAGE_SIZE)
+    : requestPage;
+  const hasPrevPage = page > 1;
+
   const eligibleProfessionals = proRows.filter(
     (professional) =>
       professional.status === "approved" &&
       professional.acceptingRequests &&
       professional.remoteAvailable &&
       professional.currentActiveRequests < professional.maxActiveRequests,
+  );
+
+  // Score every request against the eligible pool in memory, reusing the
+  // ranking that suggestProfessionalsForRequest applies — no query per request.
+  const suggestions = new Map(
+    requestRows.map(
+      (request) =>
+        [
+          request.id,
+          rankProfessionalsForRequest(eligibleProfessionals, request),
+        ] as const,
+    ),
   );
 
   return (
@@ -211,6 +241,36 @@ export default async function AdminPage() {
             );
           })}
         </div>
+
+        {requestRows.length === 0 ? (
+          <p className="muted">No hay solicitudes en esta página.</p>
+        ) : null}
+
+        {hasPrevPage || hasNextPage ? (
+          <nav className="pagination" aria-label="Paginación de solicitudes">
+            {hasPrevPage ? (
+              <Link
+                className="button secondary"
+                href={`/admin?page=${page - 1}`}
+              >
+                ← Anteriores
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span className="muted">Página {page}</span>
+            {hasNextPage ? (
+              <Link
+                className="button secondary"
+                href={`/admin?page=${page + 1}`}
+              >
+                Siguientes →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </div>
     </section>
   );

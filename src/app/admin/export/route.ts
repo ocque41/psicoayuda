@@ -1,7 +1,11 @@
+import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { helpRequests } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
+
+// Bound the export so it cannot scale with total historical rows.
+const EXPORT_ROW_LIMIT = 5000;
 
 function csvEscape(value: unknown) {
   const text = String(value ?? "");
@@ -14,7 +18,11 @@ export async function GET() {
     return new NextResponse("No autorizado", { status: 403 });
   }
 
-  const rows = await db.select().from(helpRequests);
+  const rows = await db
+    .select()
+    .from(helpRequests)
+    .orderBy(desc(helpRequests.createdAt))
+    .limit(EXPORT_ROW_LIMIT);
   const header = [
     "id",
     "email",

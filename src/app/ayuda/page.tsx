@@ -19,8 +19,8 @@ export default function HelpPage() {
         <EmergencyNotice />
         <HelpRequestForm />
         <p className="reassurance">
-          Detrás de Nido hay psicólogas y psicólogos voluntarios reales que
-          dan su tiempo para acompañar a personas como tú.
+          Detrás de Nido hay psicólogas y psicólogos voluntarios reales que dan
+          su tiempo para acompañar a personas como tú.
         </p>
       </div>
     </section>

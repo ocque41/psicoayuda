@@ -45,9 +45,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/recursos">Recursos</Link>
             </nav>
             <p className="footer-note">
-              Nido es un proyecto sin fines de lucro y de código abierto.
-              La atención la brindan personas voluntarias verificadas. No
-              atiende emergencias en tiempo real.
+              Nido es un proyecto sin fines de lucro y de código abierto. La
+              atención la brindan personas voluntarias verificadas. No atiende
+              emergencias en tiempo real.
             </p>
           </div>
         </footer>

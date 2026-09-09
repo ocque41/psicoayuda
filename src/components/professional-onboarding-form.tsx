@@ -161,8 +161,8 @@ export function ProfessionalOnboardingForm({
           </label>
           <label>
             <input name="conductNoClientCapture" type="checkbox" required />
-            Acepto no usar Nido para captar clientes pagos ni hacer
-            publicidad engañosa.
+            Acepto no usar Nido para captar clientes pagos ni hacer publicidad
+            engañosa.
           </label>
           <label>
             <input name="conductConfidentiality" type="checkbox" required />
