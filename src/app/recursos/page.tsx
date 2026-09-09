@@ -20,9 +20,9 @@ export default function ResourcesPage() {
         <div className="card">
           <h2>Qué hace Nido</h2>
           <p>
-            Nido ayuda a conectar solicitudes con profesionales
-            voluntarios verificados. No atiende emergencias en tiempo real y no
-            reemplaza atención médica presencial.
+            Nido ayuda a conectar solicitudes con profesionales voluntarios
+            verificados. No atiende emergencias en tiempo real y no reemplaza
+            atención médica presencial.
           </p>
         </div>
         <div className="card">

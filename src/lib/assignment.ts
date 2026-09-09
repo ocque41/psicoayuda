@@ -80,3 +80,52 @@ export async function assignRequestToProfessional(input: {
     return { ok: true as const };
   });
 }
+
+/**
+ * Release every active ("assigned") assignment for a help request and return the
+ * freed capacity to each professional. Used when the retention job closes or
+ * anonymizes a stale request so professional load counters stay accurate.
+ *
+ * Intentionally non-transactional: it runs from the retention cron over D1,
+ * where explicit BEGIN/COMMIT is unsupported, and `max(0, ...)` keeps the
+ * counter from underflowing if it is already at zero.
+ */
+export async function releaseAssignmentsForRequest(helpRequestId: string) {
+  const active = await db
+    .select({ professionalId: assignments.professionalId })
+    .from(assignments)
+    .where(
+      and(
+        eq(assignments.helpRequestId, helpRequestId),
+        eq(assignments.status, "assigned"),
+      ),
+    );
+
+  if (active.length === 0) {
+    return { released: 0 };
+  }
+
+  const timestamp = nowIso();
+
+  for (const { professionalId } of active) {
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+        updatedAt: timestamp,
+      })
+      .where(eq(professionals.id, professionalId));
+  }
+
+  await db
+    .update(assignments)
+    .set({ status: "released", updatedAt: timestamp })
+    .where(
+      and(
+        eq(assignments.helpRequestId, helpRequestId),
+        eq(assignments.status, "assigned"),
+      ),
+    );
+
+  return { released: active.length };
+}

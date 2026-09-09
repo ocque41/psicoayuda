@@ -5,6 +5,7 @@ declare global {
     DB?: D1Database;
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_URL?: string;
+    CRON_SECRET?: string;
     GOOGLE_CLIENT_ID?: string;
     GOOGLE_CLIENT_SECRET?: string;
     ADMIN_EMAILS?: string;

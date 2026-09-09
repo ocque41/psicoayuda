@@ -1,9 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nido-venezuela",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-06-28",
   "compatibility_flags": ["nodejs_compat"],
+  "triggers": {
+    // Daily at 03:00 UTC: enforce the 30/90-day help-request retention policy.
+    "crons": ["0 3 * * *"]
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": ".open-next/assets"

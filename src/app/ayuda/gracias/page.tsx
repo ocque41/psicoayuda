@@ -26,8 +26,8 @@ export default async function ThanksPage({
             escribirá a tu correo.
           </li>
           <li>
-            Suele tomar unas horas, no es inmediato; revisa también tu carpeta de
-            spam.
+            Suele tomar unas horas, no es inmediato; revisa también tu carpeta
+            de spam.
           </li>
         </ol>
         <p className="muted">

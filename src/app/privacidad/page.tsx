@@ -10,11 +10,11 @@ export default function PrivacyPage() {
         <h1>Política de Privacidad</h1>
         <p className="muted">Última actualización: 29 de junio de 2026</p>
         <p>
-          Nido es una plataforma gratuita para conectar personas que
-          necesitan apoyo psicológico remoto con profesionales voluntarios
-          verificados. Nido no es un servicio de emergencias, no reemplaza
-          atención médica, no garantiza disponibilidad inmediata y no ofrece
-          diagnóstico ni tratamiento médico por sí mismo.
+          Nido es una plataforma gratuita para conectar personas que necesitan
+          apoyo psicológico remoto con profesionales voluntarios verificados.
+          Nido no es un servicio de emergencias, no reemplaza atención médica,
+          no garantiza disponibilidad inmediata y no ofrece diagnóstico ni
+          tratamiento médico por sí mismo.
         </p>
 
         <section className="card">
@@ -168,9 +168,9 @@ export default function PrivacyPage() {
         <section className="card">
           <h2>9. Emergencias</h2>
           <p>
-            Nido no atiende emergencias en tiempo real. Si una persona
-            está en peligro inmediato, debe llamar a emergencias locales o
-            buscar ayuda presencial inmediata.
+            Nido no atiende emergencias en tiempo real. Si una persona está en
+            peligro inmediato, debe llamar a emergencias locales o buscar ayuda
+            presencial inmediata.
           </p>
         </section>
 

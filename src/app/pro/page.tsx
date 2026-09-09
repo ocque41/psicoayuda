@@ -11,8 +11,8 @@ export default async function ProPage() {
         <h1>Este es tu lugar para ayudar</h1>
         <p className="lead">
           Si eres psicólogo/a o profesional de la salud mental, aquí puedes
-          acompañar a quien más lo necesita. Atiendes en remoto, en la medida
-          de tu tiempo, sin coste para nadie. Gracias por estar aquí.
+          acompañar a quien más lo necesita. Atiendes en remoto, en la medida de
+          tu tiempo, sin coste para nadie. Gracias por estar aquí.
         </p>
         <p className="muted">
           El acceso usa Google. Después de entrar, completas una verificación
