@@ -184,12 +184,13 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
 /**
  * Versión cacheada para las vistas públicas (portada, /ayuda, /profesionales).
  * Evita una consulta D1 por visita: el resultado vive en la caché incremental
- * (KV) 60s y se invalida al instante con `revalidateTag("professionals")`
+ * (KV) 5 min y se invalida al instante con `revalidateTag("professionals")`
  * cuando cambia quién aparece o cómo (aprobaciones, perfil, disponibilidad).
+ * El TTL es solo el máximo de antigüedad (mantiene bajas las escrituras de KV).
  * Las server actions siguen usando `getFeedProfessionals` (datos frescos).
  */
 export const getCachedFeedProfessionals = unstable_cache(
   getFeedProfessionals,
   ["public-professionals"],
-  { revalidate: 60, tags: ["professionals"] },
+  { revalidate: 300, tags: ["professionals"] },
 );
