@@ -5,7 +5,8 @@ Describe the change in plain language.
 ## Safety and scope
 
 - [ ] Stays within CONNECT: intake, verification, assignment, handoff.
-- [ ] Does not add payments, chat, video, ratings, reviews, or AI therapist features.
+- [ ] Does not add video, ratings, reviews, or AI therapist features.
+- [ ] Payments (if any) go only through `src/lib/payments` and never charge for earthquake help.
 - [ ] Does not add unverified emergency phone numbers or medical claims.
 - [ ] Keeps user-facing copy Spanish-first where relevant.
 

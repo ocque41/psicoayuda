@@ -38,22 +38,27 @@ return res ?? handler.fetch(request, env, ctx);
 - `professionals` (+ responseBucket, responseMedianMs, responseSampleSize, responseAnsweredRatio, responseComputedAt) — caché del feed.
 - Mensajes → en el SQLite del DO (serverId, clientMsgId UNIQUE, seq monotónico, senderRole, content, serverTs…). SQL SIEMPRE parametrizado.
 
-## Persistencia y ciclo de vida (v0.8.0)
+## Persistencia y ciclo de vida (v0.8.0 → v0.10.0)
 
-- **Retención 90/180 con actividad rodante**: las conversaciones/solicitudes inactivas
-  se cierran a los 90 días y se anonimizan a los 180 (purga real del SQLite del DO,
-  revocación de sesiones y borrado de alias/correo). El reloj es la última actividad
-  (`lastMessageAt`, `reopenedAt` o creación) — un mensaje nuevo lo renueva. Los chats
-  DIRECTOS (sin solicitud) también entran en el ciclo (`src/lib/retention.ts`).
+- **Conversaciones ETERNAS (v0.10.0)**: la retención ya no cierra ni anonimiza
+  chats. El hilo (y su link) vive hasta que una de las dos partes lo borra desde
+  su lado; borrar es definitivo: purga del SQLite del DO, borrado del espejo D1,
+  sesiones revocadas y link muerto (`deleteConversation` en
+  `src/app/c/[conversationId]/actions.ts`). El borrado queda auditado.
+- **Cupo liberable sin perder el hilo**: un chat directo sin actividad >30 días
+  deja de ocupar uno de los cupos del profesional (`quotaReleasedAt`), pero sigue
+  abierto y accesible. La retención solo mantiene las **solicitudes** (cierre
+  90/180) y el enlace mágico (7 días) (`src/lib/retention.ts`).
 - **Sesión deslizante**: la cookie del seeker se renueva al entrar a la sala
-  (`renewSeekerChatToken`) hasta 90 días, mientras la conversación no esté anonimizada.
+  (`renewSeekerChatToken`) mientras la conversación exista.
 - **Enlace mágico `/acceso`**: quien no tiene cuenta pide enlaces frescos a su correo
   (respuesta neutra, 3/h por correo). Cada enlace crea una sesión NUEVA revocable por
   separado (TTL 72h). Funciona cross-device.
-- **Reapertura del mismo hilo**: una conversación cerrada (no anonimizada) se lee en
-  solo lectura y puede reabrirse por cualquiera de las dos partes desde la propia sala.
-  Re-reserva cupo del profesional atómicamente, rearma el caso (solicitud/asignación) y
-  corta los sockets para que reconecten con permiso de escritura.
+- **Reapertura del mismo hilo**: una conversación cerrada (por caso, suspensión o
+  borrado no) se lee en solo lectura y puede reabrirse por cualquiera de las dos
+  partes desde la propia sala. Re-reserva cupo del profesional atómicamente,
+  rearma el caso (solicitud/asignación) y corta los sockets para que reconecten
+  con permiso de escritura.
 - **Lectura/escritura separadas**: `onBeforeConnect` inyecta `x-nido-can-send=0` si la
   conversación está cerrada; el DO sirve historial pero rechaza `send`
   (`conversation_closed`). La conexión NO se bloquea por estar cerrada.
@@ -91,6 +96,7 @@ return res ?? handler.fetch(request, env, ctx);
 - **Fase 4** — ✅ UI de chat (`src/app/c/[conversationId]/*`, UI optimista, reintentos, typing/presence).
 - **Fase 5** — ✅ Tiempo de respuesta REAL: replicación de timestamps DO→`responseSamples`, Cron de recompute.
 - **Fase 6 (v0.8.0)** — ✅ Persistencia: retención 90/180, sesión deslizante, `/acceso`, aviso de respuesta a la persona, reapertura del mismo hilo, bandeja del profesional con no leídos y cupo del chat directo.
+- **Fase 7 (v0.10.0)** — ✅ Chats eternos + borrado definitivo por las partes (purga del DO), cupo liberable por inactividad y links de pago insertables en el chat (módulo `src/lib/payments`).
 
 ## Notificaciones por email (PRIMERA PRIORIDAD)
 

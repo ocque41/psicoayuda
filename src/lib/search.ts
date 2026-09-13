@@ -186,6 +186,8 @@ export function buildSearchBlob(pro: FeedProfessional): string {
   }
   if (pro.shortBio) parts.push(pro.shortBio);
   if (pro.crisisExperience) parts.push("experiencia en crisis emergencias");
+  if (pro.offersPaidServices)
+    parts.push("servicios pagos fuera de la emergencia consulta privada");
   parts.push(UNIVERSAL_KEYWORDS);
   return normalize(parts.join(" "));
 }
@@ -298,6 +300,9 @@ export type SupportFilters = {
   type?: SupportType;
   topic?: string;
   onlyAvailable?: boolean;
+  // Solo profesionales que además ofrecen servicios pagos (fuera de la
+  // emergencia). false/undefined = todos (gratis + pagos).
+  paidOnly?: boolean;
 };
 
 function topicParts(topic?: string): {
@@ -317,11 +322,12 @@ function topicParts(topic?: string): {
 // de servicio/enfoque de organización la excluyen (no aplican a personas).
 export function professionalMatchesSupport(
   pro: FeedProfessional,
-  { type, topic, onlyAvailable }: SupportFilters,
+  { type, topic, onlyAvailable, paidOnly }: SupportFilters,
 ): boolean {
   if (type === "organizacion") return false;
   if (type === "psicologo" && pro.nonClinicalHelper) return false;
   if (type === "auxiliar" && !pro.nonClinicalHelper) return false;
+  if (paidOnly && !pro.offersPaidServices) return false;
 
   const { kind, value } = topicParts(topic);
   if (kind === "spec" || kind === "svc") return false;
@@ -335,9 +341,11 @@ export function professionalMatchesSupport(
 // disponibles ahora" solo mantiene organizaciones con atención virtual 24h.
 export function organizationMatchesSupport(
   org: Organization,
-  { type, topic, onlyAvailable }: SupportFilters,
+  { type, topic, onlyAvailable, paidOnly }: SupportFilters,
 ): boolean {
   if (type === "psicologo" || type === "auxiliar") return false;
+  // Las organizaciones no tienen la etiqueta de servicios pagos de personas.
+  if (paidOnly) return false;
 
   const { kind, value } = topicParts(topic);
   if (kind === "area") return false;

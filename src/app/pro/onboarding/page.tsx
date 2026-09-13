@@ -66,6 +66,7 @@ export default async function ProOnboardingPage({
         inPersonAvailable: profile.inPersonAvailable,
         acceptingRequests: profile.acceptingRequests,
         crisisExperience: profile.crisisExperience,
+        offersPaidServices: profile.offersPaidServices,
         shortBio: profile.shortBio,
         emailPublic: profile.emailPublic,
         phone: profile.phone,

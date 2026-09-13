@@ -333,6 +333,10 @@ export const professionalSchema = z
       .max(600, "Tu presentación es demasiado larga (máximo 600 caracteres).")
       .optional(),
     acceptingRequests: checkboxBoolean.default(false),
+    // La emergencia se acompaña gratis; este permiso autodeclarado habilita el
+    // cobro por servicios ajenos al terremoto (etiqueta pública + módulo de
+    // pagos). Si no llega (borradores viejos), el default es false.
+    offersPaidServices: checkboxBoolean.default(false),
     // Cupo de acompañamiento. Si llega vacío o ausente (borrador viejo, campo
     // borrado) usamos el valor por defecto del formulario (3) en vez de romper
     // el alta con "Invalid input: expected number, received NaN".

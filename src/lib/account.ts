@@ -15,6 +15,7 @@ import {
   user,
 } from "@/db/schema";
 import { releaseProfessionalAssignments } from "@/lib/assignment";
+import { purgeConversationMessagesDetailed } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
 
 /**
@@ -39,6 +40,30 @@ export async function purgeAccount(userId: string): Promise<void> {
   // devuelve sus solicitudes a la cola antes de eliminar el perfil.
   if (professional) {
     await releaseProfessionalAssignments(professional.id);
+
+    // Los chats se borran de verdad: el espejo D1 se elimina en el batch de
+    // abajo, pero el CONTENIDO vive en el Durable Object de cada conversación.
+    // Sin esta purga quedaban transcripciones huérfanas para siempre (no había
+    // fila D1 que reintentara). Si alguna purga falla en producción, se audita
+    // con el id para poder reintentarla manualmente; el resto del borrado sigue.
+    const conversationsToPurge = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.professionalId, professional.id));
+    for (const conversation of conversationsToPurge) {
+      const purge = await purgeConversationMessagesDetailed(conversation.id);
+      if (purge === "failed") {
+        await db.insert(auditLogs).values({
+          id: newId("log"),
+          actorEmail: null,
+          action: "account_purge_conversation_failed",
+          entityType: "conversation",
+          entityId: conversation.id,
+          metadata: JSON.stringify({ professionalId: professional.id }),
+          createdAt: nowIso(),
+        });
+      }
+    }
   }
 
   const professionalDeletes = professional

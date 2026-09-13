@@ -52,9 +52,12 @@ conocer el secreto no permite forjar una sesión existente.
 
 ## Pendiente (follow-ups, fuera de este alcance — ver tareas creadas)
 
-- **Retención automática (#10)**: ✅ implementada (v0.8.0): cron diario que cierra
-  a los 90 días sin actividad y anonimiza a los 180, incluyendo chats directos y
-  purga real del Durable Object. La actividad del chat renueva el plazo.
+- **Retención automática (#10)**: ✅ implementada (v0.8.0). En v0.10.0 evolucionó:
+  las **conversaciones son permanentes** y solo la retención de **solicitudes**
+  (90/180) y del enlace mágico (7 días) sigue automática; el cupo de los chats
+  directos inactivos (>30 días) se libera sin borrar el hilo. El borrado de chats
+  es explícito (cualquiera de las dos partes) y purga de verdad el Durable Object
+  antes de eliminar las filas D1.
 - **Rendimiento admin (#9/#17)**: el panel admin hace un scan por solicitud (N+1)
   y carga la tabla completa sin paginar. *(tarea spawn creada)*
 - **Anti-abuso (#2)**: añadir Turnstile/CAPTCHA en `/ayuda` y un techo global por
@@ -122,3 +125,34 @@ Los profesionales pueden cambiar correo, contraseña y teléfonos desde su panel
 - **Trazabilidad.** Cada cambio deja fila en `audit_logs` y el espejo
   `professionals.email` (y el correo de coordinación cuando seguía al de la
   cuenta) se sincroniza al completarse la verificación.
+
+## Actualización 0.10.0 (2026-09-13) — chats eternos, borrado definitivo y pagos
+
+- **Chats permanentes.** La retención ya no cierra ni anonimiza conversaciones:
+  solo las solicitudes (90/180) y el enlace mágico (7 días). Un hilo sin
+  actividad >30 días libera cupo (`quota_released_at`, descuento idempotente) sin
+  cerrarse ni borrarse.
+- **Borrado definitivo por las partes.** Cualquiera de las dos identidades
+  autorizadas (cookie HMAC de sala o profesional dueño) puede borrar el hilo:
+  primero se purga el SQLite del DO (`purgeConversationMessagesDetailed`); si en
+  producción la purga falla, **no** se borran las filas D1 (evita transcripciones
+  huérfanas) y se audita `conversation_delete_failed`. Después se borran sesiones,
+  muestras y la conversación, se libera cupo y se audita `conversation_deleted`.
+  Si el hilo venía de una solicitud, el caso se reencola (borrado por el
+  profesional) o se cierra (borrado por la persona).
+- **Borrado de cuenta sin huérfanos.** `purgeAccount` ahora purga el DO de todas
+  las conversaciones del profesional antes de eliminar las filas; si alguna purga
+  falla, deja rastro `account_purge_conversation_failed` para reintentar.
+- **Pagos con Stripe (aislados en `src/lib/payments`).** Checkout **hospedado**
+  (Nido nunca ve datos de tarjeta; PCI SAQ A), comisión fija de Nido vía
+  `application_fee_amount` y transferencia al profesional con Connect Express. El
+  webhook (`/api/stripe/webhook`) verifica la firma con `constructEventAsync` +
+  SubtleCrypto sobre el cuerpo crudo, es idempotente (`stripe_events`) y revierte
+  la marca si el proceso falla para que Stripe reintente. La cuenta de Stripe es
+  **compartida con otros proyectos**: todo evento sin metadatos `nido_*` se
+  ignora. Country-gating: solo profesionales en países soportados por Connect
+  (Venezuela no lo está) pueden conectar cobros. Sin claves configuradas, el
+  módulo entero se oculta.
+- **Privacidad.** La política pública se actualizó: los chats son permanentes
+  hasta el borrado explícito; los pagos guardan solo el registro contable
+  (importes, concepto, correo de quien paga), nunca datos de tarjeta.

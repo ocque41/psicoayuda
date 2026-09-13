@@ -15,7 +15,8 @@ Describe the smallest useful version.
 ## Scope check
 
 - [ ] This keeps Nido focused on CONNECT.
-- [ ] This does not add payments, chat, video, ratings, reviews, or AI therapist features.
+- [ ] This does not add video, ratings, reviews, or AI therapist features.
+- [ ] Payments (if any) go only through `src/lib/payments`; earthquake help stays free.
 - [ ] This does not add unverified emergency phone numbers or medical claims.
 
 ## Alternatives

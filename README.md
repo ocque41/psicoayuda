@@ -54,7 +54,8 @@ La aplicación recoge deliberadamente la menor cantidad de datos posible. **No**
 - **Asignación segura.** La asignación corre dentro de una transacción con guardas contra duplicados y contra exceder la capacidad del profesional.
 - **Registro de auditoría.** Se registran aprobaciones, rechazos, suspensiones, asignaciones, cierres, anonimizaciones y exportaciones.
 - **Anti-spam básico.** Límite simple en `/ayuda`: no más de 3 solicitudes recientes por correo o por IP del solicitante (hasheada con el secreto de la app, nunca se almacena la IP en claro).
-- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría). El cron cierra a los 90 días sin actividad y anonimiza a los 180 (también los chats directos), y las conversaciones pueden retomarse o reabrirse dentro de esa ventana.
+- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría). Las **conversaciones son permanentes**: solo desaparecen cuando el profesional o la persona las borran desde su lado (borrado definitivo con purga del Durable Object y link muerto). Cobrar por la emergencia está prohibido; los servicios pagos por otros temas son opcionales.
+- **Pagos opcionales (Stripe Connect).** Módulo aislado en `src/lib/payments`: la ayuda por el terremoto sigue siendo gratuita y el profesional puede, si quiere, configurar paquetes de sesiones por temas ajenos a la emergencia, conectarse con Stripe y compartir un link de pago (también dentro del chat). Nido procesa el pago, retiene una comisión fija (5 € por defecto, `NIDO_PLATFORM_FEE_CENTS`) y Stripe transfiere el resto al profesional. Checkout hospedado: Nido nunca ve datos de tarjeta. Sin claves configuradas, todo el módulo se oculta.
 - **Copy honesto y trauma-informed.** Cabeceras de seguridad, recursos verificados y textos que nunca prometen disponibilidad inmediata.
 
 ---
@@ -211,10 +212,12 @@ hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
    WebSocket acepta el `Origin` que coincide con ese host o con el `Host` de la
    request; si apuntan a un dominio distinto del que ven los usuarios, las
    conexiones del chat se rechazan.
-4. **Cron de retención:** `wrangler.jsonc` define un cron diario que cierra
-   conversaciones/solicitudes inactivas a 90 días y las anonimiza a 180 (borra
-   el transcript del chat, incluidos los chats directos sin solicitud). Se
-   ejecuta solo en el Worker desplegado.
+4. **Cron de retención:** `wrangler.jsonc` define un cron diario que cierra las
+   **solicitudes** de ayuda inactivas a 90 días y las anonimiza a 180, purga la
+   tabla del enlace mágico (>7 días) y libera el cupo de los chats directos sin
+   actividad (>30 días). Los **chats no se borran nunca** desde el cron: son
+   permanentes hasta que una de las dos partes los borra. Se ejecuta solo en el
+   Worker desplegado.
 
 ---
 
@@ -245,6 +248,9 @@ Copia `.env.example` a `.env` y rellena los valores. Resumen de cada variable:
 | `TURNSTILE_SITE_KEY` | No | Site key público del widget de Cloudflare Turnstile. Se pone como `var` del Worker (`wrangler.jsonc`). |
 | `TURNSTILE_SECRET_KEY` | No | Secreto de Turnstile para `siteverify`. Se configura con `wrangler secret put TURNSTILE_SECRET_KEY`. Si falta cualquiera de las dos claves, el panel funciona sin CAPTCHA. |
 | `INTERNAL_NOTIFY_SECRET` | Recomendada | Secreto del RPC interno DO→Next y del cron de retención. Si está vacío, cae a `BETTER_AUTH_SECRET`. |
+| `STRIPE_SECRET_KEY` | No | Clave de Stripe (restringida) para el módulo de pagos. Se configura con `wrangler secret put STRIPE_SECRET_KEY`. Sin ella, la sección de cobros y `/pagar` se ocultan. Requiere activar Stripe Connect en la cuenta de plataforma. |
+| `STRIPE_WEBHOOK_SECRET` | No | Secreto del endpoint `https://saludmental-venezuela.com/api/stripe/webhook`. Se configura con `wrangler secret put STRIPE_WEBHOOK_SECRET`. |
+| `NIDO_PLATFORM_FEE_CENTS` | No | Comisión fija de Nido por transacción, en céntimos (500 = 5 €). Es una `var` pública del Worker. |
 
 > **Nunca** subas tu `.env`, bases de datos SQLite locales, logs ni exportaciones al repositorio. Los secretos de producción se guardan como secretos de Cloudflare con `wrangler secret put`, no en Git.
 
@@ -332,8 +338,8 @@ Checklist rápido del PR (detalle completo en [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Estos límites existen por **privacidad y seguridad** de personas vulnerables. Las contribuciones que los crucen no se aceptarán, por buena que sea la intención:
 
-- ❌ **Sin pagos.** Nido es y será gratuito; los voluntarios no captan clientes de pago.
-- ❌ **Sin chat in-app con desconocidos.** No es una plataforma de mensajería con extraños.
+- ⚠️ **Pagos SOLO con el módulo de Nido.** La ayuda por el terremoto es y será gratuita: nadie puede cobrar por ella. Los servicios pagos por otros temas son opcionales y pasan siempre por `src/lib/payments` (Stripe Connect, checkout hospedado, comisión fija, sin presiones comerciales). Nada de pasarelas alternativas ni de pedir datos de tarjeta por fuera.
+- ❌ **Sin mensajería pública con desconocidos.** El chat es privado, por conversación y solo entre las dos partes (ver [docs/CHAT_ARCHITECTURE.md](docs/CHAT_ARCHITECTURE.md)).
 - ❌ **Sin videollamadas.**
 - ❌ **Sin ratings ni reseñas.** Nada de ranking por popularidad. El "score" de coincidencia es una heurística interna para el coordinador, no un ranking público.
 - ❌ **Sin "terapeuta de IA"** ni respuestas automáticas que simulen atención psicológica.

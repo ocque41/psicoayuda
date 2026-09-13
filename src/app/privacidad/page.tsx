@@ -170,15 +170,24 @@ export default function PrivacyPage() {
             obligaciones legales si aplican.
           </p>
           <p>
-            De forma automática, las conversaciones y solicitudes inactivas se
-            cierran después de 90 días sin actividad y se anonimizan después de
-            180 días, salvo que sea necesario conservar registros mínimos por
-            seguridad, prevención de abuso o razones legales. Cualquier mensaje
-            nuevo renueva el plazo (la conversación sigue activa mientras la
-            usen), y una conversación cerrada puede reabrirse dentro de esa
-            ventana. Al anonimizar, eliminamos el contenido del chat,
-            desvinculamos la conversación de la persona y borramos el código
-            derivado de la IP.
+            Las conversaciones de chat son permanentes: se conservan hasta que
+            tú o el profesional las borren desde su lado. Cuando una de las dos
+            partes borra una conversación, eliminamos todo su contenido
+            (incluido el historial de mensajes) y el enlace deja de funcionar;
+            no hay vuelta atrás.
+          </p>
+          <p>
+            Las solicitudes de ayuda (el formulario) se cierran después de 90
+            días sin actividad y se anonimizan después de 180 días, tomando la
+            actividad del chat como reloj. El contenido del chat no se anonimiza
+            automáticamente: vive en la conversación hasta que alguien la borre.
+          </p>
+          <p>
+            Si compras un paquete de sesiones, guardamos el registro del pago
+            (importe, concepto, fecha y correo de quien paga) para contabilidad
+            y soporte. Los datos de tu tarjeta los procesa Stripe directamente:
+            Nido nunca los ve ni los guarda. Si borras una conversación, el
+            registro contable de los pagos ya hechos se conserva.
           </p>
           <p>
             Los mensajes enviados al equipo no se eliminan ni anonimizan de

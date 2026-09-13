@@ -114,13 +114,13 @@ export default function Page() {
           crezca.
         </p>
 
-        <h2>Por qué es gratis y voluntario</h2>
+        <h2>Por qué la emergencia es gratis y voluntaria</h2>
         <p>
-          {SITE_NAME} no cobra, no vende publicidad y no tiene ánimo de lucro.
-          El acompañamiento lo brindan profesionales que donan su tiempo de
-          forma voluntaria, dentro de sus áreas de competencia y de su
-          disponibilidad. A las personas que piden apoyo no se les solicita
-          ningún dato de pago, jamás.
+          {SITE_NAME} no cobra por la ayuda del terremoto, no vende publicidad y
+          no tiene ánimo de lucro. El acompañamiento lo brindan profesionales
+          que donan su tiempo de forma voluntaria, dentro de sus áreas de
+          competencia y de su disponibilidad. A las personas que piden apoyo por
+          la emergencia no se les solicita ningún dato de pago, jamás.
         </p>
         <ul className="reassurance">
           <li>
@@ -128,8 +128,10 @@ export default function Page() {
             completa.
           </li>
           <li>
-            Nadie te pedirá dinero en ningún momento. Si alguien lo hace en
-            nuestro nombre, no somos nosotros.
+            Nadie te pedirá dinero por la ayuda de la emergencia. Si alguien lo
+            hace en nuestro nombre, no somos nosotros. Si decides contratar un
+            servicio pago por otros temas, se acuerda contigo y se paga con la
+            pasarela segura de Stripe.
           </li>
           <li>
             Los profesionales entran con Google solo para verificar su identidad
@@ -145,10 +147,11 @@ export default function Page() {
         </p>
         <div className="grid grid-2">
           <article className="card">
-            <h3>No cobramos, nunca</h3>
+            <h3>La emergencia es gratis, siempre</h3>
             <p className="muted">
-              El apoyo es gratuito porque el cuidado no debería depender de
-              cuánto dinero tengas.
+              El apoyo por el terremoto es gratuito porque el cuidado no debería
+              depender de cuánto dinero tengas. Los servicios pagos por otros
+              temas son opcionales y siempre se acuerdan contigo.
             </p>
           </article>
           <article className="card">

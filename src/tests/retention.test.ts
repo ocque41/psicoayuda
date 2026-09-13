@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
   accessRequests,
+  assignments,
   auditLogs,
   conversations,
   helpRequests,
@@ -11,13 +12,11 @@ import {
   user,
 } from "@/db/schema";
 
-// La purga real vive en el Durable Object (no disponible en vitest): se mockea
-// para poder probar el ciclo 90/180 completo, incluido el camino de fallo.
+// El DO no existe en vitest: solo se mockea el corte de sockets (lo usa el
+// cierre de asignaciones). La purga ya NO la llama la retención: los chats son
+// eternos y solo se borran con la acción explícita del profesional o la persona.
 vi.mock("@/lib/chat-admin", () => ({
-  purgeConversationMessages: vi.fn(
-    async (conversationId: string) =>
-      conversationId !== "test-ret-direct-purgefail",
-  ),
+  purgeConversationMessages: vi.fn(async () => true),
   disconnectConversationSockets: vi.fn(async () => true),
 }));
 
@@ -36,18 +35,22 @@ const id = {
   oldAnon: `${P}-old-anon`,
   convActive: `${P}-conv-active`,
   convOld: `${P}-conv-old`,
+  convClose: `${P}-conv-close`,
   sidActive: `${P}-sid-active`,
   sidOld: `${P}-sid-old`,
-  directClose: `${P}-direct-close`,
-  directAnon: `${P}-direct-anon`,
-  directFail: `${P}-direct-purgefail`,
-  sidDirectAnon: `${P}-sid-direct-anon`,
+  sidClose: `${P}-sid-close`,
+  directStale: `${P}-direct-stale`,
+  directFresh: `${P}-direct-fresh`,
+  directOld: `${P}-direct-old`,
   accessOld: `${P}-access-old`,
   accessNew: `${P}-access-new`,
+  assignmentOld: `${P}-asg-old`,
+  assignmentNew: `${P}-asg-new`,
 };
 
 async function cleanup() {
   await db.delete(seekerSessions).where(like(seekerSessions.sid, `${P}-%`));
+  await db.delete(assignments).where(like(assignments.id, `${P}-%`));
   await db.delete(conversations).where(like(conversations.id, `${P}-%`));
   await db.delete(helpRequests).where(like(helpRequests.id, `${P}-%`));
   await db.delete(professionals).where(eq(professionals.id, id.pro));
@@ -56,7 +59,7 @@ async function cleanup() {
   await db.delete(auditLogs).where(like(auditLogs.entityId, `${P}-%`));
 }
 
-describe("runRetention (90/180 con actividad de chat)", () => {
+describe("runRetention (solicitudes 90/180 y chats eternos)", () => {
   beforeAll(async () => {
     await cleanup();
 
@@ -72,6 +75,8 @@ describe("runRetention (90/180 con actividad de chat)", () => {
       fullName: "Pro Retención",
       languages: JSON.stringify(["es"]),
       supportAreas: JSON.stringify(["duelo"]),
+      // Cupo simulado: 3 casos activos (vieja asignación + chats directos).
+      currentActiveRequests: 3,
       createdAt: daysAgo(400),
       updatedAt: daysAgo(400),
     });
@@ -82,7 +87,7 @@ describe("runRetention (90/180 con actividad de chat)", () => {
         email: `${id.oldClose}@test.local`,
         needCategory: "duelo",
         urgency: "media",
-        status: "new",
+        status: "assigned",
         createdAt: daysAgo(120),
         updatedAt: daysAgo(100),
       },
@@ -106,6 +111,27 @@ describe("runRetention (90/180 con actividad de chat)", () => {
       },
     ]);
 
+    await db.insert(assignments).values([
+      {
+        id: id.assignmentOld,
+        helpRequestId: id.oldClose,
+        professionalId: id.pro,
+        status: "assigned",
+        source: "admin",
+        createdAt: daysAgo(120),
+        updatedAt: daysAgo(100),
+      },
+      {
+        id: id.assignmentNew,
+        helpRequestId: id.oldAnon,
+        professionalId: id.pro,
+        status: "accepted",
+        source: "seeker",
+        createdAt: daysAgo(220),
+        updatedAt: daysAgo(200),
+      },
+    ]);
+
     await db.insert(conversations).values([
       {
         id: id.convActive,
@@ -124,6 +150,7 @@ describe("runRetention (90/180 con actividad de chat)", () => {
         professionalId: id.pro,
         seekerSid: id.sidOld,
         seekerName: "Alguien",
+        seekerEmail: "alguien@test.local",
         status: "open",
         lastMessageAt: new Date(NOW - 200 * DAY),
         lastMessageRole: "professional",
@@ -131,28 +158,41 @@ describe("runRetention (90/180 con actividad de chat)", () => {
         updatedAt: daysAgo(200),
       },
       {
-        id: id.directClose,
+        id: id.convClose,
+        helpRequestId: id.oldClose,
         professionalId: id.pro,
-        seekerSid: `${P}-sid-direct-close`,
+        seekerSid: id.sidClose,
         status: "open",
+        lastMessageAt: new Date(NOW - 100 * DAY),
+        lastMessageRole: "seeker",
         createdAt: daysAgo(120),
         updatedAt: daysAgo(100),
       },
       {
-        id: id.directAnon,
+        id: id.directStale,
         professionalId: id.pro,
-        seekerSid: id.sidDirectAnon,
-        seekerEmail: "directa@test.local",
-        seekerName: "Alguien directo",
+        seekerSid: `${P}-sid-direct-stale`,
+        seekerEmail: "directa-vieja@test.local",
         status: "open",
-        createdAt: daysAgo(220),
-        updatedAt: daysAgo(200),
+        lastMessageAt: new Date(NOW - 40 * DAY),
+        lastMessageRole: "seeker",
+        createdAt: daysAgo(60),
+        updatedAt: daysAgo(40),
       },
       {
-        id: id.directFail,
+        id: id.directFresh,
         professionalId: id.pro,
-        seekerSid: `${P}-sid-direct-fail`,
-        seekerEmail: "fallo@test.local",
+        seekerSid: `${P}-sid-direct-fresh`,
+        status: "open",
+        lastMessageAt: new Date(NOW - 5 * DAY),
+        createdAt: daysAgo(10),
+        updatedAt: daysAgo(5),
+      },
+      {
+        id: id.directOld,
+        professionalId: id.pro,
+        seekerSid: `${P}-sid-direct-old`,
+        seekerName: "Alguien eterno",
         status: "open",
         createdAt: daysAgo(220),
         updatedAt: daysAgo(200),
@@ -173,8 +213,8 @@ describe("runRetention (90/180 con actividad de chat)", () => {
         expiresAt: new Date(NOW + DAY),
       },
       {
-        sid: id.sidDirectAnon,
-        conversationId: id.directAnon,
+        sid: id.sidClose,
+        conversationId: id.convClose,
         issuedAt: new Date(NOW - DAY),
         expiresAt: new Date(NOW + DAY),
       },
@@ -194,8 +234,9 @@ describe("runRetention (90/180 con actividad de chat)", () => {
     await cleanup();
   });
 
-  it("cierra a los 90 días, pero la actividad reciente del chat lo evita", async () => {
-    await runRetention(NOW);
+  it("cierra solicitudes a los 90 días (la actividad del chat lo evita)", async () => {
+    const result = await runRetention(NOW);
+    expect(result.closed).toBeGreaterThanOrEqual(1);
 
     const closed = await db.query.helpRequests.findFirst({
       where: eq(helpRequests.id, id.oldClose),
@@ -206,13 +247,22 @@ describe("runRetention (90/180 con actividad de chat)", () => {
       where: eq(helpRequests.id, id.recentChat),
     });
     expect(active?.status).toBe("new");
-    const conv = await db.query.conversations.findFirst({
-      where: eq(conversations.id, id.convActive),
-    });
-    expect(conv?.status).toBe("open");
   });
 
-  it("anonimiza a los 180 días y purga el transcript del DO", async () => {
+  it("el cierre de la solicitud NO cierra el chat (es eterno)", async () => {
+    const conv = await db.query.conversations.findFirst({
+      where: eq(conversations.id, id.convClose),
+    });
+    expect(conv?.status).toBe("open");
+    expect(conv?.closedReason).toBeNull();
+
+    const assignment = await db.query.assignments.findFirst({
+      where: eq(assignments.id, id.assignmentOld),
+    });
+    expect(assignment?.status).toBe("closed");
+  });
+
+  it("anonimiza la solicitud a los 180 días sin tocar la conversación", async () => {
     const request = await db.query.helpRequests.findFirst({
       where: eq(helpRequests.id, id.oldAnon),
     });
@@ -222,49 +272,52 @@ describe("runRetention (90/180 con actividad de chat)", () => {
     const conv = await db.query.conversations.findFirst({
       where: eq(conversations.id, id.convOld),
     });
-    expect(conv?.anonymizedAt).toBeTruthy();
-    expect(conv?.seekerName).toBeNull();
-  });
-
-  it("cierra chats directos inactivos con razón 'inactivity'", async () => {
-    const conv = await db.query.conversations.findFirst({
-      where: eq(conversations.id, id.directClose),
-    });
-    expect(conv?.status).toBe("closed");
-    expect(conv?.closedReason).toBe("inactivity");
-  });
-
-  it("anonimiza chats directos viejos y revoca la sesión del seeker", async () => {
-    const conv = await db.query.conversations.findFirst({
-      where: eq(conversations.id, id.directAnon),
-    });
-    expect(conv?.anonymizedAt).toBeTruthy();
-    expect(conv?.seekerEmail).toBeNull();
-    expect(conv?.seekerName).toBeNull();
+    expect(conv?.anonymizedAt).toBeNull();
+    expect(conv?.status).toBe("open");
+    expect(conv?.seekerName).toBe("Alguien");
+    expect(conv?.seekerEmail).toBe("alguien@test.local");
 
     const session = await db.query.seekerSessions.findFirst({
-      where: eq(seekerSessions.sid, id.sidDirectAnon),
+      where: eq(seekerSessions.sid, id.sidOld),
     });
-    expect(session?.revokedAt).toBeTruthy();
+    expect(session?.revokedAt).toBeNull();
   });
 
-  it("si la purga falla, NO marca anonimizado y deja rastro", async () => {
-    const conv = await db.query.conversations.findFirst({
-      where: eq(conversations.id, id.directFail),
+  it("libera cupo de chats directos inactivos >30 días sin cerrarlos", async () => {
+    const stale = await db.query.conversations.findFirst({
+      where: eq(conversations.id, id.directStale),
     });
-    expect(conv?.anonymizedAt).toBeNull();
-    expect(conv?.seekerEmail).toBe("fallo@test.local");
+    expect(stale?.status).toBe("open");
+    expect(stale?.quotaReleasedAt).toBeTruthy();
 
-    const logs = await db
-      .select({ id: auditLogs.id })
-      .from(auditLogs)
-      .where(
-        and(
-          eq(auditLogs.entityId, id.directFail),
-          eq(auditLogs.action, "conversation_anonymization_failed"),
-        ),
-      );
-    expect(logs.length).toBeGreaterThan(0);
+    const old = await db.query.conversations.findFirst({
+      where: eq(conversations.id, id.directOld),
+    });
+    expect(old?.status).toBe("open");
+    expect(old?.quotaReleasedAt).toBeTruthy();
+    expect(old?.seekerName).toBe("Alguien eterno");
+
+    const fresh = await db.query.conversations.findFirst({
+      where: eq(conversations.id, id.directFresh),
+    });
+    expect(fresh?.quotaReleasedAt).toBeNull();
+  });
+
+  it("descuenta el cupo una sola vez (idempotente entre pasadas)", async () => {
+    const after = await db.query.professionals.findFirst({
+      where: eq(professionals.id, id.pro),
+    });
+    // 3 iniciales: -1 por la asignación cerrada, -2 por los chats directos
+    // inactivos (directStale y directOld). directFresh no cuenta.
+    expect(after?.currentActiveRequests).toBe(0);
+
+    const second = await runRetention(NOW);
+    expect(second.quotaReleased).toBe(0);
+
+    const afterSecond = await db.query.professionals.findFirst({
+      where: eq(professionals.id, id.pro),
+    });
+    expect(afterSecond?.currentActiveRequests).toBe(0);
   });
 
   it("purga la tabla desechable del enlace mágico (>7 días)", async () => {
@@ -276,5 +329,10 @@ describe("runRetention (90/180 con actividad de chat)", () => {
     });
     expect(old).toBeUndefined();
     expect(fresh?.id).toBe(id.accessNew);
+  });
+
+  it("no llama a la purga del DO: nada borra un chat eterno", async () => {
+    const { purgeConversationMessages } = await import("@/lib/chat-admin");
+    expect(vi.mocked(purgeConversationMessages)).not.toHaveBeenCalled();
   });
 });

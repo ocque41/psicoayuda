@@ -52,6 +52,7 @@ export type SupportInitialFilters = {
   type?: string;
   topic?: string;
   onlyAvailable?: boolean;
+  paid?: boolean;
 };
 
 /**
@@ -87,6 +88,7 @@ export function SupportDirectory({
   const [onlyAvailable, setOnlyAvailable] = useState(
     initialFilters?.onlyAvailable ?? false,
   );
+  const [paidOnly, setPaidOnly] = useState(initialFilters?.paid ?? false);
   const searchId = useId();
   const typeId = useId();
   const topicId = useId();
@@ -110,8 +112,9 @@ export function SupportDirectory({
     setParam("tipo", type);
     setParam("tema", topic);
     setParam("disp", onlyAvailable ? "1" : "");
+    setParam("pago", paidOnly ? "1" : "");
     window.history.replaceState(null, "", url.toString());
-  }, [query, type, topic, onlyAvailable]);
+  }, [query, type, topic, onlyAvailable, paidOnly]);
 
   // Aplica una consulta al instante (atajos, limpiar): sin esperar al debounce.
   function applyQuery(value: string) {
@@ -165,8 +168,8 @@ export function SupportDirectory({
 
   const words = useMemo(() => queryTokens(query), [query]);
   const filters = useMemo(
-    () => ({ type, topic, onlyAvailable }),
-    [type, topic, onlyAvailable],
+    () => ({ type, topic, onlyAvailable, paidOnly }),
+    [type, topic, onlyAvailable, paidOnly],
   );
 
   const matchedPros = useMemo(
@@ -191,20 +194,25 @@ export function SupportDirectory({
 
   // Firma de los filtros: al cambiar, re-montamos las rejillas para que la
   // animación de entrada (stagger) se reproduzca de nuevo.
-  const resultKey = `${type}|${topic}|${onlyAvailable ? "1" : "0"}|${query}`;
+  const resultKey = `${type}|${topic}|${onlyAvailable ? "1" : "0"}|${paidOnly ? "1" : "0"}|${query}`;
 
   // Riesgo: si la consulta sugiere autolesión/suicidio, anteponemos los recursos
   // de crisis (Nido no atiende emergencias en tiempo real).
   const crisisIntent = useMemo(() => detectCrisis(query), [query]);
 
   const hasActiveFilters =
-    input.trim() !== "" || type !== "" || topic !== "" || onlyAvailable;
+    input.trim() !== "" ||
+    type !== "" ||
+    topic !== "" ||
+    onlyAvailable ||
+    paidOnly;
 
   function clearFilters() {
     applyQuery("");
     setType("");
     setTopic("");
     setOnlyAvailable(false);
+    setPaidOnly(false);
   }
 
   // Sin nadie ni ninguna organización todavía: mensaje cálido, no un vacío seco.
@@ -390,7 +398,37 @@ export function SupportDirectory({
               </label>
             </div>
           </fieldset>
+
+          <fieldset
+            style={{
+              flex: "0 1 auto",
+              margin: 0,
+              border: 0,
+              padding: 0,
+              minInlineSize: 0,
+            }}
+          >
+            <legend style={{ fontWeight: 600, padding: 0, marginBottom: 6 }}>
+              Servicios
+            </legend>
+            <div className="checks" style={{ margin: 0 }}>
+              <label title="Profesionales que además ofrecen servicios pagos por temas ajenos a la emergencia. La ayuda por el terremoto sigue siendo gratis.">
+                <input
+                  type="checkbox"
+                  checked={paidOnly}
+                  onChange={(event) => setPaidOnly(event.target.checked)}
+                />
+                <span>Solo con servicios pagos</span>
+              </label>
+            </div>
+          </fieldset>
         </div>
+
+        <p className="hint" style={{ margin: "10px 0 0" }}>
+          La ayuda por el terremoto es gratis en todos los perfiles. Algunos
+          profesionales ofrecen, además, servicios pagos por otros temas; puedes
+          filtrarlos o hablar con ellos y decidir.
+        </p>
 
         {hasActiveFilters ? (
           <p style={{ margin: "var(--space-3) 0 0" }}>

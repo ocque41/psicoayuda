@@ -18,6 +18,11 @@ declare global {
     // El site key es público; el secreto vive como secreto del Worker.
     TURNSTILE_SITE_KEY?: string;
     TURNSTILE_SECRET_KEY?: string;
+    // Stripe (cobros con Connect). La clave y el secreto del webhook viven como
+    // secretos del Worker; la comisión fija de Nido es una var (céntimos).
+    STRIPE_SECRET_KEY?: string;
+    STRIPE_WEBHOOK_SECRET?: string;
+    NIDO_PLATFORM_FEE_CENTS?: string;
   }
 }
 

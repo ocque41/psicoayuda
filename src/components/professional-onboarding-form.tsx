@@ -107,6 +107,7 @@ export type ExistingProfessional = {
   inPersonAvailable: boolean;
   acceptingRequests: boolean;
   crisisExperience: boolean;
+  offersPaidServices: boolean;
   shortBio: string | null;
   emailPublic: boolean;
   phone: string | null;
@@ -811,7 +812,26 @@ export function ProfessionalOnboardingForm({
             />
             Tengo experiencia acompañando situaciones de crisis.
           </label>
+          <label>
+            <input
+              name="offersPaidServices"
+              type="checkbox"
+              defaultChecked={
+                submitted
+                  ? submitted.offersPaidServices === "on"
+                  : (existing?.offersPaidServices ?? false)
+              }
+            />
+            Además de la ayuda gratuita por el terremoto, ofrezco servicios
+            pagos por otros temas (podré compartir links de pago después de
+            conversar).
+          </label>
         </div>
+        <p className="hint" style={{ margin: "8px 0 0" }}>
+          La ayuda por la emergencia del terremoto siempre es gratis en Nido.
+          Esta casilla solo habilita, si tú quieres, cobrar por acompañamiento
+          ajeno a la emergencia.
+        </p>
       </fieldset>
 
       <fieldset className="card">
@@ -932,8 +952,8 @@ export function ProfessionalOnboardingForm({
               defaultChecked={conductChecked("conductFreeService")}
               required
             />
-            Acepto que el servicio es gratuito para las personas contactadas
-            mediante Nido.
+            Acepto que la ayuda por el terremoto en Nido es gratuita y que no
+            cobraré por ella.
           </label>
           <label>
             <input
@@ -942,8 +962,8 @@ export function ProfessionalOnboardingForm({
               defaultChecked={conductChecked("conductNoClientCapture")}
               required
             />
-            Acepto no usar Nido para captar clientes pagos ni hacer publicidad
-            engañosa.
+            Acepto no presionar a nadie para contratar servicios pagos ni
+            condicionar la ayuda gratuita a una contratación.
           </label>
           <label>
             <input

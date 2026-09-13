@@ -192,12 +192,15 @@ export async function assignRequestToProfessional(input: {
 /**
  * Cierra las asignaciones activas de una solicitud y libera capacidad del
  * profesional (currentActiveRequests, con piso en 0). Idempotente. Contempla los
- * estados "assigned" Y "accepted". Cierra además la conversación abierta y revoca
- * la sesión del seeker. Se invoca al cerrar/anonimizar.
+ * estados "assigned" Y "accepted". Por defecto cierra además la conversación
+ * abierta y revoca la sesión del seeker; con `closeConversations: false` (lo usa
+ * la retención/anonimización) el hilo queda intacto: los chats son eternos y
+ * solo se borran con la acción explícita de una de las partes.
  */
 export async function releaseAssignmentsForRequest(
   helpRequestId: string,
   reason = "case_closed",
+  options: { closeConversations?: boolean } = {},
 ) {
   const active = await db.query.assignments.findMany({
     where: and(
@@ -241,7 +244,9 @@ export async function releaseAssignmentsForRequest(
         eq(conversations.status, "open"),
       ),
     );
-  await closeConversations(openConversations, timestamp, new Date(), reason);
+  if (options.closeConversations !== false) {
+    await closeConversations(openConversations, timestamp, new Date(), reason);
+  }
 
   return active.length;
 }

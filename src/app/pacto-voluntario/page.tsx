@@ -41,30 +41,32 @@ export default function Page() {
 
         <div className="grid grid-2">
           <article className="card">
-            <h3>1. El servicio es gratuito</h3>
+            <h3>1. La ayuda por el terremoto es gratuita</h3>
             <p>
               <strong>Tú te comprometes a:</strong> acompañar sin cobrar nada a
-              la persona, ni en dinero ni en especie, por la ayuda que ofreces a
-              través de Nido.
+              la persona por la ayuda de la emergencia que ofreces a través de
+              Nido.
             </p>
             <p>
-              <strong>Nosotros nos comprometemos a:</strong> mantener Nido como
-              un proyecto sin fines de lucro. Nunca te pediremos pagar por
-              participar ni lucraremos con tu tiempo donado.
+              <strong>Nosotros nos comprometemos a:</strong> mantener ese
+              acompañamiento gratuito, sin fines de lucro. Nunca te pediremos
+              pagar por participar ni lucraremos con tu tiempo donado.
             </p>
           </article>
 
           <article className="card">
-            <h3>2. No captar clientes pagos</h3>
+            <h3>2. Sin presiones comerciales</h3>
             <p>
-              <strong>Tú te comprometes a:</strong> no usar el espacio de Nido
-              para conseguir pacientes de pago ni derivar a la persona a tu
-              consulta privada como condición para seguir acompañándola.
+              <strong>Tú te comprometes a:</strong> no usar el espacio de la
+              emergencia para captar clientes ni condicionar la ayuda gratuita a
+              contratar servicios pagos. Si ofreces servicios pagos por otros
+              temas, los acuerdas aparte, con claridad y sin presionar a nadie.
             </p>
             <p>
               <strong>Nosotros nos comprometemos a:</strong> proteger ese
-              vínculo de confianza. La persona llegó buscando apoyo gratuito y
-              así lo cuidamos, sin presiones comerciales de ningún lado.
+              vínculo de confianza. La persona llegó buscando apoyo por la
+              emergencia y así lo cuidamos, sin presiones comerciales de ningún
+              lado.
             </p>
           </article>
 

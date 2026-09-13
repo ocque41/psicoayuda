@@ -36,7 +36,7 @@ const PRO_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   {
     question: "¿Tengo que pagar algo o cobro por atender?",
     answer:
-      "Nada de dinero cambia de manos. Nido no cobra a quien pide ayuda y tampoco te paga a ti: es voluntariado. Donas tu tiempo dentro de tus áreas de competencia y de la disponibilidad que tú mismo definas. No manejamos pagos, suscripciones ni propinas dentro de la plataforma.",
+      "La ayuda por el terremoto es gratuita: Nido no cobra a quien pide apoyo por la emergencia. Donas tu tiempo dentro de tus áreas de competencia y de la disponibilidad que tú mismo definas. Si además ofreces servicios pagos por otros temas, puedes crear tus paquetes en el panel y compartir un link de pago cuando la persona lo acuerde contigo; Nido procesa el pago de forma segura y retiene una comisión fija. Nunca se cobra por la ayuda de la emergencia.",
   },
   {
     question:

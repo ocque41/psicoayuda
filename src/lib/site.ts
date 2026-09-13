@@ -106,7 +106,7 @@ export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   {
     question: "¿La ayuda psicológica es realmente gratis?",
     answer:
-      "Sí. Nido es un proyecto sin fines de lucro. La atención la brindan psicólogas y psicólogos voluntarios verificados que donan su tiempo. No se cobra a las personas que piden apoyo ni se solicita ningún dato de pago.",
+      "Sí: la ayuda por el terremoto es gratis, siempre. Nido es un proyecto sin fines de lucro y las personas voluntarias donan su tiempo. Además, algunos profesionales ofrecen servicios pagos por otros temas (fuera de la emergencia): si eso pasa, te lo dicen con claridad y tú decides, sin ninguna presión. Por la ayuda de la emergencia nunca se te pide pago.",
   },
   {
     question: "¿Cómo puedo hablar con un psicólogo gratis en Venezuela?",
@@ -131,7 +131,7 @@ export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   {
     question: "¿Quiénes son los psicólogos voluntarios?",
     answer:
-      "Son profesionales de la psicología que se registran, aceptan un código de conducta y pasan una verificación de credenciales antes de poder recibir solicitudes. Atienden de forma gratuita y dentro de sus áreas de competencia.",
+      "Son profesionales de la psicología que se registran, aceptan un código de conducta y pasan una verificación de credenciales antes de poder recibir solicitudes. Acompañan gratis la emergencia; algunos ofrecen también servicios pagos por otros temas, siempre avisándote antes y sin condicionar la ayuda gratuita.",
   },
   {
     question: "¿Esto reemplaza una terapia o una emergencia?",

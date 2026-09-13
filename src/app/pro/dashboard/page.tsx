@@ -7,7 +7,9 @@ import { createProfessionalContactMessage } from "@/app/actions-contact";
 import { acceptRequestOffer } from "@/app/actions-offers";
 import { AccountActions } from "@/components/account-actions";
 import { ContactMessageForm } from "@/components/contact-message-form";
+import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { CredentialSettings } from "@/components/credential-settings";
+import { PaymentSettings } from "@/components/payment-settings";
 import { db } from "@/db";
 import { account, assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
@@ -22,6 +24,15 @@ import {
   missedOffersForProfessional,
   pendingOffersForProfessional,
 } from "@/lib/offers";
+import {
+  isStripeSupportedCountry,
+  paymentsConfigured,
+} from "@/lib/payments/config";
+import {
+  connectStatusOf,
+  refreshStripeAccountStatus,
+} from "@/lib/payments/connect";
+import { listPackagesForProfessional } from "@/lib/payments/packages";
 import { SITE_URL } from "@/lib/site";
 import { getTurnstileConfig } from "@/lib/turnstile";
 
@@ -90,9 +101,9 @@ function lastActivityLabel(value: Date | null, fallbackIso: string): string {
 export default async function ProDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ oferta?: string; error?: string }>;
+  searchParams: Promise<{ oferta?: string; error?: string; cobros?: string }>;
 }) {
-  const { oferta, error } = await searchParams;
+  const { oferta, error, cobros } = await searchParams;
   const session = await getServerSession();
   if (!session?.user?.id) redirect("/pro");
 
@@ -136,6 +147,66 @@ export default async function ProDashboardPage({
         landline={professional.landline}
         emailPublic={professional.emailPublic}
         turnstileSiteKey={turnstileSiteKey}
+      />
+    </>
+  ) : null;
+
+  // ---- Cobros (Stripe) ----
+  // Al volver del onboarding de Stripe (?cobros=volviendo) refrescamos el estado
+  // de la cuenta antes de pintarlo, para que el panel no muestre datos viejos.
+  const paymentsReady = paymentsConfigured();
+  const countrySupported = professional
+    ? isStripeSupportedCountry(professional.country)
+    : false;
+  if (professional?.stripeAccountId && cobros === "volviendo") {
+    await refreshStripeAccountStatus({
+      id: professional.id,
+      stripeAccountId: professional.stripeAccountId,
+    });
+  }
+  const connectStatus = professional
+    ? connectStatusOf({
+        stripeAccountId: professional.stripeAccountId,
+        stripeChargesEnabled: professional.stripeChargesEnabled,
+        stripePayoutsEnabled: professional.stripePayoutsEnabled,
+        stripeDetailsSubmitted: professional.stripeDetailsSubmitted,
+      })
+    : "none";
+  const paymentPackages = professional
+    ? await listPackagesForProfessional(professional.id)
+    : [];
+  const paymentNotice: Record<string, string> = {
+    volviendo:
+      "Volviste de Stripe. Revisa aquí abajo el estado de tu cuenta de cobros.",
+    reintentar:
+      "El enlace de verificación de Stripe caducó. Pulsa de nuevo para continuar donde ibas.",
+    pais: "Stripe todavía no puede transferir pagos a tu país. Tu ayuda gratuita sigue igual.",
+    "sin-configurar":
+      "Estamos terminando de configurar los cobros. Te avisaremos cuando puedas activarlos.",
+    perfil:
+      "Primero activa los servicios pagos (arriba) y luego conecta tu cuenta de Stripe.",
+    error:
+      "No pudimos conectar con Stripe en este momento. Inténtalo de nuevo en unos minutos.",
+  };
+  const paymentSection = professional ? (
+    <>
+      <PaymentSettings
+        offersPaidServices={professional.offersPaidServices}
+        paymentsConfigured={paymentsReady}
+        connectStatus={connectStatus}
+        countrySupported={countrySupported}
+        countryLabel={professional.country}
+        packages={paymentPackages.map((pkg) => ({
+          id: pkg.id,
+          title: pkg.title,
+          description: pkg.description,
+          sessionsCount: pkg.sessionsCount,
+          validityDays: pkg.validityDays,
+          priceCents: pkg.priceCents,
+          active: pkg.active,
+        }))}
+        notice={cobros ? (paymentNotice[cobros] ?? "") : ""}
+        siteUrl={SITE_URL}
       />
     </>
   ) : null;
@@ -414,6 +485,10 @@ export default async function ProDashboardPage({
                 <Link className="button human" href={`/c/${c.conversationId}`}>
                   {c.status !== "open" ? "Ver y reabrir" : "Abrir chat"}
                 </Link>
+                <ConversationDeleteButton
+                  conversationId={c.conversationId}
+                  redirectTo="/pro/dashboard#chats"
+                />
               </li>
             ))}
           </ul>
@@ -528,6 +603,8 @@ export default async function ProDashboardPage({
 
         <h2 id="cuenta">Tu cuenta</h2>
         {credentialSection}
+        <h2 id="cobros">Cobros y paquetes</h2>
+        {paymentSection}
         <AccountActions />
       </div>
     </section>

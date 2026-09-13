@@ -123,6 +123,15 @@ export function FeedProfessionalCard({
         </p>
       ) : null}
 
+      {professional.offersPaidServices ? (
+        <p
+          className="badge badge-new"
+          title="La ayuda por el terremoto sigue siendo gratis. Además, ofrece servicios pagos por otros temas; puedes pedirle detalles sin compromiso."
+        >
+          También servicios pagos
+        </p>
+      ) : null}
+
       {professional.supportAreas.length ? (
         <ul className="chips" aria-label="Áreas de apoyo">
           {professional.supportAreas.slice(0, 4).map((area) => (
