@@ -156,3 +156,16 @@ Los profesionales pueden cambiar correo, contraseña y teléfonos desde su panel
 - **Privacidad.** La política pública se actualizó: los chats son permanentes
   hasta el borrado explícito; los pagos guardan solo el registro contable
   (importes, concepto, correo de quien paga), nunca datos de tarjeta.
+
+### Endurecimiento 0.10.1 (2026-09-13)
+
+- **Webhook con filtro de eventos ajenos.** La cuenta de Stripe es compartida:
+  los eventos sin metadatos `nido_*` (o sin PaymentIntent propio en
+  reembolsos/disputas) se ignoran sin reclamarlos; `stripe_events` solo registra
+  eventos de Nido.
+- **Rate limit del checkout público.** 15 intentos/hora por IP (hash
+  irreversible) respaldado en D1; incluye intentos fallidos. Sin la IP no se
+  bloquea (redes que no la envían).
+- **Pagos colgados.** La retención marca `expired` los `pending` de más de 48 h.
+- **Índices** (migración 0024, aditiva): `payments(stripe_payment_intent_id)` y
+  `audit_logs(actor_email, action, created_at)`.

@@ -130,6 +130,14 @@ describe("handleStripeEvent", () => {
       where: eq(payments.id, id.payment),
     });
     expect(payment?.status).toBe("paid"); // no cambió nada con el evento ajeno
+
+    // Ni siquiera se registra: la cuenta de Stripe es compartida y la tabla de
+    // idempotencia no debe crecer con eventos de otros proyectos.
+    const claimed = await db
+      .select({ id: stripeEvents.id })
+      .from(stripeEvents)
+      .where(eq(stripeEvents.id, id.foreignEvent));
+    expect(claimed).toHaveLength(0);
   });
 
   it("actualiza el estado de la cuenta Connect", async () => {

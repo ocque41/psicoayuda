@@ -89,14 +89,60 @@ async function notifyPaymentPaid(paymentId: string) {
 }
 
 /**
+ * ¿El evento pertenece a Nido? La cuenta de Stripe es COMPARTIDA con otros
+ * proyectos del equipo: todo lo ajeno se ignora sin reclamarlo (antes se
+ * registraba en `stripe_events` y la tabla crecía con ruido de otros). Para
+ * reembolsos/disputas no siempre hay metadatos `nido_*` en el objeto, así que
+ * además se cruza el PaymentIntent contra nuestros pagos.
+ */
+async function isNidoEvent(event: Stripe.Event): Promise<boolean> {
+  switch (event.type) {
+    case "checkout.session.completed":
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      return Boolean(
+        session.metadata?.nido_payment_id || session.client_reference_id,
+      );
+    }
+    case "payment_intent.payment_failed": {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      return Boolean(intent.metadata?.nido_payment_id);
+    }
+    case "charge.refunded":
+    case "charge.dispute.created": {
+      const object = event.data.object as Stripe.Charge | Stripe.Dispute;
+      if (object.metadata?.nido_payment_id) return true;
+      const intent = object.payment_intent;
+      const paymentIntentId =
+        typeof intent === "string" ? intent : (intent?.id ?? null);
+      if (!paymentIntentId) return false;
+      const payment = await db.query.payments.findFirst({
+        where: eq(payments.stripePaymentIntentId, paymentIntentId),
+        columns: { id: true },
+      });
+      return Boolean(payment);
+    }
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      const professional = await db.query.professionals.findFirst({
+        where: eq(professionals.stripeAccountId, account.id),
+        columns: { id: true },
+      });
+      return Boolean(professional);
+    }
+    default:
+      return false;
+  }
+}
+
+/**
  * Procesa un evento de Stripe con idempotencia fuerte: reclamamos el id en
  * `stripe_events` ANTES de procesar; si el proceso falla, soltamos la marca para
  * que el reintento de Stripe lo vuelva a entregar (nunca se pierde un pago).
- *
- * La cuenta de Stripe es compartida con otros proyectos del equipo: cualquier
- * evento sin metadatos `nido_*` se ignora sin tocar nada.
  */
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  if (!(await isNidoEvent(event))) return;
+
   const claimed = await db
     .insert(stripeEvents)
     .values({ id: event.id, type: event.type, processedAt: nowIso() })

@@ -7,6 +7,7 @@ import {
   auditLogs,
   conversations,
   helpRequests,
+  payments,
   professionals,
   seekerSessions,
   user,
@@ -46,6 +47,9 @@ const id = {
   accessNew: `${P}-access-new`,
   assignmentOld: `${P}-asg-old`,
   assignmentNew: `${P}-asg-new`,
+  paymentPendingOld: `${P}-pay-pending-old`,
+  paymentPendingFresh: `${P}-pay-pending-fresh`,
+  paymentPaidOld: `${P}-pay-paid-old`,
 };
 
 async function cleanup() {
@@ -53,6 +57,7 @@ async function cleanup() {
   await db.delete(assignments).where(like(assignments.id, `${P}-%`));
   await db.delete(conversations).where(like(conversations.id, `${P}-%`));
   await db.delete(helpRequests).where(like(helpRequests.id, `${P}-%`));
+  await db.delete(payments).where(like(payments.id, `${P}-%`));
   await db.delete(professionals).where(eq(professionals.id, id.pro));
   await db.delete(user).where(eq(user.id, id.user));
   await db.delete(accessRequests).where(like(accessRequests.id, `${P}-%`));
@@ -228,6 +233,43 @@ describe("runRetention (solicitudes 90/180 y chats eternos)", () => {
       },
       { id: id.accessNew, emailHash: "hash-new", createdAt: new Date(NOW) },
     ]);
+
+    await db.insert(payments).values([
+      {
+        id: id.paymentPendingOld,
+        professionalId: id.pro,
+        packageTitle: "Paquete viejo",
+        amountCents: 2500,
+        applicationFeeCents: 500,
+        currency: "eur",
+        status: "pending",
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(3),
+      },
+      {
+        id: id.paymentPendingFresh,
+        professionalId: id.pro,
+        packageTitle: "Paquete reciente",
+        amountCents: 2500,
+        applicationFeeCents: 500,
+        currency: "eur",
+        status: "pending",
+        createdAt: new Date(NOW - 2 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(NOW - 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: id.paymentPaidOld,
+        professionalId: id.pro,
+        packageTitle: "Paquete pagado",
+        amountCents: 2500,
+        applicationFeeCents: 500,
+        currency: "eur",
+        status: "paid",
+        paidAt: daysAgo(3),
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(3),
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -313,11 +355,30 @@ describe("runRetention (solicitudes 90/180 y chats eternos)", () => {
 
     const second = await runRetention(NOW);
     expect(second.quotaReleased).toBe(0);
+    expect(second.paymentsExpired).toBe(0);
 
     const afterSecond = await db.query.professionals.findFirst({
       where: eq(professionals.id, id.pro),
     });
     expect(afterSecond?.currentActiveRequests).toBe(0);
+  });
+
+  it("expira pagos pendientes > 48h y respeta los recientes y los pagados", async () => {
+    const old = await db.query.payments.findFirst({
+      where: eq(payments.id, id.paymentPendingOld),
+    });
+    expect(old?.status).toBe("expired");
+
+    const fresh = await db.query.payments.findFirst({
+      where: eq(payments.id, id.paymentPendingFresh),
+    });
+    expect(fresh?.status).toBe("pending");
+
+    const paid = await db.query.payments.findFirst({
+      where: eq(payments.id, id.paymentPaidOld),
+    });
+    expect(paid?.status).toBe("paid");
+    expect(paid?.paidAt).toBeTruthy();
   });
 
   it("purga la tabla desechable del enlace mágico (>7 días)", async () => {

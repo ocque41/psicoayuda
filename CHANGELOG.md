@@ -2,6 +2,26 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.10.1 - 2026-09-13
+
+Endurecimiento y optimización del módulo de pagos y de la auditoría, sin
+cambios de comportamiento para las personas.
+
+- **Filtro de eventos ajenos en el webhook**: la cuenta de Stripe es compartida
+  con otros proyectos; ahora los eventos que no son de Nido se detectan por
+  metadatos `nido_*` (y, en reembolsos/disputas, cruzando el PaymentIntent
+  contra `payments`) y se ignoran SIN registrarlos, para que `stripe_events` no
+  crezca con ruido de otros proyectos.
+- **Rate limit del checkout público**: máximo 15 intentos de pago por hora e IP
+  (hash irreversible, respaldado en D1 vía `audit_logs`); los intentos fallidos
+  también cuentan para frenar bucles y bots.
+- **Pagos colgados**: la retención diaria marca `expired` los pagos que llevan
+  más de 48 h en `pending` si el webhook de expiración no llegó (la sesión de
+  Stripe caduca a las 24 h).
+- **Índices nuevos** (migración 0024, aditiva): `payments(stripe_payment_intent_id)`
+  para reembolsos/disputas y `audit_logs(actor_email, action, created_at)` para
+  los rate limits de credenciales y pagos.
+
 ## 0.10.0 - 2026-09-13
 
 Chats eternos con borrado definitivo, etiqueta de servicios pagos y módulo de

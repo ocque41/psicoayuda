@@ -1,0 +1,2 @@
+CREATE INDEX `audit_logs_actor_action_created_idx` ON `audit_logs` (`actor_email`,`action`,`created_at`);--> statement-breakpoint
+CREATE INDEX `payments_payment_intent_idx` ON `payments` (`stripe_payment_intent_id`);
