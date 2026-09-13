@@ -202,6 +202,13 @@ export async function startStripeOnboarding(): Promise<void> {
       professionalId: professional.id,
       error,
     });
+    // Si la plataforma aún no completó el alta de Connect, no es un fallo
+    // transitorio ni culpa del profesional: se lo decimos con honestidad en vez
+    // de mandarlo a "inténtalo de nuevo".
+    const message = error instanceof Error ? error.message : "";
+    if (/signed up for Connect/i.test(message)) {
+      redirect("/pro/dashboard?cobros=plataforma#cobros");
+    }
     redirect("/pro/dashboard?cobros=error#cobros");
   }
 }
