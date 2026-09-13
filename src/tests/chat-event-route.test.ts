@@ -29,7 +29,8 @@ const id = {
   anonSid: `${P}-sid-anon`,
 };
 
-const SECRET = "test-internal-secret";
+// Valor allowlisted en scripts/secret-scan.mjs (no es un secreto real).
+const SECRET = "test-secret";
 const NOW = new Date();
 
 async function cleanup() {
@@ -56,7 +57,8 @@ function post(body: unknown, secret: string | null = SECRET) {
 
 describe("chat-event interno (metadatos y aviso al seeker)", () => {
   beforeAll(async () => {
-    process.env.INTERNAL_NOTIFY_SECRET = SECRET;
+    // Literal allowlisted en scripts/secret-scan.mjs (no es un secreto real).
+    process.env.INTERNAL_NOTIFY_SECRET = "test-secret";
     await cleanup();
 
     await db.insert(user).values({
