@@ -15,11 +15,15 @@ export function ConversationDeleteButton({
   redirectTo,
   label = "Borrar conversación",
   className = "button secondary danger",
+  asPersona = false,
 }: {
   conversationId: string;
   redirectTo: string;
   label?: string;
   className?: string;
+  /** El profesional está viendo la sala como la persona: borra con ESA
+   *  identidad (cierra el caso en vez de reencolarlo). */
+  asPersona?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
@@ -29,10 +33,12 @@ export function ConversationDeleteButton({
   function handleDelete() {
     setError("");
     startTransition(async () => {
-      const result = await deleteConversation(conversationId).catch(() => ({
-        ok: false as const,
-        message: "No pudimos borrar la conversación. Inténtalo de nuevo.",
-      }));
+      const result = await deleteConversation(conversationId, asPersona).catch(
+        () => ({
+          ok: false as const,
+          message: "No pudimos borrar la conversación. Inténtalo de nuevo.",
+        }),
+      );
       if (result.ok) {
         router.push(redirectTo);
         router.refresh();

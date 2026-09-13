@@ -2,6 +2,26 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.10.3 - 2026-09-13
+
+Identidad determinista en el chat: queda claro quién firma cada mensaje.
+
+- **Un solo criterio de identidad** (`src/lib/chat-identity.ts`): cuando el mismo
+  navegador tiene la sesión del profesional y la cookie de la persona, la página,
+  las server actions (reabrir/borrar) y el WebSocket deciden ahora lo MISMO —
+  gana el **profesional**. Antes la página priorizaba a la persona y el
+  WebSocket al profesional, así que se veía una identidad y se escribía con
+  otra (el mensaje aparecía firmado "como el otro").
+- **Vista de persona explícita**: el profesional puede abrir
+  `/c/<id>?como=persona` para ver y escribir como la persona (la preferencia
+  viaja al WebSocket y a las acciones; en esa vista borrar cierra el caso en vez
+  de reencolarlo). Un banner en la sala dice siempre con qué identidad estás
+  escribiendo y ofrece el cambio de vista.
+- **Cookie de sala del profesional en la página**: si la sesión better-auth
+  caducó pero la cookie HMAC de la sala (72 h) sigue vigente, la página
+  reconoce al profesional dueño en vez de caer silenciosamente a la vista de la
+  persona; así la vista y el WebSocket no se contradicen.
+
 ## 0.10.2 - 2026-09-13
 
 Rendimiento de todo el sitio: caché persistente real, menos consultas y bundle

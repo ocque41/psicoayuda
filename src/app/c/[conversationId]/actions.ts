@@ -18,6 +18,7 @@ import {
   disconnectConversationSockets,
   purgeConversationMessagesDetailed,
 } from "@/lib/chat-admin";
+import { chooseChatIdentity } from "@/lib/chat-identity";
 import { newId, nowIso } from "@/lib/ids";
 import {
   conversationUrl,
@@ -32,10 +33,95 @@ import {
   mintSeekerToken,
   PRO_COOKIE,
   SEEKER_COOKIE,
+  verifyProfessionalToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
 
 const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
+
+/**
+ * Resuelve la identidad del actor de una acción sobre la sala con la MISMA
+ * prelación que la página y el WebSocket (src/lib/chat-identity.ts): el
+ * profesional (sesión o cookie de sala) gana por defecto; el seeker solo si no
+ * hay credencial profesional o si el profesional pide actuar como la persona
+ * (`asPersona`, desde su vista de persona). Devuelve null si no hay ninguna.
+ */
+async function resolveActor(
+  conversation: typeof conversations.$inferSelect,
+  asPersona: boolean,
+): Promise<{
+  role: "seeker" | "professional";
+  actorEmail: string | null;
+} | null> {
+  const cookieStore = await cookies();
+
+  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
+  let isProfessional = false;
+  let actorEmail: string | null = null;
+  const session = await getServerSession();
+  if (session?.user?.id) {
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.userId, session.user.id),
+    });
+    if (
+      pro &&
+      pro.id === conversation.professionalId &&
+      pro.status !== "suspended"
+    ) {
+      isProfessional = true;
+      actorEmail = session.user.email ?? null;
+    }
+  }
+  if (!isProfessional) {
+    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
+    if (proRaw) {
+      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
+      if (
+        pro &&
+        pro.conversationId === conversation.id &&
+        pro.professionalId === conversation.professionalId
+      ) {
+        const row = await db.query.professionals.findFirst({
+          where: eq(professionals.id, conversation.professionalId),
+        });
+        if (row && row.status !== "suspended") {
+          isProfessional = true;
+          actorEmail = row.email;
+        }
+      }
+    }
+  }
+
+  // Persona (seeker).
+  let seekerSid: string | null = null;
+  const raw = cookieStore.get(SEEKER_COOKIE)?.value;
+  if (raw) {
+    const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
+    if (
+      payload &&
+      payload.conversationId === conversation.id &&
+      payload.sid === conversation.seekerSid
+    ) {
+      const sessionRow = await db.query.seekerSessions.findFirst({
+        where: eq(seekerSessions.sid, payload.sid),
+      });
+      const valid =
+        !!sessionRow &&
+        !sessionRow.revokedAt &&
+        sessionRow.expiresAt.getTime() > Date.now();
+      if (valid) seekerSid = payload.sid;
+    }
+  }
+
+  const identity = chooseChatIdentity(
+    { professional: isProfessional, seeker: seekerSid !== null },
+    asPersona,
+  );
+  if (!identity) return null;
+  return identity === "professional"
+    ? { role: "professional", actorEmail }
+    : { role: "seeker", actorEmail: null };
+}
 
 /**
  * El profesional ya entró con Google. Al abrir /c/<id> verificamos que la
@@ -178,6 +264,7 @@ export type ReopenResult =
  */
 export async function reopenConversation(
   conversationId: string,
+  asPersona = false,
 ): Promise<ReopenResult> {
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -188,49 +275,11 @@ export async function reopenConversation(
     return { ok: false, reason: "not_closed" };
   }
 
-  // ¿Quién reabre? Seeker (cookie HMAC + sesión vigente de ESTA sala) o el
-  // profesional dueño (better-auth). Cualquier otro: no autorizado.
-  let role: "seeker" | "professional" | null = null;
-  let actorEmail: string | null = null;
-
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(SEEKER_COOKIE)?.value;
-  if (raw) {
-    const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
-    if (
-      payload &&
-      payload.conversationId === conversationId &&
-      payload.sid === conversation.seekerSid
-    ) {
-      const session = await db.query.seekerSessions.findFirst({
-        where: eq(seekerSessions.sid, payload.sid),
-      });
-      const valid =
-        !!session &&
-        !session.revokedAt &&
-        session.expiresAt.getTime() > Date.now();
-      if (valid) role = "seeker";
-    }
-  }
-
-  if (!role) {
-    const session = await getServerSession();
-    if (session?.user?.id) {
-      const pro = await db.query.professionals.findFirst({
-        where: eq(professionals.userId, session.user.id),
-      });
-      if (
-        pro &&
-        pro.id === conversation.professionalId &&
-        pro.status !== "suspended"
-      ) {
-        role = "professional";
-        actorEmail = session.user.email ?? null;
-      }
-    }
-  }
-
-  if (!role) return { ok: false, reason: "not_authorized" };
+  // ¿Quién reabre? Misma prelación que la vista y el WebSocket: profesional por
+  // defecto, o como la persona si el profesional pidió su vista (`asPersona`).
+  const actor = await resolveActor(conversation, asPersona);
+  if (!actor) return { ok: false, reason: "not_authorized" };
+  const { role, actorEmail } = actor;
 
   // Re-reserva de cupo (una sola sentencia atómica; guardas de estado y tope).
   const reserved = await db
@@ -428,6 +477,7 @@ export type DeleteConversationResult =
  */
 export async function deleteConversation(
   conversationId: string,
+  asPersona = false,
 ): Promise<DeleteConversationResult> {
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -436,52 +486,16 @@ export async function deleteConversation(
     return { ok: false, message: "Esta conversación ya no existe." };
   }
 
-  // ¿Quién borra? Seeker (cookie HMAC + sesión vigente de ESTA sala) o el
-  // profesional dueño (better-auth). Cualquier otro: no autorizado.
-  let role: "seeker" | "professional" | null = null;
-  let actorEmail: string | null = null;
-
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(SEEKER_COOKIE)?.value;
-  if (raw) {
-    const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
-    if (
-      payload &&
-      payload.conversationId === conversationId &&
-      payload.sid === conversation.seekerSid
-    ) {
-      const session = await db.query.seekerSessions.findFirst({
-        where: eq(seekerSessions.sid, payload.sid),
-      });
-      const valid =
-        !!session &&
-        !session.revokedAt &&
-        session.expiresAt.getTime() > Date.now();
-      if (valid) role = "seeker";
-    }
-  }
-  if (!role) {
-    const session = await getServerSession();
-    if (session?.user?.id) {
-      const pro = await db.query.professionals.findFirst({
-        where: eq(professionals.userId, session.user.id),
-      });
-      if (
-        pro &&
-        pro.id === conversation.professionalId &&
-        pro.status !== "suspended"
-      ) {
-        role = "professional";
-        actorEmail = session.user.email ?? null;
-      }
-    }
-  }
-  if (!role) {
+  // ¿Quién borra? Misma prelación que la vista y el WebSocket: profesional por
+  // defecto, o como la persona si el profesional pidió su vista (`asPersona`).
+  const actor = await resolveActor(conversation, asPersona);
+  if (!actor) {
     return {
       ok: false,
       message: "No pudimos verificar que seas parte de esta conversación.",
     };
   }
+  const { role, actorEmail } = actor;
 
   // Primero el contenido: si en producción la purga del DO falla, NO borramos
   // las filas (quedarían transcripciones huérfanas sin forma de reintentar).

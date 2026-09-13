@@ -10,9 +10,11 @@ import { getCachedFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
 
 // La portada muestra a las personas voluntarias verificadas (lista pública, sin
-// datos confidenciales). ISR cada 60s, igual que /profesionales: la BD D1 no
-// existe en build, así que se prerenderiza vacío y se rellena en runtime.
-export const revalidate = 60;
+// datos confidenciales). ISR: la copia se cachea en KV 5 min y el orden rota en
+// cada regeneración; cuando cambia el directorio, `revalidateTag`/`revalidatePath`
+// de las server actions la refresca al instante (el TTL es solo el máximo de
+// antigüedad y mantiene bajas las escrituras de KV en el plan gratuito).
+export const revalidate = 300;
 
 export default async function HomePage() {
   const professionals = await getCachedFeedProfessionals();
