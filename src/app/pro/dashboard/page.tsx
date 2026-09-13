@@ -185,6 +185,8 @@ export default async function ProDashboardPage({
       "Estamos terminando de configurar los cobros. Te avisaremos cuando puedas activarlos.",
     perfil:
       "Primero activa los servicios pagos (arriba) y luego conecta tu cuenta de Stripe.",
+    plataforma:
+      "Estamos terminando de habilitar los cobros a nivel de plataforma. Te avisaremos por correo en cuanto puedas conectarte; tu ayuda gratuita sigue igual.",
     error:
       "No pudimos conectar con Stripe en este momento. Inténtalo de nuevo en unos minutos.",
   };
