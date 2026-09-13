@@ -295,6 +295,13 @@ export const auditLogs = sqliteTable(
   },
   (table) => [
     index("audit_logs_entity_idx").on(table.entityType, table.entityId),
+    // Rate limits respaldados en audit_logs (credenciales y checkout público):
+    // la consulta filtra por actor + acción en una ventana de tiempo.
+    index("audit_logs_actor_action_created_idx").on(
+      table.actorEmail,
+      table.action,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -661,6 +668,8 @@ export const payments = sqliteTable(
       table.createdAt,
     ),
     index("payments_status_created_idx").on(table.status, table.createdAt),
+    // Busca el pago por PaymentIntent (reembolsos/disputas del webhook).
+    index("payments_payment_intent_idx").on(table.stripePaymentIntentId),
   ],
 );
 

@@ -7,6 +7,7 @@ import {
   auditLogs,
   conversations,
   helpRequests,
+  payments,
   professionals,
 } from "@/db/schema";
 import { releaseAssignmentsForRequest } from "@/lib/assignment";
@@ -21,6 +22,10 @@ const ACCESS_REQUESTS_TTL_MS = 7 * DAY_MS;
 // ni se cierra: el link vive para siempre hasta que una de las dos partes lo
 // borre desde su lado (ver src/app/c/[conversationId]/actions.ts).
 const QUOTA_IDLE_MS = 30 * DAY_MS;
+// Un pago que quedó "pending" más de 48h ya no puede completarse (Stripe expira
+// las sesiones de Checkout a las 24h). Si el webhook no llegó, lo cerramos aquí
+// para que no queden filas colgadas y la contabilidad refleje la realidad.
+const PAYMENT_PENDING_TTL_MS = 48 * 60 * 60 * 1000;
 
 function isoMs(iso: string): number {
   const ms = Date.parse(iso);
@@ -219,7 +224,23 @@ export async function runRetention(now: number = Date.now()) {
       .where(eq(professionals.id, professionalId));
   }
 
-  // 4) Purga la tabla desechable del enlace mágico (>7 días).
+  // 4) Cierra los pagos que quedaron pendientes > 48h (la sesión de Stripe ya
+  // expiró): evita filas colgadas si el webhook de expiración no llegó.
+  const expiredPayments = await db
+    .update(payments)
+    .set({ status: "expired", updatedAt: timestamp })
+    .where(
+      and(
+        eq(payments.status, "pending"),
+        lt(
+          payments.createdAt,
+          new Date(now - PAYMENT_PENDING_TTL_MS).toISOString(),
+        ),
+      ),
+    )
+    .returning({ id: payments.id });
+
+  // 5) Purga la tabla desechable del enlace mágico (>7 días).
   await db
     .delete(accessRequests)
     .where(
@@ -233,5 +254,6 @@ export async function runRetention(now: number = Date.now()) {
       (sum, n) => sum + n,
       0,
     ),
+    paymentsExpired: expiredPayments.length,
   };
 }

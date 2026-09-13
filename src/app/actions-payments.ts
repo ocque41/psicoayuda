@@ -14,8 +14,13 @@ import {
   isStripeSupportedCountry,
   stripeCountryCode,
 } from "@/lib/payments/config";
+import {
+  isCheckoutRateLimited,
+  logCheckoutAttempt,
+} from "@/lib/payments/limits";
 import { sessionPackageSchema } from "@/lib/payments/packages";
 import { getStripe } from "@/lib/payments/stripe";
+import { getRequesterHash } from "@/lib/requester-hash";
 
 export type PackageFormState = {
   status: "idle" | "success" | "error";
@@ -204,7 +209,9 @@ export async function startStripeOnboarding(): Promise<void> {
 /**
  * Crea el Checkout de Stripe para un paquete y redirige a la pasarela. El
  * `conversationId` es opcional (link compartido desde un chat) y solo se usa si
- * la conversación pertenece al mismo profesional.
+ * la conversación pertenece al mismo profesional. Es un endpoint público: tiene
+ * rate-limit por IP (hash) respaldado en D1 y cada intento queda contado antes
+ * de llamar a Stripe.
  */
 export async function payForPackage(
   _previous: PayState,
@@ -216,6 +223,16 @@ export async function payForPackage(
   if (!packageId) {
     return { status: "error", message: "No encontramos ese paquete." };
   }
+
+  const requesterHash = await getRequesterHash("payment_checkout");
+  if (await isCheckoutRateLimited(requesterHash)) {
+    return {
+      status: "error",
+      message:
+        "Demasiados intentos de pago seguidos. Espera unos minutos y vuelve a intentarlo.",
+    };
+  }
+  await logCheckoutAttempt(requesterHash, packageId);
 
   const result = await createPackageCheckout({
     packageId,
