@@ -6,4 +6,6 @@ export interface Env {
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;
   INTERNAL_NOTIFY_SECRET?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
 }

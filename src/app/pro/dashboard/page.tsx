@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -7,8 +7,9 @@ import { createProfessionalContactMessage } from "@/app/actions-contact";
 import { acceptRequestOffer } from "@/app/actions-offers";
 import { AccountActions } from "@/components/account-actions";
 import { ContactMessageForm } from "@/components/contact-message-form";
+import { CredentialSettings } from "@/components/credential-settings";
 import { db } from "@/db";
-import { assignments, helpRequests, professionals } from "@/db/schema";
+import { account, assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
 import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
 import { getPublicContactEmails } from "@/lib/contact";
@@ -22,6 +23,7 @@ import {
   pendingOffersForProfessional,
 } from "@/lib/offers";
 import { SITE_URL } from "@/lib/site";
+import { getTurnstileConfig } from "@/lib/turnstile";
 
 export const metadata: Metadata = {
   title: "Panel profesional",
@@ -88,15 +90,55 @@ function lastActivityLabel(value: Date | null, fallbackIso: string): string {
 export default async function ProDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ oferta?: string }>;
+  searchParams: Promise<{ oferta?: string; error?: string }>;
 }) {
-  const { oferta } = await searchParams;
+  const { oferta, error } = await searchParams;
   const session = await getServerSession();
   if (!session?.user?.id) redirect("/pro");
 
   const professional = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
   });
+
+  // Datos de la sección "Tu cuenta": si la cuenta tiene contraseña propia y si
+  // Cloudflare Turnstile está activo (secreto + site key).
+  const credentialAccount = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(
+      and(
+        eq(account.userId, session.user.id),
+        eq(account.providerId, "credential"),
+        isNotNull(account.password),
+      ),
+    )
+    .limit(1);
+  const hasPassword = credentialAccount.length > 0;
+  const turnstile = getTurnstileConfig();
+  const turnstileSiteKey = turnstile.enabled ? turnstile.siteKey : null;
+  const emailLinkError =
+    error === "INVALID_TOKEN" || error === "TOKEN_EXPIRED"
+      ? "El enlace de confirmación de correo caducó o ya se usó. Puedes pedir el cambio otra vez desde tu cuenta."
+      : null;
+
+  const credentialSection = professional ? (
+    <>
+      {emailLinkError ? (
+        <p className="form-error" role="alert">
+          {emailLinkError}
+        </p>
+      ) : null}
+      <CredentialSettings
+        currentEmail={session.user.email}
+        emailVerified={Boolean(session.user.emailVerified)}
+        hasPassword={hasPassword}
+        phone={professional.phone}
+        landline={professional.landline}
+        emailPublic={professional.emailPublic}
+        turnstileSiteKey={turnstileSiteKey}
+      />
+    </>
+  ) : null;
 
   if (!professional) {
     return (
@@ -138,6 +180,8 @@ export default async function ProDashboardPage({
               Actualizar mi información
             </Link>
           </div>
+          <h2 id="cuenta">Tu cuenta</h2>
+          {credentialSection}
           <AccountActions />
         </div>
       </section>
@@ -483,6 +527,7 @@ export default async function ProDashboardPage({
         </div>
 
         <h2 id="cuenta">Tu cuenta</h2>
+        {credentialSection}
         <AccountActions />
       </div>
     </section>

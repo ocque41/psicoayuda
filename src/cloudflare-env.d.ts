@@ -14,6 +14,10 @@ declare global {
     CONTACT_FROM_EMAIL?: string;
     NOTIFICATION_EMAIL?: string;
     RESEND_API_KEY?: string;
+    // Cloudflare Turnstile (anti-abuso en los formularios de credenciales).
+    // El site key es público; el secreto vive como secreto del Worker.
+    TURNSTILE_SITE_KEY?: string;
+    TURNSTILE_SECRET_KEY?: string;
   }
 }
 

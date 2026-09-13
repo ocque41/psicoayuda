@@ -402,6 +402,71 @@ export const professionalSchema = z
     },
   );
 
+// --- Credenciales del profesional (panel: correo, contraseña y teléfonos) ---
+// La contraseña NUNCA se recorta (un espacio puede ser parte de la clave); solo
+// se acotan longitudes para que un texto gigante no infle el hash PBKDF2.
+const currentPasswordField = z
+  .string()
+  .max(128, "La contraseña es demasiado larga.")
+  .transform((value) => (value === "" ? undefined : value));
+
+export const emailChangeSchema = z.object({
+  newEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200, "El correo es demasiado largo.")
+    .pipe(z.email("Escribe un correo válido (ej. nombre@correo.com).")),
+  currentPassword: currentPasswordField.optional(),
+});
+
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, "Escribe tu contraseña actual.")
+      .max(128, "La contraseña es demasiado larga."),
+    newPassword: z
+      .string()
+      .min(8, "La contraseña nueva debe tener al menos 8 caracteres.")
+      .max(128, "La contraseña es demasiado larga."),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Las contraseñas nuevas no coinciden.",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.newPassword !== data.currentPassword, {
+    message: "La contraseña nueva debe ser distinta a la actual.",
+    path: ["newPassword"],
+  });
+
+// Teléfonos del panel: mismas reglas que el alta (normaliza a internacional con
+// +58 por defecto). Se permiten vacíos para quitar una vía; el action comprueba
+// que no se quede sin NINGUNA forma de contacto.
+export const phoneUpdateSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+      message:
+        "Escribe un WhatsApp válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+    }),
+  landline: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((value) => value || undefined)
+    .refine((value) => value === undefined || toIntlNumber(value) !== null, {
+      message:
+        "Escribe un teléfono fijo válido. Si estás fuera de Venezuela, incluye el código de país (ej. +57…).",
+    }),
+});
+
 export const statusSchema = z.enum(["new", "contacted", "assigned", "closed"]);
 
 export const professionalStatusSchema = z.enum([

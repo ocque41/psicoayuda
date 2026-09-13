@@ -2,6 +2,33 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.9.0 - 2026-09-13
+
+Credenciales del profesional desde su panel: cambiar correo, contraseña y
+teléfonos de contacto sin salir de Nido, con confirmación por correo, auditoría
+y defensas anti-abuso (incluido Cloudflare Turnstile).
+
+- **Sección "Tu cuenta" en `/pro/dashboard`** (`src/components/credential-settings.tsx`):
+  tres formularios plegables (correo, contraseña, teléfonos) con estados de
+  éxito/error y el widget de Turnstile cuando la integración está activa.
+- **Cambio de correo con doble confirmación** (`user.changeEmail` de Better
+  Auth): si el correo actual está verificado, primero se aprueba desde la
+  dirección actual y luego se verifica la nueva; con cuentas sin verificar, el
+  enlace va directo al correo nuevo y se manda un aviso de seguridad al actual.
+  El espejo `professionals.email` (y `contactEmail` cuando seguía al de la
+  cuenta) se sincroniza al completarse la verificación (`databaseHooks`).
+- **Cambio de contraseña** exigiendo la actual, cerrando las demás sesiones
+  (revocación explícita: la rotación de cookie no se propaga desde una server
+  action) y con aviso por correo. El restablecimiento por enlace también revoca
+  todas las sesiones.
+- **Teléfonos públicos (WhatsApp y fijo)** validados a formato internacional,
+  con aviso de seguridad por correo; nunca se puede quedar el perfil sin
+  ninguna vía de contacto.
+- **Anti-abuso**: tope por cuenta/hora en D1 vía `audit_logs`, rate limits de
+  Better Auth para `/change-email` y `/change-password`, y Turnstile opcional
+  (`siteverify` desde el Worker) en los tres formularios.
+- **Auditoría**: cada cambio deja rastro en `audit_logs`.
+
 ## 0.8.0 - 2026-09-13
 
 Persistencia de chats: las conversaciones se pueden retomar, reabrir y

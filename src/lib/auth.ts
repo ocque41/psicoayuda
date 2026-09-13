@@ -6,8 +6,13 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
+import { syncProfessionalEmailOnUserUpdate } from "@/lib/credentials";
 import { sendEmail } from "@/lib/email";
-import { buildPasswordResetEmail } from "@/lib/email-templates";
+import {
+  buildEmailChangeConfirmationEmail,
+  buildEmailVerificationEmail,
+  buildPasswordResetEmail,
+} from "@/lib/email-templates";
 import { hashPassword, verifyPassword } from "@/lib/password-hash";
 import { SITE_URL } from "@/lib/site";
 
@@ -94,6 +99,64 @@ export const auth = betterAuth({
         text: correo.text,
       });
     },
+    // Un restablecimiento de contraseña cierra TODAS las sesiones: si alguien
+    // había robado una cookie, deja de servir en cuanto la dueña recupera su
+    // cuenta (la persona vuelve a entrar con la contraseña nueva).
+    revokeSessionsOnPasswordReset: true,
+  },
+  // Cambio de correo del profesional desde su panel. Doble confirmación:
+  //  1) con el correo ACTUAL verificado, primero se pide aprobar el cambio
+  //     (sendChangeEmailConfirmation);
+  //  2) después se verifica la dirección NUEVA (sendVerificationEmail).
+  // Hasta completar ambos pasos, `user.email` no cambia. Con cuentas sin
+  // verificar (registro por contraseña), el paso 1 no aplica y el enlace va
+  // directo a la dirección nueva; el panel pide además la contraseña actual.
+  user: {
+    changeEmail: {
+      enabled: true,
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+        const correo = buildEmailChangeConfirmationEmail({
+          confirmUrl: url,
+          newEmail,
+          name: user.name,
+        });
+        await sendEmail({
+          to: user.email,
+          subject: correo.subject,
+          html: correo.html,
+          text: correo.text,
+        });
+      },
+    },
+  },
+  emailVerification: {
+    // Enlaces de un solo uso; 1 hora es de sobra para abrir el correo.
+    expiresIn: 60 * 60,
+    // Verificación de la dirección NUEVA en un cambio de correo. No se envía
+    // al registrarse: `sendOnSignUp` sigue el valor por defecto (desactivado,
+    // porque no exigimos correo verificado para entrar).
+    sendVerificationEmail: async ({ user, url }) => {
+      const correo = buildEmailVerificationEmail({
+        verifyUrl: url,
+        name: user.name,
+      });
+      await sendEmail({
+        to: user.email,
+        subject: correo.subject,
+        html: correo.html,
+        text: correo.text,
+      });
+    },
+  },
+  databaseHooks: {
+    user: {
+      update: {
+        // Mantén el espejo `professionals.email` (y el correo de coordinación
+        // cuando seguía al de la cuenta) al día cuando se completa un cambio de
+        // correo. No lanza: nunca rompe la verificación.
+        after: syncProfessionalEmailOnUserUpdate,
+      },
+    },
   },
   socialProviders,
   advanced: {
@@ -118,6 +181,10 @@ export const auth = betterAuth({
     // bruta real; el hash PBKDF2 y el kill-switch en D1 siguen protegiendo.
     customRules: {
       "/sign-in/email": { window: 60, max: 10 },
+      // Cambios de credenciales: pocos intentos por minuto y por IP (además del
+      // tope por cuenta en D1 que aplican las server actions).
+      "/change-password": { window: 60, max: 5 },
+      "/change-email": { window: 60, max: 5 },
     },
   },
   plugins: [nextCookies()],

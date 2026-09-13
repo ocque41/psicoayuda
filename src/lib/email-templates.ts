@@ -932,3 +932,287 @@ Nido · apoyo psicológico voluntario, gratis y a distancia.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
+
+// --- Correos de seguridad de la cuenta (credenciales del profesional) --------
+
+/**
+ * Layout común de los avisos de seguridad: mismo estilo que el resto de Nido,
+ * con CTA opcional. `paragraphs` y `footnote` llegan ya escapados por quien
+ * llama (son plantillas internas, no contenido de terceros).
+ */
+function securityEmailHtml(input: {
+  subject: string;
+  preheader: string;
+  greeting: string;
+  paragraphs: string[];
+  cta?: { label: string; url: string };
+  footnote: string;
+}) {
+  const cta = input.cta
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
+                  <tr>
+                    <td style="border-radius:999px;background:#2f7a5b;">
+                      <a href="${escapeHtml(input.cta.url)}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(input.cta.label)}</a>
+                    </td>
+                  </tr>
+                </table>`
+    : "";
+
+  return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(input.subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(input.preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#2f7a5b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#245f47;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">${input.greeting}</p>
+                ${input.paragraphs
+                  .map(
+                    (paragraph) =>
+                      `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;">${paragraph}</p>`,
+                  )
+                  .join("\n                ")}
+                ${cta}
+                <p style="margin:0;font-size:13px;color:#6e655b;line-height:1.6;">${input.footnote}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/**
+ * Paso 1 del cambio de correo (cuenta con correo verificado): se envía al
+ * correo ACTUAL pidiendo aprobar el cambio. Al aprobar, se dispara la
+ * verificación de la dirección nueva. Sin este paso, el cambio no avanza.
+ */
+export function buildEmailChangeConfirmationEmail(input: {
+  confirmUrl: string;
+  newEmail: string;
+  name?: string | null;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const newEmail = escapeHtml(input.newEmail.trim());
+  const url = input.confirmUrl;
+
+  const subject = "Aprueba el cambio de correo de tu cuenta de Nido";
+  const preheader = "Confirma que quieres cambiar el correo de tu cuenta.";
+  const lead = `Alguien (esperamos que tú) pidió cambiar el correo de tu cuenta de Nido a <strong>${newEmail}</strong>. Para aprobar el cambio, pulsa el botón. Después te pediremos confirmar esa dirección nueva; hasta completarlo, tu correo en Nido no cambia.`;
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [lead],
+    cta: { label: "Aprobar el cambio", url },
+    footnote: `Si no pediste este cambio, ignora este correo: tu correo actual sigue siendo el de tu cuenta. Si te preocupa, cambia tu contraseña desde tu panel. Si el botón no funciona, copia este enlace:<br /><a href="${escapeHtml(url)}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${escapeHtml(url)}</a>`,
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Alguien (esperamos que tú) pidió cambiar el correo de tu cuenta de Nido a ${input.newEmail.trim()}. Para aprobar el cambio, abre este enlace:
+${url}
+
+Después te pediremos confirmar esa dirección nueva; hasta completarlo, tu correo en Nido no cambia.
+
+Si no pediste este cambio, ignora este correo: tu correo actual sigue siendo el de tu cuenta.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/**
+ * Paso 2 del cambio de correo: verificación de la dirección NUEVA. Es el
+ * correo que confirma que la dirección existe y pertenece a quien la pidió.
+ */
+export function buildEmailVerificationEmail(input: {
+  verifyUrl: string;
+  name?: string | null;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const url = input.verifyUrl;
+
+  const subject = "Confirma tu nuevo correo en Nido";
+  const preheader = "Un clic para confirmar tu dirección nueva.";
+  const lead =
+    "Pediste cambiar el correo de tu cuenta de Nido a esta dirección. Para confirmarla, pulsa el botón. El enlace es de un solo uso y caduca en 1 hora.";
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [lead],
+    cta: { label: "Confirmar mi correo", url },
+    footnote: `Si no fuiste tú, ignora este correo: sin tu confirmación, el cambio no se aplica y tu cuenta sigue igual. Si el botón no funciona, copia este enlace:<br /><a href="${escapeHtml(url)}" target="_blank" style="color:#2f7a5b;word-break:break-all;">${escapeHtml(url)}</a>`,
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Pediste cambiar el correo de tu cuenta de Nido a esta dirección. Para confirmarla, abre este enlace (de un solo uso, caduca en 1 hora):
+${url}
+
+Si no fuiste tú, ignora este correo: sin tu confirmación, el cambio no se aplica.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/**
+ * Aviso de seguridad al correo ACTUAL cuando la cuenta no está verificada: en
+ * ese caso Better Auth manda el enlace directo a la dirección nueva y el correo
+ * viejo no recibiría ninguna notificación. Sin enlaces de acción (el enlace
+ * real va a la dirección nueva), solo para que la dueña sepa lo que pasa.
+ */
+export function buildEmailChangeNoticeEmail(input: {
+  newEmail: string;
+  name?: string | null;
+  dashboardUrl: string;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const newEmail = escapeHtml(input.newEmail.trim());
+
+  const subject = "Solicitud de cambio de correo en tu cuenta de Nido";
+  const preheader = "Aviso de seguridad: revisa este cambio.";
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [
+      `Pediste cambiar el correo de tu cuenta de Nido a <strong>${newEmail}</strong>. Te enviamos un enlace de confirmación a esa dirección; el cambio no se aplica hasta que lo confirmes.`,
+      "Como aviso de seguridad, también te escribimos aquí: tu correo actual sigue siendo el de tu cuenta.",
+    ],
+    cta: { label: "Ir a mi cuenta", url: input.dashboardUrl },
+    footnote:
+      "Si no pediste este cambio, no hagas clic en el enlace nuevo, cambia tu contraseña desde tu panel y escríbenos por la página de contacto.",
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Pediste cambiar el correo de tu cuenta de Nido a ${input.newEmail.trim()}. Te enviamos un enlace de confirmación a esa dirección; el cambio no se aplica hasta que lo confirmes.
+
+Como aviso de seguridad, también te escribimos aquí: tu correo actual sigue siendo el de tu cuenta.
+
+Si no pediste este cambio, no hagas clic en el enlace nuevo, cambia tu contraseña desde tu panel y escríbenos por la página de contacto.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/** Confirmación de que la contraseña cambió (aviso de seguridad). */
+export function buildPasswordChangedEmail(input: {
+  dashboardUrl: string;
+  name?: string | null;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+
+  const subject = "Tu contraseña de Nido cambió";
+  const preheader = "Confirmamos el cambio de contraseña de tu cuenta.";
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [
+      "Tu contraseña de la cuenta de Nido cambió correctamente. Por seguridad, cerramos las demás sesiones abiertas: si estabas dentro en otro dispositivo, tendrás que volver a entrar con la contraseña nueva.",
+    ],
+    cta: { label: "Ir a mi cuenta", url: input.dashboardUrl },
+    footnote:
+      "Si no hiciste este cambio, restablece tu contraseña de inmediato desde la página de acceso y escríbenos por la página de contacto.",
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Tu contraseña de la cuenta de Nido cambió correctamente. Por seguridad, cerramos las demás sesiones abiertas: si estabas dentro en otro dispositivo, tendrás que volver a entrar con la contraseña nueva.
+
+Si no hiciste este cambio, restablece tu contraseña de inmediato desde la página de acceso y escríbenos por la página de contacto.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/**
+ * Aviso de que los teléfonos públicos del perfil cambiaron. Los teléfonos se
+ * muestran en la ficha (libro amarillo), así que un cambio inesperado merece
+ * este correo de seguridad.
+ */
+export function buildPhoneChangedEmail(input: {
+  dashboardUrl: string;
+  phone?: string | null;
+  landline?: string | null;
+  name?: string | null;
+}): BuiltEmail {
+  const name = input.name?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const phone = input.phone?.trim();
+  const landline = input.landline?.trim();
+
+  const subject = "Cambiaste tus datos de contacto en Nido";
+  const preheader = "Nuevos teléfonos en tu ficha pública.";
+
+  const rows = [
+    phone ? `WhatsApp: <strong>${escapeHtml(phone)}</strong>` : "",
+    landline ? `Teléfono fijo: <strong>${escapeHtml(landline)}</strong>` : "",
+  ].filter(Boolean);
+  const detail = rows.length
+    ? `Ahora son: ${rows.join(" · ")}.`
+    : "Quitaste los teléfonos de tu perfil; tu correo sigue disponible como contacto.";
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [
+      `Actualizamos los teléfonos de tu perfil profesional. ${detail}`,
+      "Los teléfonos que dejes se muestran públicos en tu ficha, como botones de WhatsApp y llamada.",
+    ],
+    cta: { label: "Revisar mi perfil", url: input.dashboardUrl },
+    footnote:
+      "Si no hiciste este cambio, escríbenos cuanto antes por la página de contacto y cambia tu contraseña desde tu panel.",
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+${
+  phone || landline
+    ? `Actualizamos los teléfonos de tu perfil profesional.${phone ? `\nWhatsApp: ${phone}` : ""}${landline ? `\nTeléfono fijo: ${landline}` : ""}`
+    : "Quitamos los teléfonos de tu perfil; tu correo sigue disponible como contacto."
+}
+
+Los teléfonos que dejes se muestran públicos en tu ficha, como botones de WhatsApp y llamada.
+
+Si no hiciste este cambio, escríbenos cuanto antes por la página de contacto y cambia tu contraseña desde tu panel.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
