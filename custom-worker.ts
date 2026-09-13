@@ -10,12 +10,15 @@
 
 import { routePartykitRequest } from "partyserver";
 // @ts-expect-error — generado por opennextjs-cloudflare build
-import handler from "./.open-next/worker.js";
+import handler, { DOQueueHandler } from "./.open-next/worker.js";
 import { makeOnBeforeConnect } from "./src/server/auth-gate";
 import { Conversation } from "./src/server/conversation";
 import type { Env } from "./src/server/types";
 
-export { Conversation };
+// `DOQueueHandler` (cola de revalidación ISR de OpenNext) se re-exporta porque
+// Wrangler exige que el entrypoint exporte toda clase referenciada por un
+// binding de Durable Object; si no, el deploy falla (igual que con Conversation).
+export { Conversation, DOQueueHandler };
 
 export default {
   async fetch(

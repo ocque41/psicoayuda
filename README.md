@@ -218,6 +218,15 @@ hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
    actividad (>30 días). Los **chats no se borran nunca** desde el cron: son
    permanentes hasta que una de las dos partes los borra. Se ejecuta solo en el
    Worker desplegado.
+5. **Caché de rendimiento (OpenNext):** `open-next.config.ts` usa caché
+   persistente en KV (`NEXT_INC_CACHE_KV`), cola de revalidación en Durable
+   Objects (`NEXT_CACHE_DO_QUEUE`) y tag cache en D1 (`NEXT_TAG_CACHE_D1`, tabla
+   `revalidations` de la migración 0025). Todo está declarado en `wrangler.jsonc`;
+   en una cuenta nueva hay que crear el namespace una vez:
+   `wrangler kv namespace create NEXT_INC_CACHE_KV` y pegar su `id`. Si faltara
+   cualquier pieza, la app sigue funcionando pero cada visita re-renderiza (la
+   caché cae a modo de desarrollo). El deploy (`opennextjs-cloudflare deploy`)
+   siembra las páginas prerenderizadas en KV automáticamente.
 
 ---
 

@@ -107,23 +107,25 @@ export default async function ProDashboardPage({
   const session = await getServerSession();
   if (!session?.user?.id) redirect("/pro");
 
-  const professional = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-
-  // Datos de la sección "Tu cuenta": si la cuenta tiene contraseña propia y si
-  // Cloudflare Turnstile está activo (secreto + site key).
-  const credentialAccount = await db
-    .select({ id: account.id })
-    .from(account)
-    .where(
-      and(
-        eq(account.userId, session.user.id),
-        eq(account.providerId, "credential"),
-        isNotNull(account.password),
-      ),
-    )
-    .limit(1);
+  // Las dos primeras consultas no dependen entre sí: en paralelo para no sumar
+  // latencias D1 en serie al TTFB del panel.
+  const [professional, credentialAccount] = await Promise.all([
+    db.query.professionals.findFirst({
+      where: eq(professionals.userId, session.user.id),
+    }),
+    // Datos de la sección "Tu cuenta": si la cuenta tiene contraseña propia.
+    db
+      .select({ id: account.id })
+      .from(account)
+      .where(
+        and(
+          eq(account.userId, session.user.id),
+          eq(account.providerId, "credential"),
+          isNotNull(account.password),
+        ),
+      )
+      .limit(1),
+  ]);
   const hasPassword = credentialAccount.length > 0;
   const turnstile = getTurnstileConfig();
   const turnstileSiteKey = turnstile.enabled ? turnstile.siteKey : null;
@@ -147,68 +149,6 @@ export default async function ProDashboardPage({
         landline={professional.landline}
         emailPublic={professional.emailPublic}
         turnstileSiteKey={turnstileSiteKey}
-      />
-    </>
-  ) : null;
-
-  // ---- Cobros (Stripe) ----
-  // Al volver del onboarding de Stripe (?cobros=volviendo) refrescamos el estado
-  // de la cuenta antes de pintarlo, para que el panel no muestre datos viejos.
-  const paymentsReady = paymentsConfigured();
-  const countrySupported = professional
-    ? isStripeSupportedCountry(professional.country)
-    : false;
-  if (professional?.stripeAccountId && cobros === "volviendo") {
-    await refreshStripeAccountStatus({
-      id: professional.id,
-      stripeAccountId: professional.stripeAccountId,
-    });
-  }
-  const connectStatus = professional
-    ? connectStatusOf({
-        stripeAccountId: professional.stripeAccountId,
-        stripeChargesEnabled: professional.stripeChargesEnabled,
-        stripePayoutsEnabled: professional.stripePayoutsEnabled,
-        stripeDetailsSubmitted: professional.stripeDetailsSubmitted,
-      })
-    : "none";
-  const paymentPackages = professional
-    ? await listPackagesForProfessional(professional.id)
-    : [];
-  const paymentNotice: Record<string, string> = {
-    volviendo:
-      "Volviste de Stripe. Revisa aquí abajo el estado de tu cuenta de cobros.",
-    reintentar:
-      "El enlace de verificación de Stripe caducó. Pulsa de nuevo para continuar donde ibas.",
-    pais: "Stripe todavía no puede transferir pagos a tu país. Tu ayuda gratuita sigue igual.",
-    "sin-configurar":
-      "Estamos terminando de configurar los cobros. Te avisaremos cuando puedas activarlos.",
-    perfil:
-      "Primero activa los servicios pagos (arriba) y luego conecta tu cuenta de Stripe.",
-    plataforma:
-      "Estamos terminando de habilitar los cobros a nivel de plataforma. Te avisaremos por correo en cuanto puedas conectarte; tu ayuda gratuita sigue igual.",
-    error:
-      "No pudimos conectar con Stripe en este momento. Inténtalo de nuevo en unos minutos.",
-  };
-  const paymentSection = professional ? (
-    <>
-      <PaymentSettings
-        offersPaidServices={professional.offersPaidServices}
-        paymentsConfigured={paymentsReady}
-        connectStatus={connectStatus}
-        countrySupported={countrySupported}
-        countryLabel={professional.country}
-        packages={paymentPackages.map((pkg) => ({
-          id: pkg.id,
-          title: pkg.title,
-          description: pkg.description,
-          sessionsCount: pkg.sessionsCount,
-          validityDays: pkg.validityDays,
-          priceCents: pkg.priceCents,
-          active: pkg.active,
-        }))}
-        notice={cobros ? (paymentNotice[cobros] ?? "") : ""}
-        siteUrl={SITE_URL}
       />
     </>
   ) : null;
@@ -261,26 +201,85 @@ export default async function ProDashboardPage({
     );
   }
 
-  const assigned = await db
-    .select({
-      request: helpRequests,
-      assignment: assignments,
-    })
-    .from(assignments)
-    .innerJoin(helpRequests, eq(assignments.helpRequestId, helpRequests.id))
-    // El estado de la asignación es la frontera de autorización: solo se
-    // muestran datos de contacto de solicitudes realmente asignadas a este pro.
-    .where(
-      and(
-        eq(assignments.professionalId, professional.id),
-        eq(assignments.status, "assigned"),
-      ),
-    );
+  // ---- Cobros (Stripe) ----
+  // Al volver del onboarding de Stripe (?cobros=volviendo) refrescamos el estado
+  // de la cuenta antes de pintarlo, para que el panel no muestre datos viejos.
+  // Es lo único secuencial; el resto de consultas van en paralelo.
+  if (professional.stripeAccountId && cobros === "volviendo") {
+    await refreshStripeAccountStatus({
+      id: professional.id,
+      stripeAccountId: professional.stripeAccountId,
+    });
+  }
 
-  const offers = await pendingOffersForProfessional(professional.id);
-  const missed = await missedOffersForProfessional(professional.id);
-  const chats = await conversationsForProfessional(professional.id);
+  // Todas las secciones del panel dependen solo de professional.id y no entre
+  // sí: en paralelo para no encadenar ~5 round-trips D1 al TTFB.
+  const [assigned, offers, missed, chats, paymentPackages] = await Promise.all([
+    db
+      .select({
+        request: helpRequests,
+        assignment: assignments,
+      })
+      .from(assignments)
+      .innerJoin(helpRequests, eq(assignments.helpRequestId, helpRequests.id))
+      // El estado de la asignación es la frontera de autorización: solo se
+      // muestran datos de contacto de solicitudes realmente asignadas a este pro.
+      .where(
+        and(
+          eq(assignments.professionalId, professional.id),
+          eq(assignments.status, "assigned"),
+        ),
+      ),
+    pendingOffersForProfessional(professional.id),
+    missedOffersForProfessional(professional.id),
+    conversationsForProfessional(professional.id),
+    listPackagesForProfessional(professional.id),
+  ]);
   const unreadCount = chats.filter(isUnread).length;
+
+  const paymentsReady = paymentsConfigured();
+  const countrySupported = isStripeSupportedCountry(professional.country);
+  const connectStatus = connectStatusOf({
+    stripeAccountId: professional.stripeAccountId,
+    stripeChargesEnabled: professional.stripeChargesEnabled,
+    stripePayoutsEnabled: professional.stripePayoutsEnabled,
+    stripeDetailsSubmitted: professional.stripeDetailsSubmitted,
+  });
+  const paymentNotice: Record<string, string> = {
+    volviendo:
+      "Volviste de Stripe. Revisa aquí abajo el estado de tu cuenta de cobros.",
+    reintentar:
+      "El enlace de verificación de Stripe caducó. Pulsa de nuevo para continuar donde ibas.",
+    pais: "Stripe todavía no puede transferir pagos a tu país. Tu ayuda gratuita sigue igual.",
+    "sin-configurar":
+      "Estamos terminando de configurar los cobros. Te avisaremos cuando puedas activarlos.",
+    perfil:
+      "Primero activa los servicios pagos (arriba) y luego conecta tu cuenta de Stripe.",
+    plataforma:
+      "Estamos terminando de habilitar los cobros a nivel de plataforma. Te avisaremos por correo en cuanto puedas conectarte; tu ayuda gratuita sigue igual.",
+    error:
+      "No pudimos conectar con Stripe en este momento. Inténtalo de nuevo en unos minutos.",
+  };
+  const paymentSection = (
+    <PaymentSettings
+      offersPaidServices={professional.offersPaidServices}
+      paymentsConfigured={paymentsReady}
+      connectStatus={connectStatus}
+      countrySupported={countrySupported}
+      countryLabel={professional.country}
+      packages={paymentPackages.map((pkg) => ({
+        id: pkg.id,
+        title: pkg.title,
+        description: pkg.description,
+        sessionsCount: pkg.sessionsCount,
+        validityDays: pkg.validityDays,
+        priceCents: pkg.priceCents,
+        active: pkg.active,
+      }))}
+      notice={cobros ? (paymentNotice[cobros] ?? "") : ""}
+      siteUrl={SITE_URL}
+    />
+  );
 
   const nombrePanel =
     professional.displayName || professional.fullName.split(" ")[0] || "";

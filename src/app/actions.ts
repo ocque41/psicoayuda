@@ -1,7 +1,7 @@
 "use server";
 
 import { and, count, eq, gte, or } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
@@ -500,6 +500,9 @@ function revalidateDirectoryViews() {
   revalidatePath("/");
   revalidatePath("/profesionales");
   revalidatePath("/ayuda");
+  // Invalida también el data cache de getCachedFeedProfessionals (tag cache D1):
+  // sin esto, el directorio cacheado seguiría 60s con la foto/estado viejos.
+  revalidateTag("professionals", { expire: 0 });
 }
 
 export async function adminUpdateProfessionalStatus(formData: FormData) {

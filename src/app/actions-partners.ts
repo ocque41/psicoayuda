@@ -1,7 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { auditLogs, partners } from "@/db/schema";
@@ -18,6 +18,8 @@ function revalidatePartnerViews() {
   revalidatePath("/admin");
   revalidatePath("/");
   revalidatePath("/alianzas");
+  // Data cache de getCachedPublishedPartners (carrusel, escaparate y directorio).
+  revalidateTag("partners", { expire: 0 });
 }
 
 /**

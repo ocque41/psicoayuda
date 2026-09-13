@@ -9,9 +9,12 @@ import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
-import { getFeedProfessionals } from "@/lib/feed";
+import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
-import { getPublishedPartners, partnersToOrganizations } from "@/lib/partners";
+import {
+  getCachedPublishedPartners,
+  partnersToOrganizations,
+} from "@/lib/partners";
 
 export const metadata: Metadata = {
   title: "Pedir ayuda psicológica gratis en Venezuela",
@@ -40,10 +43,10 @@ export default async function HelpPage({
   }>;
 }) {
   const { profesional, acceso, q, tipo, tema, disp, pago } = await searchParams;
-  const professionals = await getFeedProfessionals();
+  const professionals = await getCachedFeedProfessionals();
   const organizations = [
     ...publishedOrganizations,
-    ...partnersToOrganizations(await getPublishedPartners()),
+    ...partnersToOrganizations(await getCachedPublishedPartners()),
   ];
   const initialFilters = {
     q,

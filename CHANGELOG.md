@@ -2,6 +2,35 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.10.2 - 2026-09-13
+
+Rendimiento de todo el sitio: caché persistente real, menos consultas y bundle
+público más liviano. Sin cambios de contenido ni de comportamiento.
+
+- **Caché persistente (la causa raíz del TTFB)**: `open-next.config.ts` usaba la
+  caché por defecto (`dummy`), así que cada visita re-renderizaba la página,
+  volvía a consultar D1 y regeneraba la imagen OG. Ahora usa **KV**
+  (`NEXT_INC_CACHE_KV`), **cola de revalidación en Durable Objects**
+  (`DOQueueHandler`) y **tag cache en D1** (`NEXT_TAG_CACHE_D1`, migración 0025:
+  tabla `revalidations`), con `enableCacheInterception` para servir del edge sin
+  ejecutar Next en un acierto. El deploy siembra las páginas prerenderizadas.
+- **`public/_headers`**: `/_next/static/*` con `max-age=31536000, immutable`
+  (antes Cloudflare revalidaba cada asset en cada navegación).
+- **Consultas de directorio cacheadas**: `getCachedFeedProfessionals` y
+  `getCachedPublishedPartners` (data cache 60s/300s) con invalidación inmediata
+  por `revalidateTag` desde las acciones de perfil, aprobación y aliados.
+- **Panel profesional en paralelo**: las ~5 consultas D1 del dashboard (personas,
+  ofertas, chats, paquetes) pasan de secuenciales a `Promise.all`.
+- **Menú sin SDK de Better Auth**: el bundle público ya no carga
+  `better-auth/react` (~10 KB gzip en todas las páginas) ni pide
+  `/api/auth/get-session` a visitantes anónimos; solo consulta la sesión si
+  existe la cookie.
+- **Imágenes**: `images.unoptimized` (sin binding de Cloudflare Images la ruta
+  `/_next/image` solo gastaba una invocación por imagen) y logos de aliados
+  redimensionados (334 KB → 103 KB y 109 KB → 24 KB).
+- **`/alianzas` con ISR** (60s): al ser estática se quedaba con la copia vacía
+  del build hasta la siguiente edición.
+
 ## 0.10.1 - 2026-09-13
 
 Endurecimiento y optimización del módulo de pagos y de la auditoría, sin

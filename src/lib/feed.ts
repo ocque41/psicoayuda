@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, or } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/db";
 import { professionals } from "@/db/schema";
 import { isAvailableNow } from "@/lib/response-bucket";
@@ -45,6 +46,26 @@ function parseJsonList(value: string): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Las fotos de perfil se guardan en D1 como data URL (JPEG ~256 px). Incrustarlas
+ * en el HTML multiplica el peso de la página (y Next las duplica además en el
+ * payload RSC). En las listas públicas se sirve una URL propia y cacheable
+ * (`/foto/<id>?v=<hash>`); el hash solo cambia cuando cambia la foto, así el
+ * navegador puede cachearla un año sin quedarse con una versión vieja.
+ */
+export function publicPhotoUrl(
+  photo: string | null,
+  professionalId: string,
+): string | null {
+  if (!photo) return null;
+  if (!photo.startsWith("data:")) return photo;
+  let hash = 5381;
+  for (let i = 0; i < photo.length; i++) {
+    hash = ((hash << 5) + hash + photo.charCodeAt(i)) >>> 0;
+  }
+  return `/foto/${encodeURIComponent(professionalId)}?v=${hash.toString(16).padStart(8, "0")}`;
 }
 
 /**
@@ -131,7 +152,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     languages: parseJsonList(r.languages),
     supportAreas: parseJsonList(r.supportAreas),
     shortBio: r.shortBio,
-    photo: r.photo,
+    photo: publicPhotoUrl(r.photo, r.id),
     phone: r.phone,
     landline: r.landline,
     email: r.email,
@@ -159,3 +180,16 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
   const resto = shuffle(mapped.filter((p) => !isAvailableNow(p)));
   return [...disponibles, ...resto];
 }
+
+/**
+ * Versión cacheada para las vistas públicas (portada, /ayuda, /profesionales).
+ * Evita una consulta D1 por visita: el resultado vive en la caché incremental
+ * (KV) 60s y se invalida al instante con `revalidateTag("professionals")`
+ * cuando cambia quién aparece o cómo (aprobaciones, perfil, disponibilidad).
+ * Las server actions siguen usando `getFeedProfessionals` (datos frescos).
+ */
+export const getCachedFeedProfessionals = unstable_cache(
+  getFeedProfessionals,
+  ["public-professionals"],
+  { revalidate: 60, tags: ["professionals"] },
+);

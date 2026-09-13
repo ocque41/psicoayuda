@@ -78,12 +78,14 @@ export function FeedProfessionalCard({
     <article className="card pro-card">
       <div className="pro-card-head">
         {professional.photo ? (
-          // biome-ignore lint/performance/noImgElement: avatar es un data URL pequeño desde la BD; next/image no aplica
+          // biome-ignore lint/performance/noImgElement: avatar servido por /foto/[id] (cacheable); next/image no aplica a usuarios de BD
           <img
             className="avatar"
             src={professional.photo}
             alt=""
             aria-hidden="true"
+            loading="lazy"
+            decoding="async"
             style={{ objectFit: "cover" }}
           />
         ) : (

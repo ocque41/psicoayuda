@@ -6,9 +6,12 @@ import {
   DirectoryJsonLd,
 } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
-import { getFeedProfessionals } from "@/lib/feed";
+import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
-import { getPublishedPartners, partnersToOrganizations } from "@/lib/partners";
+import {
+  getCachedPublishedPartners,
+  partnersToOrganizations,
+} from "@/lib/partners";
 
 // Dinámica: lee los filtros de la URL (?q/?tipo/?tema/?disp) en el servidor para
 // que el primer render ya salga filtrado (enlace compartible/indexable, sin
@@ -40,10 +43,10 @@ export default async function ProfesionalesPage({
   }>;
 }) {
   const { q, tipo, tema, disp, pago } = await searchParams;
-  const professionals = await getFeedProfessionals();
+  const professionals = await getCachedFeedProfessionals();
   const organizations = [
     ...publishedOrganizations,
-    ...partnersToOrganizations(await getPublishedPartners()),
+    ...partnersToOrganizations(await getCachedPublishedPartners()),
   ];
   const initialFilters = {
     q,

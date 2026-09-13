@@ -6,7 +6,7 @@ import {
 import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
 import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
-import { getFeedProfessionals } from "@/lib/feed";
+import { getCachedFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
 
 // La portada muestra a las personas voluntarias verificadas (lista pública, sin
@@ -15,7 +15,7 @@ import { HOME_FAQ } from "@/lib/site";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const professionals = await getFeedProfessionals();
+  const professionals = await getCachedFeedProfessionals();
   // Carrusel de la portada: mismo desplazamiento manual que el de aliados;
   // mostramos hasta 9 para no alargar la sección. El resto en /profesionales.
   const featured = professionals.slice(0, 9);

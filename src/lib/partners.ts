@@ -1,6 +1,7 @@
 import "server-only";
 
 import { asc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/db";
 import { partners } from "@/db/schema";
 import type { Organization, OrgService } from "@/lib/organizations";
@@ -113,6 +114,17 @@ export async function getAllPartnersForAdmin(): Promise<Partner[]> {
     .orderBy(asc(partners.sortOrder), asc(partners.createdAt));
   return rows.map(toPartner);
 }
+
+/**
+ * Versión cacheada para las vistas públicas (portada, /alianzas, /ayuda y
+ * /profesionales). Evita una consulta D1 por visita; se invalida al instante
+ * con `revalidateTag("partners")` cuando el equipo edita un aliado en /admin.
+ */
+export const getCachedPublishedPartners = unstable_cache(
+  getPublishedPartners,
+  ["public-partners"],
+  { revalidate: 300, tags: ["partners"] },
+);
 
 /** Enlace directo de una vía de contacto (wa.me / tel: / instagram / web / mailto). */
 export function partnerContactHref(contact: PartnerContact): string | null {

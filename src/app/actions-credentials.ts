@@ -1,7 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -352,6 +352,8 @@ export async function updateMyPhones(
   revalidatePath("/pro/dashboard");
   revalidatePath("/profesionales");
   revalidatePath("/");
+  // El teléfono/correo público cambia en las fichas: invalida el data cache.
+  revalidateTag("professionals", { expire: 0 });
 
   return {
     status: "success",
