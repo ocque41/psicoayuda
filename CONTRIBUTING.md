@@ -37,7 +37,7 @@ Este proyecto se rige por nuestro [Código de Conducta](CODE_OF_CONDUCT.md). Al 
 - Lee primero [README.md](README.md), [docs/SAFETY.md](docs/SAFETY.md) y [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Si tu cambio toca producto o UX, revisa también [docs/UX_BRAINSTORM.md](docs/UX_BRAINSTORM.md), que documenta los **límites duros** y los principios de diseño.
 - **Abre un issue antes de un PR grande.** Para correcciones pequeñas (un typo, un bug acotado, una mejora de accesibilidad) puedes ir directo al PR. Para cambios de alcance, de modelo de datos, de copy sensible o de cualquier flujo de privacidad/seguridad, abre primero un issue para acordar el enfoque. Así evitamos que dediques esfuerzo a algo que choca con un límite del producto.
 - **Mantén el copy de cara al usuario en español primero.** El público objetivo está en Venezuela. El texto en inglés es bienvenido en el código, los comentarios y la discusión, pero la interfaz se escribe en español, con un tono calmado e informado por trauma (ver [docs/UX_BRAINSTORM.md](docs/UX_BRAINSTORM.md) §4.5).
-- **Respeta los límites duros.** No añadas pagos, chat in-app con desconocidos, videollamadas, ratings/reseñas, "terapeuta IA" ni matching complejo. No introduzcas teléfonos de emergencia que no estén verificados y con la fuente documentada. Estos límites no son negociables; protegen a personas vulnerables.
+- **Respeta los límites duros.** No añadas videollamadas, ratings/reseñas, "terapeuta IA" ni matching complejo. La ayuda por la emergencia es gratuita y no se cobra por ella; los pagos por servicios ajenos a la emergencia pasan **solo** por el módulo `src/lib/payments` (Stripe Connect) y nunca pueden condicionar la ayuda gratuita. No introduzcas teléfonos de emergencia que no estén verificados y con la fuente documentada. Estos límites no son negociables; protegen a personas vulnerables.
 
 ---
 
@@ -302,7 +302,7 @@ Nido es un **producto de crisis para personas vulnerables**. Estos límites no s
 
 **Lo que NO se debe construir:**
 
-- **Sin pagos.** El servicio es gratuito.
+- **Pagos solo con el módulo de Nido.** La ayuda de la emergencia es gratuita y no se cobra por ella. Los servicios pagos por otros temas son opcionales y pasan siempre por `src/lib/payments` (Stripe Connect, checkout hospedado, comisión fija); nunca se condiciona la ayuda gratuita a una contratación.
 - **Sin chat in-app con desconocidos, sin videollamadas.** El contacto se coordina por correo, fuera del momento de la solicitud.
 - **Sin ratings, reseñas ni ranking por popularidad.** Existe una heurística de coincidencia simple para uso interno del admin; **no se exhibe como un número/ranking** al usuario.
 - **Sin "terapeuta IA"** ni respuestas automáticas que simulen acompañamiento clínico.

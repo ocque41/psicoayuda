@@ -77,8 +77,13 @@ function mapLocalResult(result: LibsqlResultSet, method: SqliteMethod) {
   if (method === "run") {
     return { rows: [] };
   }
+  // libSQL devuelve cada fila como un objeto-array. Indexar por NOMBRE pierde
+  // columnas duplicadas de un JOIN (p. ej. `id` de dos tablas): solo queda una
+  // clave y el mapeo posicional de sqlite-proxy se desalinea (llegó a devolver
+  // el id del paquete como id del profesional). Usamos la POSICIÓN, igual que
+  // `D1.raw()` en producción. Era un bug de dev local, no de producción.
   const valueRows = result.rows.map((row) =>
-    result.columns.map((column) => row[column]),
+    Array.from(row as unknown as ArrayLike<unknown>),
   );
   if (method === "get") {
     return { rows: (valueRows[0] ?? undefined) as unknown[] };

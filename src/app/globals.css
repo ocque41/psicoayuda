@@ -1075,6 +1075,25 @@ h2[id] {
   margin: 4px 0 var(--space-4);
 }
 
+/* Borrado definitivo de una conversación (chat y bandeja del profesional). */
+.conversation-delete {
+  margin-top: var(--space-4);
+}
+
+.conversation-delete-warning {
+  margin: 0 0 10px;
+}
+
+.conversation-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.offer-list .conversation-delete {
+  margin-top: 10px;
+}
+
 .form-error {
   color: var(--danger);
   font-weight: 600;

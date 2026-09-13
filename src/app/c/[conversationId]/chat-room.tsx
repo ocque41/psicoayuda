@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
 import {
   type ChatMessage,
@@ -80,11 +81,15 @@ export function ChatRoom({
   role,
   otherName,
   open,
+  paymentLinks = [],
 }: {
   conversationId: string;
   role: SenderRole;
   otherName: string;
   open: boolean;
+  // Paquetes de pago del profesional (solo llegan en su rol): permiten insertar
+  // el link de pago en el mensaje, atado a esta conversación.
+  paymentLinks?: { id: string; title: string; priceLabel: string }[];
 }) {
   const [confirmed, setConfirmed] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
@@ -367,6 +372,11 @@ export function ChatRoom({
     }
   }
 
+  function insertPaymentLink(packageId: string) {
+    const url = `${window.location.origin}/pagar/${packageId}?c=${conversationId}`;
+    setDraft((prev) => (prev.trim() ? `${prev.trimEnd()}\n${url}` : url));
+  }
+
   // Recibo de lectura anclado al MAYOR mensaje propio ya leído por la otra parte
   // (estilo WhatsApp). Antes se exigía que fuese el último mensaje propio, así
   // que al enviar uno nuevo no leído el recibo desaparecía de toda la conversación.
@@ -485,6 +495,27 @@ export function ChatRoom({
 
         {open ? (
           <div className={styles.composer}>
+            {role === "professional" && paymentLinks.length > 0 ? (
+              <details className={styles.payLinks}>
+                <summary>Insertar link de pago</summary>
+                <p className={styles.payLinksHint}>
+                  Se escribirá en tu mensaje. Compártelo después de acordarlo
+                  con la persona.
+                </p>
+                <ul>
+                  {paymentLinks.map((pkg) => (
+                    <li key={pkg.id}>
+                      <button
+                        type="button"
+                        onClick={() => insertPaymentLink(pkg.id)}
+                      >
+                        {pkg.title} · {pkg.priceLabel}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             <textarea
               className={styles.textarea}
               value={draft}
@@ -546,6 +577,11 @@ export function ChatRoom({
           </div>
         )}
       </div>
+
+      <ConversationDeleteButton
+        conversationId={conversationId}
+        redirectTo={role === "professional" ? "/pro/dashboard#chats" : "/"}
+      />
 
       <p className={styles.safety}>
         Conversación privada entre ustedes dos. Por tu seguridad, evita

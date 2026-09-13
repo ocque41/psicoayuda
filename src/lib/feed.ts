@@ -27,6 +27,10 @@ export type FeedProfessional = {
   crisisExperience: boolean;
   // Etiqueta pública: acompaña sin credencial clínica (estudiante/voluntario).
   nonClinicalHelper: boolean;
+  // Etiqueta pública: además de la ayuda gratuita por la emergencia, ofrece
+  // servicios pagos por temas no relacionados (link de pago propio). La ayuda
+  // por el terremoto NUNCA se cobra.
+  offersPaidServices: boolean;
   // También atiende presencial (en su ciudad, Venezuela), además de/en vez de remoto.
   inPersonAvailable: boolean;
   acceptingRequests: boolean;
@@ -68,6 +72,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     emailPublic: boolean;
     crisisExperience: boolean;
     nonClinicalHelper: boolean;
+    offersPaidServices: boolean;
     inPersonAvailable: boolean;
     acceptingRequests: boolean;
     currentActiveRequests: number;
@@ -91,6 +96,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         emailPublic: professionals.emailPublic,
         crisisExperience: professionals.crisisExperience,
         nonClinicalHelper: professionals.nonClinicalHelper,
+        offersPaidServices: professionals.offersPaidServices,
         inPersonAvailable: professionals.inPersonAvailable,
         acceptingRequests: professionals.acceptingRequests,
         currentActiveRequests: professionals.currentActiveRequests,
@@ -132,6 +138,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     emailPublic: r.emailPublic,
     crisisExperience: r.crisisExperience,
     nonClinicalHelper: r.nonClinicalHelper,
+    offersPaidServices: r.offersPaidServices,
     inPersonAvailable: r.inPersonAvailable,
     acceptingRequests: r.acceptingRequests,
     currentActiveRequests: r.currentActiveRequests,

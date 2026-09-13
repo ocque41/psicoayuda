@@ -7,13 +7,9 @@ import {
   auditLogs,
   conversations,
   helpRequests,
-  seekerSessions,
+  professionals,
 } from "@/db/schema";
-import {
-  closeConversations,
-  releaseAssignmentsForRequest,
-} from "@/lib/assignment";
-import { purgeConversationMessages } from "@/lib/chat-admin";
+import { releaseAssignmentsForRequest } from "@/lib/assignment";
 import { newId, nowIso } from "@/lib/ids";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -21,6 +17,10 @@ const CLOSE_AFTER_MS = 90 * DAY_MS;
 const ANONYMIZE_AFTER_MS = 180 * DAY_MS;
 // La tabla del enlace mágico es desechable: solo sirve para limitar abuso.
 const ACCESS_REQUESTS_TTL_MS = 7 * DAY_MS;
+// Un chat sin actividad deja de ocupar cupo a los 30 días, pero NUNCA se borra
+// ni se cierra: el link vive para siempre hasta que una de las dos partes lo
+// borre desde su lado (ver src/app/c/[conversationId]/actions.ts).
+const QUOTA_IDLE_MS = 30 * DAY_MS;
 
 function isoMs(iso: string): number {
   const ms = Date.parse(iso);
@@ -28,11 +28,11 @@ function isoMs(iso: string): number {
 }
 
 /**
- * Anonimización END-TO-END de una solicitud, reutilizada por la acción admin y
- * por el cron de retención. Cierra/libera asignaciones, borra el transcript del
- * chat en el Durable Object (el PII más sensible, que solo vive ahí), marca las
- * conversaciones como anonimizadas, limpia el hash de IP de las sesiones del
- * seeker y borra los datos de la fila help_requests.
+ * Anonimización de una solicitud: libera asignaciones y borra los datos de la
+ * fila help_requests. Desde la política de chats eternos NO toca las
+ * conversaciones: el hilo (y su link) solo desaparece cuando el profesional o
+ * la persona lo borran explícitamente. La actividad del chat (lastMessageAt)
+ * sigue contando como actividad para no anonimizar un caso vivo.
  */
 export async function anonymizeHelpRequest(
   requestId: string,
@@ -40,55 +40,11 @@ export async function anonymizeHelpRequest(
 ) {
   const timestamp = nowIso();
 
-  // Cierra y libera la capacidad de cualquier asignación activa (esto además
-  // cierra las conversaciones y revoca las sesiones del seeker).
-  await releaseAssignmentsForRequest(requestId);
-
-  // Borrado real del contenido del chat: vacía cada Durable Object y rompe el
-  // hash de IP de la sesión del seeker (que sobrevivía a la anonimización).
-  const convs = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(eq(conversations.helpRequestId, requestId));
-  let allPurged = true;
-  for (const conversation of convs) {
-    const purged = await purgeConversationMessages(conversation.id);
-    if (!purged) allPurged = false;
-    await db
-      .update(seekerSessions)
-      .set({ requesterHash: null, revokedAt: new Date() })
-      .where(eq(seekerSessions.conversationId, conversation.id));
-  }
-
-  // BUG-D: si el transcript del DO (el PII más sensible, que SOLO vive ahí) no se
-  // pudo borrar, NO marcamos nada como anonimizado ni tocamos
-  // help_requests.updatedAt — así el cron (isNull(anonymizedAt) + updatedAt
-  // antiguo) lo reintenta en la próxima pasada en vez de abandonar el transcript
-  // para siempre mientras afirma que se anonimizó. Dejamos rastro del fallo.
-  if (!allPurged) {
-    await db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail,
-      action: "data_anonymization_failed",
-      entityType: "help_request",
-      entityId: requestId,
-      createdAt: timestamp,
-    });
-    return { ok: false as const };
-  }
-
-  if (convs.length > 0) {
-    await db
-      .update(conversations)
-      .set({
-        status: "closed",
-        seekerName: null,
-        seekerEmail: null,
-        anonymizedAt: timestamp,
-        updatedAt: timestamp,
-      })
-      .where(eq(conversations.helpRequestId, requestId));
-  }
+  // Cierra y libera la capacidad de cualquier asignación activa, pero conserva
+  // las conversaciones: son eternas y solo se borran con la acción explícita.
+  await releaseAssignmentsForRequest(requestId, "case_closed", {
+    closeConversations: false,
+  });
 
   await db
     .update(helpRequests)
@@ -123,11 +79,15 @@ export async function anonymizeHelpRequest(
 }
 
 /**
- * Retención automática prometida en la política de privacidad: cierra lo
- * inactivo > 90 días y anonimiza > 180 días. La actividad en el chat (espejo
- * `last_message_at` del DO) renueva el reloj, también para los chats directos
- * sin solicitud. La dispara el cron de Cloudflare (ver custom-worker.ts
- * `scheduled()` -> /api/internal/retention). Idempotente.
+ * Retención automática de lo que NO es el chat: las solicitudes de ayuda se
+ * cierran a los 90 días y se anonimizan a los 180 (con la actividad del chat
+ * como reloj), y la tabla desechable del enlace mágico se purga a los 7 días.
+ * Las conversaciones son ETERNAS: no se cierran ni se anonimizan aquí. Lo único
+ * que se libera es su cupo tras 30 días sin actividad, para que el profesional
+ * pueda acompañar a más personas sin perder ningún hilo.
+ *
+ * La dispara el cron de Cloudflare (ver custom-worker.ts `scheduled()` ->
+ * /api/internal/retention). Idempotente.
  */
 export async function runRetention(now: number = Date.now()) {
   const closeCutoff = new Date(now - CLOSE_AFTER_MS).toISOString();
@@ -161,7 +121,6 @@ export async function runRetention(now: number = Date.now()) {
       ),
     );
   let anonymized = 0;
-  const anonymizeFailed = new Set<string>();
   for (const request of toAnonymize) {
     const lastActivity = Math.max(
       isoMs(request.updatedAt),
@@ -169,11 +128,7 @@ export async function runRetention(now: number = Date.now()) {
     );
     if (now - lastActivity < ANONYMIZE_AFTER_MS) continue;
     const result = await anonymizeHelpRequest(request.id, null);
-    if (result.ok) {
-      anonymized += 1;
-    } else {
-      anonymizeFailed.add(request.id);
-    }
+    if (result.ok) anonymized += 1;
   }
 
   // 2) Cierra solicitudes inactivas > 90 días aún abiertas (y no anonimizadas).
@@ -189,18 +144,15 @@ export async function runRetention(now: number = Date.now()) {
     );
   let closed = 0;
   for (const request of toClose) {
-    // No cierres (ni bumpees updatedAt de) una solicitud cuya anonimización
-    // acaba de fallar en el paso 1: déjala intacta para que el paso 1 la
-    // reintente en la próxima pasada. Si la cerráramos aquí, su updatedAt nuevo
-    // la sacaría ~180 días de la ventana de anonimización (el transcript del DO
-    // sobreviviría todo ese tiempo mientras decimos que se anonimizó).
-    if (anonymizeFailed.has(request.id)) continue;
     const lastActivity = Math.max(
       isoMs(request.updatedAt),
       activityByRequest.get(request.id) ?? 0,
     );
     if (now - lastActivity < CLOSE_AFTER_MS) continue;
-    await releaseAssignmentsForRequest(request.id, "inactivity");
+    // Cierra la asignación y libera cupo, pero NO el chat: el hilo sigue vivo.
+    await releaseAssignmentsForRequest(request.id, "inactivity", {
+      closeConversations: false,
+    });
     // Sin bumpear updatedAt: el cierre no debe correr el reloj de inactividad
     // (si lo hiciera, la anonimización se retrasaría otros 180 días).
     await db
@@ -210,85 +162,64 @@ export async function runRetention(now: number = Date.now()) {
     closed += 1;
   }
 
-  // 3) Chats DIRECTOS (sin solicitud): mismo ciclo 90/180. Antes quedaban fuera
-  // del cron para siempre (ni se cerraban ni se purgaban). El reloj es el último
-  // mensaje, la reapertura o la creación — nunca `updated_at`, que el cierre
-  // bumpea y retrasaría la purga.
+  // 3) Libera cupo de los chats DIRECTOS sin actividad > 30 días (el hilo sigue
+  // abierto y accesible: solo deja de ocupar plaza). La marca
+  // `quota_released_at` hace el descuento idempotente: si el UPDATE guardado no
+  // reclama la fila, nadie más descuenta ese cupo.
   const directActivity = sql`max(coalesce(${conversations.lastMessageAt}, 0), coalesce(${conversations.reopenedAt}, 0), cast(strftime('%s', ${conversations.createdAt}) as integer) * 1000)`;
-
-  const directToAnonymize = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(
-      and(
-        isNull(conversations.helpRequestId),
-        isNull(conversations.anonymizedAt),
-        sql`${directActivity} < ${now - ANONYMIZE_AFTER_MS}`,
-      ),
-    );
-  let directAnonymized = 0;
-  for (const conversation of directToAnonymize) {
-    const purged = await purgeConversationMessages(conversation.id);
-    const timestamp = nowIso();
-    if (!purged) {
-      // Misma disciplina que BUG-D: sin purga real no se marca anonimizado, y
-      // se deja rastro para reintentar en la próxima pasada.
-      await db.insert(auditLogs).values({
-        id: newId("log"),
-        actorEmail: null,
-        action: "conversation_anonymization_failed",
-        entityType: "conversation",
-        entityId: conversation.id,
-        createdAt: timestamp,
-      });
-      continue;
-    }
-    await db
-      .update(seekerSessions)
-      .set({ requesterHash: null, revokedAt: new Date(now) })
-      .where(eq(seekerSessions.conversationId, conversation.id));
-    await db
-      .update(conversations)
-      .set({
-        status: "closed",
-        closedAt: timestamp,
-        closedReason: "inactivity",
-        seekerName: null,
-        seekerEmail: null,
-        anonymizedAt: timestamp,
-        updatedAt: timestamp,
-      })
-      .where(eq(conversations.id, conversation.id));
-    await db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail: null,
-      action: "conversation_anonymization",
-      entityType: "conversation",
-      entityId: conversation.id,
-      createdAt: timestamp,
-    });
-    directAnonymized += 1;
-  }
-
-  // 4) Cierra (sin purgar) los chats directos inactivos que siguen abiertos.
-  const directToClose = await db
-    .select({ id: conversations.id })
+  const stale = await db
+    .select({
+      id: conversations.id,
+      professionalId: conversations.professionalId,
+    })
     .from(conversations)
     .where(
       and(
         isNull(conversations.helpRequestId),
         eq(conversations.status, "open"),
-        sql`${directActivity} < ${now - CLOSE_AFTER_MS}`,
+        isNull(conversations.quotaReleasedAt),
+        sql`${directActivity} < ${now - QUOTA_IDLE_MS}`,
       ),
     );
-  await closeConversations(
-    directToClose,
-    nowIso(),
-    new Date(now),
-    "inactivity",
-  );
 
-  // 5) Purga la tabla desechable del enlace mágico (>7 días).
+  const releasedPerProfessional = new Map<string, number>();
+  const timestamp = nowIso();
+  for (const conversation of stale) {
+    const claimed = await db
+      .update(conversations)
+      .set({ quotaReleasedAt: new Date(now) })
+      .where(
+        and(
+          eq(conversations.id, conversation.id),
+          isNull(conversations.quotaReleasedAt),
+        ),
+      )
+      .returning({ id: conversations.id });
+    if (claimed.length === 0) continue;
+    releasedPerProfessional.set(
+      conversation.professionalId,
+      (releasedPerProfessional.get(conversation.professionalId) ?? 0) + 1,
+    );
+    await db.insert(auditLogs).values({
+      id: newId("log"),
+      actorEmail: null,
+      action: "conversation_quota_released",
+      entityType: "conversation",
+      entityId: conversation.id,
+      createdAt: timestamp,
+    });
+  }
+  for (const [professionalId, count] of releasedPerProfessional) {
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - ${count})`,
+        updatedAt: timestamp,
+      })
+      .where(eq(professionals.id, professionalId));
+  }
+
+  // 4) Purga la tabla desechable del enlace mágico (>7 días).
   await db
     .delete(accessRequests)
     .where(
@@ -298,7 +229,9 @@ export async function runRetention(now: number = Date.now()) {
   return {
     anonymized,
     closed,
-    directClosed: directToClose.length,
-    directAnonymized,
+    quotaReleased: [...releasedPerProfessional.values()].reduce(
+      (sum, n) => sum + n,
+      0,
+    ),
   };
 }

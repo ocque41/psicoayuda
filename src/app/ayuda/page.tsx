@@ -36,9 +36,10 @@ export default async function HelpPage({
     tipo?: string;
     tema?: string;
     disp?: string;
+    pago?: string;
   }>;
 }) {
-  const { profesional, acceso, q, tipo, tema, disp } = await searchParams;
+  const { profesional, acceso, q, tipo, tema, disp, pago } = await searchParams;
   const professionals = await getFeedProfessionals();
   const organizations = [
     ...publishedOrganizations,
@@ -49,6 +50,7 @@ export default async function HelpPage({
     type: tipo,
     topic: tema,
     onlyAvailable: disp === "1",
+    paid: pago === "1",
   };
   const itemNames = [
     ...professionals.map((professional) => professional.name),

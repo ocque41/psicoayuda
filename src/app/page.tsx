@@ -101,10 +101,12 @@ export default async function HomePage() {
           </p>
           <div className="grid grid-2">
             <article className="card">
-              <h3>100% gratis</h3>
+              <h3>Gratis en la emergencia, siempre</h3>
               <p>
-                Psicólogas y psicólogos voluntarios donan su tiempo. Nunca se te
-                pide un pago ni datos de tarjeta.
+                La ayuda por el terremoto no tiene costo. Nunca se te pide un
+                pago ni datos de tarjeta por ella. Si más adelante acuerdas
+                servicios pagos con un profesional, el pago se hace con la
+                pasarela segura de Stripe.
               </p>
             </article>
             <article className="card">

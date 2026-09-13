@@ -947,6 +947,9 @@ function securityEmailHtml(input: {
   paragraphs: string[];
   cta?: { label: string; url: string };
   footnote: string;
+  // Los correos de pago necesitan un pie distinto (la ayuda por el terremoto
+  // sigue siendo gratis, pero el paquete comprado no lo es).
+  footer?: string;
 }) {
   const cta = input.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
@@ -991,7 +994,7 @@ function securityEmailHtml(input: {
             </tr>
             <tr>
               <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
-                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia.</p>
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">${input.footer ?? "Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia."}</p>
               </td>
             </tr>
           </table>
@@ -1156,6 +1159,145 @@ Tu contraseña de la cuenta de Nido cambió correctamente. Por seguridad, cerram
 Si no hiciste este cambio, restablece tu contraseña de inmediato desde la página de acceso y escríbenos por la página de contacto.
 
 Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+// --- Correos de pago (módulo de cobros con Stripe) -----------------------------
+
+const PAYMENT_FOOTER =
+  "Este pago lo procesa Stripe para Nido. La ayuda por el terremoto sigue siendo gratis; este paquete es un servicio adicional acordado con el profesional. Si hay riesgo inmediato, contacta a los servicios locales de emergencia.";
+
+/** Recibo para quien pagó un paquete de sesiones. */
+export function buildPaymentReceiptEmail(input: {
+  packageTitle: string;
+  professionalName: string;
+  amountLabel: string;
+  payerName?: string | null;
+  sessionsCount?: number;
+  validityDays?: number | null;
+}): BuiltEmail {
+  const name = input.payerName?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const title = escapeHtml(input.packageTitle);
+  const professional = escapeHtml(input.professionalName);
+  const amount = escapeHtml(input.amountLabel);
+
+  const sessionsLine = input.sessionsCount
+    ? `El paquete incluye ${input.sessionsCount} ${
+        input.sessionsCount === 1 ? "sesión" : "sesiones"
+      }${input.validityDays ? `, válidas por ${input.validityDays} días` : ""}.`
+    : "";
+
+  const subject = `Confirmamos tu pago: ${input.packageTitle}`;
+  const preheader = `Pago de ${amount} a ${input.professionalName}.`;
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [
+      `Confirmamos tu pago de <strong>${amount}</strong> por <strong>${title}</strong>, con ${professional}. ${sessionsLine}`,
+      "El profesional se pondrá en contacto contigo para coordinar las sesiones. Si tienes dudas del paquete o necesitas reprogramar, respóndele directamente por el chat de Nido.",
+    ],
+    footnote:
+      "Este correo es tu recibo. Si no reconoces este pago, escríbenos por la página de contacto cuanto antes.",
+    footer: PAYMENT_FOOTER,
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+Confirmamos tu pago de ${input.amountLabel} por ${input.packageTitle}, con ${input.professionalName}. ${sessionsLine}
+
+El profesional se pondrá en contacto contigo para coordinar las sesiones. Si tienes dudas del paquete o necesitas reprogramar, respóndele directamente por el chat de Nido.
+
+Este correo es tu recibo. Si no reconoces este pago, escríbenos por la página de contacto.
+
+Nido`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/** Aviso al profesional de que recibió un pago (con su parte neta). */
+export function buildPaymentReceivedProEmail(input: {
+  packageTitle: string;
+  professionalName?: string | null;
+  grossLabel: string;
+  netLabel: string;
+  payerEmail?: string | null;
+  dashboardUrl: string;
+}): BuiltEmail {
+  const name = input.professionalName?.trim();
+  const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
+  const title = escapeHtml(input.packageTitle);
+  const payer = input.payerEmail
+    ? `<strong>${escapeHtml(input.payerEmail)}</strong>`
+    : "una persona";
+
+  const subject = `Recibiste un pago por "${input.packageTitle}"`;
+  const preheader = `${input.netLabel} llegarán a tu cuenta; coordina las sesiones.`;
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting,
+    paragraphs: [
+      `${payer} pagó <strong>${escapeHtml(input.grossLabel)}</strong> por tu paquete <strong>${title}</strong>. Después de la comisión de Nido, tu parte es de <strong>${escapeHtml(input.netLabel)}</strong> y Stripe la transferirá automáticamente a tu cuenta de cobros.`,
+      "Coordina las sesiones con la persona desde tu panel. Si necesitas devolver el pago o hay algún problema con la transacción, escríbenos cuanto antes.",
+    ],
+    cta: { label: "Ir a mi panel", url: input.dashboardUrl },
+    footnote:
+      "Por seguridad, revisa siempre que el pago aparezca en tu panel antes de prestar el servicio.",
+    footer: PAYMENT_FOOTER,
+  });
+
+  const text = `${name ? `Hola ${name},` : "Hola,"}
+
+${input.payerEmail ?? "Una persona"} pagó ${input.grossLabel} por tu paquete ${input.packageTitle}. Después de la comisión de Nido, tu parte es de ${input.netLabel} y Stripe la transferirá automáticamente a tu cuenta de cobros.
+
+Coordina las sesiones con la persona desde tu panel. Si necesitas devolver el pago o hay algún problema, escríbenos.
+
+${input.dashboardUrl}
+
+Nido`;
+
+  return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
+}
+
+/** Alerta interna para el equipo: disputa (chargeback) de un pago. */
+export function buildPaymentDisputeAlertEmail(input: {
+  paymentId: string;
+  packageTitle: string;
+  professionalName: string;
+  amountLabel: string;
+  adminUrl: string;
+}): BuiltEmail {
+  const subject = `Disputa de pago en Nido: ${input.packageTitle}`;
+  const preheader = `Revisa la disputa de ${input.amountLabel} en Stripe.`;
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting: "Equipo,",
+    paragraphs: [
+      `Se abrió una disputa (chargeback) en Stripe por el pago <strong>${escapeHtml(input.amountLabel)}</strong> del paquete <strong>${escapeHtml(input.packageTitle)}</strong> de ${escapeHtml(input.professionalName)}.`,
+      `Referencia interna: <strong>${escapeHtml(input.paymentId)}</strong>. Revisa el caso en el panel de Stripe (Disputas) y responde con la evidencia antes de que venza el plazo.`,
+    ],
+    cta: { label: "Abrir el panel de Nido", url: input.adminUrl },
+    footnote:
+      "Este aviso es interno de coordinación. La disputa del cargo la gestiona la plataforma, no el profesional.",
+    footer: "Nido · aviso interno de coordinación.",
+  });
+
+  const text = `Equipo,
+
+Se abrió una disputa (chargeback) en Stripe por el pago de ${input.amountLabel} del paquete ${input.packageTitle} de ${input.professionalName}.
+
+Referencia interna: ${input.paymentId}. Revisa el caso en el panel de Stripe (Disputas) y responde con evidencia antes del vencimiento.
+
+${input.adminUrl}
+
+Nido`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }

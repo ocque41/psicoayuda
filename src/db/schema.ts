@@ -146,6 +146,13 @@ export const professionals = sqliteTable(
     nonClinicalHelper: integer("non_clinical_helper", { mode: "boolean" })
       .default(false)
       .notNull(),
+    // ¿Ofrece también servicios PAGOS por temas ajenos a la emergencia? La ayuda
+    // por el terremoto sigue siendo gratis; este dato es la etiqueta pública que
+    // lo distingue en el directorio y habilita la sección de cobros/paquetes del
+    // panel (ver src/lib/payments). Autodeclarado por el profesional.
+    offersPaidServices: integer("offers_paid_services", { mode: "boolean" })
+      .default(false)
+      .notNull(),
     contactEmail: text("contact_email"),
     contactNotes: text("contact_notes"),
     shortBio: text("short_bio"),
@@ -186,6 +193,20 @@ export const professionals = sqliteTable(
       mode: "timestamp_ms",
     }),
     conductAcceptedAt: text("conduct_accepted_at"),
+    // ---- Cobros con Stripe (Connect Express). Nada de esto es público: solo se
+    // usa para habilitar la sección "Cobros" y crear Checkout Sessions. ----
+    stripeAccountId: text("stripe_account_id"),
+    stripeChargesEnabled: integer("stripe_charges_enabled", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    stripePayoutsEnabled: integer("stripe_payouts_enabled", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    stripeDetailsSubmitted: integer("stripe_details_submitted", {
+      mode: "boolean",
+    })
+      .default(false)
+      .notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -317,6 +338,11 @@ export const conversations = sqliteTable(
     closedReason: text("closed_reason"),
     // Reapertura dentro de la ventana de retención: mismo hilo, sin crear otro.
     reopenedAt: integer("reopened_at", { mode: "timestamp_ms" }),
+    // Cupo liberado por inactividad: la conversación es ETERNA (nunca se cierra
+    // sola), pero un hilo sin actividad >30 días deja de ocupar uno de los cupos
+    // del profesional para que pueda acompañar a más personas. Al liberarlo se
+    // descuenta `current_active_requests` una sola vez (idempotente por la fecha).
+    quotaReleasedAt: integer("quota_released_at", { mode: "timestamp_ms" }),
     anonymizedAt: text("anonymized_at"),
   },
   (table) => [
@@ -559,3 +585,89 @@ export const clickEvents = sqliteTable(
     index("click_events_campaign_idx").on(table.utmCampaign),
   ],
 );
+
+// ---- Pagos de Nido (Stripe). Módulo aislado: todo lo específico de cobros vive
+// aquí y en src/lib/payments/*. La plataforma cobra por el profesional y retiene
+// una comisión fija por transacción; el resto se transfiere a su cuenta Connect.
+// El contenido de tarjetas NUNCA toca Nido: se usa el Checkout hospedado de
+// Stripe (PCI SAQ A). ----
+
+// Paquetes de sesiones que cada profesional configura en su perfil ("4 sesiones
+// válidas por 1 mes", etc.). Público solo a través del link de pago /pagar/<id>.
+export const sessionPackages = sqliteTable(
+  "session_packages",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    // Número de sesiones incluidas y vigencia en días (null = sin caducidad).
+    sessionsCount: integer("sessions_count").notNull(),
+    validityDays: integer("validity_days"),
+    // Precio en la unidad mínima de la moneda (céntimos). EUR por ahora.
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").default("eur").notNull(),
+    active: integer("active", { mode: "boolean" }).default(true).notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("session_packages_professional_idx").on(
+      table.professionalId,
+      table.active,
+    ),
+  ],
+);
+
+// Registro contable de cada pago. Conserva SNAPSHOTS (nombre del profesional,
+// título del paquete) porque la contabilidad no debe perderse si luego se borra
+// la cuenta o el paquete. Los importes van en céntimos.
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: text("id").primaryKey(),
+    // Nullable + snapshot: si se borra la cuenta, el pago sigue existiendo.
+    professionalId: text("professional_id").references(() => professionals.id, {
+      onDelete: "set null",
+    }),
+    professionalName: text("professional_name"),
+    packageId: text("package_id").references(() => sessionPackages.id, {
+      onDelete: "set null",
+    }),
+    packageTitle: text("package_title"),
+    // Conversación de origen cuando el link se comparte dentro de un chat.
+    conversationId: text("conversation_id").references(() => conversations.id, {
+      onDelete: "set null",
+    }),
+    payerEmail: text("payer_email"),
+    payerName: text("payer_name"),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    amountCents: integer("amount_cents").notNull(),
+    applicationFeeCents: integer("application_fee_cents").notNull(),
+    currency: text("currency").default("eur").notNull(),
+    // 'pending' | 'paid' | 'failed' | 'expired' | 'refunded' | 'disputed'
+    status: text("status").default("pending").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    paidAt: text("paid_at"),
+    refundedAt: text("refunded_at"),
+  },
+  (table) => [
+    index("payments_professional_created_idx").on(
+      table.professionalId,
+      table.createdAt,
+    ),
+    index("payments_status_created_idx").on(table.status, table.createdAt),
+  ],
+);
+
+// Idempotencia de webhooks de Stripe: un evento se procesa EXACTAMENTE una vez.
+// Stripe reintenta entregas; sin esto un pago podría avisarse dos veces.
+export const stripeEvents = sqliteTable("stripe_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  processedAt: text("processed_at").notNull(),
+});

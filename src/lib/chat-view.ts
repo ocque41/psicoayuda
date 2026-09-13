@@ -17,6 +17,9 @@ export type ChatView = {
   /** Cómo nombrar a la otra parte (al seeker le mostramos el nombre del pro;
    *  al profesional NUNCA le revelamos identidad: la persona es anónima). */
   otherName: string;
+  /** Solo en la rama del profesional: para cargar sus paquetes de pago y
+   *  ofrecer "insertar link de pago" en el chat. */
+  professionalId?: string;
 };
 
 /**
@@ -75,6 +78,7 @@ export async function loadChatView(
         conversationId,
         open,
         otherName: "Alguien que pidió apoyo",
+        professionalId: pro.id,
       };
     }
   }

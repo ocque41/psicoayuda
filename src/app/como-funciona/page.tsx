@@ -156,8 +156,10 @@ export default function Page() {
               dentro de la plataforma.
             </li>
             <li>
-              <strong>No cobramos nada.</strong> Es un proyecto sin fines de
-              lucro. Nunca te pediremos datos de pago.
+              <strong>La emergencia es gratis.</strong> Es un proyecto sin fines
+              de lucro. Nunca te pediremos datos de pago por la ayuda del
+              terremoto. Si acuerdas servicios pagos por otros temas con un
+              profesional, se pagan con la pasarela segura de Stripe.
             </li>
             <li>
               <strong>

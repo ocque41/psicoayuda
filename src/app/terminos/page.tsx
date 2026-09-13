@@ -92,10 +92,13 @@ export default function TermsPage() {
               Sus credenciales, licencia o formación profesional son reales.
             </li>
             <li>Solo ofrecerán apoyo dentro de sus competencias.</li>
-            <li>No cobrarán por los contactos recibidos a través de Nido.</li>
             <li>
-              No usarán la plataforma para captar clientes pagos, hacer
-              publicidad engañosa o aprovecharse de personas vulnerables.
+              No cobrarán por la ayuda de la emergencia ni condicionarán el
+              apoyo gratuito a la contratación de servicios pagos.
+            </li>
+            <li>
+              Si ofrecen servicios pagos por otros temas, no presionarán a nadie
+              para contratarlos ni harán publicidad engañosa.
             </li>
             <li>Mantendrán confidencialidad sobre la información recibida.</li>
             <li>Cumplirán las leyes y normas profesionales aplicables.</li>

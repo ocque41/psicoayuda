@@ -2,6 +2,56 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.10.0 - 2026-09-13
+
+Chats eternos con borrado definitivo, etiqueta de servicios pagos y módulo de
+cobros con Stripe Connect. La ayuda por el terremoto sigue siendo gratuita.
+
+- **Conversaciones permanentes**: la retención ya no cierra ni anonimiza chats
+  (solo solicitudes 90/180 y el enlace mágico 7 días). El hilo vive hasta que el
+  profesional o la persona lo borran; borrar purga el Durable Object, elimina el
+  espejo en D1 y mata el link, con confirmación en la UI y auditoría
+  (`deleteConversation`).
+- **Cupo liberable sin perder hilos**: un chat directo sin actividad >30 días
+  deja de ocupar cupo (`conversations.quota_released_at`, migración 0023) para
+  que el profesional pueda acompañar a más personas.
+- **Borrado de cuenta sin transcripciones huérfanas**: `purgeAccount` ahora vacía
+  el DO de cada conversación antes de borrar las filas (`src/lib/account.ts`).
+- **Etiqueta y filtro "servicios pagos"** (`professionals.offers_paid_services`):
+  visible en la tarjeta del directorio y filtrable (`?pago=1`) en
+  `/profesionales` y `/ayuda`, con su pregunta en el alta y un interruptor en el
+  panel. La emergencia sigue siendo gratuita en todos los perfiles.
+- **Pagos opcionales con Stripe** (`src/lib/payments/*`, tablas
+  `session_packages`, `payments` y `stripe_events`): el profesional configura
+  paquetes de sesiones (precio en EUR, nº de sesiones y vigencia), conecta su
+  cuenta con Stripe Connect Express, y comparte links `/pagar/<paquete>`
+  (también insertables en el chat). Nido cobra con Checkout hospedado (sin ver
+  datos de tarjeta), retiene una comisión fija de 5 € por transacción
+  (`NIDO_PLATFORM_FEE_CENTS`) y Stripe transfiere el resto al profesional.
+- **Webhook robusto** (`/api/stripe/webhook`): firma verificada con
+  `constructEventAsync` sobre el cuerpo crudo, idempotencia por `event.id`
+  (`stripe_events`), eventos de fallo/reembolso/disputa, actualización de estado
+  de cuentas Connect y correos (recibo al pagador, aviso al profesional, alerta
+  interna por disputas). La cuenta de Stripe es compartida: todo evento sin
+  metadatos `nido_*` se ignora.
+- **Países soportados**: solo profesionales con cuenta Connect en países que
+  Stripe soporta (Venezuela no está en la lista); el panel lo explica con
+  claridad. Sin claves de Stripe, el módulo se oculta por completo.
+- **Copy y políticas alineadas** con el modelo mixto: FAQ, portada, pacto del
+  voluntario, términos, seguridad, privacidad (retención y pagos), README y
+  límites de contribución.
+
+### Requisitos de despliegue
+
+1. `wrangler secret put STRIPE_SECRET_KEY` (clave restringida).
+2. Crear el endpoint `https://saludmental-venezuela.com/api/stripe/webhook` con
+   los eventos `checkout.session.completed`, `checkout.session.expired`,
+   `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created`
+   y `account.updated`; guardar su secreto con
+   `wrangler secret put STRIPE_WEBHOOK_SECRET`.
+3. Activar Stripe Connect en la cuenta de plataforma (dashboard de Stripe) para
+   poder crear cuentas de cobro de los profesionales.
+
 ## 0.9.0 - 2026-09-13
 
 Credenciales del profesional desde su panel: cambiar correo, contraseña y

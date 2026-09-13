@@ -9,11 +9,15 @@ import {
   conversations,
   helpRequests,
   professionals,
+  responseSamples,
   seekerSessions,
 } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
-import { disconnectConversationSockets } from "@/lib/chat-admin";
+import {
+  disconnectConversationSockets,
+  purgeConversationMessagesDetailed,
+} from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
 import {
   conversationUrl,
@@ -257,6 +261,8 @@ export async function reopenConversation(
         closedAt: null,
         closedReason: null,
         reopenedAt: new Date(),
+        // Reabrir re-ocupa un cupo: la marca de "cupo liberado" deja de aplicar.
+        quotaReleasedAt: null,
         updatedAt: timestamp,
       })
       .where(
@@ -402,6 +408,212 @@ export async function reopenConversation(
   } catch {
     // best-effort
   }
+
+  return { ok: true, role };
+}
+
+export type DeleteConversationResult =
+  | { ok: true; role: "seeker" | "professional" }
+  | { ok: false; message: string };
+
+/**
+ * Borrado DEFINITIVO de una conversación. Puede hacerlo la persona (cookie de
+ * sala vigente) o el profesional dueño. Borra el transcript del Durable Object,
+ * las sesiones y las filas del espejo en D1: no hay vuelta atrás y el link deja
+ * de existir. Hasta este momento el link era eterno. Queda auditado.
+ *
+ * Si el hilo venía de una solicitud (/ayuda): al borrar el profesional, el caso
+ * vuelve a la cola para que otra persona pueda acompañar ("new"); si borra la
+ * persona, el caso se cierra y no se reencola a nadie.
+ */
+export async function deleteConversation(
+  conversationId: string,
+): Promise<DeleteConversationResult> {
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+  });
+  if (!conversation) {
+    return { ok: false, message: "Esta conversación ya no existe." };
+  }
+
+  // ¿Quién borra? Seeker (cookie HMAC + sesión vigente de ESTA sala) o el
+  // profesional dueño (better-auth). Cualquier otro: no autorizado.
+  let role: "seeker" | "professional" | null = null;
+  let actorEmail: string | null = null;
+
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(SEEKER_COOKIE)?.value;
+  if (raw) {
+    const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
+    if (
+      payload &&
+      payload.conversationId === conversationId &&
+      payload.sid === conversation.seekerSid
+    ) {
+      const session = await db.query.seekerSessions.findFirst({
+        where: eq(seekerSessions.sid, payload.sid),
+      });
+      const valid =
+        !!session &&
+        !session.revokedAt &&
+        session.expiresAt.getTime() > Date.now();
+      if (valid) role = "seeker";
+    }
+  }
+  if (!role) {
+    const session = await getServerSession();
+    if (session?.user?.id) {
+      const pro = await db.query.professionals.findFirst({
+        where: eq(professionals.userId, session.user.id),
+      });
+      if (
+        pro &&
+        pro.id === conversation.professionalId &&
+        pro.status !== "suspended"
+      ) {
+        role = "professional";
+        actorEmail = session.user.email ?? null;
+      }
+    }
+  }
+  if (!role) {
+    return {
+      ok: false,
+      message: "No pudimos verificar que seas parte de esta conversación.",
+    };
+  }
+
+  // Primero el contenido: si en producción la purga del DO falla, NO borramos
+  // las filas (quedarían transcripciones huérfanas sin forma de reintentar).
+  // En local (sin binding del DO) la purga es "unavailable" y se procede: nunca
+  // hubo contenido real que borrar.
+  const purge = await purgeConversationMessagesDetailed(conversationId);
+  if (purge === "failed") {
+    // En `next dev` el binding del DO existe pero el runtime no lo sirve (el
+    // propio workerd avisa "no such actor class"): ahí no hay contenido real que
+    // perder y bloqueamos el flujo para poder probarlo en local. En producción
+    // (build de OpenNext) un fallo de purga SÍ bloquea el borrado: nunca dejamos
+    // transcripciones huérfanas sin fila D1 que las reintente.
+    const isDev = process.env.NODE_ENV !== "production";
+    if (isDev) {
+      await db.insert(auditLogs).values({
+        id: newId("log"),
+        actorEmail,
+        action: "conversation_delete_purge_skipped_dev",
+        entityType: "conversation",
+        entityId: conversationId,
+        metadata: JSON.stringify({ role }),
+        createdAt: nowIso(),
+      });
+    } else {
+      await db.insert(auditLogs).values({
+        id: newId("log"),
+        actorEmail,
+        action: "conversation_delete_failed",
+        entityType: "conversation",
+        entityId: conversationId,
+        metadata: JSON.stringify({ role }),
+        createdAt: nowIso(),
+      });
+      return {
+        ok: false,
+        message:
+          "No pudimos borrar la conversación en este momento. Inténtalo de nuevo en unos minutos.",
+      };
+    }
+  }
+
+  const timestamp = nowIso();
+  let requeued = false;
+
+  if (conversation.helpRequestId) {
+    const assignment = await db.query.assignments.findFirst({
+      where: and(
+        eq(assignments.helpRequestId, conversation.helpRequestId),
+        eq(assignments.professionalId, conversation.professionalId),
+      ),
+    });
+    const activeAssignment =
+      assignment &&
+      (assignment.status === "assigned" || assignment.status === "accepted");
+    if (assignment && activeAssignment) {
+      const closedAssignment = await db
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(
+          and(
+            eq(assignments.id, assignment.id),
+            inArray(assignments.status, ["assigned", "accepted"]),
+          ),
+        )
+        .returning({ id: assignments.id });
+      if (closedAssignment.length > 0) {
+        await db
+          .update(professionals)
+          .set({
+            currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+            updatedAt: timestamp,
+          })
+          .where(eq(professionals.id, conversation.professionalId));
+
+        if (role === "professional") {
+          // El profesional deja el caso: vuelve a la cola para que otra persona
+          // pueda acompañar. (Mismo criterio que la suspensión de perfil.)
+          const requeuedRequest = await db
+            .update(helpRequests)
+            .set({ status: "new", updatedAt: timestamp })
+            .where(
+              and(
+                eq(helpRequests.id, conversation.helpRequestId),
+                eq(helpRequests.status, "assigned"),
+              ),
+            )
+            .returning({ id: helpRequests.id });
+          requeued = requeuedRequest.length > 0;
+        } else {
+          // La persona cierra su propio caso: no se reencola a nadie.
+          await db
+            .update(helpRequests)
+            .set({ status: "closed", updatedAt: timestamp })
+            .where(
+              and(
+                eq(helpRequests.id, conversation.helpRequestId),
+                eq(helpRequests.status, "assigned"),
+              ),
+            );
+        }
+      }
+    }
+  } else if (!conversation.quotaReleasedAt) {
+    // Chat directo que aún ocupaba cupo: se libera al borrarlo.
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+        updatedAt: timestamp,
+      })
+      .where(eq(professionals.id, conversation.professionalId));
+  }
+
+  await db.batch([
+    db
+      .delete(seekerSessions)
+      .where(eq(seekerSessions.conversationId, conversationId)),
+    db
+      .delete(responseSamples)
+      .where(eq(responseSamples.conversationId, conversationId)),
+    db.delete(conversations).where(eq(conversations.id, conversationId)),
+  ]);
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail,
+    action: "conversation_deleted",
+    entityType: "conversation",
+    entityId: conversationId,
+    metadata: JSON.stringify({ role, requeued }),
+    createdAt: timestamp,
+  });
 
   return { ok: true, role };
 }

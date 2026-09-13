@@ -3,9 +3,47 @@ import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 /**
- * Borra TODO el contenido de un chat del Durable Object (su SQLite). Lo usa la
- * anonimización del admin para honrar de verdad la promesa de borrado: el espejo
- * en D1 se anonimiza por separado, pero el contenido del chat solo vive en el DO.
+ * Resultado de intentar vaciar el DO:
+ * - "purged": el contenido se borró de verdad.
+ * - "unavailable": no hay runtime de Cloudflare (dev local) o falta el secreto;
+ *   no había contenido real que borrar.
+ * - "failed": había binding pero la petición falló; NO se debe dar por borrado.
+ */
+export type PurgeResult = "purged" | "unavailable" | "failed";
+
+export async function purgeConversationMessagesDetailed(
+  conversationId: string,
+): Promise<PurgeResult> {
+  let namespace: DurableObjectNamespace | undefined;
+  let secret: string | undefined;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    namespace = (env as { Conversation?: DurableObjectNamespace }).Conversation;
+    secret =
+      process.env.INTERNAL_NOTIFY_SECRET ?? process.env.BETTER_AUTH_SECRET;
+  } catch {
+    // Sin runtime de Cloudflare (dev local): no hay DO que borrar.
+    return "unavailable";
+  }
+  if (!namespace || !secret) return "unavailable";
+
+  try {
+    const stub = namespace.get(namespace.idFromName(conversationId));
+    const response = await stub.fetch("https://do/purge", {
+      method: "POST",
+      headers: { "x-nido-internal": secret },
+    });
+    return response.ok ? "purged" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
+ * Borra TODO el contenido de un chat del Durable Object (su SQLite). Lo usan el
+ * borrado definitivo (acción de la persona o del profesional) y el borrado de
+ * cuenta. El espejo en D1 se borra por separado, pero el contenido del chat solo
+ * vive en el DO.
  *
  * Direccionamos el DO con `idFromName(conversationId)` — la MISMA derivación que
  * usa partyserver para el WebSocket (getServerByName hace exactamente esto), así
@@ -13,28 +51,12 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
  * arrastra `cloudflare:workers`, que rompe el build de webpack de Next.
  *
  * Best-effort y silencioso: en local (sin binding del DO) o si algo falla,
- * devuelve false sin romper el flujo de anonimización del registro en D1.
+ * devuelve false sin romper el flujo que lo llama.
  */
 export async function purgeConversationMessages(
   conversationId: string,
 ): Promise<boolean> {
-  try {
-    const { env } = await getCloudflareContext({ async: true });
-    const namespace = (env as { Conversation?: DurableObjectNamespace })
-      .Conversation;
-    const secret =
-      process.env.INTERNAL_NOTIFY_SECRET ?? process.env.BETTER_AUTH_SECRET;
-    if (!namespace || !secret) return false;
-
-    const stub = namespace.get(namespace.idFromName(conversationId));
-    const response = await stub.fetch("https://do/purge", {
-      method: "POST",
-      headers: { "x-nido-internal": secret },
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return (await purgeConversationMessagesDetailed(conversationId)) === "purged";
 }
 
 /**

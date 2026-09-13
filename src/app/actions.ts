@@ -69,6 +69,7 @@ const PROFESSIONAL_FIELD_LABELS: Record<string, string> = {
   contactNotes: "Notas de contacto",
   shortBio: "Tu presentación",
   maxActiveRequests: "Personas a acompañar",
+  offersPaidServices: "Servicios pagos",
   conductFreeService: "Pacto voluntario",
   conductNoClientCapture: "Pacto voluntario",
   conductConfidentiality: "Pacto voluntario",
@@ -392,6 +393,7 @@ export async function saveProfessionalOnboarding(
     remoteAvailable: parsed.data.remoteAvailable,
     inPersonAvailable: parsed.data.inPersonAvailable,
     crisisExperience: parsed.data.crisisExperience,
+    offersPaidServices: parsed.data.offersPaidServices,
     contactEmail: parsed.data.contactEmail || session.user.email,
     contactNotes: parsed.data.contactNotes,
     shortBio: parsed.data.shortBio,
@@ -451,6 +453,33 @@ export async function updateProfessionalAvailability(formData: FormData) {
     .update(professionals)
     .set({
       acceptingRequests: formData.get("acceptingRequests") === "on",
+      updatedAt: nowIso(),
+    })
+    .where(
+      and(
+        eq(professionals.userId, session.user.id),
+        eq(professionals.status, "approved"),
+      ),
+    );
+
+  revalidatePath("/pro/dashboard");
+  revalidateDirectoryViews();
+}
+
+/**
+ * Activa/desactiva la etiqueta pública "ofrece servicios pagos" desde el panel.
+ * La ayuda por el terremoto sigue siendo gratuita; esto solo habilita la sección
+ * de paquetes y links de pago (módulo src/lib/payments). Solo profesionales
+ * aprobados: es una etiqueta del directorio público.
+ */
+export async function updateProfessionalPaidServices(formData: FormData) {
+  const session = await getServerSession();
+  if (!session?.user?.id) redirect("/pro");
+
+  await db
+    .update(professionals)
+    .set({
+      offersPaidServices: formData.get("offersPaidServices") === "on",
       updatedAt: nowIso(),
     })
     .where(

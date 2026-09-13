@@ -163,11 +163,54 @@
 
 .composer {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: flex-end;
   padding: 12px;
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+/* Selector "insertar link de pago" (solo profesional): ocupa su propia fila
+   encima del compositor para no romper la fila textarea + enviar. */
+.payLinks {
+  flex-basis: 100%;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.payLinks summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.payLinksHint {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.payLinks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payLinks button {
+  border: 1px solid var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .textarea {

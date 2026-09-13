@@ -38,7 +38,11 @@
     // secreto correspondiente vive como secreto del Worker:
     // `wrangler secret put TURNSTILE_SECRET_KEY`. Si falta cualquiera de los
     // dos, el panel funciona sin CAPTCHA (útil en desarrollo).
-    "TURNSTILE_SITE_KEY": "0x4AAAAAAEytSBhHzeNfCMBZ"
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEytSBhHzeNfCMBZ",
+    // Comisión FIJA de Nido por cada pago, en céntimos (500 = 5 €). Var pública;
+    // las claves de Stripe van como secretos del Worker:
+    // `wrangler secret put STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET`.
+    "NIDO_PLATFORM_FEE_CENTS": "500"
   },
   "d1_databases": [
     {

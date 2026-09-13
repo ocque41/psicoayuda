@@ -84,13 +84,15 @@ export default function Page() {
         <article className="card">
           <ul>
             <li>
-              <strong>Servicio gratuito.</strong> No cobran a las personas que
-              acompañan a través de Nido, ni les piden datos de pago.
+              <strong>La emergencia es gratuita.</strong> No cobran por la ayuda
+              de la emergencia ni piden datos de pago por ella. Si ofrecen
+              servicios pagos por otros temas, usan los links de pago seguros de
+              Nido y no condicionan nunca la ayuda gratuita.
             </li>
             <li>
-              <strong>No captación de clientes.</strong> No usan la plataforma
-              para conseguir clientes pagos, hacer publicidad ni desviar a las
-              personas hacia consultas privadas.
+              <strong>Sin presiones comerciales.</strong> No presionan a nadie
+              para contratar servicios pagos ni desvían a las personas hacia
+              consultas privadas.
             </li>
             <li>
               <strong>Confidencialidad.</strong> Cuidan la información que
