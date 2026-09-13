@@ -126,11 +126,14 @@ describe("getTurnstileConfig", () => {
   const originalSiteKey = process.env.TURNSTILE_SITE_KEY;
   const originalSecret = process.env.TURNSTILE_SECRET_KEY;
 
+  const restoreEnv = (name: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  };
+
   afterEach(() => {
-    if (originalSiteKey === undefined) delete process.env.TURNSTILE_SITE_KEY;
-    else process.env.TURNSTILE_SITE_KEY = originalSiteKey;
-    if (originalSecret === undefined) delete process.env.TURNSTILE_SECRET_KEY;
-    else process.env.TURNSTILE_SECRET_KEY = originalSecret;
+    restoreEnv("TURNSTILE_SITE_KEY", originalSiteKey);
+    restoreEnv("TURNSTILE_SECRET_KEY", originalSecret);
   });
 
   it("solo se activa cuando hay site key Y secreto", () => {
@@ -139,11 +142,11 @@ describe("getTurnstileConfig", () => {
     expect(getTurnstileConfig()).toEqual({ siteKey: "0xSITE", enabled: false });
 
     process.env.TURNSTILE_SITE_KEY = "";
-    process.env.TURNSTILE_SECRET_KEY = "secreto";
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
     expect(getTurnstileConfig()).toEqual({ siteKey: null, enabled: false });
 
     process.env.TURNSTILE_SITE_KEY = "0xSITE";
-    process.env.TURNSTILE_SECRET_KEY = "secreto";
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
     expect(getTurnstileConfig()).toEqual({ siteKey: "0xSITE", enabled: true });
   });
 });
