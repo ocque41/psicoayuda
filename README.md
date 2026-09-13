@@ -47,6 +47,7 @@ La aplicación recoge deliberadamente la menor cantidad de datos posible. **No**
 - **Solicitar ayuda sin cuenta.** Cualquier persona puede pedir apoyo desde `/ayuda` sin registrarse ni iniciar sesión. Se piden solo datos mínimos (correo de contacto, idioma, tipo de apoyo, urgencia y ubicación opcional).
 - **Ubicación opcional.** Geolocalización del navegador opcional, con alternativa manual de ciudad/estado/país. Lo que no quieras compartir, lo dejas en blanco.
 - **Inicio de sesión solo para profesionales.** Los profesionales voluntarios entran con Google (Better Auth). **Quien pide ayuda nunca crea cuenta ni usa el login de Google.**
+- **Credenciales gestionadas desde el panel.** Cada profesional puede cambiar su correo, su contraseña y sus teléfonos de contacto en "Tu cuenta": correo con doble confirmación (aprobación en la dirección actual + verificación de la nueva), contraseña exigiendo la actual y cerrando las demás sesiones, teléfonos con aviso de seguridad. Todo con auditoría y, si Cloudflare Turnstile está configurado, verificación anti-abuso.
 - **Verificación de profesionales.** Onboarding con estado `pendiente de verificación`; un coordinador aprueba, rechaza o suspende. Los profesionales no ven solicitudes ni reciben asignaciones hasta ser aprobados.
 - **Panel de coordinación (`/admin`).** Triaje de solicitudes, sugerencias de coincidencia, asignación manual y exportación CSV, todo restringido por `ADMIN_EMAILS`.
 - **Coincidencia remota y sencilla.** Sugiere profesionales aprobados, que aceptan solicitudes, remotos y por debajo de su capacidad. No hay ranking por popularidad.
@@ -241,6 +242,8 @@ Copia `.env.example` a `.env` y rellena los valores. Resumen de cada variable:
 | `RESEND_API_KEY` | Sí (para el chat) | Clave de Resend para enviar correos desde el Worker. Sin ella, el solicitante no recibe el enlace de acceso al chat cuando un profesional acepta. Si está vacía, el envío se omite en silencio. |
 | `CONTACT_FROM_EMAIL` | Sí (para el chat) | Remitente verificado en Resend, p. ej. `"Nido <avisos@tudominio.com>"`. |
 | `NOTIFICATION_EMAIL` | No | Correo del equipo que recibe el aviso de nuevas solicitudes. |
+| `TURNSTILE_SITE_KEY` | No | Site key público del widget de Cloudflare Turnstile. Se pone como `var` del Worker (`wrangler.jsonc`). |
+| `TURNSTILE_SECRET_KEY` | No | Secreto de Turnstile para `siteverify`. Se configura con `wrangler secret put TURNSTILE_SECRET_KEY`. Si falta cualquiera de las dos claves, el panel funciona sin CAPTCHA. |
 | `INTERNAL_NOTIFY_SECRET` | Recomendada | Secreto del RPC interno DO→Next y del cron de retención. Si está vacío, cae a `BETTER_AUTH_SECRET`. |
 
 > **Nunca** subas tu `.env`, bases de datos SQLite locales, logs ni exportaciones al repositorio. Los secretos de producción se guardan como secretos de Cloudflare con `wrangler secret put`, no en Git.

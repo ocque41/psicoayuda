@@ -92,3 +92,33 @@ Siguen pendientes: Turnstile/CAPTCHA en `/ayuda`, token
 de propiedad para la difusión, reserva de cupo en el chat directo, y el test del
 pool de Workers (incompatible con Vitest 4; el e2e con wrangler dev lo cubre).
 *(El cron de retención 30/90 quedó resuelto y ampliado a 90/180 en v0.8.0.)*
+
+## Actualización 0.9.0 (2026-09-13) — credenciales del profesional
+
+Los profesionales pueden cambiar correo, contraseña y teléfonos desde su panel
+(`/pro/dashboard`, sección "Tu cuenta"), con estas defensas:
+
+- **Correo con doble confirmación.** `user.changeEmail` de Better Auth: con el
+  correo actual verificado se aprueba primero el cambio desde la dirección
+  actual y luego se verifica la nueva; `user.email` no cambia hasta completar
+  ambos pasos. En cuentas sin verificar, la verificación va directa a la
+  dirección nueva y se manda un aviso de seguridad a la actual.
+- **Re-autenticación.** Correo y contraseña exigen la contraseña actual cuando
+  la cuenta tiene credencial propia (las cuentas de Google se apoyan en la
+  sesión + la doble confirmación del correo). Los teléfonos son datos públicos
+  de contacto, no un factor de acceso: se protegen con sesión, aviso y
+  auditoría.
+- **Contraseña.** `/change-password` exige la actual y, después, se revocan las
+  demás sesiones manteniendo viva la actual (la rotación de cookie de
+  `revokeOtherSessions: true` no se propaga de forma fiable desde una server
+  action). Aviso por correo. El restablecimiento por enlace también revoca
+  todas las sesiones (`revokeSessionsOnPasswordReset`).
+- **Teléfonos.** Normalizados a internacional (`toIntlNumber`) y sin poder
+  quedarse sin ninguna vía de contacto (correo público, WhatsApp o fijo).
+- **Anti-abuso.** Tope por cuenta/hora respaldado en D1 (`audit_logs`), no solo
+  en memoria del isolate; rate limit de Better Auth por endpoint; y Turnstile
+  opcional en los tres formularios (se activa cuando están `TURNSTILE_SITE_KEY`
+  y `TURNSTILE_SECRET_KEY`; el Worker valida con `siteverify`).
+- **Trazabilidad.** Cada cambio deja fila en `audit_logs` y el espejo
+  `professionals.email` (y el correo de coordinación cuando seguía al de la
+  cuenta) se sincroniza al completarse la verificación.

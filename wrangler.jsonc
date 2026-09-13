@@ -32,7 +32,13 @@
     // Se copia del panel: Cloudflare → Analytics & Logs → Web Analytics → añadir
     // sitio saludmental-venezuela.com → token del snippet. No es secreto (va en el
     // HTML). Vacío = analítica de visitas desactivada; el resto funciona igual.
-    "CF_BEACON_TOKEN": ""
+    "CF_BEACON_TOKEN": "",
+    // Site key PÚBLICO del widget de Cloudflare Turnstile que protege los
+    // formularios de credenciales del panel (correo/contraseña/teléfonos). El
+    // secreto correspondiente vive como secreto del Worker:
+    // `wrangler secret put TURNSTILE_SECRET_KEY`. Si falta cualquiera de los
+    // dos, el panel funciona sin CAPTCHA (útil en desarrollo).
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEytSBhHzeNfCMBZ"
   },
   "d1_databases": [
     {

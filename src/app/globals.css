@@ -1059,6 +1059,22 @@ h2[id] {
   padding: var(--space-4) 14px 6px;
 }
 
+/* Credenciales en el panel ("Tu cuenta"): correo, contraseña y teléfonos. */
+.credential-settings {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.credential-settings .disclosure {
+  background: var(--surface);
+}
+
+/* Hueco del widget Turnstile (solo se pinta si Cloudflare está configurado). */
+.turnstile-slot {
+  margin: 4px 0 var(--space-4);
+}
+
 .form-error {
   color: var(--danger);
   font-weight: 600;
