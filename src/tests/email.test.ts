@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildNewMessageEmail } from "@/lib/email-templates";
+import {
+  buildNewMessageEmail,
+  buildSeekerNewMessageEmail,
+} from "@/lib/email-templates";
 
 const URL = "https://nido.example/c/conv_abc123";
 
@@ -70,5 +73,28 @@ describe("buildNewMessageEmail", () => {
     });
     expect(mail.html).not.toContain("<script>x</script>");
     expect(mail.html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("buildSeekerNewMessageEmail", () => {
+  const ACCESS = "https://nido.example/acceso/tok_abc123";
+
+  it("avisa de la respuesta con CTA al acceso y sin contenido", () => {
+    const mail = buildSeekerNewMessageEmail({ accessUrl: ACCESS });
+    expect(mail.subject).toContain("respuesta");
+    expect(mail.html).toContain("Entrar a mi conversación");
+    expect(mail.html).toContain("no incluimos el mensaje");
+  });
+
+  it("incluye el enlace de acceso en html y texto", () => {
+    const mail = buildSeekerNewMessageEmail({ accessUrl: ACCESS });
+    expect(mail.html).toContain(`href="${ACCESS}"`);
+    expect(mail.text).toContain(ACCESS);
+  });
+
+  it("recuerda que los mensajes quedan guardados (persistencia)", () => {
+    const mail = buildSeekerNewMessageEmail({ accessUrl: ACCESS });
+    expect(mail.html).toContain("quedan guardados");
+    expect(mail.text).toContain("quedan guardados");
   });
 });

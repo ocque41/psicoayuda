@@ -8,7 +8,9 @@ import {
 import {
   authorizeConnection,
   makeOnBeforeConnect,
+  professionalCanSend,
   professionalConnectionAllows,
+  seekerCanSend,
   seekerSessionAllows,
 } from "@/server/auth-gate";
 
@@ -94,7 +96,12 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
   it("permite sesión vigente y conversación abierta", () => {
     expect(
       seekerSessionAllows(
-        { revoked_at: null, expires_at: now + 1000, status: "open" },
+        {
+          revoked_at: null,
+          expires_at: now + 1000,
+          status: "open",
+          anonymized_at: null,
+        },
         now,
       ),
     ).toBe(true);
@@ -103,7 +110,12 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
   it("bloquea sesión revocada", () => {
     expect(
       seekerSessionAllows(
-        { revoked_at: now - 1, expires_at: now + 1000, status: "open" },
+        {
+          revoked_at: now - 1,
+          expires_at: now + 1000,
+          status: "open",
+          anonymized_at: null,
+        },
         now,
       ),
     ).toBe(false);
@@ -112,25 +124,56 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
   it("bloquea sesión expirada", () => {
     expect(
       seekerSessionAllows(
-        { revoked_at: null, expires_at: now, status: "open" },
+        {
+          revoked_at: null,
+          expires_at: now,
+          status: "open",
+          anonymized_at: null,
+        },
         now,
       ),
     ).toBe(false);
   });
 
-  it("bloquea conversación cerrada o anonimizada", () => {
+  it("permite conversación CERRADA (leer y reabrir); bloquea la anonimizada", () => {
     expect(
       seekerSessionAllows(
-        { revoked_at: null, expires_at: now + 1000, status: "closed" },
+        {
+          revoked_at: null,
+          expires_at: now + 1000,
+          status: "closed",
+          anonymized_at: null,
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      seekerSessionAllows(
+        {
+          revoked_at: null,
+          expires_at: now + 1000,
+          status: "closed",
+          anonymized_at: now - 1,
+        },
         now,
       ),
     ).toBe(false);
-    expect(
-      seekerSessionAllows(
-        { revoked_at: null, expires_at: now + 1000, status: "anonymized" },
-        now,
-      ),
-    ).toBe(false);
+  });
+});
+
+describe("seekerCanSend (lectura vs escritura)", () => {
+  const base = {
+    revoked_at: null,
+    expires_at: Date.now() + 1000,
+    anonymized_at: null,
+  };
+  it("escribir solo con conversación abierta", () => {
+    expect(seekerCanSend(null)).toBe(true);
+    expect(seekerCanSend({ ...base, status: "open" })).toBe(true);
+    expect(seekerCanSend({ ...base, status: "closed" })).toBe(false);
+    expect(seekerCanSend({ ...base, status: "closed", anonymized_at: 1 })).toBe(
+      false,
+    );
   });
 });
 
@@ -144,21 +187,24 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "open",
         professional_status: "approved",
+        anonymized_at: null,
       }),
     ).toBe(true);
   });
 
-  it("bloquea conversación cerrada o anonimizada", () => {
+  it("permite conversación CERRADA (leer y reabrir); bloquea la anonimizada", () => {
     expect(
       professionalConnectionAllows({
         conversation_status: "closed",
         professional_status: "approved",
+        anonymized_at: null,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       professionalConnectionAllows({
-        conversation_status: "anonymized",
+        conversation_status: "closed",
         professional_status: "approved",
+        anonymized_at: 1,
       }),
     ).toBe(false);
   });
@@ -168,6 +214,27 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "open",
         professional_status: "suspended",
+        anonymized_at: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("professionalCanSend (lectura vs escritura)", () => {
+  it("escribir solo con conversación abierta", () => {
+    expect(professionalCanSend(null)).toBe(true);
+    expect(
+      professionalCanSend({
+        conversation_status: "open",
+        professional_status: "approved",
+        anonymized_at: null,
+      }),
+    ).toBe(true);
+    expect(
+      professionalCanSend({
+        conversation_status: "closed",
+        professional_status: "approved",
+        anonymized_at: null,
       }),
     ).toBe(false);
   });

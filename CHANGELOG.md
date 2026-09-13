@@ -2,6 +2,32 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.8.0 - 2026-09-13
+
+Persistencia de chats: las conversaciones se pueden retomar, reabrir y
+notificar a ambas partes dentro de la ventana de retención, sin cuentas.
+
+- **Retención 90/180 con actividad rodante** (`src/lib/retention.ts`, migración
+  0022): cierre a los 90 días sin actividad y anonimización a los 180 (purga real
+  del SQLite del DO). El último mensaje renueva el reloj y los chats DIRECTOS
+  (sin solicitud) ya entran en el ciclo; antes quedaban fuera para siempre.
+- **Sesión deslizante + enlace mágico** (`/acceso`, `renewSeekerChatToken`): la
+  persona sin cuenta renueva su acceso al entrar (hasta 90 días) y puede pedir
+  enlaces frescos por correo desde cualquier dispositivo (3/h, respuesta neutra).
+- **Aviso de respuesta a la persona**: si el profesional responde y la persona no
+  está conectada, recibe un correo con enlace de acceso renovado, sin contenido
+  (debounce de 5 min; `notify-seeker` en el DO).
+- **Reapertura del mismo hilo**: las conversaciones cerradas se leen en solo
+  lectura (`x-nido-can-send=0`) y pueden reabrirse durante la ventana: rearma el
+  caso, re-reserva cupo atómicamente y reconecta los sockets con escritura.
+- **Bandeja del profesional**: orden por última actividad y badge de "nuevo"
+  (solo metadatos timestamp+rol; el contenido sigue solo en el DO), con enlace
+  "Ver y reabrir" para cerradas.
+- **Cupo del chat directo**: el alta directa reserva cupo atómicamente (antes se
+  comprobaba pero no se reservaba) y acepta un correo opcional para la re-entrada.
+- **Privacidad**: copy de `/privacidad` actualizado (90/180, actividad rodante,
+  chats y reapertura). Docs: `docs/CHAT_ARCHITECTURE.md` y `docs/SECURITY.md`.
+
 ## 0.7.2 - 2026-07-02
 
 Borrador automático del formulario de perfil (caso real: una voluntaria

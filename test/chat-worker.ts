@@ -38,7 +38,19 @@ export default {
 
     const routed = await routePartykitRequest(request, env, {
       prefix: "parties",
-      onBeforeConnect: makeOnBeforeConnect(env),
+      onBeforeConnect: async (upgradeRequest, lobby) => {
+        const result = await makeOnBeforeConnect(env)(upgradeRequest, lobby);
+        // Solo-test: sin binding D1 no se puede simular una conversación cerrada;
+        // este header permite forzar `x-nido-can-send` para el caso de solo
+        // lectura (nunca existe en producción: el gate pisa el valor que llega).
+        const override = request.headers.get("x-test-can-send");
+        if (result instanceof Request && override) {
+          const headers = new Headers(result.headers);
+          headers.set("x-nido-can-send", override);
+          return new Request(result, { headers });
+        }
+        return result;
+      },
     });
     return routed ?? new Response("not found", { status: 404 });
   },

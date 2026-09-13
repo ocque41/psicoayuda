@@ -2,9 +2,18 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { conversations, professionals, responseSamples } from "@/db/schema";
+import {
+  conversations,
+  helpRequests,
+  professionals,
+  responseSamples,
+} from "@/db/schema";
 import { newId } from "@/lib/ids";
-import { notifyProfessionalNewMessage } from "@/lib/notifications";
+import {
+  notifyProfessionalNewMessage,
+  notifySeekerNewMessage,
+} from "@/lib/notifications";
+import { createSeekerAccessLink } from "@/lib/seeker-access";
 
 // Solo el Durable Object del chat (mismo Worker) llama aquí, con un secreto
 // compartido. Centraliza el email y la métrica donde `server-only` es válido.
@@ -27,6 +36,8 @@ type ChatEvent = {
   kind?: string;
   conversationId?: string;
   responseDeltaMs?: number;
+  lastMessageAt?: number;
+  lastMessageRole?: string;
 };
 
 export async function POST(request: Request) {
@@ -64,6 +75,53 @@ export async function POST(request: Request) {
         conversationId,
         seekerLabel: conversation.seekerName ?? undefined,
       });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Espejo de METADATOS del DO a D1 (timestamp + rol del último mensaje). El
+  // contenido JAMÁS sale del SQLite del Durable Object; esto solo habilita la
+  // bandeja del profesional (orden por actividad + badge de no leído).
+  if (body.kind === "message-meta") {
+    const role =
+      body.lastMessageRole === "professional"
+        ? "professional"
+        : body.lastMessageRole === "seeker"
+          ? "seeker"
+          : null;
+    const at =
+      typeof body.lastMessageAt === "number" &&
+      Number.isFinite(body.lastMessageAt)
+        ? new Date(body.lastMessageAt)
+        : null;
+    if (role && at) {
+      await db
+        .update(conversations)
+        .set({ lastMessageAt: at, lastMessageRole: role })
+        .where(eq(conversations.id, conversationId));
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Avisa a la persona sin cuenta de que su acompañante respondió, con un
+  // enlace de acceso renovado (sin contenido). Solo si hay correo: en el chat
+  // directo es opcional y puede no existir.
+  if (body.kind === "notify-seeker") {
+    if (conversation.anonymizedAt || conversation.status === "anonymized") {
+      return NextResponse.json({ ok: true });
+    }
+    const request = conversation.helpRequestId
+      ? await db.query.helpRequests.findFirst({
+          where: eq(helpRequests.id, conversation.helpRequestId),
+        })
+      : null;
+    const seekerEmail = conversation.seekerEmail ?? request?.email ?? null;
+    if (seekerEmail) {
+      const link = await createSeekerAccessLink({
+        conversationId,
+        helpRequestId: conversation.helpRequestId,
+      });
+      await notifySeekerNewMessage({ seekerEmail, accessUrl: link.url });
     }
     return NextResponse.json({ ok: true });
   }

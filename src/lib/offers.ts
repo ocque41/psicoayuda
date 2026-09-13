@@ -391,18 +391,33 @@ export async function missedOffersForProfessional(professionalId: string) {
     .limit(6);
 }
 
-/** Conversaciones del profesional (su bandeja de chats), más recientes primero. */
+/**
+ * Conversaciones del profesional (su bandeja de chats), ordenadas por ÚLTIMA
+ * ACTIVIDAD (no por creación): lo que espera respuesta queda arriba. Incluye
+ * metadatos no sensibles para el badge de no leído (`lastMessageRole` +
+ * `proLastReadAt`); el contenido sigue solo en el Durable Object.
+ */
 export async function conversationsForProfessional(professionalId: string) {
   return db
     .select({
       conversationId: conversations.id,
       status: conversations.status,
+      closedReason: conversations.closedReason,
+      lastMessageAt: conversations.lastMessageAt,
+      lastMessageRole: conversations.lastMessageRole,
+      proLastReadAt: conversations.proLastReadAt,
       createdAt: conversations.createdAt,
+      seekerName: conversations.seekerName,
+      seekerEmail: conversations.seekerEmail,
       needCategory: helpRequests.needCategory,
       urgency: helpRequests.urgency,
     })
     .from(conversations)
     .leftJoin(helpRequests, eq(conversations.helpRequestId, helpRequests.id))
     .where(eq(conversations.professionalId, professionalId))
-    .orderBy(desc(conversations.createdAt));
+    .orderBy(
+      desc(
+        sql`coalesce(${conversations.lastMessageAt}, cast(strftime('%s', ${conversations.createdAt}) as integer) * 1000)`,
+      ),
+    );
 }

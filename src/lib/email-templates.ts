@@ -106,6 +106,240 @@ Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio d
 }
 
 /**
+ * Aviso a la PERSONA (sin cuenta) de que su acompañante le respondió en el chat.
+ * Privacy-safe: sin contenido del mensaje; solo el enlace de acceso renovado.
+ * Es la pieza que permite que la conversación continúe de forma asíncrona sin
+ * que nadie tenga que quedarse con la pestaña abierta.
+ */
+export function buildSeekerNewMessageEmail(input: {
+  accessUrl: string;
+}): BuiltEmail {
+  const url = input.accessUrl;
+  const urlAttr = escapeHtml(url);
+  const subject = "Tienes una respuesta en Nido";
+  const preheader =
+    "Tu acompañante te escribió. Entra a tu conversación privada cuando quieras.";
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#b65334;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#8a3d28;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">Hola,</p>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">Tu acompañante te escribió en tu conversación privada. Puedes entrar cuando quieras: tus mensajes quedan guardados y puedes retomarla desde donde la dejaste.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:999px;background:#b65334;">
+                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Entrar a mi conversación</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Por privacidad no incluimos el mensaje en este correo; lo verás en la conversación segura. Si el botón no funciona, copia este enlace:<br /><a href="${urlAttr}" target="_blank" style="color:#8a3d28;word-break:break-all;">${escapeHtml(url)}</a></p>
+                <p style="margin:14px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Por tu seguridad, evita compartir datos que te identifiquen (dirección exacta, documentos).</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si estás en peligro inmediato, llama al 911 o a los servicios locales de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hola,
+
+Tu acompañante te escribió en tu conversación privada de Nido. Puedes entrar cuando quieras; tus mensajes quedan guardados y puedes retomarla desde donde la dejaste:
+
+${url}
+
+Por privacidad no incluimos el mensaje en este correo; lo verás en la conversación segura.
+
+Por tu seguridad, evita compartir datos que te identifiquen (dirección exacta, documentos).
+
+Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.`;
+
+  return { subject, html, text, headers: {} };
+}
+
+/**
+ * Correo del enlace mágico (/acceso): devuelve hasta 5 accesos frescos a las
+ * conversaciones vivas de ese correo. Sin contenido de los chats: cada botón
+ * abre la conversación privada correspondiente.
+ */
+export function buildSeekerAccessLinksEmail(input: {
+  links: Array<{ url: string; when: string }>;
+}): BuiltEmail {
+  const subject = "Tus conversaciones en Nido";
+  const preheader =
+    "Tu enlace privado para volver a tus conversaciones. Sin cuenta, sin contraseña.";
+
+  const items = input.links
+    .map(
+      (link) => `
+            <tr>
+              <td style="padding:10px 0 18px;border-bottom:1px solid #e7decf;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:999px;background:#b65334;">
+                      <a href="${escapeHtml(link.url)}" target="_blank" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">Entrar a mi conversación</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:10px 0 0;font-size:13px;color:#6e655b;">Última actividad: ${escapeHtml(link.when)}</p>
+              </td>
+            </tr>`,
+    )
+    .join("");
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#b65334;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#8a3d28;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">Hola,</p>
+                <p style="margin:0 0 8px;font-size:16px;line-height:1.6;">Estos enlaces abren tus conversaciones privadas. Puedes volver cuando quieras: los mensajes quedan guardados.</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}
+                </table>
+                <p style="margin:14px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Por tu seguridad, no compartas este correo: los enlaces son privados. Si no pediste este acceso, ignóralo.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si estás en peligro inmediato, llama al 911 o a los servicios locales de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hola,
+
+Estos enlaces abren tus conversaciones privadas en Nido. Puedes volver cuando quieras: los mensajes quedan guardados.
+
+${input.links.map((link) => `- Última actividad: ${link.when}\n  ${link.url}`).join("\n")}
+
+Por tu seguridad, no compartas este correo: los enlaces son privados. Si no pediste este acceso, ignóralo.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.`;
+
+  return { subject, html, text, headers: {} };
+}
+
+/**
+ * Aviso de que una conversación cerrada se REABRIÓ (la persona o el
+ * profesional pueden retomar el mismo hilo dentro de la ventana de retención).
+ * Sin contenido; solo el enlace correspondiente a cada parte.
+ */
+export function buildChatReopenedEmail(input: {
+  audience: "seeker" | "professional";
+  url: string;
+}): BuiltEmail {
+  const isSeeker = input.audience === "seeker";
+  const subject = isSeeker
+    ? "Tu conversación en Nido se reabrió"
+    : "Se reabrió una conversación en Nido";
+  const lead = isSeeker
+    ? "Tu conversación volvió a estar abierta. Tus mensajes siguen guardados y puedes retomarla cuando quieras."
+    : "La persona que acompañabas reabrió su conversación contigo. Puedes retomarla cuando quieras desde tu panel.";
+  const cta = isSeeker ? "Entrar a mi conversación" : "Abrir conversación";
+  const urlAttr = escapeHtml(input.url);
+  const accent = isSeeker ? "#b65334" : "#2f7a5b";
+  const accentText = isSeeker ? "#8a3d28" : "#245f47";
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:${accent};height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:${accentText};">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">Hola,</p>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:999px;background:${accent};">
+                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${cta}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Si no esperabas esto, puedes ignorar este correo.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hola,
+
+${lead}
+
+${cta}: ${input.url}
+
+Si no esperabas esto, puedes ignorar este correo.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.`;
+
+  return { subject, html, text, headers: {} };
+}
+
+/**
  * Aviso al profesional de que hay una NUEVA solicitud difundida que puede
  * aceptar. Privacy-safe: NO incluye PII de la persona (ni correo ni relato);
  * solo el tipo de apoyo y la urgencia (datos mínimos ya visibles en su panel) y

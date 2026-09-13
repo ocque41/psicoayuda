@@ -296,18 +296,42 @@ export const conversations = sqliteTable(
     // escribiendo" sin tener que cruzar a help_requests (que puede ser null en el
     // flujo de chat directo). Se borra al anonimizar.
     seekerName: text("seeker_name"),
+    // Correo OPCIONAL del seeker en chats directos (sin solicitud /ayuda), para
+    // habilitar la re-entrada por enlace mágico. En el flujo de solicitud se usa
+    // help_requests.email. Se borra al anonimizar.
+    seekerEmail: text("seeker_email"),
     status: text("status").default("open").notNull(),
     firstSeekerMsgAt: integer("first_seeker_msg_at", { mode: "timestamp_ms" }),
     firstProReplyAt: integer("first_pro_reply_at", { mode: "timestamp_ms" }),
+    // Espejo NO sensible de la actividad del DO (solo timestamp + rol del último
+    // mensaje, NUNCA contenido): ordena la bandeja del profesional y marca no
+    // leídos. Lo escribe el endpoint interno del DO.
+    lastMessageAt: integer("last_message_at", { mode: "timestamp_ms" }),
+    lastMessageRole: text("last_message_role"),
+    // Cuándo abrió/leyó el chat el profesional (badge de "nuevo" en su panel).
+    proLastReadAt: integer("pro_last_read_at", { mode: "timestamp_ms" }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     closedAt: text("closed_at"),
+    // 'inactivity' | 'case_closed' | 'admin' | 'professional' | 'seeker'
+    closedReason: text("closed_reason"),
+    // Reapertura dentro de la ventana de retención: mismo hilo, sin crear otro.
+    reopenedAt: integer("reopened_at", { mode: "timestamp_ms" }),
     anonymizedAt: text("anonymized_at"),
   },
   (table) => [
     index("conversations_professional_idx").on(table.professionalId),
     index("conversations_help_request_idx").on(table.helpRequestId),
     index("conversations_status_created_idx").on(table.status, table.createdAt),
+    index("conversations_professional_activity_idx").on(
+      table.professionalId,
+      table.lastMessageAt,
+    ),
+    index("conversations_status_activity_idx").on(
+      table.status,
+      table.lastMessageAt,
+    ),
+    index("conversations_seeker_email_idx").on(table.seekerEmail),
   ],
 );
 
@@ -353,6 +377,29 @@ export const responseSamples = sqliteTable(
       table.professionalId,
       table.sampledAt,
     ),
+  ],
+);
+
+// Solicitudes del enlace mágico de re-entrada (/acceso) para que una persona sin
+// cuenta vuelva a sus conversaciones desde cualquier dispositivo. Tabla
+// desechable (el cron purga >7 días) que solo guarda hashes: nunca el correo en
+// claro, nunca la IP. Se usa para limitar abuso (3/h por correo + IP).
+export const accessRequests = sqliteTable(
+  "access_requests",
+  {
+    id: text("id").primaryKey(),
+    emailHash: text("email_hash").notNull(),
+    requesterHash: text("requester_hash"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+  },
+  (table) => [
+    index("access_requests_email_created_idx").on(
+      table.emailHash,
+      table.createdAt,
+    ),
+    index("access_requests_created_idx").on(table.createdAt),
   ],
 );
 

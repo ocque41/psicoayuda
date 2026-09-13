@@ -28,22 +28,34 @@ const ACTIVE_ASSIGNMENT_STATES = ["assigned", "accepted"] as const;
 /**
  * Cierra las conversaciones ABIERTAS indicadas y revoca la sesión del seeker
  * (kill-switch real: corta también el acceso por WebSocket, que solo mira el
- * token HMAC). Devuelve cuántas conversaciones cerró.
+ * token HMAC). Devuelve cuántas conversaciones cerró. `reason` deja rastro del
+ * porqué (fin de caso, inactividad, admin…).
  */
-async function closeConversations(
+export async function closeConversations(
   rows: Array<{ id: string }>,
   timestamp: string,
   revokedAt: Date,
+  reason = "case_closed",
 ) {
   for (const conversation of rows) {
     await db
       .update(conversations)
-      .set({ status: "closed", closedAt: timestamp, updatedAt: timestamp })
+      .set({
+        status: "closed",
+        closedAt: timestamp,
+        closedReason: reason,
+        updatedAt: timestamp,
+      })
       .where(eq(conversations.id, conversation.id));
-    await db
-      .update(seekerSessions)
-      .set({ revokedAt })
-      .where(eq(seekerSessions.conversationId, conversation.id));
+    // El cierre por INACTIVIDAD es limpieza, no un evento de seguridad: se
+    // conserva la sesión para que la persona pueda leer y reabrir. Los cierres
+    // de caso/cuenta sí revocan (kill-switch).
+    if (reason !== "inactivity") {
+      await db
+        .update(seekerSessions)
+        .set({ revokedAt })
+        .where(eq(seekerSessions.conversationId, conversation.id));
+    }
     // Corta el WebSocket vivo en el Durable Object. El kill-switch de D1 solo se
     // evalúa al CONECTAR y, con hibernación, un socket ya abierto sobrevivía a
     // cerrar/suspender (seguía pudiendo chatear). Best-effort (no rompe el cierre
@@ -183,7 +195,10 @@ export async function assignRequestToProfessional(input: {
  * estados "assigned" Y "accepted". Cierra además la conversación abierta y revoca
  * la sesión del seeker. Se invoca al cerrar/anonimizar.
  */
-export async function releaseAssignmentsForRequest(helpRequestId: string) {
+export async function releaseAssignmentsForRequest(
+  helpRequestId: string,
+  reason = "case_closed",
+) {
   const active = await db.query.assignments.findMany({
     where: and(
       eq(assignments.helpRequestId, helpRequestId),
@@ -226,7 +241,7 @@ export async function releaseAssignmentsForRequest(helpRequestId: string) {
         eq(conversations.status, "open"),
       ),
     );
-  await closeConversations(openConversations, timestamp, new Date());
+  await closeConversations(openConversations, timestamp, new Date(), reason);
 
   return active.length;
 }

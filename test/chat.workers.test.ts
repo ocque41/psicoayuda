@@ -97,6 +97,23 @@ async function open(conversationId: string, cookie: string): Promise<Client> {
   return wrap(res.webSocket as unknown as WebSocket);
 }
 
+// Conexión con headers extra (solo-test): simula `x-nido-can-send=0` (cerrada).
+async function openWith(
+  conversationId: string,
+  cookie: string,
+  extra: Record<string, string>,
+): Promise<Client> {
+  const headers: Record<string, string> = { Upgrade: "websocket", ...extra };
+  headers.Cookie = cookie;
+  const res = await SELF.fetch(
+    `https://internal.test/parties/conversation/${conversationId}`,
+    { headers },
+  );
+  expect(res.status).toBe(101);
+  expect(res.webSocket).not.toBeNull();
+  return wrap(res.webSocket as unknown as WebSocket);
+}
+
 async function settle(ms = 60) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -127,6 +144,32 @@ describe("chat Durable Object (runtime de Workers)", () => {
     const ok = await connect("conv_auth", seekerCookie("conv_auth"));
     expect(ok.status).toBe(101);
     (ok.webSocket as unknown as WebSocket).accept();
+  });
+
+  it("conversación cerrada: historial en solo lectura y envío rechazado", async () => {
+    const conv = "conv_closed";
+    const seeker = await openWith(conv, seekerCookie(conv), {
+      "x-test-can-send": "0",
+    });
+    await seeker.waitFor("history");
+
+    seeker.send({
+      type: "send",
+      clientMsgId: "c_closed_1",
+      content: "no debería enviarse",
+    });
+    const blocked = await seeker.waitFor("error");
+    expect(blocked).toMatchObject({
+      type: "error",
+      code: "conversation_closed",
+    });
+
+    // Simula la reapertura (canSend=1): el envío vuelve a funcionar.
+    const pro = await openWith(conv, proCookie(conv), {});
+    await pro.waitFor("history");
+    pro.send({ type: "send", clientMsgId: "c_open_1", content: "hola" });
+    const ack = await pro.waitFor("ack");
+    expect(ack.type).toBe("ack");
   });
 
   it("entrega mensajes en tiempo real entre seeker y profesional", async () => {

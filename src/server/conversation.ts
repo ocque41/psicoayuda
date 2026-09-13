@@ -18,13 +18,15 @@ const HISTORY_PAGE = 30;
 const SYNC_LIMIT = 200;
 // Como mucho un email cada 5 min por conversación (anti-spam al profesional).
 const NOTIFY_DEBOUNCE_MS = 5 * 60 * 1000;
+// Mismo debounce para avisar a la PERSONA de que le respondieron (sin contenido).
+const SEEKER_NOTIFY_DEBOUNCE_MS = 5 * 60 * 1000;
 // Anti-flood: tope de frames por conexión y ventana, y tope duro de mensajes
 // por conversación (evita crecimiento no acotado del SQLite del DO).
 const FRAME_WINDOW_MS = 10_000;
 const FRAME_MAX_PER_WINDOW = 40;
 const MAX_MESSAGES_PER_CONVERSATION = 5000;
 
-type ConnState = { role: SenderRole };
+type ConnState = { role: SenderRole; canSend: boolean };
 
 type MessageRow = {
   server_id: string;
@@ -61,6 +63,7 @@ export class Conversation extends Server<Env> {
   private firstSeekerMsgAt: number | null = null;
   private firstProReplyAt: number | null = null;
   private lastNotifyAt = 0;
+  private lastSeekerNotifyAt = 0;
   // Contador de frames por conexión (en memoria; un flood mantiene el DO
   // despierto, así que la ventana persiste durante el ataque).
   private rate = new Map<string, { winStart: number; count: number }>();
@@ -100,6 +103,7 @@ export class Conversation extends Server<Env> {
     this.firstProReplyAt = this.readMeta("first_pro_reply_at");
     // Persistido: tras hibernar, no reabrir la ventana de anti-spam de email.
     this.lastNotifyAt = this.readMeta("last_notify_at") ?? 0;
+    this.lastSeekerNotifyAt = this.readMeta("last_seeker_notify_at") ?? 0;
   }
 
   private readMeta(key: string): number | null {
@@ -127,7 +131,10 @@ export class Conversation extends Server<Env> {
     const header = ctx.request.headers.get("x-nido-role");
     const role: SenderRole =
       header === "professional" ? "professional" : "seeker";
-    connection.setState({ role } satisfies ConnState);
+    // `0` cuando la conversación está cerrada (o anonimizada): el historial se
+    // sirve en solo lectura y el envío se rechaza hasta reabrir.
+    const canSend = ctx.request.headers.get("x-nido-can-send") !== "0";
+    connection.setState({ role, canSend } satisfies ConnState);
 
     const rows = this.ctx.storage.sql
       .exec(
@@ -170,9 +177,18 @@ export class Conversation extends Server<Env> {
       return;
     }
     const role = (connection.state as ConnState | null)?.role ?? "seeker";
+    const canSend = (connection.state as ConnState | null)?.canSend ?? true;
 
     switch (frame.type) {
       case "send":
+        // Conversación cerrada: el historial se puede leer, pero no escribir.
+        if (!canSend) {
+          this.sendTo(connection, {
+            type: "error",
+            code: "conversation_closed",
+          });
+          return;
+        }
         await this.handleSend(
           connection,
           role,
@@ -294,6 +310,25 @@ export class Conversation extends Server<Env> {
         void this.callInternal("notify-message");
       }
     }
+
+    // Espejo de METADATOS a D1 (solo timestamp + rol del último mensaje): ordena
+    // la bandeja del profesional y marca no leídos. El CONTENIDO nunca sale del
+    // SQLite del Durable Object.
+    void this.callInternal("message-meta", {
+      lastMessageAt: serverTs,
+      lastMessageRole: role,
+    });
+
+    // Aviso a la PERSONA sin cuenta de que su acompañante respondió, con enlace
+    // de acceso renovado (sin contenido). Cierra el ciclo asíncrono del chat.
+    if (role === "professional" && !this.isSeekerOnline()) {
+      const now = Date.now();
+      if (now - this.lastSeekerNotifyAt >= SEEKER_NOTIFY_DEBOUNCE_MS) {
+        this.lastSeekerNotifyAt = now;
+        this.writeMeta("last_seeker_notify_at", now);
+        void this.callInternal("notify-seeker");
+      }
+    }
   }
 
   private handleSync(connection: Connection, sinceSeq: number) {
@@ -315,6 +350,15 @@ export class Conversation extends Server<Env> {
   private isProfessionalOnline(): boolean {
     for (const connection of this.getConnections()) {
       if ((connection.state as ConnState | null)?.role === "professional") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isSeekerOnline(): boolean {
+    for (const connection of this.getConnections()) {
+      if ((connection.state as ConnState | null)?.role === "seeker") {
         return true;
       }
     }
@@ -352,6 +396,7 @@ export class Conversation extends Server<Env> {
       this.firstSeekerMsgAt = null;
       this.firstProReplyAt = null;
       this.lastNotifyAt = 0;
+      this.lastSeekerNotifyAt = 0;
       // Cierra las conexiones vivas: ya no hay contenido que servir.
       for (const connection of this.getConnections()) {
         try {

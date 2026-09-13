@@ -40,7 +40,7 @@ export default {
   // Crons (ver wrangler.jsonc `triggers.crons`). Disparan un endpoint interno por
   // loopback al propio handler de Next/opennext (donde `db` corre contra D1) con
   // el secreto compartido. Enrutamos según el cron que disparó:
-  //  - "0 3 * * *"    → retención (cierra a 30 días, anonimiza a 90).
+  //  - "0 3 * * *"    → retención (cierra a los 90 días sin actividad, anonimiza a 180).
   //  - "0 * / 12 * * *" → informe de clics por correo (cada 12h).
   async scheduled(
     controller: ScheduledController,
