@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, or } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/db";
 import { professionals } from "@/db/schema";
 import { isAvailableNow } from "@/lib/response-bucket";
@@ -159,3 +160,16 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
   const resto = shuffle(mapped.filter((p) => !isAvailableNow(p)));
   return [...disponibles, ...resto];
 }
+
+/**
+ * Versión cacheada para las vistas públicas (portada, /ayuda, /profesionales).
+ * Evita una consulta D1 por visita: el resultado vive en la caché incremental
+ * (KV) 60s y se invalida al instante con `revalidateTag("professionals")`
+ * cuando cambia quién aparece o cómo (aprobaciones, perfil, disponibilidad).
+ * Las server actions siguen usando `getFeedProfessionals` (datos frescos).
+ */
+export const getCachedFeedProfessionals = unstable_cache(
+  getFeedProfessionals,
+  ["public-professionals"],
+  { revalidate: 60, tags: ["professionals"] },
+);

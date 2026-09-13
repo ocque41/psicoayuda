@@ -1,5 +1,5 @@
 import {
-  getPublishedPartners,
+  getCachedPublishedPartners,
   isExternalHref,
   type PartnerContact,
   partnerContactHref,
@@ -19,7 +19,7 @@ function contactClass(type: PartnerContact["type"]) {
 // desde el carrusel de la portada (/alianzas#<id>). Contacto directo por
 // WhatsApp/llamada, mismo patrón "libro amarillo" que las fichas de profesionales.
 export async function PartnersShowcase() {
-  const partners = await getPublishedPartners();
+  const partners = await getCachedPublishedPartners();
   if (partners.length === 0) return null;
 
   return (

@@ -176,6 +176,13 @@
       "when": 1789318087446,
       "tag": "0024_great_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789331694515,
+      "tag": "0025_opennext_tag_cache",
+      "breakpoints": true
     }
   ]
 }

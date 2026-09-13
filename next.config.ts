@@ -44,6 +44,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Sin binding de Cloudflare Images, /_next/image solo ejecutaría el Worker
+  // para devolver el archivo original (sin transformar) y sin caché persistente.
+  // Servimos los archivos tal cual (ya redimensionados en public/) para ahorrar
+  // esa invocación y aprovechar la caché de assets del edge.
+  images: { unoptimized: true },
   // El alta profesional envía el comprobante (hasta ~1,2 MB en base64) y la foto
   // (~300 KB) dentro del body de la server action. El límite por defecto de Next
   // es 1 MB: con un documento cercano al máximo, la petición se rechazaba entera

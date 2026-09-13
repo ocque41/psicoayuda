@@ -1,28 +1,55 @@
 "use client";
 
-import { createAuthClient } from "better-auth/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const authClient = createAuthClient();
+type SessionUser = { id: string; email: string };
 
 /**
  * Navegación de dos modos. Por defecto (carga / sin sesión) muestra el menú
  * público — lo que ve la gente al entrar y lo que indexan los buscadores. Si
  * hay sesión (solo los profesionales inician sesión) cambia al menú profesional.
- * Es un island de cliente para no convertir todo el sitio en dinámico (las
- * páginas públicas siguen siendo estáticas).
+ *
+ * No usa el SDK de Better Auth en el cliente: ese paquete (~10 KB gzip) viajaba
+ * en TODAS las páginas y además pedía `/api/auth/get-session` en cada visita,
+ * también para quien no tiene sesión. Aquí comprobamos primero si existe la
+ * cookie de sesión y solo entonces consultamos el endpoint (mismo JSON), con
+ * `fetch` propio. El coste para el visitante anónimo es cero.
  */
 export function SiteNav() {
-  const { data: session, isPending } = authClient.useSession();
-  const [mounted, setMounted] = useState(false);
-  // Better Auth puede resolver la cookie inmediatamente en el navegador. Si la
-  // usamos en el primer render, el servidor pinta el menú público y el cliente
-  // intenta hidratar el profesional, lo que provoca un mismatch de React. La
-  // primera pintura queda estable y cambiamos de menú justo después de montar.
-  useEffect(() => setMounted(true), []);
-  const isPro = mounted && !isPending && Boolean(session?.user);
+  const [session, setSession] = useState<SessionUser | null>(null);
+  const [resolved, setResolved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    // La cookie de sesión de Better Auth se llama `better-auth.session_token`
+    // (con prefijo `__Secure-` en producción). Si no existe, no hay sesión que
+    // resolver: nada de peticiones extra para el visitante anónimo.
+    if (!document.cookie.includes("better-auth")) {
+      setResolved(true);
+      return;
+    }
+    fetch("/api/auth/get-session", { headers: { accept: "application/json" } })
+      .then((res) =>
+        res.ok
+          ? (res.json() as Promise<{ user?: SessionUser }>)
+          : { user: undefined },
+      )
+      .then((data) => {
+        if (!active) return;
+        setSession(data?.user ?? null);
+        setResolved(true);
+      })
+      .catch(() => {
+        if (active) setResolved(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isPro = resolved && Boolean(session);
 
   // Solo con sesión preguntamos al servidor si esta cuenta es admin. La lista de
   // ADMIN_EMAILS nunca sale al cliente; el endpoint solo devuelve el booleano.
@@ -73,7 +100,11 @@ export function SiteNav() {
         <button
           type="button"
           onClick={() => {
-            authClient.signOut().finally(() => {
+            fetch("/api/auth/sign-out", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: "{}",
+            }).finally(() => {
               window.location.href = "/";
             });
           }}

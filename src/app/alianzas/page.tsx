@@ -6,9 +6,14 @@ import { PartnersShowcase } from "@/components/partners-showcase";
 export const metadata: Metadata = {
   title: "Fundaciones y organizaciones aliadas",
   description:
-    "¿Representas a una fundación, universidad, colegio de psicólogos u otra organización de salud mental? Déjanos tus datos para aliarte con Nido y acompañar a más personas tras el terremoto.",
+    "¿Representas una fundación, universidad, colegio de psicólogos u otra organización de salud mental? Déjanos tus datos para aliarte con Nido y acompañar a más personas tras el terremoto.",
   alternates: { canonical: "/alianzas" },
 };
+
+// ISR: la página es estática pero el escaparate lee aliados de D1. Sin
+// revalidación, la copia prerenderizada (sin BD en build) se quedaría vacía
+// hasta la siguiente edición en /admin.
+export const revalidate = 60;
 
 export default function AlianzasPage() {
   return (

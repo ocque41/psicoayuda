@@ -4,7 +4,7 @@
   "main": "custom-worker.ts",
   "workers_dev": false,
   "compatibility_date": "2026-06-28",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "routes": [
     { "pattern": "saludmental-venezuela.com", "custom_domain": true },
     { "pattern": "www.saludmental-venezuela.com", "custom_domain": true }
@@ -13,6 +13,23 @@
     "binding": "ASSETS",
     "directory": ".open-next/assets"
   },
+  // Caché persistente de OpenNext/Next (open-next.config.ts). El namespace KV y
+  // el binding D1 para tags son infraestructura de rendimiento: sin ellos la
+  // caché cae a "dummy" y cada visita re-renderiza la página entera.
+  "kv_namespaces": [
+    {
+      "binding": "NEXT_INC_CACHE_KV",
+      "id": "044a3391fbd24974a9c4cfae7e3d8f02"
+    }
+  ],
+  // Binding de servicio al propio Worker: la revalidación de ISR y el cache
+  // interception lo usan para refrescar entradas sin salir a la red pública.
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "ayudamental-venezuela"
+    }
+  ],
   "observability": {
     "enabled": true
   },
@@ -50,12 +67,26 @@
       "database_name": "nido-venezuela-db",
       "database_id": "b91d3879-2106-4f34-a49c-f8377adb149e",
       "migrations_dir": "drizzle"
+    },
+    // Misma base, segundo binding: tabla `revalidations` del tag cache de
+    // OpenNext (revalidación on-demand). La crea la migración 0025.
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "nido-venezuela-db",
+      "database_id": "b91d3879-2106-4f34-a49c-f8377adb149e"
     }
   ],
   "durable_objects": {
-    "bindings": [{ "name": "Conversation", "class_name": "Conversation" }]
+    "bindings": [
+      { "name": "Conversation", "class_name": "Conversation" },
+      // Cola de revalidación ISR (open-next.config.ts `queue`).
+      { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Conversation"] },
+    { "tag": "v2", "new_sqlite_classes": ["DOQueueHandler"] }
+  ],
   "triggers": {
     // Retención diaria (03:00 UTC) + informe de clics cada 12h (00:00 y 12:00
     // UTC). El `scheduled()` de custom-worker.ts enruta según el cron que dispara.

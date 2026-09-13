@@ -1,6 +1,6 @@
 // biome-ignore-all lint/a11y/noNoninteractiveTabindex: el carrusel horizontal debe poder recibir foco para desplazarse con teclado
 import {
-  getPublishedPartners,
+  getCachedPublishedPartners,
   isExternalHref,
   partnerCarouselHref,
 } from "@/lib/partners";
@@ -11,7 +11,7 @@ import {
 // logo, se muestra su nombre "en limpio". La ficha completa (especialidad,
 // descripción y todos los contactos) vive en /alianzas (PartnersShowcase).
 export async function PartnersCarousel() {
-  const partners = await getPublishedPartners();
+  const partners = await getCachedPublishedPartners();
   if (partners.length === 0) return null;
 
   return (
