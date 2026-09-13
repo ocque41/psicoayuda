@@ -29,7 +29,7 @@ export default async function HomePage() {
             Ayuda psicológica gratis en Venezuela, también tras los terremotos
           </h1>
           <ul className="trust-strip" aria-label="Garantías">
-            <li>Gratis, siempre</li>
+            <li>Gratis en la emergencia</li>
             <li>Confidencial</li>
             <li>Sin crear cuenta</li>
             <li>Voluntarios verificados</li>

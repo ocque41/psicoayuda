@@ -1,6 +1,6 @@
 # Brainstorm UI/UX — Nido
 
-> Documento consolidado de diseño de producto a partir de 9 análisis (3 personas + 6 dimensiones transversales). Todo lo aquí propuesto vive **dentro de los límites duros de producto**: sin pagos, chat, videollamadas, ratings/reseñas, "terapeuta IA", matching complejo, teléfonos no verificados, ni más datos que los mínimos.
+> Documento consolidado de diseño de producto a partir de 9 análisis (3 personas + 6 dimensiones transversales). Todo lo aquí propuesto vive **dentro de los límites duros de producto**: videollamadas, ratings/reseñas, "terapeuta IA", matching complejo, teléfonos no verificados y más datos que los mínimos están fuera. (Actualizado v0.10.0: el chat privado existe y los pagos por servicios ajenos a la emergencia pasan solo por `src/lib/payments`; la ayuda por el terremoto sigue siendo gratuita.)
 
 ---
 

@@ -41,10 +41,10 @@ export default function PrivacyPage() {
             <li>Fecha y hora de la solicitud.</li>
             <li>
               El contenido de tus conversaciones por chat con un profesional. Se
-              transmite cifrado y se guarda mientras la conversación está activa
-              para que puedas retomarla (incluso desde otro dispositivo, con un
-              enlace de acceso a tu correo); se elimina al anonimizarse la
-              conversación.
+              transmite cifrado y se guarda mientras la conversación exista (es
+              permanente hasta que tú o el profesional la borren); puedes
+              retomarla incluso desde otro dispositivo, con un enlace de acceso
+              a tu correo.
             </li>
             <li>
               Un identificador técnico derivado de tu dirección IP (un código no
