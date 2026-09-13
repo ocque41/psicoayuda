@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   type KeyboardEvent,
   useCallback,
@@ -15,7 +16,11 @@ import {
   type SenderRole,
   type ServerFrame,
 } from "@/shared/chat-protocol";
-import { ensureProChatToken } from "./actions";
+import {
+  ensureProChatToken,
+  renewSeekerChatToken,
+  reopenConversation,
+} from "./actions";
 import styles from "./chat.module.css";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
@@ -54,6 +59,22 @@ function mergeBySeq(
   return [...bySeq.values()].sort((a, b) => a.seq - b.seq);
 }
 
+// Mensaje humano por motivo de fallo al reabrir (nunca el código crudo).
+function reopenErrorMessage(reason: string): string {
+  switch (reason) {
+    case "no_capacity":
+      return "En este momento tu acompañante no tiene espacio para retomar la conversación. Inténtalo más tarde.";
+    case "anonymized":
+      return "Esta conversación ya fue anonimizada por privacidad y no puede reabrirse.";
+    case "not_authorized":
+      return "No pudimos verificar que seas parte de esta conversación.";
+    case "unavailable":
+      return "Este caso ya está siendo acompañado por otra persona. Si necesitas apoyo, puedes pedirlo de nuevo.";
+    default:
+      return "No se pudo reabrir. Actualiza la página e inténtalo de nuevo.";
+  }
+}
+
 export function ChatRoom({
   conversationId,
   role,
@@ -72,11 +93,15 @@ export function ChatRoom({
   const [otherOnline, setOtherOnline] = useState(false);
   const [otherReadSeq, setOtherReadSeq] = useState(0);
   const [draft, setDraft] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState("");
+  const router = useRouter();
 
   const wsRef = useRef<WebSocket | null>(null);
   const lastSeqRef = useRef(0);
   const pendingRef = useRef<Pending[]>([]);
   const proReadyRef = useRef(false);
+  const seekerReadyRef = useRef(false);
   const typingSentRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -201,6 +226,13 @@ export function ChatRoom({
           return;
         }
         proReadyRef.current = true;
+      }
+
+      // Sesión deslizante del seeker: renueva cookie + sesión mientras la
+      // conversación siga viva. Si falla, seguimos: el token actual puede valer.
+      if (role === "seeker" && !seekerReadyRef.current) {
+        seekerReadyRef.current = true;
+        await renewSeekerChatToken(conversationId).catch(() => ({ ok: false }));
       }
 
       if (cancelled) return;
@@ -475,7 +507,42 @@ export function ChatRoom({
           </div>
         ) : (
           <div className={styles.closed}>
-            Esta conversación está cerrada. Gracias por haber estado aquí.
+            <p style={{ margin: "0 0 10px" }}>
+              Esta conversación está cerrada. Puedes leer el historial y
+              reabrirla para continuar con la misma persona.
+            </p>
+            {reopenError ? (
+              <p
+                className="form-error"
+                role="alert"
+                style={{ margin: "0 0 10px" }}
+              >
+                {reopenError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="button human"
+              disabled={reopening}
+              onClick={async () => {
+                setReopening(true);
+                setReopenError("");
+                const res = await reopenConversation(conversationId).catch(
+                  () => ({
+                    ok: false as const,
+                    reason: "not_authorized" as const,
+                  }),
+                );
+                setReopening(false);
+                if (res.ok) {
+                  router.refresh();
+                } else {
+                  setReopenError(reopenErrorMessage(res.reason));
+                }
+              }}
+            >
+              {reopening ? "Reabriendo…" : "Reabrir conversación"}
+            </button>
           </div>
         )}
       </div>

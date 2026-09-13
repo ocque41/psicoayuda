@@ -51,6 +51,40 @@ const requestStatusLabels: Record<string, string> = {
   closed: "Cerrada",
 };
 
+// "Nuevo": el último mensaje es de la persona y llegó después de la última vez
+// que el profesional abrió la sala. Solo metadatos; nunca contenido.
+function isUnread(conversation: {
+  lastMessageRole: string | null;
+  lastMessageAt: Date | null;
+  proLastReadAt: Date | null;
+}): boolean {
+  if (
+    conversation.lastMessageRole !== "seeker" ||
+    !conversation.lastMessageAt
+  ) {
+    return false;
+  }
+  return (
+    !conversation.proLastReadAt ||
+    conversation.lastMessageAt.getTime() > conversation.proLastReadAt.getTime()
+  );
+}
+
+function lastActivityLabel(value: Date | null, fallbackIso: string): string {
+  const date = value ?? new Date(fallbackIso);
+  if (Number.isNaN(date.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat("es-VE", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
 export default async function ProDashboardPage({
   searchParams,
 }: {
@@ -129,6 +163,7 @@ export default async function ProDashboardPage({
   const offers = await pendingOffersForProfessional(professional.id);
   const missed = await missedOffersForProfessional(professional.id);
   const chats = await conversationsForProfessional(professional.id);
+  const unreadCount = chats.filter(isUnread).length;
 
   const nombrePanel =
     professional.displayName || professional.fullName.split(" ")[0] || "";
@@ -158,6 +193,12 @@ export default async function ProDashboardPage({
             {professional.currentActiveRequests}/
             {professional.maxActiveRequests} personas
           </span>
+          {unreadCount > 0 ? (
+            <span className="panel-chip ok">
+              {unreadCount}{" "}
+              {unreadCount === 1 ? "chat sin leer" : "chats sin leer"}
+            </span>
+          ) : null}
         </div>
 
         {/* Todas las secciones a un toque: nadie navega este panel a ciegas. */}
@@ -313,8 +354,21 @@ export default async function ProDashboardPage({
                     : ""}
                   {c.status !== "open" ? " · cerrada" : ""}
                 </p>
+                <p className="muted" style={{ margin: "0 0 8px" }}>
+                  {c.seekerName ? `${c.seekerName} · ` : ""}
+                  Última actividad:{" "}
+                  {lastActivityLabel(c.lastMessageAt, c.createdAt)}
+                </p>
+                {isUnread(c) ? (
+                  <p
+                    className="badge badge-new"
+                    style={{ display: "inline-block", margin: "0 0 8px" }}
+                  >
+                    Nuevo mensaje
+                  </p>
+                ) : null}
                 <Link className="button human" href={`/c/${c.conversationId}`}>
-                  Abrir chat
+                  {c.status !== "open" ? "Ver y reabrir" : "Abrir chat"}
                 </Link>
               </li>
             ))}

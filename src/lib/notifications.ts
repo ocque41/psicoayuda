@@ -10,11 +10,14 @@ import { sendEmail } from "@/lib/email";
 import {
   buildAllianceApprovedEmail,
   buildApprovalEmail,
+  buildChatReopenedEmail,
   buildContactMessageAlertEmail,
   buildErrorAlertEmail,
   buildFoundationContactEmail,
   buildNewMessageEmail,
   buildNewOfferEmail,
+  buildSeekerAccessLinksEmail,
+  buildSeekerNewMessageEmail,
 } from "@/lib/email-templates";
 
 function appBaseUrl() {
@@ -106,6 +109,67 @@ export async function notifyProfessionalNewMessage(input: {
 
   return sendEmail({
     to: input.professionalEmail,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
+  });
+}
+
+/**
+ * Avisa a la persona (sin cuenta) de que su acompañante le respondió, con un
+ * enlace de acceso RENOVADO. Sin contenido del mensaje. Cierra el ciclo
+ * asíncrono del chat: sin esto, la respuesta solo se veía si la persona volvía
+ * por su cuenta.
+ */
+export async function notifySeekerNewMessage(input: {
+  seekerEmail: string;
+  accessUrl: string;
+}) {
+  const mail = buildSeekerNewMessageEmail({ accessUrl: input.accessUrl });
+  return sendEmail({
+    to: input.seekerEmail,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
+  });
+}
+
+/**
+ * Avisa a la contraparte de que la conversación se reabrió (sin contenido).
+ * Para el seeker el enlace es de acceso; para el profesional, su conversación.
+ */
+export async function notifyConversationReopened(input: {
+  email: string;
+  audience: "seeker" | "professional";
+  url: string;
+}) {
+  const mail = buildChatReopenedEmail({
+    audience: input.audience,
+    url: input.url,
+  });
+  return sendEmail({
+    to: input.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
+  });
+}
+
+/**
+ * Enlace mágico de re-entrada (/acceso): envía hasta 5 enlaces frescos a las
+ * conversaciones vivas de ese correo. Respuesta neutra en la UI: aquí solo se
+ * llama si de verdad hay conversaciones.
+ */
+export async function notifySeekerAccessLinks(input: {
+  seekerEmail: string;
+  links: Array<{ url: string; when: string }>;
+}) {
+  const mail = buildSeekerAccessLinksEmail({ links: input.links });
+  return sendEmail({
+    to: input.seekerEmail,
     subject: mail.subject,
     html: mail.html,
     text: mail.text,

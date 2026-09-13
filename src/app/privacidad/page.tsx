@@ -42,7 +42,9 @@ export default function PrivacyPage() {
             <li>
               El contenido de tus conversaciones por chat con un profesional. Se
               transmite cifrado y se guarda mientras la conversación está activa
-              para que puedas retomarla; se elimina al anonimizar la solicitud.
+              para que puedas retomarla (incluso desde otro dispositivo, con un
+              enlace de acceso a tu correo); se elimina al anonimizarse la
+              conversación.
             </li>
             <li>
               Un identificador técnico derivado de tu dirección IP (un código no
@@ -168,10 +170,13 @@ export default function PrivacyPage() {
             obligaciones legales si aplican.
           </p>
           <p>
-            De forma automática, las solicitudes inactivas se cierran después de
-            30 días y se anonimizan después de 90 días, salvo que sea necesario
-            conservar registros mínimos por seguridad, prevención de abuso o
-            razones legales. Al anonimizar, eliminamos el contenido del chat,
+            De forma automática, las conversaciones y solicitudes inactivas se
+            cierran después de 90 días sin actividad y se anonimizan después de
+            180 días, salvo que sea necesario conservar registros mínimos por
+            seguridad, prevención de abuso o razones legales. Cualquier mensaje
+            nuevo renueva el plazo (la conversación sigue activa mientras la
+            usen), y una conversación cerrada puede reabrirse dentro de esa
+            ventana. Al anonimizar, eliminamos el contenido del chat,
             desvinculamos la conversación de la persona y borramos el código
             derivado de la IP.
           </p>

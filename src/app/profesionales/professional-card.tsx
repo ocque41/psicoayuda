@@ -48,6 +48,26 @@ export function FeedProfessionalCard({
           placeholder="Un nombre o apodo"
         />
       </div>
+      <div className="field">
+        <label htmlFor={`email-${professional.id}`}>
+          Tu correo para volver después (opcional)
+        </label>
+        <input
+          id={`email-${professional.id}`}
+          name="seekerEmail"
+          type="email"
+          maxLength={254}
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="tucorreo@ejemplo.com"
+        />
+        <p className="hint" style={{ margin: "4px 0 0" }}>
+          Solo para enviarte el enlace de regreso (también desde otro
+          dispositivo). Puedes dejarlo vacío.
+        </p>
+      </div>
       <button className="button human block" type="submit">
         Hablar con {professional.name}
       </button>

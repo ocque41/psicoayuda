@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { and, count, eq, gte } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -53,6 +53,17 @@ export async function createConversation(formData: FormData) {
     String(formData.get("seekerName") ?? "")
       .trim()
       .slice(0, 40) || null;
+  // Correo OPCIONAL del chat directo: solo habilita el enlace mágico de
+  // re-entrada (/acceso) y el aviso de respuesta. Sin él, la persona conserva
+  // la sesión de este navegador.
+  const seekerEmailRaw = String(formData.get("seekerEmail") ?? "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 254);
+  const seekerEmail =
+    seekerEmailRaw.includes("@") && !seekerEmailRaw.includes(" ")
+      ? seekerEmailRaw
+      : null;
 
   if (!professionalId) redirect("/profesionales");
 
@@ -78,25 +89,58 @@ export async function createConversation(formData: FormData) {
   const sid = newId("seek");
   const timestamp = nowIso();
 
-  await db.insert(conversations).values({
-    id: conversationId,
-    helpRequestId,
-    professionalId,
-    seekerSid: sid,
-    seekerName,
-    status: "open",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  // Reserva de cupo ATÓMICA: antes se comprobaba el tope pero no se reservaba,
+  // así que el chat directo evadía el límite del profesional. Si la inserción
+  // falla, se compensa.
+  const reserved = await db
+    .update(professionals)
+    .set({
+      currentActiveRequests: sql`${professionals.currentActiveRequests} + 1`,
+      updatedAt: nowIso(),
+    })
+    .where(
+      and(
+        eq(professionals.id, professionalId),
+        eq(professionals.status, "approved"),
+        eq(professionals.acceptingRequests, true),
+        eq(professionals.remoteAvailable, true),
+        sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
+      ),
+    )
+    .returning({ id: professionals.id });
+  if (reserved.length === 0) redirect("/profesionales");
 
-  await db.insert(seekerSessions).values({
-    sid,
-    conversationId,
-    requesterHash,
-    role: "seeker",
-    issuedAt: new Date(now),
-    expiresAt: new Date(now + TOKEN_TTL_MS),
-  });
+  try {
+    await db.insert(conversations).values({
+      id: conversationId,
+      helpRequestId,
+      professionalId,
+      seekerSid: sid,
+      seekerName,
+      seekerEmail,
+      status: "open",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    await db.insert(seekerSessions).values({
+      sid,
+      conversationId,
+      requesterHash,
+      role: "seeker",
+      issuedAt: new Date(now),
+      expiresAt: new Date(now + TOKEN_TTL_MS),
+    });
+  } catch (error) {
+    await db
+      .update(professionals)
+      .set({
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+        updatedAt: nowIso(),
+      })
+      .where(eq(professionals.id, professionalId));
+    throw error;
+  }
 
   const token = mintSeekerToken(
     {

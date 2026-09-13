@@ -53,7 +53,7 @@ La aplicación recoge deliberadamente la menor cantidad de datos posible. **No**
 - **Asignación segura.** La asignación corre dentro de una transacción con guardas contra duplicados y contra exceder la capacidad del profesional.
 - **Registro de auditoría.** Se registran aprobaciones, rechazos, suspensiones, asignaciones, cierres, anonimizaciones y exportaciones.
 - **Anti-spam básico.** Límite simple en `/ayuda`: no más de 3 solicitudes recientes por correo o por IP del solicitante (hasheada con el secreto de la app, nunca se almacena la IP en claro).
-- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría).
+- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría). El cron cierra a los 90 días sin actividad y anonimiza a los 180 (también los chats directos), y las conversaciones pueden retomarse o reabrirse dentro de esa ventana.
 - **Copy honesto y trauma-informed.** Cabeceras de seguridad, recursos verificados y textos que nunca prometen disponibilidad inmediata.
 
 ---
@@ -123,6 +123,7 @@ Para más profundidad: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** y **[doc
 | `/pro/dashboard` | Estado del profesional y solicitudes asignadas. |
 | `/admin` | Panel del coordinador (restringido por `ADMIN_EMAILS`). |
 | `/privacidad`, `/terminos` | Política de privacidad y términos (en español). |
+| `/acceso` | Re-entrada sin cuenta: pide por correo un enlace a tus conversaciones (enlace mágico). |
 | `/quienes-somos`, `/como-funciona`, `/transparencia`, `/seguridad` | Páginas informativas. |
 
 ---
@@ -210,8 +211,9 @@ hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
    request; si apuntan a un dominio distinto del que ven los usuarios, las
    conexiones del chat se rechazan.
 4. **Cron de retención:** `wrangler.jsonc` define un cron diario que cierra
-   solicitudes inactivas a 30 días y las anonimiza a 90 (borra el transcript del
-   chat). Se ejecuta solo en el Worker desplegado.
+   conversaciones/solicitudes inactivas a 90 días y las anonimiza a 180 (borra
+   el transcript del chat, incluidos los chats directos sin solicitud). Se
+   ejecuta solo en el Worker desplegado.
 
 ---
 

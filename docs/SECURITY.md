@@ -52,9 +52,9 @@ conocer el secreto no permite forjar una sesión existente.
 
 ## Pendiente (follow-ups, fuera de este alcance — ver tareas creadas)
 
-- **Retención automática (#10)**: la política promete cierre a 30 días y
-  anonimización a 90 que **no está implementada**. Requiere un cron de Cloudflare
-  + handler. *(tarea spawn creada)*
+- **Retención automática (#10)**: ✅ implementada (v0.8.0): cron diario que cierra
+  a los 90 días sin actividad y anonimiza a los 180, incluyendo chats directos y
+  purga real del Durable Object. La actividad del chat renueva el plazo.
 - **Rendimiento admin (#9/#17)**: el panel admin hace un scan por solicitud (N+1)
   y carga la tabla completa sin paginar. *(tarea spawn creada)*
 - **Anti-abuso (#2)**: añadir Turnstile/CAPTCHA en `/ayuda` y un techo global por
@@ -88,6 +88,7 @@ chat en producción). Corregido en esta versión:
   `assigned`; las solicitudes aceptadas vía oferta (`accepted`) nunca liberaban
   cupo. Ahora ambas; suspender a un pro cierra sus conversaciones y reencola.
 
-Siguen pendientes: cron de retención 30/90, Turnstile/CAPTCHA en `/ayuda`, token
+Siguen pendientes: Turnstile/CAPTCHA en `/ayuda`, token
 de propiedad para la difusión, reserva de cupo en el chat directo, y el test del
 pool de Workers (incompatible con Vitest 4; el e2e con wrangler dev lo cubre).
+*(El cron de retención 30/90 quedó resuelto y ampliado a 90/180 en v0.8.0.)*

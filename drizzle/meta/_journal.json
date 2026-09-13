@@ -155,6 +155,13 @@
       "when": 1784196463452,
       "tag": "0021_add_sopps_partner",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1789310461831,
+      "tag": "0022_chats_persistentes",
+      "breakpoints": true
     }
   ]
 }

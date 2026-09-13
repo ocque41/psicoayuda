@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import {
   EmergencyPriorityBar,
@@ -83,12 +84,18 @@ export default async function HelpPage({
         {acceso === "invalido" ? (
           <div className="notice" role="alert">
             <p style={{ margin: 0 }}>
-              Ese enlace de acceso ya no es válido (pudo expirar a las 72 horas
-              o ya se usó). Si aún necesitas apoyo, vuelve a enviar tu solicitud
-              aquí abajo y te enviaremos un enlace nuevo.
+              Ese enlace de acceso ya no es válido (pudo expirar o ya se usó).{" "}
+              <Link href="/acceso">Pide un enlace nuevo aquí</Link>: te lo
+              reenviamos a tu correo en segundos. Si aún no tienes una
+              conversación, envía tu solicitud aquí abajo.
             </p>
           </div>
         ) : null}
+
+        <p className="muted" style={{ marginTop: 8 }}>
+          ¿Ya escribiste antes y quieres retomar tu conversación?{" "}
+          <Link href="/acceso">Entra con tu correo</Link>.
+        </p>
 
         {professionals.length > 0 || organizations.length > 0 ? (
           <>

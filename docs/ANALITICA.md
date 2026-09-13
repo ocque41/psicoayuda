@@ -13,6 +13,14 @@ Los **UTM links** de más abajo son lo que pegas en tus canales para saber *por
 dónde* entra la gente. Sin ellos, las visitas cuentan igual pero aparecen como
 "directo / desconocido".
 
+> **Cómo leer "Origen del tráfico" en `/admin`.** Esa tarjeta agrupa
+> `click_events.utm_source` y etiqueta `directo` cuando la sesión aterrizó SIN
+> UTM (atribución first-touch en `sessionStorage`). Son **acciones** (clics en
+> CTAs/enlaces), no visitas, y **no tiene ventana temporal**: es acumulado desde
+> que se activó el tracking. "Directo" incluye tráfico orgánico/búsquedas,
+> enlaces compartidos sin UTM (WhatsApp/Instagram) y sesiones donde el navegador
+> no guardó el UTM. La tarjeta de **Campañas** sí es de los últimos 30 días.
+
 ---
 
 ## Paso único para activar las visitas: pega el token de Cloudflare

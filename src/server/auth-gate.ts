@@ -62,6 +62,7 @@ export type SeekerSessionRow = {
   revoked_at: number | null;
   expires_at: number | null;
   status: string | null;
+  anonymized_at: number | null;
 };
 
 /**
@@ -69,8 +70,10 @@ export type SeekerSessionRow = {
  * WebSocket. La fila viene de D1 (seeker_sessions + estado de la conversación).
  * - Sin fila: permitimos — el token ya pasó HMAC + expiración propia; la fila
  *   puede no existir en entornos sin D1 (tests).
- * - Con fila: es el kill-switch real — revocada, expirada o conversación
- *   cerrada/anonimizada => fuera (corta también lo que el token por sí solo no).
+ * - Con fila: es el kill-switch real — revocada, expirada o ANONIMIZADA => fuera.
+ *   Una conversación CERRADA se permite: el historial es de solo lectura y la
+ *   persona puede reabrirla dentro de la ventana de retención (el envío lo corta
+ *   `x-nido-can-send`, no la conexión).
  */
 export function seekerSessionAllows(
   row: SeekerSessionRow | null,
@@ -79,35 +82,47 @@ export function seekerSessionAllows(
   if (!row) return true;
   if (row.revoked_at != null) return false;
   if (row.expires_at != null && row.expires_at <= nowMs) return false;
-  if (row.status === "closed" || row.status === "anonymized") return false;
+  if (row.anonymized_at != null) return false;
   return true;
+}
+
+/** ¿Puede ESCRIBIR esta conexión? Solo si la conversación sigue abierta. */
+export function seekerCanSend(row: SeekerSessionRow | null): boolean {
+  if (!row) return true; // sin fila (tests/sin D1): no bloqueamos el envío
+  return row.status === "open" && row.anonymized_at == null;
 }
 
 export type ProfessionalSessionRow = {
   conversation_status: string | null;
   professional_status: string | null;
+  anonymized_at: number | null;
 };
 
 /**
  * Decisión PURA del kill-switch del profesional. La fila viene de D1.
  * - Sin fila: permitimos (el token HMAC ya pasó; la fila puede faltar en tests).
- * - Con fila: fuera si la conversación está cerrada/anonimizada o si la cuenta
- *   del profesional está suspendida (un suspendido con cookie válida de 72h
- *   podía reconectar — el rol profesional no tenía kill-switch en D1).
+ * - Con fila: fuera si la conversación está ANONIMIZADA o la cuenta suspendida
+ *   (un suspendido con cookie válida de 72h podía reconectar). Una conversación
+ *   cerrada se permite para leer el historial y reabrir.
  */
 export function professionalConnectionAllows(
   row: ProfessionalSessionRow | null,
 ): boolean {
   if (!row) return true;
-  if (
-    row.conversation_status === "closed" ||
-    row.conversation_status === "anonymized"
-  ) {
-    return false;
-  }
+  if (row.anonymized_at != null) return false;
   if (row.professional_status === "suspended") return false;
   return true;
 }
+
+/** ¿Puede ESCRIBIR el profesional? Solo si la conversación sigue abierta. */
+export function professionalCanSend(
+  row: ProfessionalSessionRow | null,
+): boolean {
+  if (!row) return true;
+  return row.conversation_status === "open" && row.anonymized_at == null;
+}
+
+export type ConnectGate = { allowed: boolean; canSend: boolean };
 
 /**
  * Comprueba la vigencia de la sesión del seeker contra D1. Best-effort: si no hay
@@ -119,13 +134,13 @@ async function seekerSessionActive(
   sid: string,
   conversationId: string,
   nowMs: number,
-): Promise<boolean> {
+): Promise<ConnectGate> {
   const database = env.DB;
-  if (!database) return true;
+  if (!database) return { allowed: true, canSend: true };
   try {
     const row = (await database
       .prepare(
-        `SELECT s.revoked_at AS revoked_at, s.expires_at AS expires_at, c.status AS status
+        `SELECT s.revoked_at AS revoked_at, s.expires_at AS expires_at, c.status AS status, c.anonymized_at AS anonymized_at
          FROM seeker_sessions s
          LEFT JOIN conversations c ON c.id = s.conversation_id
          WHERE s.sid = ? AND s.conversation_id = ?
@@ -133,9 +148,12 @@ async function seekerSessionActive(
       )
       .bind(sid, conversationId)
       .first()) as SeekerSessionRow | null;
-    return seekerSessionAllows(row, nowMs);
+    return {
+      allowed: seekerSessionAllows(row, nowMs),
+      canSend: seekerCanSend(row),
+    };
   } catch {
-    return true;
+    return { allowed: true, canSend: true };
   }
 }
 
@@ -148,13 +166,13 @@ async function professionalSessionActive(
   env: AuthGateEnv,
   professionalId: string,
   conversationId: string,
-): Promise<boolean> {
+): Promise<ConnectGate> {
   const database = env.DB;
-  if (!database) return true;
+  if (!database) return { allowed: true, canSend: true };
   try {
     const row = (await database
       .prepare(
-        `SELECT c.status AS conversation_status, p.status AS professional_status
+        `SELECT c.status AS conversation_status, c.anonymized_at AS anonymized_at, p.status AS professional_status
          FROM conversations c
          LEFT JOIN professionals p ON p.id = ?
          WHERE c.id = ?
@@ -162,9 +180,12 @@ async function professionalSessionActive(
       )
       .bind(professionalId, conversationId)
       .first()) as ProfessionalSessionRow | null;
-    return professionalConnectionAllows(row);
+    return {
+      allowed: professionalConnectionAllows(row),
+      canSend: professionalCanSend(row),
+    };
   } catch {
-    return true;
+    return { allowed: true, canSend: true };
   }
 }
 
@@ -226,24 +247,21 @@ export function makeOnBeforeConnect(env: AuthGateEnv) {
       return new Response("Unauthorized", { status: 403 });
     }
     // Kill-switch real en D1 (el token HMAC por sí solo no basta). El seeker debe
-    // tener su sesión vigente (no revocada/expirada, conversación abierta); el
-    // profesional, la conversación abierta y su cuenta no suspendida. Sin esto un
-    // socket revocado seguía vivo y un profesional suspendido podía reconectar.
-    if (
-      decision.role === "seeker" &&
-      !(await seekerSessionActive(env, decision.id, lobby.name, now))
-    ) {
-      return new Response("Session revoked", { status: 403 });
-    }
-    if (
-      decision.role === "professional" &&
-      !(await professionalSessionActive(env, decision.id, lobby.name))
-    ) {
+    // tener su sesión vigente (no revocada/expirada ni la conversación
+    // anonimizada); el profesional, su cuenta no suspendida. Una conversación
+    // cerrada se permite SOLO en lectura: `x-nido-can-send=0` corta el envío en
+    // el DO hasta que se reabra.
+    const gate: ConnectGate =
+      decision.role === "seeker"
+        ? await seekerSessionActive(env, decision.id, lobby.name, now)
+        : await professionalSessionActive(env, decision.id, lobby.name);
+    if (!gate.allowed) {
       return new Response("Session revoked", { status: 403 });
     }
     const headers = new Headers(request.headers);
     headers.set("x-nido-role", decision.role);
     headers.set("x-nido-id", decision.id);
+    headers.set("x-nido-can-send", gate.canSend ? "1" : "0");
     return new Request(request, { headers });
   };
 }
