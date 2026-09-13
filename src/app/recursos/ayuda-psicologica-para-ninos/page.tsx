@@ -103,8 +103,8 @@ export default function Page() {
           <p>
             Nido es una organización sin fines de lucro que conecta, de forma
             gratuita, a personas en Venezuela con psicólogos voluntarios
-            verificados que acompañan a distancia. No cobramos, no hace falta
-            crear una cuenta y no pedimos tu ubicación.
+            verificados que acompañan a distancia. La ayuda por la emergencia no
+            se cobra, no hace falta crear una cuenta y no pedimos tu ubicación.
           </p>
           <ol className="steps">
             <li>Cuentas cómo te sientes en un formulario breve y sencillo.</li>

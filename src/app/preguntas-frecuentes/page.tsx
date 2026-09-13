@@ -139,10 +139,12 @@ export default function Page() {
 
         <div className="notice">
           <p>
-            Nido conecta y acompaña; no ofrece terapia dentro de la aplicación,
-            no maneja chat, video ni pagos, y no sustituye la atención médica,
-            psicológica o de emergencia. La confidencialidad, el cuidado de
-            menores y el deber de actuar ante un riesgo se rigen por el{" "}
+            Nido conecta y acompaña; no ofrece terapia clínica dentro de la
+            aplicación, no hace videollamadas y no sustituye la atención médica,
+            psicológica o de emergencia. La ayuda por el terremoto es siempre
+            gratuita; los servicios pagos por otros temas son opcionales y se
+            acuerdan contigo. La confidencialidad, el cuidado de menores y el
+            deber de actuar ante un riesgo se rigen por el{" "}
             <Link href="/pacto-voluntario">pacto de voluntariado</Link>, la{" "}
             <Link href="/privacidad">privacidad</Link> y los{" "}
             <Link href="/terminos">términos</Link>.
