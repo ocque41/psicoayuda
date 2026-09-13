@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type KeyboardEvent,
@@ -33,9 +34,10 @@ const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 type Pending = { clientMsgId: string; content: string };
 
-function wsUrl(conversationId: string): string {
+function wsUrl(conversationId: string, asPersona: boolean): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}/parties/conversation/${conversationId}`;
+  const query = asPersona ? "?como=persona" : "";
+  return `${proto}//${window.location.host}/parties/conversation/${conversationId}${query}`;
 }
 
 function formatTime(ms: number): string {
@@ -81,16 +83,24 @@ export function ChatRoom({
   role,
   otherName,
   open,
+  canSwitchView = false,
   paymentLinks = [],
 }: {
   conversationId: string;
   role: SenderRole;
   otherName: string;
   open: boolean;
+  // El visitante tiene a la vez credencial de profesional y de la persona:
+  // puede alternar la vista. Sin esto (caso normal) no hay nada que elegir.
+  canSwitchView?: boolean;
   // Paquetes de pago del profesional (solo llegan en su rol): permiten insertar
   // el link de pago en el mensaje, atado a esta conversación.
   paymentLinks?: { id: string; title: string; priceLabel: string }[];
 }) {
+  // El profesional puede estar viendo la sala como la persona. En ese caso TODO
+  // (WebSocket, reabrir, borrar) actúa con la identidad de la persona: lo que
+  // escribe se registra como suyo y el caso se cierra en vez de reencolarse.
+  const writeAsPersona = role === "seeker" && canSwitchView;
   const [confirmed, setConfirmed] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [conn, setConn] = useState<ConnStatus>("connecting");
@@ -243,7 +253,7 @@ export function ChatRoom({
       if (cancelled) return;
       setConn((c) => (c === "online" ? c : "connecting"));
 
-      const ws = new WebSocket(wsUrl(conversationId));
+      const ws = new WebSocket(wsUrl(conversationId, writeAsPersona));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -303,7 +313,7 @@ export function ChatRoom({
         // noop
       }
     };
-  }, [conversationId, role, sendRaw, handleFrame]);
+  }, [conversationId, role, writeAsPersona, sendRaw, handleFrame]);
 
   // Auto-scroll al final cuando llegan o salen mensajes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll al cambiar mensajes
@@ -421,6 +431,39 @@ export function ChatRoom({
               : conn === "connecting"
                 ? "Conectando…"
                 : "Sin conexión. Reintentando…"}
+          </div>
+        ) : null}
+
+        {canSwitchView || role === "professional" ? (
+          <div className={styles.identity}>
+            {role === "professional" ? (
+              <>
+                <span>
+                  Estás escribiendo como <strong>profesional</strong>.
+                </span>
+                {canSwitchView ? (
+                  <Link
+                    className={styles.identitySwitch}
+                    href={`/c/${conversationId}?como=persona`}
+                  >
+                    Ver como la persona
+                  </Link>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <span>
+                  Estás viendo la conversación <strong>como la persona</strong>{" "}
+                  (vista del profesional): lo que escribas se envía como ella.
+                </span>
+                <Link
+                  className={styles.identitySwitch}
+                  href={`/c/${conversationId}`}
+                >
+                  Volver a mi vista de profesional
+                </Link>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -558,12 +601,13 @@ export function ChatRoom({
               onClick={async () => {
                 setReopening(true);
                 setReopenError("");
-                const res = await reopenConversation(conversationId).catch(
-                  () => ({
-                    ok: false as const,
-                    reason: "not_authorized" as const,
-                  }),
-                );
+                const res = await reopenConversation(
+                  conversationId,
+                  writeAsPersona,
+                ).catch(() => ({
+                  ok: false as const,
+                  reason: "not_authorized" as const,
+                }));
                 setReopening(false);
                 if (res.ok) {
                   router.refresh();
@@ -581,6 +625,7 @@ export function ChatRoom({
       <ConversationDeleteButton
         conversationId={conversationId}
         redirectTo={role === "professional" ? "/pro/dashboard#chats" : "/"}
+        asPersona={writeAsPersona}
       />
 
       <p className={styles.safety}>

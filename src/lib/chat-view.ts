@@ -6,7 +6,13 @@ import { db } from "@/db";
 import { conversations, professionals, seekerSessions } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
-import { SEEKER_COOKIE, verifySeekerToken } from "@/lib/seeker-token";
+import { chooseChatIdentity } from "@/lib/chat-identity";
+import {
+  PRO_COOKIE,
+  SEEKER_COOKIE,
+  verifyProfessionalToken,
+  verifySeekerToken,
+} from "@/lib/seeker-token";
 
 export type ChatRole = "seeker" | "professional";
 
@@ -20,16 +26,26 @@ export type ChatView = {
   /** Solo en la rama del profesional: para cargar sus paquetes de pago y
    *  ofrecer "insertar link de pago" en el chat. */
   professionalId?: string;
+  /** El visitante tiene AMBAS credenciales para esta sala: puede alternar entre
+   *  su vista de profesional y la vista de la persona (`?como=persona`). */
+  canSwitchView: boolean;
 };
 
 /**
  * Autoriza quién puede VER la conversación y devuelve lo mínimo para pintar la
- * cabecera. Devuelve null si el visitante no es ni el seeker (cookie HMAC de
- * esta sala, con sesión efímera vigente) ni el profesional dueño (better-auth +
- * propiedad). La autorización del WebSocket la repite el Worker en onBeforeConnect.
+ * cabecera. Devuelve null si el visitante no es ni la persona (cookie HMAC de
+ * esta sala, con sesión efímera vigente) ni el profesional dueño (sesión
+ * better-auth O cookie HMAC de la sala, para que la vista y el WebSocket no se
+ * contradigan cuando la sesión caducó).
+ *
+ * La prelación es la MISMA que la del `onBeforeConnect` del Worker y la de las
+ * server actions (`chooseChatIdentity`, src/lib/chat-identity.ts): profesional
+ * por defecto; la persona solo si el profesional pide su vista con
+ * `preferPersona` o si no hay credencial profesional.
  */
 export async function loadChatView(
   conversationId: string,
+  preferPersona = false,
 ): Promise<ChatView | null> {
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -37,9 +53,47 @@ export async function loadChatView(
   if (!conversation) return null;
 
   const open = conversation.status === "open";
-
-  // 1) Seeker anónimo: cookie firmada para ESTA sala + sesión no revocada/vigente.
   const cookieStore = await cookies();
+
+  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
+  let isProfessional = false;
+  let professionalRow: typeof professionals.$inferSelect | null = null;
+  const session = await getServerSession();
+  if (session?.user?.id) {
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.userId, session.user.id),
+    });
+    if (
+      pro &&
+      pro.id === conversation.professionalId &&
+      pro.status !== "suspended"
+    ) {
+      isProfessional = true;
+      professionalRow = pro;
+    }
+  }
+  if (!isProfessional) {
+    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
+    if (proRaw) {
+      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
+      if (
+        pro &&
+        pro.conversationId === conversationId &&
+        pro.professionalId === conversation.professionalId
+      ) {
+        const row = await db.query.professionals.findFirst({
+          where: eq(professionals.id, conversation.professionalId),
+        });
+        if (row && row.status !== "suspended") {
+          isProfessional = true;
+          professionalRow = row;
+        }
+      }
+    }
+  }
+
+  // Persona (seeker anónimo): cookie firmada para ESTA sala + sesión vigente.
+  let isSeeker = false;
   const seekerRaw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (seekerRaw) {
     const payload = verifySeekerToken(seekerRaw, getAuthSecret(), Date.now());
@@ -48,40 +102,44 @@ export async function loadChatView(
       payload.conversationId === conversationId &&
       payload.sid === conversation.seekerSid
     ) {
-      const session = await db.query.seekerSessions.findFirst({
+      const sessionRow = await db.query.seekerSessions.findFirst({
         where: eq(seekerSessions.sid, payload.sid),
       });
-      const valid =
-        !!session &&
-        !session.revokedAt &&
-        session.expiresAt.getTime() > Date.now();
-      if (valid) {
-        const pro = await db.query.professionals.findFirst({
-          where: eq(professionals.id, conversation.professionalId),
-        });
-        const otherName =
-          pro?.displayName || pro?.fullName?.split(" ")[0] || "tu acompañante";
-        return { role: "seeker", conversationId, open, otherName };
-      }
+      isSeeker =
+        !!sessionRow &&
+        !sessionRow.revokedAt &&
+        sessionRow.expiresAt.getTime() > Date.now();
     }
   }
 
-  // 2) Profesional dueño de la conversación.
-  const session = await getServerSession();
-  if (session?.user?.id) {
-    const pro = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (pro && pro.id === conversation.professionalId) {
-      return {
-        role: "professional",
-        conversationId,
-        open,
-        otherName: "Alguien que pidió apoyo",
-        professionalId: pro.id,
-      };
-    }
+  const identity = chooseChatIdentity(
+    { professional: isProfessional, seeker: isSeeker },
+    preferPersona,
+  );
+  if (!identity) return null;
+
+  const canSwitchView = isProfessional && isSeeker;
+
+  if (identity === "professional") {
+    return {
+      role: "professional",
+      conversationId,
+      open,
+      otherName: "Alguien que pidió apoyo",
+      professionalId: conversation.professionalId,
+      canSwitchView,
+    };
   }
 
-  return null;
+  if (!professionalRow) {
+    professionalRow =
+      (await db.query.professionals.findFirst({
+        where: eq(professionals.id, conversation.professionalId),
+      })) ?? null;
+  }
+  const otherName =
+    professionalRow?.displayName ||
+    professionalRow?.fullName?.split(" ")[0] ||
+    "tu acompañante";
+  return { role: "seeker", conversationId, open, otherName, canSwitchView };
 }

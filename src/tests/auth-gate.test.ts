@@ -84,6 +84,29 @@ describe("authorizeConnection", () => {
       authorizeConnection("nido_seeker=garbage; x=1", CONV, SECRET, NOW),
     ).toBeNull();
   });
+
+  it("con AMBAS credenciales gana el profesional (igual que la página)", () => {
+    const both = `${proCookie()}; ${seekerCookie()}`;
+    expect(authorizeConnection(both, CONV, SECRET, NOW)).toEqual({
+      role: "professional",
+      id: "pro_1",
+    });
+  });
+
+  it("con AMBAS y `?como=persona` conecta como la persona", () => {
+    const both = `${proCookie()}; ${seekerCookie()}`;
+    expect(authorizeConnection(both, CONV, SECRET, NOW, true)).toEqual({
+      role: "seeker",
+      id: "seek_1",
+    });
+  });
+
+  it("`?como=persona` sin credencial de persona no inventa el rol", () => {
+    expect(authorizeConnection(proCookie(), CONV, SECRET, NOW, true)).toEqual({
+      role: "professional",
+      id: "pro_1",
+    });
+  });
 });
 
 describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
@@ -304,5 +327,52 @@ describe("makeOnBeforeConnect (guard de Origin)", () => {
     );
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(403);
+  });
+
+  it("`?como=persona` en la URL del WebSocket conecta con la identidad de la persona", async () => {
+    const pro = mintProfessionalToken(
+      {
+        professionalId: "pro_1",
+        conversationId: CONV,
+        role: "professional",
+        iat: Date.now(),
+        exp: Date.now() + 3_600_000,
+      },
+      SECRET,
+    );
+    const cookie = `${PRO_COOKIE}=${pro}; ${freshSeekerCookie()}`;
+    const request = new Request(
+      `https://nido.example/parties/conversation/conv_1?como=persona`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Origin: "https://nido.example",
+          Cookie: cookie,
+        },
+      },
+    );
+    const result = await makeOnBeforeConnect(env)(request, lobby);
+    expect(result).toBeInstanceOf(Request);
+    expect((result as Request).headers.get("x-nido-role")).toBe("seeker");
+  });
+
+  it("sin `?como=persona` con ambas cookies conecta como profesional", async () => {
+    const pro = mintProfessionalToken(
+      {
+        professionalId: "pro_1",
+        conversationId: CONV,
+        role: "professional",
+        iat: Date.now(),
+        exp: Date.now() + 3_600_000,
+      },
+      SECRET,
+    );
+    const cookie = `${PRO_COOKIE}=${pro}; ${freshSeekerCookie()}`;
+    const result = await makeOnBeforeConnect(env)(
+      upgrade({ Origin: "https://nido.example", Cookie: cookie }),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+    expect((result as Request).headers.get("x-nido-role")).toBe("professional");
   });
 });

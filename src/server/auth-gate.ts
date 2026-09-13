@@ -1,3 +1,4 @@
+import { chooseChatIdentity } from "@/lib/chat-identity";
 import {
   PRO_COOKIE,
   SEEKER_COOKIE,
@@ -30,31 +31,50 @@ function parseCookies(header: string | null): Record<string, string> {
  * el que conecta es el seeker o el profesional de ESTA conversación. Devuelve
  * null si no hay token válido para la sala (=> 403). Garantiza exactamente dos
  * identidades posibles por sala.
+ *
+ * La prelación es la MISMA que la de la página y las server actions
+ * (`chooseChatIdentity`): con ambas cookies gana el profesional, salvo que pida
+ * `?como=persona` (`preferPersona`) y su credencial de seeker esté vigente. Sin
+ * esto, la UI pintaba una identidad (seeker primero) y el WebSocket escribía con
+ * otra (profesional primero): el mensaje aparecía "como el otro".
  */
 export function authorizeConnection(
   cookieHeader: string | null,
   conversationId: string,
   secret: string,
   nowMs: number,
+  preferPersona = false,
 ): AuthDecision | null {
   const cookies = parseCookies(cookieHeader);
 
+  let professionalId: string | null = null;
   const proRaw = cookies[PRO_COOKIE];
   if (proRaw) {
     const pro = verifyProfessionalToken(proRaw, secret, nowMs);
     if (pro && pro.conversationId === conversationId) {
-      return { role: "professional", id: pro.professionalId };
+      professionalId = pro.professionalId;
     }
   }
 
+  let seekerSid: string | null = null;
   const seekerRaw = cookies[SEEKER_COOKIE];
   if (seekerRaw) {
     const seeker = verifySeekerToken(seekerRaw, secret, nowMs);
     if (seeker && seeker.conversationId === conversationId) {
-      return { role: "seeker", id: seeker.sid };
+      seekerSid = seeker.sid;
     }
   }
 
+  const identity = chooseChatIdentity(
+    { professional: professionalId != null, seeker: seekerSid != null },
+    preferPersona,
+  );
+  if (identity === "professional" && professionalId) {
+    return { role: "professional", id: professionalId };
+  }
+  if (identity === "seeker" && seekerSid) {
+    return { role: "seeker", id: seekerSid };
+  }
   return null;
 }
 
@@ -237,11 +257,21 @@ export function makeOnBeforeConnect(env: AuthGateEnv) {
       return new Response("Server misconfigured", { status: 500 });
     }
     const now = Date.now();
+    // El profesional puede pedir la vista de la persona (`?como=persona` en la
+    // URL del WebSocket). Con la misma regla que la página, nunca por accidente.
+    let preferPersona = false;
+    try {
+      preferPersona =
+        new URL(request.url).searchParams.get("como") === "persona";
+    } catch {
+      // URL mal formada: sin preferencia (gana la prelación por defecto).
+    }
     const decision = authorizeConnection(
       request.headers.get("Cookie"),
       lobby.name,
       secret,
       now,
+      preferPersona,
     );
     if (!decision) {
       return new Response("Unauthorized", { status: 403 });

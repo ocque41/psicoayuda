@@ -66,6 +66,29 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Identidad con la que se escribe en la sala. Siempre visible para el
+   profesional (y en su vista de persona), para que nunca quede la duda de
+   quién firma cada mensaje. */
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.identitySwitch {
+  margin-left: auto;
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;

@@ -16,11 +16,17 @@ export const metadata: Metadata = {
 
 export default async function ConversationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ conversationId: string }>;
+  searchParams: Promise<{ como?: string }>;
 }) {
   const { conversationId } = await params;
-  const view = await loadChatView(conversationId);
+  const { como } = await searchParams;
+  // El profesional puede pedir la vista de la persona (`?como=persona`). Él
+  // decide; nunca se adivina: la misma preferencia viaja al WebSocket para que
+  // lo que escribe se registre con la identidad que está viendo.
+  const view = await loadChatView(conversationId, como === "persona");
   if (!view) notFound();
 
   // El profesional puede insertar el link de pago de uno de sus paquetes en el
@@ -45,6 +51,7 @@ export default async function ConversationPage({
           role={view.role}
           otherName={view.otherName}
           open={view.open}
+          canSwitchView={view.canSwitchView}
           paymentLinks={paymentLinks}
         />
       </div>
