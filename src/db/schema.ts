@@ -207,6 +207,16 @@ export const professionals = sqliteTable(
     })
       .default(false)
       .notNull(),
+    // ---- Cifrado de extremo a extremo (E2EE) del chat. Clave pública ECDH
+    // P-256 (base64url, raw) que el profesional publica desde su navegador al
+    // configurar el cifrado. El servidor NUNCA ve su privada ni puede derivar
+    // las claves de conversación: solo guarda sobres opacos. Null = todavía no
+    // configuró el cifrado (sus salas se bloquean hasta que lo haga, para no
+    // almacenar texto legible). ----
+    cryptoPublicKey: text("crypto_public_key"),
+    cryptoPublicKeyUpdatedAt: integer("crypto_public_key_updated_at", {
+      mode: "timestamp_ms",
+    }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -351,6 +361,13 @@ export const conversations = sqliteTable(
     // descuenta `current_active_requests` una sola vez (idempotente por la fecha).
     quotaReleasedAt: integer("quota_released_at", { mode: "timestamp_ms" }),
     anonymizedAt: text("anonymized_at"),
+    // Papelera con deshacer: borrar ya no purga al instante. `deletedAt` marca
+    // el hilo como borrado (para las dos partes) y `purgeAfter` da 7 días para
+    // restaurarlo; al vencer, el cron de retención purga el DO y borra las
+    // filas D1. Mientras está en papelera, el WebSocket se rechaza.
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    purgeAfter: integer("purge_after", { mode: "timestamp_ms" }),
+    deletedByRole: text("deleted_by_role"),
   },
   (table) => [
     index("conversations_professional_idx").on(table.professionalId),
@@ -365,8 +382,21 @@ export const conversations = sqliteTable(
       table.lastMessageAt,
     ),
     index("conversations_seeker_email_idx").on(table.seekerEmail),
+    index("conversations_purge_after_idx").on(table.purgeAfter),
   ],
 );
+
+// Keystores de recuperación del E2EE. `wrapped` es el keystore JSON cifrado con
+// AES-256-GCM bajo una clave derivada del código de recuperación del usuario
+// (`src/shared/e2ee.ts`); `id` se deriva del propio código. El servidor guarda
+// el blob pero NO puede descifrarlo ni relacionarlo con nadie sin el código.
+export const recoveryKeystores = sqliteTable("recovery_keystores", {
+  id: text("id").primaryKey(),
+  wrapped: text("wrapped").notNull(),
+  kind: text("kind").default("unknown").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 export const seekerSessions = sqliteTable(
   "seeker_sessions",

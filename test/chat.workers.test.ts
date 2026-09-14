@@ -8,6 +8,11 @@ import {
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import type { ClientFrame, ServerFrame } from "@/shared/chat-protocol";
+import {
+  createEnvelope,
+  generateIdentityKeyPair,
+  toConversationIdentity,
+} from "@/shared/e2ee";
 
 const SECRET = "test-secret";
 const HOUR = 3_600_000;
@@ -330,4 +335,142 @@ describe("chat Durable Object (runtime de Workers)", () => {
     expect(history.messages.length).toBe(0);
     after.close();
   });
+
+  it("publica y difunde las claves públicas E2EE de cada rol", async () => {
+    const conv = "conv_keys";
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    await seeker.waitFor("keys");
+
+    const seekerIdentity = await toConversationIdentity(
+      await generateIdentityKeyPair(),
+    );
+    seeker.send({ type: "key", publicKey: seekerIdentity.publicKey });
+    const broadcast = (await seeker.waitFor("keys")) as Extract<
+      ServerFrame,
+      { type: "keys" }
+    >;
+    expect(broadcast.keys.seeker).toBe(seekerIdentity.publicKey);
+
+    // Quien se une después recibe el snapshot (sin esperar a un mensaje).
+    const pro = await open(conv, proCookie(conv));
+    await pro.waitFor("history");
+    const snapshot = (await pro.waitFor("keys")) as Extract<
+      ServerFrame,
+      { type: "keys" }
+    >;
+    expect(snapshot.keys.seeker).toBe(seekerIdentity.publicKey);
+
+    seeker.close();
+    pro.close();
+  });
+
+  it("pagina el historial hacia atrás por keyset (hasMore correcto)", async () => {
+    const conv = "conv_page";
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    await seeker.waitFor("keys");
+
+    const total = 32;
+    for (let i = 1; i <= total; i += 1) {
+      seeker.send({
+        type: "send",
+        clientMsgId: `pg_${i}`,
+        content: `mensaje ${i}`,
+      });
+      await seeker.waitFor("ack");
+    }
+    seeker.close();
+    await settle();
+
+    const reopened = await open(conv, seekerCookie(conv));
+    const initial = (await reopened.waitFor("history")) as Extract<
+      ServerFrame,
+      { type: "history" }
+    >;
+    expect(initial.mode).toBe("initial");
+    expect(initial.messages.length).toBe(30);
+    expect(initial.hasMore).toBe(true);
+
+    const oldestSeq = initial.messages[0]?.seq ?? 0;
+    reopened.send({ type: "history-page", beforeSeq: oldestSeq });
+    const page = (await reopened.waitFor("history")) as Extract<
+      ServerFrame,
+      { type: "history" }
+    >;
+    expect(page.mode).toBe("page");
+    expect(page.messages.length).toBe(total - 30);
+    expect(page.hasMore).toBe(false);
+    expect(page.messages[0]?.seq).toBe(1);
+    reopened.close();
+  });
+
+  it("re-cifra mensajes legados con el sobre del cliente (idempotente)", async () => {
+    const conv = "conv_reencrypt";
+    const seeker = await open(conv, seekerCookie(conv));
+    await seeker.waitFor("history");
+    await seeker.waitFor("keys");
+
+    seeker.send({
+      type: "send",
+      clientMsgId: "legacy_1",
+      content: "texto legado",
+    });
+    const ack = (await seeker.waitFor("ack")) as Extract<
+      ServerFrame,
+      { type: "ack" }
+    >;
+
+    const seekerIdentity = await toConversationIdentity(
+      await generateIdentityKeyPair(),
+    );
+    const proIdentity = await toConversationIdentity(
+      await generateIdentityKeyPair(),
+    );
+    const envelope = await createEnvelope({
+      identity: seekerIdentity,
+      peerPublicKey: proIdentity.publicKey,
+      conversationId: conv,
+      senderRole: "seeker",
+      plaintext: "texto legado",
+    });
+
+    seeker.send({
+      type: "reencrypt",
+      items: [{ serverId: ack.serverId, envelope }],
+    });
+    const done = (await seeker.waitFor("reencrypted")) as Extract<
+      ServerFrame,
+      { type: "reencrypted" }
+    >;
+    expect(done.count).toBe(1);
+    expect(await readMessageContent(conv, ack.serverId)).toBe(envelope);
+
+    // Repetir el lote no vuelve a tocar la fila (idempotente).
+    seeker.send({
+      type: "reencrypt",
+      items: [{ serverId: ack.serverId, envelope }],
+    });
+    const again = (await seeker.waitFor("reencrypted")) as Extract<
+      ServerFrame,
+      { type: "reencrypted" }
+    >;
+    expect(again.count).toBe(0);
+
+    seeker.close();
+  });
 });
+
+// Lee el `content` de un mensaje directamente del SQLite del DO.
+async function readMessageContent(
+  conversationId: string,
+  serverId: string,
+): Promise<string | null> {
+  const stub = await getServerByName(env.Conversation, conversationId);
+  return runInDurableObject(stub, (_instance, state) => {
+    const rows = state.storage.sql
+      .exec("SELECT content FROM messages WHERE server_id = ?", serverId)
+      .toArray() as Array<{ content: string }>;
+    return rows[0]?.content ?? null;
+  });
+}

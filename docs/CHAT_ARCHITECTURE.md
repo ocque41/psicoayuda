@@ -24,11 +24,13 @@ return res ?? handler.fetch(request, env, ctx);
 
 ### División de datos
 - **D1 (Drizzle, binding `DB`)**: verdad GLOBAL y consultable → feed, `conversations`,
-  `seekerSessions`, `responseSamples`, `accessRequests`, caché de bucket en `professionals`.
-- **SQLite del DO**: verdad LOCAL del contenido del chat (mensajes, `seq`, presencia).
-  El contenido NUNCA se vuelca a D1; sólo se replican METADATOS no sensibles
-  (`firstSeekerMsgAt`, `firstProReplyAt`, `lastMessageAt`, `lastMessageRole`) para el
-  algoritmo de tiempo de respuesta y la bandeja del profesional.
+  `seekerSessions`, `responseSamples`, `accessRequests`, caché de bucket en `professionals`,
+  clave pública E2EE del profesional y keystores de recuperación cifrados.
+- **SQLite del DO**: verdad LOCAL del contenido del chat (mensajes, `seq`, presencia,
+  claves públicas de los participantes). El contenido NUNCA se vuelca a D1; sólo se replican
+  METADATOS no sensibles (`firstSeekerMsgAt`, `firstProReplyAt`, `lastMessageAt`,
+  `lastMessageRole`) para el algoritmo de tiempo de respuesta y la bandeja del profesional.
+  Los mensajes se guardan como SOBRES E2EE opacos (ver abajo).
 
 ## Modelo de datos (D1)
 - `conversations` (id, helpRequestId?, professionalId, seekerSid, seekerName?, seekerEmail?, status, firstSeekerMsgAt, firstProReplyAt, lastMessageAt, lastMessageRole, proLastReadAt, closedReason?, reopenedAt, createdAt…)
@@ -42,9 +44,11 @@ return res ?? handler.fetch(request, env, ctx);
 
 - **Conversaciones ETERNAS (v0.10.0)**: la retención ya no cierra ni anonimiza
   chats. El hilo (y su link) vive hasta que una de las dos partes lo borra desde
-  su lado; borrar es definitivo: purga del SQLite del DO, borrado del espejo D1,
-  sesiones revocadas y link muerto (`deleteConversation` en
-  `src/app/c/[conversationId]/actions.ts`). El borrado queda auditado.
+  su lado; borrar sigue siendo definitivo, pero pasa por una **papelera con
+  deshacer de 7 días** (v0.11.0): purga del SQLite del DO, borrado del espejo D1,
+  sesiones revocadas y link muerto (el cron de retención purga al vencer
+  `purgeAfter` en `src/lib/conversation-purge.ts`). Ambos eventos quedan auditados
+  (`conversation_deleted`, `conversation_restored`, `conversation_purged`).
 - **Cupo liberable sin perder el hilo**: un chat directo sin actividad >30 días
   deja de ocupar uno de los cupos del profesional (`quotaReleasedAt`), pero sigue
   abierto y accesible. La retención solo mantiene las **solicitudes** (cierre
@@ -70,8 +74,12 @@ return res ?? handler.fetch(request, env, ctx);
 - Seeker SIN cuenta: token HMAC firmado (`BETTER_AUTH_SECRET`) `{sid, conversationId, helpRequestId, exp+72h}`, sin PII, en cookie httpOnly+Secure+SameSite=Lax scopeada a `/c/<id>`; sesión deslizante hasta 90 días.
 - Autorización en el borde (`onBeforeConnect`) ANTES de instanciar el DO: seeker (HMAC+`seekerSessions`) XOR profesional (better-auth + `conversations.professionalId`). Inyecta headers de confianza; el DO ignora cualquier rol del payload del cliente.
 - **Identidad determinista cuando hay DOS credenciales** (`src/lib/chat-identity.ts`, `chooseChatIdentity`): un mismo navegador puede tener la sesión/cookie del profesional y la cookie de la persona. Regla única compartida por página, server actions y WebSocket: gana el **profesional**; la persona solo si no hay credencial profesional o si el profesional pide su vista con `?como=persona` (el query viaja también a la URL del WebSocket). Antes la página priorizaba al seeker y el WS al profesional, así que un mensaje podía quedar firmado "como el otro". En la vista de persona el profesional escribe/borra/reabre como ella (el borrado cierra el caso en vez de reencolarlo) y la UI lo dice explícitamente.
-- Kill-switch en D1: sesión revocada/expirada o conversación anonimizada ⇒ 403; cierre por caso revoca; cierre por inactividad NO revoca (permite leer/reabrir).
-- Transporte WSS/TLS + validación de `Origin`. **NO** se promete E2E (inviable para seeker anónimo en navegador) — honestidad en la UI.
+- Kill-switch en D1: sesión revocada/expirada, conversación anonimizada o EN
+  PAPELERA ⇒ 403; cierre por caso revoca; cierre por inactividad NO revoca
+  (permite leer/reabrir).
+- Transporte WSS/TLS + validación de `Origin`.
+- **E2EE (v0.11.0)**: cifrado de extremo a extremo real (ver sección propia). El
+  servidor no puede leer el contenido; los emails siguen sin incluirlo.
 - Anti-abuso: rate-limit de apertura por `requesterHash` (3/h), rate-limit de mensajes por conexión, rate-limit del enlace mágico por correo (3/h), expiración/anonimización con purga verificada.
 - La tarjeta "Origen del tráfico" del panel admin agrupa `click_events.utm_source` (NULL ⇒ `directo`): son ACCIONES sin UTM de entrada, no visitas.
 
@@ -83,11 +91,36 @@ return res ?? handler.fetch(request, env, ctx);
 - **Cold-start (sin inventar)**: derivar de `acceptingRequests` + cupo (+ presencia del DO en fases con chat).
 - Implementado en `src/lib/response-bucket.ts`.
 
-## Seguridad
-- Seeker SIN cuenta: token HMAC firmado (`BETTER_AUTH_SECRET`) `{sid, conversationId, helpRequestId, exp+72h}`, sin PII, en cookie httpOnly+Secure+SameSite=Lax scopeada a `/c/<id>`.
-- Autorización en el borde (`onBeforeConnect`) ANTES de instanciar el DO: seeker (HMAC+`seekerSessions`) XOR profesional (better-auth + `conversations.professionalId`). Inyecta headers de confianza; el DO ignora cualquier rol del payload del cliente.
-- Transporte WSS/TLS + validación de `Origin`. **NO** se promete E2E (inviable para seeker anónimo en navegador) — honestidad en la UI.
-- Anti-abuso: rate-limit de apertura por `requesterHash` (reusa helper existente, 3/h), rate-limit de mensajes por conexión, expiración/anonimización (patrón existente en `actions.ts`).
+## Cifrado de extremo a extremo (v0.11.0)
+
+El chat es **E2EE real en el navegador** (`src/shared/e2ee.ts`,
+`src/lib/e2ee-client.ts`): el servidor guarda y transporta sobres opacos
+(`{"v":1,"p":<pub emisor>,"q":<pub receptor>,"n":<iv>,"c":<ct>}`) y nunca tiene
+la clave para descifrarlos.
+
+- **Claves**: pares ECDH P-256. El profesional tiene UNA clave de identidad y
+  publica la pública en su ficha (`professionals.crypto_public_key`) al entrar a
+  su panel (`E2eeProSetupBanner`). La persona tiene una clave por conversación,
+  privada en su IndexedDB; su pública viaja en cada sobre y se publica al DO al
+  conectar (frame `key` → snapshot `keys`).
+- **Clave de conversación**: `HKDF(ECDH(mi_priv, pub_contraparte))` con sal del
+  `conversationId`. El sobre lleva las DOS públicas para que emisor y receptor
+  puedan releer el historial; el AAD (`conversationId|senderRole`) ata cada
+  mensaje a su sala y su autor.
+- **Respaldo**: código de recuperación de 128 bits (base32 Crockford, 26
+  caracteres). El keystore se cifra con AES-256-GCM bajo una clave derivada del
+  código y se guarda en `recovery_keystores` (id = derivado del código): el
+  servidor no puede descifrarlo. Sin el código, un dispositivo nuevo no puede
+  leer el historial (y nadie puede recuperarlo); hay un flujo explícito de
+  restauración/rotación en la sala.
+- **Migración del historial legado**: el cliente re-cifra los mensajes en claro
+  por lotes (`frame reencrypt`, idempotente) en cuanto hay claves de ambos lados.
+- **Límites honestos**: no hay forward secrecy (el historial es eterno), los
+  metadatos (participantes, fechas, tamaños) siguen visibles para el servidor, y
+  la garantía no cubre un navegador/dispositivo comprometido ni un despliegue
+  malicioso del propio operador.
+- **El servidor no descifra nunca** y ningún flujo (correos, panel, métricas,
+  admin, retención) necesita el contenido.
 
 ## Plan por fases
 - **Fase 0** — ✅ Spike de integración DO+WS sobre OpenNext (custom-worker echo).
@@ -98,6 +131,7 @@ return res ?? handler.fetch(request, env, ctx);
 - **Fase 5** — ✅ Tiempo de respuesta REAL: replicación de timestamps DO→`responseSamples`, Cron de recompute.
 - **Fase 6 (v0.8.0)** — ✅ Persistencia: retención 90/180, sesión deslizante, `/acceso`, aviso de respuesta a la persona, reapertura del mismo hilo, bandeja del profesional con no leídos y cupo del chat directo.
 - **Fase 7 (v0.10.0)** — ✅ Chats eternos + borrado definitivo por las partes (purga del DO), cupo liberable por inactividad y links de pago insertables en el chat (módulo `src/lib/payments`).
+- **Fase 8 (v0.11.0)** — ✅ E2EE del chat (claves en el navegador, código de recuperación, migración del historial legado), paginación hacia atrás del historial, tope de mensajes ampliado a 20.000 y papelera con deshacer de 7 días antes del borrado definitivo.
 
 ## Notificaciones por email (PRIMERA PRIORIDAD)
 

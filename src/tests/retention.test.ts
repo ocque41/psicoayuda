@@ -1,4 +1,4 @@
-import { and, eq, like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {

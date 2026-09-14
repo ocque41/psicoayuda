@@ -1,0 +1,98 @@
+/* Estilos de los componentes E2EE compartidos (modal de respaldo y aviso de
+   configuración del profesional). */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.modalCard {
+  width: min(460px, 100%);
+  max-height: min(88vh, 640px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg, var(--shadow-sm));
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.modalText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.recoveryCode {
+  display: block;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  border: 1px dashed var(--border);
+  font-size: 1.02rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  word-break: break-word;
+  user-select: all;
+}
+
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modalSkip {
+  background: none;
+  border: none;
+  padding: 4px 0 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Aviso en el panel del profesional: activar el cifrado antes de chatear. */
+.setupBanner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 14px 16px;
+  margin-bottom: var(--space-6, 18px);
+}
+
+.setupBanner p {
+  margin: 0;
+  flex: 1 1 320px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.setupError {
+  margin: 0;
+  flex-basis: 100%;
+  color: var(--danger);
+  font-size: 0.88rem;
+}

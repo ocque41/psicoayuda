@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   accessRequests,
@@ -11,6 +11,7 @@ import {
   professionals,
 } from "@/db/schema";
 import { releaseAssignmentsForRequest } from "@/lib/assignment";
+import { finalizeConversationPurge } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -247,6 +248,35 @@ export async function runRetention(now: number = Date.now()) {
       lt(accessRequests.createdAt, new Date(now - ACCESS_REQUESTS_TTL_MS)),
     );
 
+  // 6) Purga DEFINITIVA de la papelera vencida: el borrado con deshacer dura 7
+  // días; al vencer, el contenido (cifrado de extremo a extremo) se borra del
+  // DO y las filas del espejo D1. Si la purga del DO falla, la fila se queda y
+  // se reintenta en la siguiente pasada (nunca se dejan transcripciones
+  // huérfanas sin fila que las reintente).
+  const expiredTrash = await db
+    .select({
+      id: conversations.id,
+      professionalId: conversations.professionalId,
+      helpRequestId: conversations.helpRequestId,
+      quotaReleasedAt: conversations.quotaReleasedAt,
+      deletedByRole: conversations.deletedByRole,
+    })
+    .from(conversations)
+    .where(
+      and(
+        isNotNull(conversations.deletedAt),
+        isNotNull(conversations.purgeAfter),
+        lte(conversations.purgeAfter, new Date(now)),
+      ),
+    );
+  let purgedTrash = 0;
+  let purgeFailed = 0;
+  for (const conversation of expiredTrash) {
+    const result = await finalizeConversationPurge(conversation, null);
+    if (result === "purged") purgedTrash += 1;
+    else if (result === "do_failed") purgeFailed += 1;
+  }
+
   return {
     anonymized,
     closed,
@@ -255,5 +285,7 @@ export async function runRetention(now: number = Date.now()) {
       0,
     ),
     paymentsExpired: expiredPayments.length,
+    purgedTrash,
+    purgeFailed,
   };
 }
