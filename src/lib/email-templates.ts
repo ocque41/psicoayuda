@@ -340,6 +340,83 @@ Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio d
 }
 
 /**
+ * Aviso de que la conversación entró en la PAPELERA (borrado con deshacer de 7
+ * días). Sin contenido: solo avisa y enlaza para restaurarla. Es la red de
+ * seguridad contra "la borré sin querer".
+ */
+export function buildChatDeletedEmail(input: {
+  audience: "seeker" | "professional";
+  url: string;
+}): BuiltEmail {
+  const isSeeker = input.audience === "seeker";
+  const subject = isSeeker
+    ? "Tu conversación en Nido se borró (puedes recuperarla)"
+    : "Se borró una conversación en Nido (puedes recuperarla)";
+  const lead = isSeeker
+    ? "La conversación con tu acompañante se marcó para borrar. Todavía puedes recuperarla durante los próximos 7 días; después se eliminará para siempre."
+    : "La persona que acompañabas marcó su conversación para borrar. Todavía puedes recuperarla durante los próximos 7 días; después se eliminará para siempre.";
+  const cta = isSeeker
+    ? "Recuperar mi conversación"
+    : "Recuperar la conversación";
+  const urlAttr = escapeHtml(input.url);
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7decf;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="background:#6e655b;height:6px;line-height:6px;font-size:6px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:28px 28px 8px;">
+                <p style="margin:0 0 4px;font-weight:700;font-size:18px;color:#6e655b;">Nido</p>
+                <p style="margin:0 0 16px;font-size:16px;">Hola,</p>
+                <p style="margin:0 0 22px;font-size:16px;line-height:1.6;">${lead}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:999px;background:#b65334;">
+                      <a href="${urlAttr}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px;">${cta}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;font-size:13px;color:#6e655b;line-height:1.6;">Si la borraste a propósito, puedes ignorar este correo: en 7 días se eliminará definitivamente.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hola,
+
+${lead}
+
+${cta}: ${input.url}
+
+Si la borraste a propósito, puedes ignorar este correo: en 7 días se eliminará definitivamente.
+
+Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.`;
+
+  return { subject, html, text, headers: {} };
+}
+
+/**
  * Aviso al profesional de que hay una NUEVA solicitud difundida que puede
  * aceptar. Privacy-safe: NO incluye PII de la persona (ni correo ni relato);
  * solo el tipo de apoyo y la urgencia (datos mínimos ya visibles en su panel) y

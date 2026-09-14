@@ -54,7 +54,7 @@ La aplicación recoge deliberadamente la menor cantidad de datos posible. **No**
 - **Asignación segura.** La asignación corre dentro de una transacción con guardas contra duplicados y contra exceder la capacidad del profesional.
 - **Registro de auditoría.** Se registran aprobaciones, rechazos, suspensiones, asignaciones, cierres, anonimizaciones y exportaciones.
 - **Anti-spam básico.** Límite simple en `/ayuda`: no más de 3 solicitudes recientes por correo o por IP del solicitante (hasheada con el secreto de la app, nunca se almacena la IP en claro).
-- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría). Las **conversaciones son permanentes**: solo desaparecen cuando el profesional o la persona las borran desde su lado (borrado definitivo con purga del Durable Object y link muerto). Cobrar por la emergencia está prohibido; los servicios pagos por otros temas son opcionales.
+- **Privacidad y retención.** Páginas públicas de privacidad y términos; los administradores pueden anonimizar una solicitud (elimina contacto y ubicación, la cierra y deja rastro de auditoría). El **chat está cifrado de extremo a extremo**: se cifra en los dispositivos y Nido no puede leer el contenido. Las **conversaciones son permanentes**: solo desaparecen cuando el profesional o la persona las borran desde su lado; borrar abre una **papelera con deshacer de 7 días** y, al vencer, se purga el Durable Object, se eliminan las filas y el link muere. Cada persona recibe un **código de recuperación** para leer su historial en otro dispositivo (Nido no puede recuperarlo). Cobrar por la emergencia está prohibido; los servicios pagos por otros temas son opcionales.
 - **Pagos opcionales (Stripe Connect).** Módulo aislado en `src/lib/payments`: la ayuda por el terremoto sigue siendo gratuita y el profesional puede, si quiere, configurar paquetes de sesiones por temas ajenos a la emergencia, conectarse con Stripe y compartir un link de pago (también dentro del chat). Nido procesa el pago, retiene una comisión fija (5 € por defecto, `NIDO_PLATFORM_FEE_CENTS`) y Stripe transfiere el resto al profesional. Checkout hospedado: Nido nunca ve datos de tarjeta. Sin claves configuradas, todo el módulo se oculta.
 - **Copy honesto y trauma-informed.** Cabeceras de seguridad, recursos verificados y textos que nunca prometen disponibilidad inmediata.
 
@@ -214,10 +214,11 @@ hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
    conexiones del chat se rechazan.
 4. **Cron de retención:** `wrangler.jsonc` define un cron diario que cierra las
    **solicitudes** de ayuda inactivas a 90 días y las anonimiza a 180, purga la
-   tabla del enlace mágico (>7 días) y libera el cupo de los chats directos sin
-   actividad (>30 días). Los **chats no se borran nunca** desde el cron: son
-   permanentes hasta que una de las dos partes los borra. Se ejecuta solo en el
-   Worker desplegado.
+   tabla del enlace mágico (>7 días), libera el cupo de los chats directos sin
+   actividad (>30 días) y **purga la papelera vencida** (>7 días). Los chats no
+   se borran solos: son permanentes hasta que una de las dos partes los borra, y
+   el borrado definitivo lo ejecuta el cron al vencer el deshacer. Se ejecuta
+   solo en el Worker desplegado.
 5. **Caché de rendimiento (OpenNext):** `open-next.config.ts` usa caché
    persistente en KV (`NEXT_INC_CACHE_KV`), cola de revalidación en Durable
    Objects (`NEXT_CACHE_DO_QUEUE`) y tag cache en D1 (`NEXT_TAG_CACHE_D1`, tabla

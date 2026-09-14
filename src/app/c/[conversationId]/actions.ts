@@ -9,19 +9,17 @@ import {
   conversations,
   helpRequests,
   professionals,
-  responseSamples,
   seekerSessions,
 } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
-import {
-  disconnectConversationSockets,
-  purgeConversationMessagesDetailed,
-} from "@/lib/chat-admin";
+import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { chooseChatIdentity } from "@/lib/chat-identity";
+import { TRASH_GRACE_MS } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
 import {
   conversationUrl,
+  notifyConversationDeleted,
   notifyConversationReopened,
 } from "@/lib/notifications";
 import {
@@ -462,18 +460,18 @@ export async function reopenConversation(
 }
 
 export type DeleteConversationResult =
-  | { ok: true; role: "seeker" | "professional" }
+  | { ok: true; role: "seeker" | "professional"; purgeAfter: string }
   | { ok: false; message: string };
 
 /**
- * Borrado DEFINITIVO de una conversación. Puede hacerlo la persona (cookie de
- * sala vigente) o el profesional dueño. Borra el transcript del Durable Object,
- * las sesiones y las filas del espejo en D1: no hay vuelta atrás y el link deja
- * de existir. Hasta este momento el link era eterno. Queda auditado.
+ * PAPELERA con deshacer (7 días): borra para las dos partes, pero el contenido
+ * (ya cifrado de extremo a extremo) se conserva cifrado hasta que vence
+ * `purgeAfter`; entonces el cron lo purga de verdad. Cualquiera de las dos
+ * partes puede restaurarla desde el enlace o la propia sala. Así un borrado
+ * accidental no destruye el historial y el borrado definitivo sigue siendo real.
  *
- * Si el hilo venía de una solicitud (/ayuda): al borrar el profesional, el caso
- * vuelve a la cola para que otra persona pueda acompañar ("new"); si borra la
- * persona, el caso se cierra y no se reencola a nadie.
+ * Puede borrar la persona (cookie de sala vigente) o el profesional dueño. Se
+ * avisa a la contraparte por correo (sin contenido) con enlace para recuperar.
  */
 export async function deleteConversation(
   conversationId: string,
@@ -484,6 +482,13 @@ export async function deleteConversation(
   });
   if (!conversation) {
     return { ok: false, message: "Esta conversación ya no existe." };
+  }
+  if (conversation.deletedAt) {
+    return {
+      ok: false,
+      message:
+        "Esta conversación ya está en la papelera. Usa el enlace del correo para recuperarla.",
+    };
   }
 
   // ¿Quién borra? Misma prelación que la vista y el WebSocket: profesional por
@@ -497,127 +502,18 @@ export async function deleteConversation(
   }
   const { role, actorEmail } = actor;
 
-  // Primero el contenido: si en producción la purga del DO falla, NO borramos
-  // las filas (quedarían transcripciones huérfanas sin forma de reintentar).
-  // En local (sin binding del DO) la purga es "unavailable" y se procede: nunca
-  // hubo contenido real que borrar.
-  const purge = await purgeConversationMessagesDetailed(conversationId);
-  if (purge === "failed") {
-    // En `next dev` el binding del DO existe pero el runtime no lo sirve (el
-    // propio workerd avisa "no such actor class"): ahí no hay contenido real que
-    // perder y bloqueamos el flujo para poder probarlo en local. En producción
-    // (build de OpenNext) un fallo de purga SÍ bloquea el borrado: nunca dejamos
-    // transcripciones huérfanas sin fila D1 que las reintente.
-    const isDev = process.env.NODE_ENV !== "production";
-    if (isDev) {
-      await db.insert(auditLogs).values({
-        id: newId("log"),
-        actorEmail,
-        action: "conversation_delete_purge_skipped_dev",
-        entityType: "conversation",
-        entityId: conversationId,
-        metadata: JSON.stringify({ role }),
-        createdAt: nowIso(),
-      });
-    } else {
-      await db.insert(auditLogs).values({
-        id: newId("log"),
-        actorEmail,
-        action: "conversation_delete_failed",
-        entityType: "conversation",
-        entityId: conversationId,
-        metadata: JSON.stringify({ role }),
-        createdAt: nowIso(),
-      });
-      return {
-        ok: false,
-        message:
-          "No pudimos borrar la conversación en este momento. Inténtalo de nuevo en unos minutos.",
-      };
-    }
-  }
-
   const timestamp = nowIso();
-  let requeued = false;
+  const purgeAfter = new Date(Date.now() + TRASH_GRACE_MS);
 
-  if (conversation.helpRequestId) {
-    const assignment = await db.query.assignments.findFirst({
-      where: and(
-        eq(assignments.helpRequestId, conversation.helpRequestId),
-        eq(assignments.professionalId, conversation.professionalId),
-      ),
-    });
-    const activeAssignment =
-      assignment &&
-      (assignment.status === "assigned" || assignment.status === "accepted");
-    if (assignment && activeAssignment) {
-      const closedAssignment = await db
-        .update(assignments)
-        .set({ status: "closed", updatedAt: timestamp })
-        .where(
-          and(
-            eq(assignments.id, assignment.id),
-            inArray(assignments.status, ["assigned", "accepted"]),
-          ),
-        )
-        .returning({ id: assignments.id });
-      if (closedAssignment.length > 0) {
-        await db
-          .update(professionals)
-          .set({
-            currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-            updatedAt: timestamp,
-          })
-          .where(eq(professionals.id, conversation.professionalId));
-
-        if (role === "professional") {
-          // El profesional deja el caso: vuelve a la cola para que otra persona
-          // pueda acompañar. (Mismo criterio que la suspensión de perfil.)
-          const requeuedRequest = await db
-            .update(helpRequests)
-            .set({ status: "new", updatedAt: timestamp })
-            .where(
-              and(
-                eq(helpRequests.id, conversation.helpRequestId),
-                eq(helpRequests.status, "assigned"),
-              ),
-            )
-            .returning({ id: helpRequests.id });
-          requeued = requeuedRequest.length > 0;
-        } else {
-          // La persona cierra su propio caso: no se reencola a nadie.
-          await db
-            .update(helpRequests)
-            .set({ status: "closed", updatedAt: timestamp })
-            .where(
-              and(
-                eq(helpRequests.id, conversation.helpRequestId),
-                eq(helpRequests.status, "assigned"),
-              ),
-            );
-        }
-      }
-    }
-  } else if (!conversation.quotaReleasedAt) {
-    // Chat directo que aún ocupaba cupo: se libera al borrarlo.
-    await db
-      .update(professionals)
-      .set({
-        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-        updatedAt: timestamp,
-      })
-      .where(eq(professionals.id, conversation.professionalId));
-  }
-
-  await db.batch([
-    db
-      .delete(seekerSessions)
-      .where(eq(seekerSessions.conversationId, conversationId)),
-    db
-      .delete(responseSamples)
-      .where(eq(responseSamples.conversationId, conversationId)),
-    db.delete(conversations).where(eq(conversations.id, conversationId)),
-  ]);
+  await db
+    .update(conversations)
+    .set({
+      deletedAt: new Date(),
+      purgeAfter,
+      deletedByRole: role,
+      updatedAt: timestamp,
+    })
+    .where(eq(conversations.id, conversationId));
 
   await db.insert(auditLogs).values({
     id: newId("log"),
@@ -625,9 +521,113 @@ export async function deleteConversation(
     action: "conversation_deleted",
     entityType: "conversation",
     entityId: conversationId,
-    metadata: JSON.stringify({ role, requeued }),
+    metadata: JSON.stringify({
+      role,
+      trash: true,
+      purgeAfter: purgeAfter.toISOString(),
+    }),
     createdAt: timestamp,
   });
 
-  return { ok: true, role };
+  // Avisa a la CONTRAPARTE (best-effort: un fallo de correo no rompe el borrado)
+  // para que no se sorprenda y pueda recuperarla durante la ventana.
+  try {
+    if (role === "professional") {
+      const request = conversation.helpRequestId
+        ? await db.query.helpRequests.findFirst({
+            where: eq(helpRequests.id, conversation.helpRequestId),
+          })
+        : null;
+      const seekerEmail = conversation.seekerEmail ?? request?.email ?? null;
+      if (seekerEmail) {
+        const link = await createSeekerAccessLink({
+          conversationId,
+          helpRequestId: conversation.helpRequestId,
+        });
+        await notifyConversationDeleted({
+          email: seekerEmail,
+          audience: "seeker",
+          url: link.url,
+        });
+      }
+    } else {
+      const pro = await db.query.professionals.findFirst({
+        where: eq(professionals.id, conversation.professionalId),
+      });
+      if (pro?.email) {
+        await notifyConversationDeleted({
+          email: pro.email,
+          audience: "professional",
+          url: conversationUrl(conversationId),
+        });
+      }
+    }
+  } catch {
+    // best-effort
+  }
+
+  return { ok: true, role, purgeAfter: purgeAfter.toISOString() };
+}
+
+export type RestoreConversationResult =
+  | { ok: true; role: "seeker" | "professional" }
+  | { ok: false; message: string };
+
+/**
+ * Saca la conversación de la papelera (mismo hilo, mismo historial cifrado).
+ * Cualquiera de las dos partes puede hacerlo mientras no venza `purgeAfter`.
+ */
+export async function restoreConversation(
+  conversationId: string,
+  asPersona = false,
+): Promise<RestoreConversationResult> {
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+  });
+  if (!conversation) {
+    return { ok: false, message: "Esta conversación ya no existe." };
+  }
+  const actor = await resolveActor(conversation, asPersona);
+  if (!actor) {
+    return {
+      ok: false,
+      message: "No pudimos verificar que seas parte de esta conversación.",
+    };
+  }
+  if (!conversation.deletedAt) {
+    return { ok: true, role: actor.role };
+  }
+  if (
+    conversation.purgeAfter &&
+    conversation.purgeAfter.getTime() <= Date.now()
+  ) {
+    return {
+      ok: false,
+      message:
+        "Pasó el plazo de recuperación: la conversación se eliminó para siempre.",
+    };
+  }
+
+  const timestamp = nowIso();
+  await db
+    .update(conversations)
+    .set({
+      deletedAt: null,
+      purgeAfter: null,
+      deletedByRole: null,
+      updatedAt: timestamp,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail: actor.actorEmail,
+    action: "conversation_restored",
+    entityType: "conversation",
+    entityId: conversationId,
+    metadata: JSON.stringify({ role: actor.role }),
+    createdAt: timestamp,
+  });
+
+  return { ok: true, role: actor.role };
 }

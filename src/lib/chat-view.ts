@@ -29,6 +29,14 @@ export type ChatView = {
   /** El visitante tiene AMBAS credenciales para esta sala: puede alternar entre
    *  su vista de profesional y la vista de la persona (`?como=persona`). */
   canSwitchView: boolean;
+  /** Papelera: el hilo está borrado y se puede deshacer hasta `purgeAfter`. */
+  deleted: boolean;
+  purgeAfter: number | null;
+  /** Quién lo borró ("professional" | "seeker" | null). */
+  deletedByRole: string | null;
+  /** Clave pública E2EE del profesional: la persona la necesita para cifrar.
+   *  Null = el profesional aún no configuró el cifrado (no se puede escribir). */
+  proPublicKey: string | null;
 };
 
 /**
@@ -119,6 +127,8 @@ export async function loadChatView(
   if (!identity) return null;
 
   const canSwitchView = isProfessional && isSeeker;
+  const deleted = conversation.deletedAt != null;
+  const purgeAfter = conversation.purgeAfter?.getTime() ?? null;
 
   if (identity === "professional") {
     return {
@@ -128,6 +138,10 @@ export async function loadChatView(
       otherName: "Alguien que pidió apoyo",
       professionalId: conversation.professionalId,
       canSwitchView,
+      deleted,
+      purgeAfter,
+      deletedByRole: conversation.deletedByRole,
+      proPublicKey: professionalRow?.cryptoPublicKey ?? null,
     };
   }
 
@@ -141,5 +155,15 @@ export async function loadChatView(
     professionalRow?.displayName ||
     professionalRow?.fullName?.split(" ")[0] ||
     "tu acompañante";
-  return { role: "seeker", conversationId, open, otherName, canSwitchView };
+  return {
+    role: "seeker",
+    conversationId,
+    open,
+    otherName,
+    canSwitchView,
+    deleted,
+    purgeAfter,
+    deletedByRole: conversation.deletedByRole,
+    proPublicKey: professionalRow?.cryptoPublicKey ?? null,
+  };
 }

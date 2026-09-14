@@ -40,11 +40,13 @@ export default function PrivacyPage() {
             <li>Nivel de urgencia indicado por la persona.</li>
             <li>Fecha y hora de la solicitud.</li>
             <li>
-              El contenido de tus conversaciones por chat con un profesional. Se
-              transmite cifrado y se guarda mientras la conversación exista (es
-              permanente hasta que tú o el profesional la borren); puedes
-              retomarla incluso desde otro dispositivo, con un enlace de acceso
-              a tu correo.
+              El contenido de tus conversaciones por chat con un profesional. Va
+              cifrado de extremo a extremo: se cifra en tu dispositivo y se
+              descifra solo en el de la otra persona, así que ni Nido puede
+              leerlo. Se guarda mientras la conversación exista (es permanente
+              hasta que tú o el profesional la borren); puedes retomarla incluso
+              desde otro dispositivo, con un enlace de acceso a tu correo y tu
+              código de recuperación.
             </li>
             <li>
               Un identificador técnico derivado de tu dirección IP (un código no
@@ -171,10 +173,24 @@ export default function PrivacyPage() {
           </p>
           <p>
             Las conversaciones de chat son permanentes: se conservan hasta que
-            tú o el profesional las borren desde su lado. Cuando una de las dos
-            partes borra una conversación, eliminamos todo su contenido
-            (incluido el historial de mensajes) y el enlace deja de funcionar;
-            no hay vuelta atrás.
+            tú o el profesional las borren desde su lado. Borrar lleva la
+            conversación a una papelera con deshacer de 7 días: durante ese
+            plazo cualquiera de las dos partes puede recuperarla desde el
+            enlace; al vencer, eliminamos todo su contenido (incluido el
+            historial de mensajes) y el enlace deja de funcionar, sin vuelta
+            atrás.
+          </p>
+          <p>
+            <strong>Cifrado de extremo a extremo del chat.</strong> Los mensajes
+            se cifran en el dispositivo de quien escribe y solo se descifran en
+            el de la otra parte. Nido no puede leer el contenido, ni siquiera al
+            guardarlo, y tampoco puede recuperarlo si se pierde la clave. Cada
+            persona recibe un código de recuperación que es la única manera de
+            leer su historial en un dispositivo nuevo; si se pierde, los
+            mensajes ya cifrados dejan de poder leerse en ese dispositivo nuevo.
+            El servidor sí conserva metadatos técnicos (quién participa, fechas
+            y tamaño de los mensajes) para hacer funcionar el chat; nunca el
+            texto.
           </p>
           <p>
             Las solicitudes de ayuda (el formulario) se cierran después de 90

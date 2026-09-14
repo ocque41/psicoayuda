@@ -12,6 +12,7 @@ import {
   type ServerFrame,
   serialize,
 } from "@/shared/chat-protocol";
+import { isEnvelope } from "@/shared/e2ee";
 import type { Env } from "./types";
 
 const HISTORY_PAGE = 30;
@@ -21,10 +22,12 @@ const NOTIFY_DEBOUNCE_MS = 5 * 60 * 1000;
 // Mismo debounce para avisar a la PERSONA de que le respondieron (sin contenido).
 const SEEKER_NOTIFY_DEBOUNCE_MS = 5 * 60 * 1000;
 // Anti-flood: tope de frames por conexión y ventana, y tope duro de mensajes
-// por conversación (evita crecimiento no acotado del SQLite del DO).
+// por conversación (evita crecimiento no acotado del SQLite del DO). 20.000 es
+// un límite de seguridad generoso: ninguna conversación real lo alcanza y sigue
+// habiendo margen de sobra para el límite de almacenamiento del DO.
 const FRAME_WINDOW_MS = 10_000;
 const FRAME_MAX_PER_WINDOW = 40;
-const MAX_MESSAGES_PER_CONVERSATION = 5000;
+const MAX_MESSAGES_PER_CONVERSATION = 20000;
 
 type ConnState = { role: SenderRole; canSend: boolean };
 
@@ -94,6 +97,17 @@ export class Conversation extends Server<Env> {
       )`,
     );
     sql.exec(`CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER)`);
+    // Claves públicas E2EE que los clientes publican al conectar (hoy, la de la
+    // persona por conversación; la del profesional vive en su ficha D1). Son
+    // datos públicos: sirven para que la contraparte pueda cifrar. El contenido
+    // nunca se descifra aquí.
+    sql.exec(
+      `CREATE TABLE IF NOT EXISTS keys (
+        role TEXT PRIMARY KEY,
+        public_key TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+    );
 
     const maxRow = sql
       .exec(`SELECT COALESCE(MAX(seq), 0) AS m FROM messages`)
@@ -151,7 +165,13 @@ export class Conversation extends Server<Env> {
     const messages = rows.reverse().map(toChatMessage);
     const hasMore = total > messages.length;
 
-    this.sendTo(connection, { type: "history", messages, hasMore });
+    this.sendTo(connection, {
+      type: "history",
+      messages,
+      hasMore,
+      mode: "initial",
+    });
+    this.sendTo(connection, { type: "keys", keys: this.keysSnapshot() });
     this.broadcastExcept(connection, {
       type: "presence",
       role,
@@ -198,6 +218,15 @@ export class Conversation extends Server<Env> {
         return;
       case "sync":
         this.handleSync(connection, frame.sinceSeq);
+        return;
+      case "history-page":
+        this.handleHistoryPage(connection, frame.beforeSeq);
+        return;
+      case "key":
+        this.handleKey(role, frame.publicKey);
+        return;
+      case "reencrypt":
+        this.handleReencrypt(connection, frame.items);
         return;
       case "typing":
         this.broadcastExcept(connection, {
@@ -344,7 +373,86 @@ export class Conversation extends Server<Env> {
       type: "history",
       messages: rows.map(toChatMessage),
       hasMore: rows.length === SYNC_LIMIT,
+      mode: "sync",
     });
+  }
+
+  // Paginación hacia atrás (keyset por seq): el historial completo se puede
+  // leer aunque pasen de los 30 más recientes. `hasMore` indica si quedan
+  // mensajes aún más antiguos.
+  private handleHistoryPage(connection: Connection, beforeSeq: number) {
+    const rows = this.ctx.storage.sql
+      .exec(
+        `SELECT server_id, client_msg_id, seq, sender_role, content, server_ts
+         FROM messages WHERE seq < ? ORDER BY seq DESC LIMIT ?`,
+        beforeSeq,
+        HISTORY_PAGE,
+      )
+      .toArray() as MessageRow[];
+    const messages = rows.reverse().map(toChatMessage);
+    const oldestSeq = messages[0]?.seq ?? beforeSeq;
+    const older = (
+      this.ctx.storage.sql
+        .exec(`SELECT COUNT(*) AS c FROM messages WHERE seq < ?`, oldestSeq)
+        .one() as { c: number }
+    ).c;
+    this.sendTo(connection, {
+      type: "history",
+      messages,
+      hasMore: Number(older) > 0,
+      mode: "page",
+    });
+  }
+
+  // Publica/actualiza la clave pública E2EE del rol conectado y la difunde a la
+  // sala para que la contraparte pueda cifrar. El DO nunca ve la privada.
+  private handleKey(role: SenderRole, publicKey: string) {
+    this.ctx.storage.sql.exec(
+      `INSERT INTO keys (role, public_key, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(role) DO UPDATE SET public_key = excluded.public_key, updated_at = excluded.updated_at`,
+      role,
+      publicKey,
+      Date.now(),
+    );
+    this.broadcast(serialize({ type: "keys", keys: this.keysSnapshot() }));
+  }
+
+  private keysSnapshot(): { seeker?: string; professional?: string } {
+    const rows = this.ctx.storage.sql
+      .exec(`SELECT role, public_key FROM keys`)
+      .toArray() as Array<{ role: string; public_key: string }>;
+    const keys: { seeker?: string; professional?: string } = {};
+    for (const row of rows) {
+      if (row.role === "seeker") keys.seeker = row.public_key;
+      else if (row.role === "professional") keys.professional = row.public_key;
+    }
+    return keys;
+  }
+
+  /**
+   * Re-cifra mensajes del historial legado (texto plano) con el sobre E2EE que
+   * manda el cliente. No toca el orden: solo reemplaza `content` de filas que
+   * aún no son sobres. Idempotente: repetir el lote no cambia nada.
+   */
+  private handleReencrypt(
+    connection: Connection,
+    items: { serverId: string; envelope: string }[],
+  ) {
+    const sql = this.ctx.storage.sql;
+    let count = 0;
+    for (const item of items) {
+      const row = sql
+        .exec(`SELECT content FROM messages WHERE server_id = ?`, item.serverId)
+        .toArray() as Array<{ content: string }>;
+      if (!row[0] || isEnvelope(row[0].content)) continue;
+      sql.exec(
+        `UPDATE messages SET content = ? WHERE server_id = ?`,
+        item.envelope,
+        item.serverId,
+      );
+      count += 1;
+    }
+    this.sendTo(connection, { type: "reencrypted", count });
   }
 
   private isProfessionalOnline(): boolean {
@@ -392,6 +500,7 @@ export class Conversation extends Server<Env> {
       const sql = this.ctx.storage.sql;
       sql.exec(`DELETE FROM messages`);
       sql.exec(`DELETE FROM meta`);
+      sql.exec(`DELETE FROM keys`);
       this.lastSeq = 0;
       this.firstSeekerMsgAt = null;
       this.firstProReplyAt = null;

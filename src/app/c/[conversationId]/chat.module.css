@@ -273,3 +273,122 @@
   color: var(--muted);
   font-size: 0.82rem;
 }
+
+/* Paginación hacia atrás del historial. */
+.loadOlder {
+  align-self: center;
+  margin: 0 auto 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent-strong);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.loadOlder:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.migrating {
+  margin: 0 auto 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.sendError {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.composerNotice {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Restauración de la clave en un dispositivo nuevo. */
+.restore {
+  margin: auto;
+  max-width: 46ch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px;
+}
+
+.restoreTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.restoreText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.restoreLabel {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.restoreInput {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 11px 13px;
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.restoreInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.restoreFresh {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  font-size: 0.88rem;
+}
+
+.restoreFresh summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.restoreCheck {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Acciones de los paneles E2EE de la sala (restaurar, recuperar borrado). El
+   modal de respaldo vive en src/components/e2ee.module.css. */
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

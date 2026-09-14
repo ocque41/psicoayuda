@@ -169,3 +169,34 @@ Los profesionales pueden cambiar correo, contraseña y teléfonos desde su panel
 - **Pagos colgados.** La retención marca `expired` los `pending` de más de 48 h.
 - **Índices** (migración 0024, aditiva): `payments(stripe_payment_intent_id)` y
   `audit_logs(actor_email, action, created_at)`.
+
+## Actualización 0.11.0 (2026-09-14) — E2EE del chat y papelera con deshacer
+
+- **Cifrado de extremo a extremo real.** Los mensajes se cifran y descifran solo
+  en los navegadores de las dos partes (`src/shared/e2ee.ts`,
+  `src/lib/e2ee-client.ts`): ECDH P-256 + HKDF + AES-256-GCM. El Durable Object
+  guarda sobres opacos; ningún flujo del servidor (correos, panel, métricas,
+  admin, retención) lee el contenido, así que no hay funcionalidad perdida. La
+  clave pública del profesional se publica en `professionals.crypto_public_key`;
+  las privadas viven en IndexedDB y su respaldo va cifrado con un código de
+  recuperación de 128 bits en `recovery_keystores` (el servidor no puede
+  descifrarlo ni relacionarlo sin el código).
+- **Riesgo residual documentado.** La garantía es de almacenamiento y
+  transporte: el operador puede servir JavaScript distinto (como en cualquier
+  web E2EE), los metadatos (participantes, fechas, tamaños) siguen visibles y un
+  dispositivo comprometido ve el texto. No hay forward secrecy: el historial es
+  eterno por diseño.
+- **Migración del historial legado.** El cliente re-cifra los mensajes en claro
+  por lotes (`frame reencrypt`, verificado idempotente en workers tests); hasta
+  que una de las dos partes abra la sala, los hilos anteriores pueden conservar
+  texto claro histórico. No se borra ningún mensaje en la migración.
+- **Papelera con deshacer (7 días).** `deleteConversation` ya no destruye al
+  instante: marca `deleted_at`/`purge_after`/`deleted_by_role`, el WebSocket
+  rechaza la sala y la página ofrece restaurar. El cron purga al vencer
+  (`finalizeConversationPurge`: DO primero; si falla, la fila se conserva para
+  reintentar y nunca quedan transcripciones huérfanas). Eventos auditados:
+  `conversation_deleted`, `conversation_restored`, `conversation_purged`;
+  `conversation_delete_failed` ya no existe (el flujo cambió).
+- **Historial completo y sin tope práctico.** Paginación hacia atrás por keyset
+  (`history-page`) y tope de 20.000 mensajes por conversación con error visible
+  en la UI (antes 5.000 y el error se silenciaba).

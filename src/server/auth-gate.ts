@@ -83,6 +83,7 @@ export type SeekerSessionRow = {
   expires_at: number | null;
   status: string | null;
   anonymized_at: number | null;
+  deleted_at: number | null;
 };
 
 /**
@@ -90,10 +91,10 @@ export type SeekerSessionRow = {
  * WebSocket. La fila viene de D1 (seeker_sessions + estado de la conversación).
  * - Sin fila: permitimos — el token ya pasó HMAC + expiración propia; la fila
  *   puede no existir en entornos sin D1 (tests).
- * - Con fila: es el kill-switch real — revocada, expirada o ANONIMIZADA => fuera.
- *   Una conversación CERRADA se permite: el historial es de solo lectura y la
- *   persona puede reabrirla dentro de la ventana de retención (el envío lo corta
- *   `x-nido-can-send`, no la conexión).
+ * - Con fila: es el kill-switch real — revocada, expirada, ANONIMIZADA o EN
+ *   PAPELERA => fuera. Una conversación CERRADA se permite: el historial es de
+ *   solo lectura y la persona puede reabrirla dentro de la ventana de retención
+ *   (el envío lo corta `x-nido-can-send`, no la conexión).
  */
 export function seekerSessionAllows(
   row: SeekerSessionRow | null,
@@ -103,12 +104,14 @@ export function seekerSessionAllows(
   if (row.revoked_at != null) return false;
   if (row.expires_at != null && row.expires_at <= nowMs) return false;
   if (row.anonymized_at != null) return false;
+  if (row.deleted_at != null) return false;
   return true;
 }
 
 /** ¿Puede ESCRIBIR esta conexión? Solo si la conversación sigue abierta. */
 export function seekerCanSend(row: SeekerSessionRow | null): boolean {
   if (!row) return true; // sin fila (tests/sin D1): no bloqueamos el envío
+  if (row.deleted_at != null) return false;
   return row.status === "open" && row.anonymized_at == null;
 }
 
@@ -116,20 +119,22 @@ export type ProfessionalSessionRow = {
   conversation_status: string | null;
   professional_status: string | null;
   anonymized_at: number | null;
+  deleted_at: number | null;
 };
 
 /**
  * Decisión PURA del kill-switch del profesional. La fila viene de D1.
  * - Sin fila: permitimos (el token HMAC ya pasó; la fila puede faltar en tests).
- * - Con fila: fuera si la conversación está ANONIMIZADA o la cuenta suspendida
- *   (un suspendido con cookie válida de 72h podía reconectar). Una conversación
- *   cerrada se permite para leer el historial y reabrir.
+ * - Con fila: fuera si la conversación está ANONIMIZADA, EN PAPELERA o la cuenta
+ *   suspendida (un suspendido con cookie válida de 72h podía reconectar). Una
+ *   conversación cerrada se permite para leer el historial y reabrir.
  */
 export function professionalConnectionAllows(
   row: ProfessionalSessionRow | null,
 ): boolean {
   if (!row) return true;
   if (row.anonymized_at != null) return false;
+  if (row.deleted_at != null) return false;
   if (row.professional_status === "suspended") return false;
   return true;
 }
@@ -139,6 +144,7 @@ export function professionalCanSend(
   row: ProfessionalSessionRow | null,
 ): boolean {
   if (!row) return true;
+  if (row.deleted_at != null) return false;
   return row.conversation_status === "open" && row.anonymized_at == null;
 }
 
@@ -146,8 +152,10 @@ export type ConnectGate = { allowed: boolean; canSend: boolean };
 
 /**
  * Comprueba la vigencia de la sesión del seeker contra D1. Best-effort: si no hay
- * binding D1 (tests) o la consulta falla, NO bloqueamos (nos apoyamos en el
- * token ya validado) para no tumbar el chat por un fallo transitorio de la DB.
+ * binding D1 (tests) NO bloqueamos (nos apoyamos en el token ya validado). Con
+ * D1 disponible SÍ exigimos la fila de sesión y la conversación: tras un borrado
+ * definitivo (purga), sus filas ya no existen y un token HMAC todavía vigente no
+ * puede resucitar la sala.
  */
 async function seekerSessionActive(
   env: AuthGateEnv,
@@ -160,7 +168,7 @@ async function seekerSessionActive(
   try {
     const row = (await database
       .prepare(
-        `SELECT s.revoked_at AS revoked_at, s.expires_at AS expires_at, c.status AS status, c.anonymized_at AS anonymized_at
+        `SELECT s.revoked_at AS revoked_at, s.expires_at AS expires_at, c.status AS status, c.anonymized_at AS anonymized_at, c.deleted_at AS deleted_at
          FROM seeker_sessions s
          LEFT JOIN conversations c ON c.id = s.conversation_id
          WHERE s.sid = ? AND s.conversation_id = ?
@@ -168,6 +176,7 @@ async function seekerSessionActive(
       )
       .bind(sid, conversationId)
       .first()) as SeekerSessionRow | null;
+    if (!row) return { allowed: false, canSend: false };
     return {
       allowed: seekerSessionAllows(row, nowMs),
       canSend: seekerCanSend(row),
@@ -178,9 +187,9 @@ async function seekerSessionActive(
 }
 
 /**
- * Kill-switch del profesional contra D1: la conversación debe seguir abierta y la
- * cuenta no estar suspendida. Best-effort: sin binding D1 (tests) o ante un fallo
- * transitorio, NO bloqueamos (nos apoyamos en el token ya validado).
+ * Kill-switch del profesional contra D1: la conversación debe existir, seguir
+ * abierta y la cuenta no estar suspendida. Best-effort sin binding D1 (tests);
+ * con D1, una fila inexistente (purga) cierra el paso aunque el token viva.
  */
 async function professionalSessionActive(
   env: AuthGateEnv,
@@ -192,7 +201,7 @@ async function professionalSessionActive(
   try {
     const row = (await database
       .prepare(
-        `SELECT c.status AS conversation_status, c.anonymized_at AS anonymized_at, p.status AS professional_status
+        `SELECT c.status AS conversation_status, c.anonymized_at AS anonymized_at, c.deleted_at AS deleted_at, p.status AS professional_status
          FROM conversations c
          LEFT JOIN professionals p ON p.id = ?
          WHERE c.id = ?
@@ -200,6 +209,7 @@ async function professionalSessionActive(
       )
       .bind(professionalId, conversationId)
       .first()) as ProfessionalSessionRow | null;
+    if (!row) return { allowed: false, canSend: false };
     return {
       allowed: professionalConnectionAllows(row),
       canSend: professionalCanSend(row),

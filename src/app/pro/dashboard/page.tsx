@@ -9,6 +9,7 @@ import { AccountActions } from "@/components/account-actions";
 import { ContactMessageForm } from "@/components/contact-message-form";
 import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { CredentialSettings } from "@/components/credential-settings";
+import { E2eeProSetupBanner } from "@/components/e2ee-pro-setup";
 import { PaymentSettings } from "@/components/payment-settings";
 import { db } from "@/db";
 import { account, assignments, helpRequests, professionals } from "@/db/schema";
@@ -316,6 +317,10 @@ export default async function ProDashboardPage({
             </span>
           ) : null}
         </div>
+
+        {/* E2EE: sin clave publicada, las personas no pueden escribirle. El
+            propio dispositivo la genera y publica al entrar al panel. */}
+        {!professional.cryptoPublicKey ? <E2eeProSetupBanner /> : null}
 
         {/* Todas las secciones a un toque: nadie navega este panel a ciegas. */}
         <nav className="panel-nav" aria-label="Secciones de tu panel">

@@ -2,6 +2,42 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.11.0 - 2026-09-14
+
+Cifrado de extremo a extremo del chat, historial completo sin tope práctico y
+papelera con deshacer antes del borrado definitivo.
+
+- **E2EE real** (`src/shared/e2ee.ts`, `src/lib/e2ee-client.ts`): los mensajes se
+  cifran en el navegador (ECDH P-256 + HKDF + AES-256-GCM) y el servidor solo
+  guarda sobres opacos. Ni el Durable Object ni D1 ni los correos ven el
+  contenido. Cada persona recibe un **código de recuperación** (128 bits) para
+  leer su historial en un dispositivo nuevo; el respaldo viaja cifrado a
+  `recovery_keystores` y sin el código nadie (tampoco Nido) puede abrirlo. Si no
+  hay clave disponible, la sala ofrece restaurar con el código o empezar de cero
+  (con advertencia explícita de qué historial se pierde).
+- **Claves públicas**: el profesional publica la suya en su ficha desde el
+  panel (aviso de configuración al entrar) y la persona publica la de su
+  conversación al abrir la sala; sin ambas no se puede escribir (nunca se
+  guarda texto claro nuevo). El historial anterior a esta versión se **re-cifra
+  en el cliente** por lotes idempotentes (`reencrypt`) en cuanto hay claves.
+- **Borrado con papelera (7 días)**: borrar ya no destruye al instante. El hilo
+  pasa a `deleted_at`/`purge_after`, el WebSocket se rechaza, la contraparte
+  recibe un correo (sin contenido) con enlace para recuperarlo y cualquiera de
+  las dos partes puede restaurarlo. Al vencer, el cron purga el DO y borra las
+  filas D1 (auditado: `conversation_deleted`, `conversation_restored`,
+  `conversation_purged`).
+- **Historial completo**: paginación hacia atrás por keyset (`history-page`,
+  botón "Cargar mensajes anteriores") en vez de ver solo los últimos 30, y tope
+  de 20.000 mensajes por conversación con error visible (antes 5.000 y en
+  silencio).
+- **Migración aditiva `0026_e2ee_y_papelera`**: `professionals.crypto_public_key`,
+  `recovery_keystores` y las columnas de papelera en `conversations`. No borra ni
+  modifica datos existentes. El deploy aplica la migración antes de desplegar.
+- **Privacidad y docs**: política de privacidad, pacto voluntario,
+  `docs/CHAT_ARCHITECTURE.md`, `docs/SECURITY.md` y README actualizados con la
+  promesa real (y sus límites: metadatos visibles, sin forward secrecy,
+  dispositivo comprometido).
+
 ## 0.10.3 - 2026-09-13
 
 Identidad determinista en el chat: queda claro quién firma cada mensaje.

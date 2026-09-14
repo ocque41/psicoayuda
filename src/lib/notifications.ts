@@ -10,6 +10,7 @@ import { sendEmail } from "@/lib/email";
 import {
   buildAllianceApprovedEmail,
   buildApprovalEmail,
+  buildChatDeletedEmail,
   buildChatReopenedEmail,
   buildContactMessageAlertEmail,
   buildErrorAlertEmail,
@@ -146,6 +147,29 @@ export async function notifyConversationReopened(input: {
   url: string;
 }) {
   const mail = buildChatReopenedEmail({
+    audience: input.audience,
+    url: input.url,
+  });
+  return sendEmail({
+    to: input.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
+  });
+}
+
+/**
+ * Avisa a la contraparte de que la conversación entró en la papelera (borrado
+ * con deshacer de 7 días), sin contenido. Es la red de seguridad contra el
+ * borrado accidental: el enlace permite restaurarla.
+ */
+export async function notifyConversationDeleted(input: {
+  email: string;
+  audience: "seeker" | "professional";
+  url: string;
+}) {
+  const mail = buildChatDeletedEmail({
     audience: input.audience,
     url: input.url,
   });

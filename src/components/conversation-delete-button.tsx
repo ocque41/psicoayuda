@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { deleteConversation } from "@/app/c/[conversationId]/actions";
 
 /**
- * Borrado definitivo y bilateral de una conversación (persona o profesional).
- * Doble paso en línea: el botón se convierte en confirmación con la advertencia
- * clara (no hay vuelta atrás) antes de ejecutar. Al terminar navega fuera del
- * chat, porque el link deja de existir.
+ * Borrado con PAPELERA (7 días para deshacer) de una conversación. Doble paso
+ * en línea: el botón se convierte en confirmación con la advertencia clara
+ * antes de ejecutar. Tras borrar usa navegación DURA (`window.location`): la
+ * sala ya no existe para el visitante y así se evita quedarse en una versión
+ * cacheada de la página. La contraparte recibe un aviso con enlace para
+ * recuperarla durante la ventana.
  */
 export function ConversationDeleteButton({
   conversationId,
@@ -26,27 +27,25 @@ export function ConversationDeleteButton({
   asPersona?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
-  function handleDelete() {
+  async function handleDelete() {
     setError("");
-    startTransition(async () => {
-      const result = await deleteConversation(conversationId, asPersona).catch(
-        () => ({
-          ok: false as const,
-          message: "No pudimos borrar la conversación. Inténtalo de nuevo.",
-        }),
-      );
-      if (result.ok) {
-        router.push(redirectTo);
-        router.refresh();
-      } else {
-        setConfirming(false);
-        setError(result.message);
-      }
-    });
+    setBusy(true);
+    const result = await deleteConversation(conversationId, asPersona).catch(
+      () => ({
+        ok: false as const,
+        message: "No pudimos borrar la conversación. Inténtalo de nuevo.",
+      }),
+    );
+    if (result.ok) {
+      window.location.assign(redirectTo);
+      return;
+    }
+    setBusy(false);
+    setConfirming(false);
+    setError(result.message);
   }
 
   return (
@@ -57,24 +56,26 @@ export function ConversationDeleteButton({
           aria-label="Confirmar borrado de la conversación"
         >
           <p className="muted conversation-delete-warning">
-            Se borrará para siempre, también para la otra persona, y el link
-            dejará de funcionar. No se puede deshacer.
+            Se ocultará para las dos partes. Tienes 7 días para recuperarla; si
+            nadie la recupera, se borrará para siempre y el link dejará de
+            funcionar. La otra persona recibirá un aviso con la opción de
+            recuperarla.
           </p>
           <div className="conversation-delete-actions">
             <button
               type="button"
               className="button danger"
-              onClick={handleDelete}
-              disabled={pending}
-              aria-busy={pending}
+              onClick={() => void handleDelete()}
+              disabled={busy}
+              aria-busy={busy}
             >
-              {pending ? "Borrando…" : "Sí, borrar para siempre"}
+              {busy ? "Borrando…" : "Sí, mover a la papelera"}
             </button>
             <button
               type="button"
               className="button secondary"
               onClick={() => setConfirming(false)}
-              disabled={pending}
+              disabled={busy}
             >
               Cancelar
             </button>
