@@ -21,18 +21,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.7.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Restore Next build cache
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Apply D1 migrations (production)
         # El CLOUDFLARE_API_TOKEN de CI ya tiene permiso D1:Edit, así que este paso
@@ -43,6 +51,12 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
+
+      - name: Prepare local D1 schema for prerender
+        # `next build` prerenderiza las rutas ISR contra Miniflare, no contra la
+        # D1 remota. Sin este paso el build registraba `no such table` y generaba
+        # silenciosamente una portada vacía aunque el job terminara en verde.
+        run: pnpm exec wrangler d1 migrations apply nido-venezuela-db --local
 
       - name: Build (OpenNext → Cloudflare)
         run: pnpm exec opennextjs-cloudflare build
@@ -62,21 +76,24 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: acf3c9d9659c2195909c29fd6af3316e
 
       - name: Smoke test + rollback automático
-        # Red de seguridad contra el bug NO determinista del bundler RSC de
-        # OpenNext/Next: a veces publica un bundle donde un componente cliente
-        # (p. ej. AuthPanel en /pro) falta en el React Client Manifest y la ruta
-        # responde 500 aunque el build "pase". Aquí probamos las rutas clave ya
-        # en producción; si alguna no da 200 tras varios reintentos (margen para
-        # la propagación al edge), revertimos al deploy anterior y dejamos el job
-        # en rojo. Re-lanzar el workflow suele producir un build sano.
+        # Verifica el Worker, contenido real, una ruta dinámica y el redirect de
+        # www. Los límites de conexión evitan que CI quede colgado si el edge no
+        # es alcanzable. Cualquier fallo revierte el deploy anterior.
         run: |
           set -uo pipefail
-          check() {
-            local path="$1" code=""
+          fetch() {
+            curl --silent --show-error --location \
+              --connect-timeout 10 --max-time 25 \
+              --retry 2 --retry-all-errors "$@"
+          }
+          check_status() {
+            local path="$1" expected="$2" code=""
             for i in 1 2 3 4 5 6; do
-              code=$(curl -s -o /dev/null -w "%{http_code}" "https://saludmental-venezuela.com${path}" || echo 000)
-              if [ "$code" = "200" ]; then
-                echo "OK  GET ${path} -> 200"
+              code=$(curl --silent --output /dev/null --write-out "%{http_code}" \
+                --connect-timeout 10 --max-time 25 \
+                "https://saludmental-venezuela.com${path}" || true)
+              if [ "$code" = "$expected" ]; then
+                echo "OK  GET ${path} -> ${expected}"
                 return 0
               fi
               echo "... GET ${path} -> ${code} (reintento ${i}/6)"
@@ -86,11 +103,25 @@ jobs:
             return 1
           }
           ok=1
-          check "/" || ok=0
-          check "/pro" || ok=0
+          check_status "/healthz" "200" || ok=0
+          check_status "/" "200" || ok=0
+          check_status "/pro" "200" || ok=0
+          fetch "https://saludmental-venezuela.com/" | grep -Fq "Ayuda psicológica gratis en Venezuela" || {
+            echo "FALLO portada: respondió 200 pero no contiene el contenido esperado"
+            ok=0
+          }
+          redirect=$(curl --silent --output /dev/null --write-out "%{redirect_url}" \
+            --connect-timeout 10 --max-time 25 \
+            "https://www.saludmental-venezuela.com/" || true)
+          if [ "$redirect" != "https://saludmental-venezuela.com/" ]; then
+            echo "FALLO www: redirect inesperado '${redirect}'"
+            ok=0
+          else
+            echo "OK  www -> dominio raíz"
+          fi
           if [ "$ok" != "1" ]; then
             echo "::error::Smoke test falló tras el deploy. Revirtiendo al deploy anterior."
-            pnpm exec wrangler rollback --message "Auto-rollback: el smoke test post-deploy detectó 500 (probable manifest RSC flaky de OpenNext)."
+            pnpm exec wrangler rollback --message "Auto-rollback: falló la comprobación integral post-deploy."
             exit 1
           fi
           echo "Smoke test OK: producción sana."

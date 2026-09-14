@@ -20,6 +20,62 @@ import type { Env } from "./src/server/types";
 // binding de Durable Object; si no, el deploy falla (igual que con Conversation).
 export { Conversation, DOQueueHandler };
 
+const REQUEST_TIMEOUT_MS = 12_000;
+
+function healthResponse(): Response {
+  return Response.json(
+    { ok: true, service: "nido", runtime: "cloudflare-workers" },
+    {
+      headers: {
+        "cache-control": "no-store",
+        "x-robots-tag": "noindex",
+      },
+    },
+  );
+}
+
+function unavailableResponse(request: Request): Response {
+  const acceptsHtml = request.headers.get("accept")?.includes("text/html");
+  const headers = {
+    "cache-control": "no-store",
+    "retry-after": "30",
+    "x-robots-tag": "noindex",
+  };
+
+  if (!acceptsHtml) {
+    return Response.json(
+      { ok: false, error: "Servicio temporalmente no disponible" },
+      { status: 503, headers },
+    );
+  }
+
+  // Última red de seguridad: si Next, D1 o la caché fallan, la persona sigue
+  // recibiendo una página pequeña y útil en vez del error genérico de Cloudflare.
+  return new Response(
+    `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Nido · Volvemos enseguida</title><style>body{margin:0;background:#faf6f0;color:#2b2723;font:18px/1.55 system-ui,sans-serif}main{max-width:42rem;margin:10vh auto;padding:2rem}h1{font-size:clamp(2rem,7vw,3.5rem);line-height:1.05}a{display:inline-block;margin:.4rem .5rem .4rem 0;padding:.8rem 1rem;border-radius:.7rem;background:#2f7a5b;color:white;font-weight:700;text-decoration:none}.alt{background:#fff;color:#2f7a5b;border:1px solid #2f7a5b}</style><main><p>Nido · Ayuda psicológica en Venezuela</p><h1>Estamos tardando más de lo normal</h1><p>La plataforma no pudo responder a tiempo. Intenta de nuevo en unos segundos.</p><p><a href="/">Reintentar</a><a class="alt" href="/emergencia">Ver ayuda de emergencia</a></p><p>Si tú o alguien corre peligro inmediato, llama al 911 o busca ayuda presencial ahora mismo.</p></main></html>`,
+    {
+      status: 503,
+      headers: { ...headers, "content-type": "text/html; charset=utf-8" },
+    },
+  );
+}
+
+async function withTimeout(request: Request, response: Promise<Response>) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<Response>((resolve) => {
+    timeoutId = setTimeout(
+      () => resolve(unavailableResponse(request)),
+      REQUEST_TIMEOUT_MS,
+    );
+  });
+
+  try {
+    return await Promise.race([response, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+}
+
 export default {
   async fetch(
     request: Request,
@@ -29,15 +85,36 @@ export default {
     const url = new URL(request.url);
     if (url.hostname === "www.saludmental-venezuela.com") {
       url.hostname = "saludmental-venezuela.com";
-      return Response.redirect(url.toString(), 308);
+      return new Response(null, {
+        status: 308,
+        headers: {
+          location: url.toString(),
+          "cache-control": "public, max-age=86400",
+        },
+      });
     }
 
-    const routed = await routePartykitRequest(request, env, {
-      prefix: "parties",
-      onBeforeConnect: makeOnBeforeConnect(env),
-    });
-    if (routed) return routed;
-    return handler.fetch(request, env, ctx);
+    // Endpoint sin Next, D1 ni caché. Permite distinguir un Worker sano de un
+    // fallo de aplicación en los smoke tests y en la observabilidad.
+    if (url.pathname === "/healthz") return healthResponse();
+
+    try {
+      const response = (async () => {
+        const routed = await routePartykitRequest(request, env, {
+          prefix: "parties",
+          onBeforeConnect: makeOnBeforeConnect(env),
+        });
+        return routed ?? handler.fetch(request, env, ctx);
+      })();
+      return await withTimeout(request, response);
+    } catch (error) {
+      console.error("request failed", {
+        method: request.method,
+        pathname: url.pathname,
+        error,
+      });
+      return unavailableResponse(request);
+    }
   },
 
   // Crons (ver wrangler.jsonc `triggers.crons`). Disparan un endpoint interno por

@@ -54,6 +54,10 @@ const nextConfig: NextConfig = {
   // es 1 MB: con un documento cercano al máximo, la petición se rechazaba entera
   // y el registro fallaba justo al enviar. 3 MB cubre documento + foto + campos.
   experimental: {
+    // El prerender abre Miniflare para consultar la D1 local. Varios workers de
+    // build compartiendo el mismo SQLite provocan SQLITE_BUSY/READONLY y dejan
+    // la portada sin datos. Un único worker hace el build determinista.
+    cpus: 1,
     serverActions: {
       bodySizeLimit: "3mb",
     },
