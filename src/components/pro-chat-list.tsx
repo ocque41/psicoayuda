@@ -2,20 +2,25 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ensureProInboxToken } from "@/app/c/[conversationId]/actions";
 import { PanelIcon } from "@/components/panel-shell";
 import { SideDrawer } from "@/components/side-drawer";
 import { needLabels, urgencyLabels } from "@/lib/constants";
 import {
+  applyProChatActivity,
   type ProChatSummary,
+  proChatSocketTargets,
   proChatsFingerprint,
   proChatsUnreadCount,
   sortProChats,
 } from "@/lib/pro-chats";
 
-// Refresco ligero de la bandeja: cada pocos segundos y al volver a la pestaña.
-// La conversación ABIERTA se actualiza al instante (el chat avisa con el evento
-// de abajo en cuanto recibe o envía); las demás, en el siguiente refresco.
-const POLL_MS = 3000;
+// La conversación abierta manda por su propio WebSocket (evento de abajo); las
+// demás salas reciben un canal de AVISOS de solo lectura que las actualiza al
+// instante. El sondeo queda como red de seguridad (salas nuevas, cortes de red,
+// cambios de estado) y solo corre con la pestaña visible.
+const POLL_MS = 5000;
+const REOPEN_MS = 8000;
 const REFRESH_EVENT = "nido:chat-update";
 
 // Formateador único: crear Intl.DateTimeFormat en cada pintado es caro.
@@ -63,7 +68,16 @@ export function ProChatList({
     sortProChats(initial),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [inboxReady, setInboxReady] = useState(false);
   const fingerprintRef = useRef(proChatsFingerprint(sortProChats(initial)));
+
+  // Aplica una lista nueva solo si cambió de verdad (la huella evita repintados).
+  const commit = useCallback((next: ProChatSummary[]) => {
+    const fingerprint = proChatsFingerprint(next);
+    if (fingerprint === fingerprintRef.current) return;
+    fingerprintRef.current = fingerprint;
+    setChats(next);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -74,15 +88,11 @@ export function ProChatList({
       if (!res.ok) return;
       const data = (await res.json()) as { chats?: ProChatSummary[] };
       if (!Array.isArray(data.chats)) return;
-      const next = sortProChats(data.chats);
-      const nextFingerprint = proChatsFingerprint(next);
-      if (nextFingerprint === fingerprintRef.current) return;
-      fingerprintRef.current = nextFingerprint;
-      setChats(next);
+      commit(sortProChats(data.chats));
     } catch {
       // Sin conexión: el siguiente intento reintenta; la lista sigue usable.
     }
-  }, []);
+  }, [commit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +115,92 @@ export function ProChatList({
       window.removeEventListener(REFRESH_EVENT, onRefresh);
     };
   }, [load]);
+
+  // Token de avisos (cookie httpOnly, sin sala): habilita las conexiones de solo
+  // lectura a las demás salas. Si falla, la lista sigue con el sondeo.
+  useEffect(() => {
+    let cancelled = false;
+    void ensureProInboxToken()
+      .then((res) => {
+        if (!cancelled && res.ok) setInboxReady(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const targets = useMemo(
+    () => proChatSocketTargets(chats, activeId),
+    [chats, activeId],
+  );
+  const targetsKey = targets.join("|");
+
+  // Avisos en vivo: una conexión de solo lectura por sala abierta (sin la que
+  // está a la vista). Al llegar un mensaje, la lista se reordena al instante.
+  useEffect(() => {
+    if (!inboxReady || !targetsKey) return;
+    let cancelled = false;
+    const sockets = new Map<string, WebSocket>();
+    const retries = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const connect = (conversationId: string) => {
+      if (cancelled) return;
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      let socket: WebSocket;
+      try {
+        socket = new WebSocket(
+          `${proto}//${window.location.host}/parties/conversation/${conversationId}?avisos=1`,
+        );
+      } catch {
+        return;
+      }
+      sockets.set(conversationId, socket);
+      socket.onmessage = (event) => {
+        if (typeof event.data !== "string") return;
+        let frame: {
+          type?: string;
+          message?: { senderRole?: string; serverTs?: number };
+        };
+        try {
+          frame = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (frame.type !== "msg" || !frame.message) return;
+        const role =
+          frame.message.senderRole === "seeker" ? "seeker" : "professional";
+        const at = Number(frame.message.serverTs ?? Date.now());
+        setChats((prev) =>
+          applyProChatActivity(prev, { conversationId, role, at }),
+        );
+        fingerprintRef.current = ""; // el próximo sondeo reconcilia
+      };
+      socket.onclose = () => {
+        sockets.delete(conversationId);
+        if (cancelled) return;
+        retries.set(
+          conversationId,
+          setTimeout(() => connect(conversationId), REOPEN_MS),
+        );
+      };
+      socket.onerror = () => {
+        // `onclose` se dispara después: allí se reintenta.
+      };
+    };
+
+    for (const conversationId of targetsKey.split("|")) connect(conversationId);
+
+    return () => {
+      cancelled = true;
+      for (const timer of retries.values()) clearTimeout(timer);
+      for (const socket of sockets.values()) {
+        socket.onclose = null;
+        socket.close();
+      }
+      sockets.clear();
+    };
+  }, [inboxReady, targetsKey]);
 
   const unreadCount = useMemo(() => proChatsUnreadCount(chats), [chats]);
 

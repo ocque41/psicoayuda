@@ -2,6 +2,23 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.17.0 - 2026-09-15
+
+La lista de conversaciones del profesional pasa a ser de verdad en tiempo real.
+
+- **Aviso en vivo por WebSocket**: además del sondeo de seguridad, la lista abre
+  un canal de SOLO LECTURA a cada conversación abierta del profesional (hasta 5,
+  sin la que está a la vista): quien escribe en otra sala la ve subir al tope con
+  su aviso de "sin leer" en menos de un segundo, sin recargar.
+- **El canal de avisos no toca la sala**: no recibe historial ni claves, no
+  anuncia presencia, no cuenta como "profesional en línea" (los avisos por correo
+  al profesional siguen saliendo) y no puede escribir (sus frames se ignoran).
+- **Autorización estricta**: cookie firmada de avisos (sin sala) + comprobación
+  en D1 de que la sala es suya, no está en papelera/anonimizada y su cuenta no
+  está suspendida. Sin D1 no se autoriza.
+- El sondeo baja a 5 s (red de seguridad: salas nuevas, cortes de red, cambios de
+  estado) y sigue activo solo con la pestaña visible.
+
 ## 0.16.0 - 2026-09-15
 
 El profesional ve todas sus conversaciones sin salir del chat.

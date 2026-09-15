@@ -88,3 +88,49 @@ export function sortProChats(chats: ProChatSummary[]): ProChatSummary[] {
     (a, b) => b.lastActivityAt - a.lastActivityAt || a.id.localeCompare(b.id),
   );
 }
+
+/** Aviso en vivo de la sala: quién escribió y cuándo (sin contenido). */
+export type ProChatActivity = {
+  conversationId: string;
+  role: "seeker" | "professional";
+  at: number;
+};
+
+/**
+ * Aplica un aviso en vivo a la bandeja: mueve la conversación al tope, actualiza
+ * la actividad y marca "sin leer" si escribió la persona. Si la sala no está en
+ * la lista (conversación nueva) no inventa nada: el refresco la traerá.
+ */
+export function applyProChatActivity(
+  chats: ProChatSummary[],
+  activity: ProChatActivity,
+): ProChatSummary[] {
+  let found = false;
+  const next = chats.map((chat) => {
+    if (chat.id !== activity.conversationId) return chat;
+    found = true;
+    return {
+      ...chat,
+      lastActivityAt: Math.max(chat.lastActivityAt, activity.at),
+      lastMessageRole: activity.role,
+      unread: activity.role === "seeker",
+    };
+  });
+  return found ? sortProChats(next) : chats;
+}
+
+/**
+ * Salas que merecen una conexión de avisos (solo lectura): las abiertas, sin la
+ * que ya está a la vista (esa tiene su propio WebSocket) y con un tope para no
+ * abrir una conexión por cada hilo histórico.
+ */
+export function proChatSocketTargets(
+  chats: ProChatSummary[],
+  activeId: string,
+  cap = 5,
+): string[] {
+  return sortProChats(chats)
+    .filter((chat) => chat.status === "open" && chat.id !== activeId)
+    .slice(0, cap)
+    .map((chat) => chat.id);
+}

@@ -29,7 +29,13 @@ const FRAME_WINDOW_MS = 10_000;
 const FRAME_MAX_PER_WINDOW = 40;
 const MAX_MESSAGES_PER_CONVERSATION = 20000;
 
-type ConnState = { role: SenderRole; canSend: boolean };
+type ConnState = {
+  role: SenderRole;
+  canSend: boolean;
+  /** Conexión de avisos: solo recibe mensajes (nunca escribe ni cuenta como
+   *  presencia, para no silenciar los avisos por correo del profesional). */
+  informer?: boolean;
+};
 
 type MessageRow = {
   server_id: string;
@@ -138,7 +144,11 @@ export class Conversation extends Server<Env> {
   // El rol viene de onBeforeConnect (header de confianza), nunca del cliente.
   getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
     const role = ctx.request.headers.get("x-nido-role");
-    return role === "professional" || role === "seeker" ? [role] : [];
+    const tags = role === "professional" || role === "seeker" ? [role] : [];
+    if (ctx.request.headers.get("x-nido-informer") === "1") {
+      tags.push("informer");
+    }
+    return tags;
   }
 
   onConnect(connection: Connection, ctx: ConnectionContext) {
@@ -148,6 +158,20 @@ export class Conversation extends Server<Env> {
     // `0` cuando la conversación está cerrada (o anonimizada): el historial se
     // sirve en solo lectura y el envío se rechaza hasta reabrir.
     const canSend = ctx.request.headers.get("x-nido-can-send") !== "0";
+
+    // Conexión de AVISOS (la lista de conversaciones del profesional): recibe los
+    // mensajes nuevos pero no historia, ni claves, ni presencia; y no cuenta como
+    // "profesional en línea". Así la bandeja se actualiza al instante sin
+    // cambiar lo que ven las personas ni silenciar los avisos por correo.
+    if (ctx.request.headers.get("x-nido-informer") === "1") {
+      connection.setState({
+        role,
+        canSend: false,
+        informer: true,
+      } satisfies ConnState);
+      return;
+    }
+
     connection.setState({ role, canSend } satisfies ConnState);
 
     const rows = this.ctx.storage.sql
@@ -181,7 +205,10 @@ export class Conversation extends Server<Env> {
 
   onClose(connection: Connection) {
     this.rate.delete(connection.id);
-    const role = (connection.state as ConnState | null)?.role ?? "seeker";
+    const state = connection.state as ConnState | null;
+    const role = state?.role ?? "seeker";
+    // Los avisos nunca anunciaron presencia: tampoco la retiran.
+    if (state?.informer) return;
     this.broadcastExcept(connection, { type: "presence", role, online: false });
   }
 
@@ -196,8 +223,11 @@ export class Conversation extends Server<Env> {
       this.sendTo(connection, { type: "error", code: "rate_limited" });
       return;
     }
-    const role = (connection.state as ConnState | null)?.role ?? "seeker";
-    const canSend = (connection.state as ConnState | null)?.canSend ?? true;
+    const state = connection.state as ConnState | null;
+    const role = state?.role ?? "seeker";
+    const canSend = state?.canSend ?? true;
+    // Conexión de solo lectura para avisos: no procesa frames.
+    if (state?.informer) return;
 
     switch (frame.type) {
       case "send":
@@ -457,7 +487,10 @@ export class Conversation extends Server<Env> {
 
   private isProfessionalOnline(): boolean {
     for (const connection of this.getConnections()) {
-      if ((connection.state as ConnState | null)?.role === "professional") {
+      const state = connection.state as ConnState | null;
+      // Los avisos del panel no son "estar en la sala": si el profesional no
+      // tiene la conversación abierta, el correo debe seguir saliendo.
+      if (state?.role === "professional" && !state.informer) {
         return true;
       }
     }

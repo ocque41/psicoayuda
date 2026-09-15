@@ -143,3 +143,66 @@ export function verifyProfessionalToken(
 
   return payload;
 }
+
+// ---- Token de AVISOS del profesional ----
+// La lista de conversaciones del chat abre conexiones de solo lectura a las
+// salas del profesional para avisar al instante de mensajes nuevos. Ese token no
+// va atado a una sala (serían una por conversación): identifica al profesional y
+// el Worker comprueba en D1 que la sala que pide es suya. Sin permisos de
+// escritura: la conexión de avisos nunca envía frames.
+
+export const PRO_INBOX_COOKIE = "nido_pro_avisos";
+
+export type ProInboxTokenPayload = {
+  professionalId: string;
+  role: "inbox";
+  iat: number;
+  exp: number;
+};
+
+export function mintProfessionalInboxToken(
+  payload: ProInboxTokenPayload,
+  secret: string,
+): string {
+  const body = base64url(Buffer.from(JSON.stringify(payload), "utf8"));
+  return `${body}.${sign(body, secret)}`;
+}
+
+export function verifyProfessionalInboxToken(
+  token: string,
+  secret: string,
+  nowMs: number,
+): ProInboxTokenPayload | null {
+  if (typeof token !== "string") return null;
+  const dot = token.indexOf(".");
+  if (dot <= 0 || dot === token.length - 1) return null;
+
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expected = sign(body, secret);
+
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return null;
+  }
+
+  let payload: ProInboxTokenPayload;
+  try {
+    payload = JSON.parse(base64urlToBuffer(body).toString("utf8"));
+  } catch {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object") return null;
+  if (
+    payload.role !== "inbox" ||
+    typeof payload.professionalId !== "string" ||
+    typeof payload.exp !== "number" ||
+    payload.exp < nowMs
+  ) {
+    return null;
+  }
+
+  return payload;
+}

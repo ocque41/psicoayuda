@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import {
@@ -13,6 +15,7 @@ import {
   seekerCanSend,
   seekerSessionAllows,
 } from "@/server/auth-gate";
+import type { Env } from "@/server/types";
 
 const SECRET = "test-secret";
 const NOW = 1000;
@@ -374,5 +377,155 @@ describe("makeOnBeforeConnect (guard de Origin)", () => {
     );
     expect(result).toBeInstanceOf(Request);
     expect((result as Request).headers.get("x-nido-role")).toBe("professional");
+  });
+});
+
+describe("conexiones de AVISOS del profesional (gate)", () => {
+  // Env con una D1 mínima: el gate de avisos exige comprobar la propiedad de la
+  // sala, así que aquí SÍ necesitamos filas (a diferencia del resto de tests).
+  const lobby = { party: "conversation", name: CONV };
+
+  function freshInboxCookie(professionalId = "pro_1") {
+    const now = Date.now();
+    const token = mintProfessionalInboxToken(
+      {
+        professionalId,
+        role: "inbox",
+        iat: now,
+        exp: now + 3_600_000,
+      },
+      SECRET,
+    );
+    return `${PRO_INBOX_COOKIE}=${token}`;
+  }
+
+  function inboxUpgrade(cookie: string, name: string = CONV) {
+    return new Request(
+      `https://nido.example/parties/conversation/${name}?avisos=1`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Origin: "https://nido.example",
+          Cookie: cookie,
+        },
+      },
+    );
+  }
+
+  function fakeD1(
+    row: {
+      owner_id: string | null;
+      status: string | null;
+      anonymized_at: number | null;
+      deleted_at: number | null;
+      professional_status: string | null;
+    } | null,
+  ) {
+    return {
+      prepare: () => ({
+        bind: () => ({ first: async () => row }),
+      }),
+    } as unknown as Env["DB"];
+  }
+
+  const baseEnv = {
+    // Literal allowlisted en scripts/secret-scan.mjs (no es un secreto real).
+    BETTER_AUTH_SECRET: "test-secret",
+    BETTER_AUTH_URL: "https://nido.example",
+  };
+
+  it("autoriza al profesional en su propia sala, en solo lectura", async () => {
+    const env = {
+      ...baseEnv,
+      DB: fakeD1({
+        owner_id: "pro_1",
+        status: "open",
+        anonymized_at: null,
+        deleted_at: null,
+        professional_status: "approved",
+      }),
+    };
+    const result = await makeOnBeforeConnect(env)(
+      inboxUpgrade(freshInboxCookie()),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+    const request = result as Request;
+    expect(request.headers.get("x-nido-role")).toBe("professional");
+    expect(request.headers.get("x-nido-informer")).toBe("1");
+    expect(request.headers.get("x-nido-can-send")).toBe("0");
+  });
+
+  it("rechaza (403) una sala que no es suya", async () => {
+    const env = {
+      ...baseEnv,
+      DB: fakeD1({
+        owner_id: "pro_OTRO",
+        status: "open",
+        anonymized_at: null,
+        deleted_at: null,
+        professional_status: "approved",
+      }),
+    };
+    const result = await makeOnBeforeConnect(env)(
+      inboxUpgrade(freshInboxCookie()),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
+  });
+
+  it("rechaza (403) si la cuenta está suspendida, la sala está en papelera o anonimizada", async () => {
+    const cases = [
+      { professional_status: "suspended" },
+      { deleted_at: Date.now() },
+      { anonymized_at: Date.now() },
+    ];
+    for (const extra of cases) {
+      const env = {
+        ...baseEnv,
+        DB: fakeD1({
+          owner_id: "pro_1",
+          status: "open",
+          anonymized_at: null,
+          deleted_at: null,
+          professional_status: "approved",
+          ...extra,
+        }),
+      };
+      const result = await makeOnBeforeConnect(env)(
+        inboxUpgrade(freshInboxCookie()),
+        lobby,
+      );
+      expect(result).toBeInstanceOf(Response);
+      expect((result as Response).status).toBe(403);
+    }
+  });
+
+  it("sin D1 no se autorizan avisos (una sala ajena no puede colarse)", async () => {
+    const result = await makeOnBeforeConnect(baseEnv)(
+      inboxUpgrade(freshInboxCookie()),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
+  });
+
+  it("un token de avisos caducado o de otra firma cae a la autorización normal", async () => {
+    const expired = mintProfessionalInboxToken(
+      {
+        professionalId: "pro_1",
+        role: "inbox",
+        iat: NOW,
+        exp: NOW - 1,
+      },
+      SECRET,
+    );
+    const result = await makeOnBeforeConnect(baseEnv)(
+      inboxUpgrade(`${PRO_INBOX_COOKIE}=${expired}`),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(403);
   });
 });

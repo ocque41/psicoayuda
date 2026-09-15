@@ -31,9 +31,11 @@ import {
   SEEKER_SESSION_TTL_MS,
 } from "@/lib/seeker-access";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
   verifyProfessionalToken,
   verifySeekerToken,
@@ -177,6 +179,44 @@ export async function ensureProChatToken(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     // Path "/" para que viaje también al upgrade WebSocket en /parties/*.
+    path: "/",
+    maxAge: TTL_MS / 1000,
+  });
+  return { ok: true };
+}
+
+/**
+ * Token de AVISOS del profesional (cookie httpOnly, sin sala concreta): autoriza
+ * las conexiones de SOLO LECTURA que la lista de conversaciones del chat abre a
+ * sus salas para avisar al instante de mensajes nuevos. El Worker comprueba en
+ * D1 que cada sala pedida es suya; aquí solo se verifica que quien lo pide tiene
+ * sesión y ficha de profesional activa. Idempotente.
+ */
+export async function ensureProInboxToken(): Promise<{ ok: boolean }> {
+  const session = await getServerSession();
+  if (!session?.user?.id) return { ok: false };
+
+  const pro = await db.query.professionals.findFirst({
+    where: eq(professionals.userId, session.user.id),
+  });
+  if (!pro || pro.status === "suspended") return { ok: false };
+
+  const now = Date.now();
+  const token = mintProfessionalInboxToken(
+    {
+      professionalId: pro.id,
+      role: "inbox",
+      iat: now,
+      exp: now + TTL_MS,
+    },
+    getAuthSecret(),
+  );
+
+  const cookieStore = await cookies();
+  cookieStore.set(PRO_INBOX_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     path: "/",
     maxAge: TTL_MS / 1000,
   });

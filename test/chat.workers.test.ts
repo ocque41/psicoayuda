@@ -2,9 +2,11 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { getServerByName } from "partyserver";
 import { describe, expect, it } from "vitest";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import type { ClientFrame, ServerFrame } from "@/shared/chat-protocol";
@@ -29,6 +31,19 @@ function seekerCookie(conversationId: string) {
     SECRET,
   );
   return `${SEEKER_COOKIE}=${token}`;
+}
+
+function inboxCookie() {
+  const token = mintProfessionalInboxToken(
+    {
+      professionalId: "pro_1",
+      role: "inbox",
+      iat: Date.now(),
+      exp: Date.now() + HOUR,
+    },
+    SECRET,
+  );
+  return `${PRO_INBOX_COOKIE}=${token}`;
 }
 
 function proCookie(conversationId: string) {
@@ -117,6 +132,16 @@ async function openWith(
   expect(res.status).toBe(101);
   expect(res.webSocket).not.toBeNull();
   return wrap(res.webSocket as unknown as WebSocket);
+}
+
+/**
+ * La D1 del pool se comparte entre tests: las tablas mínimas que crean las
+ * pruebas del gate de avisos se borran al terminar para no romper a las demás
+ * (sin tablas, las consultas del gate fallan y el gate no bloquea, como antes).
+ */
+async function dropD1() {
+  await env.DB.prepare("DROP TABLE IF EXISTS conversations").run();
+  await env.DB.prepare("DROP TABLE IF EXISTS professionals").run();
 }
 
 async function settle(ms = 60) {
@@ -300,6 +325,98 @@ describe("chat Durable Object (runtime de Workers)", () => {
 
     seeker.close();
     pro.close();
+  });
+
+  it("la conexión de avisos recibe mensajes, no cuenta como presencia y no escribe", async () => {
+    const conv = "conv_informer";
+    // D1 mínima: la sala pertenece a pro_1 (sin ella el gate rechaza avisos).
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, professional_id TEXT, status TEXT, anonymized_at INTEGER, deleted_at INTEGER)",
+    ).run();
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS professionals (id TEXT PRIMARY KEY, status TEXT)",
+    ).run();
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO conversations (id, professional_id, status) VALUES (?, 'pro_1', 'open')",
+    )
+      .bind(conv)
+      .run();
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO professionals (id, status) VALUES ('pro_1', 'approved')",
+    ).run();
+
+    try {
+      // Solo está la conexión de avisos (el profesional no tiene la sala abierta).
+      const informerRes = await SELF.fetch(
+        `https://internal.test/parties/conversation/${conv}?avisos=1`,
+        { headers: { Upgrade: "websocket", Cookie: inboxCookie() } },
+      );
+      expect(informerRes.status).toBe(101);
+      const informer = wrap(informerRes.webSocket as unknown as WebSocket);
+      await settle();
+      // Sin historial ni claves: es un canal de avisos, no una sala.
+      expect(informer.buffered()).toEqual([]);
+
+      const seeker = await open(conv, seekerCookie(conv));
+      await seeker.waitFor("history");
+      seeker.send({
+        type: "send",
+        clientMsgId: "i1",
+        content: "hola de nuevo",
+      });
+      await seeker.waitFor("ack");
+
+      // El aviso llega al instante a la lista del profesional…
+      const live = (await informer.waitFor("msg")) as Extract<
+        ServerFrame,
+        { type: "msg" }
+      >;
+      expect(live.message.seq).toBe(1);
+      expect(live.message.senderRole).toBe("seeker");
+
+      // …y como NO cuenta como presencia, el correo de respaldo sigue saliendo
+      // (mismo debounce de aviso que si el profesional estuviera desconectado).
+      await settle();
+      expect(await readMeta(conv, "last_notify_at")).not.toBeNull();
+
+      // La conexión de avisos no puede escribir: su frame se ignora.
+      informer.send({ type: "send", clientMsgId: "x1", content: "no debería" });
+      await settle();
+      expect(seeker.buffered().filter((f) => f.type === "msg")).toEqual([]);
+
+      informer.close();
+      seeker.close();
+    } finally {
+      await dropD1();
+    }
+  });
+
+  it("la conexión de avisos a una sala ajena se rechaza (403)", async () => {
+    const conv = "conv_informer_ajena";
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, professional_id TEXT, status TEXT, anonymized_at INTEGER, deleted_at INTEGER)",
+    ).run();
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS professionals (id TEXT PRIMARY KEY, status TEXT)",
+    ).run();
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO conversations (id, professional_id, status) VALUES (?, 'pro_OTRO', 'open')",
+    )
+      .bind(conv)
+      .run();
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO professionals (id, status) VALUES ('pro_1', 'approved')",
+    ).run();
+
+    try {
+      const res = await SELF.fetch(
+        `https://internal.test/parties/conversation/${conv}?avisos=1`,
+        { headers: { Upgrade: "websocket", Cookie: inboxCookie() } },
+      );
+      expect(res.status).toBe(403);
+    } finally {
+      await dropD1();
+    }
   });
 
   it("purga el transcript con la señal interna autenticada", async () => {

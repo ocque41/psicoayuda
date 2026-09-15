@@ -130,13 +130,19 @@ la clave para descifrarlos.
   keystore del dispositivo (`PRO_SLOT`) y el keystore completo se respalda con ese
   código, así que restaurarlo en otro dispositivo recupera todas las salas a la
   vez (nunca uno por chat).
-- **Bandeja del profesional dentro del chat (v0.16)**: la sala muestra a su
-  izquierda todas sus conversaciones (`ProChatList`, columna en escritorio y
+- **Bandeja del profesional dentro del chat (v0.16/v0.17)**: la sala muestra a
+  su izquierda todas sus conversaciones (`ProChatList`, columna en escritorio y
   cajón en móvil) con metadatos, no contenido: la vista y la ruta
   `/api/pro/chats` usan `conversationsForProfessional` +
-  `src/lib/pro-chats.ts`. Se refresca por sondeo ligero (cada 3 s, solo con la
-  pestaña visible), al volver a la pestaña y al instante para la sala abierta
-  (el chat emite `nido:chat-update` al recibir/enviar/confirmar). Abrir una sala
+  `src/lib/pro-chats.ts`. Los avisos llegan por WebSocket: `ProChatList` pide su
+  cookie firmada de avisos (`ensureProInboxToken`, sin sala) y abre una conexión
+  de SOLO LECTURA por sala abierta (`?avisos=1`, hasta 5, sin la que está a la
+  vista). El gate (`auth-gate.ts`) comprueba en D1 que la sala es del
+  profesional, no está en papelera/anonimizada y su cuenta no está suspendida, e
+  inyecta `x-nido-informer`; el DO no le manda historial ni claves, no lo trata
+  como presencia (los correos de respaldo siguen saliendo) y ignora sus frames.
+  Un sondeo ligero cada 5 s (solo con la pestaña visible) y el evento
+  `nido:chat-update` (sala abierta) cierran cualquier hueco. Abrir una sala
   marca su lectura en D1 (`ensureProChatToken`), también cuando llega un mensaje
   con la sala abierta.
 - **Migración del historial legado**: el cliente re-cifra los mensajes en claro

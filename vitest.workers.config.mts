@@ -18,6 +18,9 @@ export default defineConfig({
         durableObjects: {
           Conversation: { className: "Conversation", useSQLite: true },
         },
+        // D1 real (en memoria) para las comprobaciones de propiedad del gate
+        // (p. ej. que la conexión de avisos solo abra salas del profesional).
+        d1Databases: ["DB"],
         bindings: {
           BETTER_AUTH_SECRET: "test-secret",
           BETTER_AUTH_URL: "https://internal.test",

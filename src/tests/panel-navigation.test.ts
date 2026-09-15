@@ -9,6 +9,8 @@ import {
   panelSectionIds,
 } from "@/lib/panel-nav";
 import {
+  applyProChatActivity,
+  proChatSocketTargets,
   proChatsFingerprint,
   proChatsUnreadCount,
   sortProChats,
@@ -271,6 +273,82 @@ describe("lista de conversaciones del chat (profesional)", () => {
       proChatsFingerprint([afterRead]),
     );
     expect(proChatsFingerprint([before])).toBe(proChatsFingerprint([before]));
+  });
+
+  it("un aviso en vivo sube la conversación al tope y la marca sin leer", () => {
+    const older = toProChatSummary({
+      ...base,
+      conversationId: "vieja",
+      lastMessageAt: new Date("2026-09-15T09:00:00.000Z"),
+      lastMessageRole: "professional",
+    });
+    const newer = toProChatSummary({
+      ...base,
+      conversationId: "nueva",
+      lastMessageAt: new Date("2026-09-15T11:00:00.000Z"),
+      lastMessageRole: "professional",
+    });
+    const next = applyProChatActivity([older, newer], {
+      conversationId: "vieja",
+      role: "seeker",
+      at: new Date("2026-09-15T12:00:00.000Z").getTime(),
+    });
+    expect(next.map((chat) => chat.id)).toEqual(["vieja", "nueva"]);
+    expect(next[0]?.unread).toBe(true);
+    expect(next[0]?.lastActivityAt).toBe(
+      new Date("2026-09-15T12:00:00.000Z").getTime(),
+    );
+    // Un mensaje del propio profesional no deja "sin leer".
+    const own = applyProChatActivity(next, {
+      conversationId: "nueva",
+      role: "professional",
+      at: new Date("2026-09-15T13:00:00.000Z").getTime(),
+    });
+    expect(own[0]?.id).toBe("nueva");
+    expect(own[0]?.unread).toBe(false);
+    // Una sala desconocida (nueva) no se inventa: la trae el refresco.
+    expect(
+      applyProChatActivity([older], {
+        conversationId: "desconocida",
+        role: "seeker",
+        at: Date.now(),
+      }),
+    ).toEqual([older]);
+  });
+
+  it("solo abre canal de avisos para las salas abiertas y sin la que está a la vista", () => {
+    const open = toProChatSummary({
+      ...base,
+      conversationId: "abierta",
+      lastMessageAt: new Date("2026-09-15T12:00:00.000Z"),
+      lastMessageRole: "seeker",
+    });
+    const active = toProChatSummary({
+      ...base,
+      conversationId: "a-la-vista",
+      lastMessageAt: new Date("2026-09-15T13:00:00.000Z"),
+      lastMessageRole: "seeker",
+    });
+    const closed = toProChatSummary({
+      ...base,
+      conversationId: "cerrada",
+      status: "closed",
+      lastMessageAt: new Date("2026-09-15T11:00:00.000Z"),
+      lastMessageRole: "seeker",
+    });
+    expect(proChatSocketTargets([open, active, closed], "a-la-vista")).toEqual([
+      "abierta",
+    ]);
+    // El tope evita abrir una conexión por cada hilo histórico.
+    const many = Array.from({ length: 9 }, (_, index) =>
+      toProChatSummary({
+        ...base,
+        conversationId: `sala-${index}`,
+        lastMessageAt: new Date(Date.UTC(2026, 8, 15, index)),
+        lastMessageRole: "seeker",
+      }),
+    );
+    expect(proChatSocketTargets(many, "otra", 5)).toHaveLength(5);
   });
 
   it("la sala pinta la lista del pro y la ruta de refresco existe", () => {
