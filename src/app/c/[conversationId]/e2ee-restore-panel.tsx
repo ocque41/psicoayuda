@@ -75,9 +75,10 @@ export function E2eeRestorePanel({
       <h2 className={styles.restoreTitle}>Recupera el acceso a tus mensajes</h2>
       <p className={styles.restoreText}>
         {audience === "seeker"
-          ? "Esta conversación ya tiene mensajes cifrados, pero este dispositivo no tiene la clave para leerlos."
-          : "Tu cuenta ya tiene una clave de cifrado, pero este dispositivo no la tiene."}{" "}
-        Escribe tu código de recuperación para volver a leer el historial.
+          ? "Esta conversación está cifrada de extremo a extremo y este dispositivo no tiene la clave."
+          : "Tu cuenta tiene la clave de cifrado, pero este dispositivo no."}{" "}
+        Sin tu código de recuperación no puedes leer ni escribir aquí: escríbelo
+        para volver a leer el historial.
       </p>
 
       <label className={styles.restoreLabel} htmlFor="e2ee-recovery-code">

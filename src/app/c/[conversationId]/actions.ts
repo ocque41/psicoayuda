@@ -97,21 +97,22 @@ async function resolveActor(
     }
   }
 
-  // Persona (seeker).
+  // Persona (seeker): la sesión puede ser la original o una del enlace mágico
+  // (/acceso). Cualquier fila vigente de ESTA conversación vale — es la misma
+  // regla que la vista (`chat-view.ts`), el WebSocket (`auth-gate.ts`) y
+  // `renewSeekerChatToken`. (Antes se exigía el sid original y el enlace del
+  // correo abría la sala sin poder reabrir/borrar.)
   let seekerSid: string | null = null;
   const raw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (raw) {
     const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
-    if (
-      payload &&
-      payload.conversationId === conversation.id &&
-      payload.sid === conversation.seekerSid
-    ) {
+    if (payload && payload.conversationId === conversation.id) {
       const sessionRow = await db.query.seekerSessions.findFirst({
         where: eq(seekerSessions.sid, payload.sid),
       });
       const valid =
         !!sessionRow &&
+        sessionRow.conversationId === conversation.id &&
         !sessionRow.revokedAt &&
         sessionRow.expiresAt.getTime() > Date.now();
       if (valid) seekerSid = payload.sid;

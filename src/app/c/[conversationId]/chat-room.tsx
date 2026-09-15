@@ -42,6 +42,7 @@ import {
   openEnvelope,
   parseEnvelope,
 } from "@/shared/e2ee";
+import { decideE2eeGate } from "@/shared/e2ee-gating";
 import {
   buildWaitlistPromptPayload,
   isWaitlistPromptPayload,
@@ -170,6 +171,11 @@ export function ChatRoom({
   // (WebSocket, reabrir, borrar) actúa con la identidad de la persona: lo que
   // escribe se registra como suyo y el caso se cierra en vez de reencolarse.
   const writeAsPersona = role === "seeker" && canSwitchView;
+  // Visitante con cuenta de profesional (su propia vista o la vista "como la
+  // persona"): NUNCA se le pide el código de recuperación dentro de la sala.
+  // Su clave es de cuenta/dispositivo y su respaldo se gestiona en su panel
+  // (sección Cifrado); aquí solo se le ofrece un aviso discreto y opcional.
+  const proVisitor = role === "professional" || Boolean(canSwitchView);
   const [confirmed, setConfirmed] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [conn, setConn] = useState<ConnStatus>("connecting");
@@ -275,9 +281,11 @@ export function ChatRoom({
       const code = await ensureBackup(
         role === "professional" ? "professional" : "seeker",
       );
-      if (code) setBackupCode(code);
+      // El código solo se muestra a la persona: es quien no tiene cuenta ni
+      // otra forma de recuperar su clave. El profesional lo ve en su panel.
+      if (code && !proVisitor) setBackupCode(code);
     },
-    [role, ensureBackup],
+    [role, ensureBackup, proVisitor],
   );
 
   useEffect(() => {
@@ -300,15 +308,8 @@ export function ChatRoom({
             // La cuenta aún no tiene clave pública: publica la de este
             // dispositivo (p. ej. un intento anterior no llegó a guardarse).
             void publishProIdentityKey(existing.publicKey);
-          } else if (existing.publicKey !== proPublicKey) {
-            // Otra clave distinta en la cuenta: hay que decidir con el panel.
-            setRestoreNeeded(true);
           }
         }
-      } else if (role === "professional" && proPublicKey) {
-        // La cuenta ya tiene clave (otro dispositivo) pero esta no: restaurar
-        // con el código o rotar (con advertencia). Nunca rotar en silencio.
-        setRestoreNeeded(true);
       }
       setKeysLoaded(true);
     })();
@@ -317,16 +318,33 @@ export function ChatRoom({
     };
   }, [slot, role, proPublicKey]);
 
-  // Con el historial inicial delante decidimos: si hay sobres y no hay clave,
-  // restaurar; si no hay nada cifrado, generar identidad nueva en silencio.
+  // Regla pura (probada en src/tests/e2ee-gating.test.ts): decide si toca
+  // restaurar (código obligatorio) o crear la clave. Se recalcula con el
+  // historial.
+  const e2eeGate = useMemo(
+    () =>
+      historyStats === null
+        ? null
+        : decideE2eeGate({
+            role,
+            proVisitor,
+            hasLocalIdentity: identity !== null,
+            accountPublicKey: proPublicKey,
+            localPublicKey: identity?.publicKey ?? null,
+            envelopes: historyStats.envelopes,
+          }),
+    [historyStats, identity, proPublicKey, role, proVisitor],
+  );
+
+  useEffect(() => {
+    if (e2eeGate?.restore) setRestoreNeeded(true);
+  }, [e2eeGate]);
+
+  // Crea la identidad en silencio cuando el gate lo permite (nada cifrado aún,
+  // o vista "como la persona" del profesional).
   useEffect(() => {
     if (!keysLoaded || identity || restoreNeeded) return;
-    if (role === "professional" && proPublicKey) return;
-    if (historyStats === null) return;
-    if (historyStats.envelopes > 0) {
-      setRestoreNeeded(true);
-      return;
-    }
+    if (!e2eeGate?.create) return;
     let cancelled = false;
     void (async () => {
       const { identity: created, created: isNew } =
@@ -338,16 +356,7 @@ export function ChatRoom({
     return () => {
       cancelled = true;
     };
-  }, [
-    keysLoaded,
-    identity,
-    restoreNeeded,
-    historyStats,
-    role,
-    proPublicKey,
-    slot,
-    setupIdentity,
-  ]);
+  }, [keysLoaded, identity, restoreNeeded, e2eeGate, slot, setupIdentity]);
 
   const reloadIdentity = useCallback(async (): Promise<boolean> => {
     const restored = await loadIdentity(slot);
@@ -360,7 +369,7 @@ export function ChatRoom({
     return true;
   }, [slot, role, proPublicKey]);
 
-  const useNewKeys = useCallback(async () => {
+  const startWithNewKeys = useCallback(async () => {
     const { identity: created } = await replaceIdentity(slot);
     setIdentity(created);
     setRestoreNeeded(false);
@@ -834,7 +843,9 @@ export function ChatRoom({
     : !identity
       ? conn === "error"
         ? "No pudimos abrir la conversación. Recarga la página e inténtalo de nuevo."
-        : "Preparando el cifrado…"
+        : restoreNeeded
+          ? "Escribe tu código de recuperación para leer y escribir en este dispositivo."
+          : "Preparando el cifrado…"
       : !peerKey
         ? role === "seeker"
           ? "El profesional todavía no activó el cifrado de extremo a extremo. Podrás escribirle en cuanto lo haga."
@@ -904,236 +915,230 @@ export function ChatRoom({
         ) : null}
 
         {restoreNeeded ? (
-          <div className={styles.messages}>
+          <div className={styles.restoreWrap}>
             <E2eeRestorePanel
               audience={role}
               onRestored={reloadIdentity}
-              onUseNewKeys={useNewKeys}
+              onUseNewKeys={startWithNewKeys}
             />
           </div>
-        ) : (
-          <>
-            <div className={styles.messages} ref={listRef}>
-              {hasOlder ? (
-                <button
-                  type="button"
-                  className={styles.loadOlder}
-                  onClick={loadOlder}
-                  disabled={loadingOlder}
-                  aria-busy={loadingOlder}
-                >
-                  {loadingOlder ? "Cargando…" : "Cargar mensajes anteriores"}
-                </button>
-              ) : null}
+        ) : null}
 
-              {migrating ? (
-                <p className={styles.migrating}>
-                  Cifrando el historial anterior…
-                </p>
-              ) : null}
+        <div className={styles.messages} ref={listRef}>
+          {hasOlder ? (
+            <button
+              type="button"
+              className={styles.loadOlder}
+              onClick={loadOlder}
+              disabled={loadingOlder}
+              aria-busy={loadingOlder}
+            >
+              {loadingOlder ? "Cargando…" : "Cargar mensajes anteriores"}
+            </button>
+          ) : null}
 
-              {confirmed.length === 0 && pending.length === 0 ? (
-                <p className={styles.empty}>
-                  {role === "professional"
-                    ? "Aquí verás los mensajes de la persona. Escribe para romper el hielo."
-                    : "Este es un espacio privado. Escribe cuando te sientas listo/a."}
-                </p>
-              ) : null}
+          {migrating ? (
+            <p className={styles.migrating}>Cifrando el historial anterior…</p>
+          ) : null}
 
-              {confirmed.map((m) => {
-                const mine = m.senderRole === role;
-                const text = messageText(m);
-                const isWaitlistPrompt = isWaitlistPromptPayload(text);
-                return (
+          {confirmed.length === 0 && pending.length === 0 ? (
+            <p className={styles.empty}>
+              {role === "professional"
+                ? "Aquí verás los mensajes de la persona. Escribe para romper el hielo."
+                : "Este es un espacio privado. Escribe cuando te sientas listo/a."}
+            </p>
+          ) : null}
+
+          {confirmed.map((m) => {
+            const mine = m.senderRole === role;
+            const text = messageText(m);
+            const isWaitlistPrompt = isWaitlistPromptPayload(text);
+            return (
+              <div
+                key={m.serverId}
+                className={`${styles.row} ${mine ? styles.mine : styles.theirs}`}
+              >
+                <div>
                   <div
-                    key={m.serverId}
-                    className={`${styles.row} ${mine ? styles.mine : styles.theirs}`}
+                    className={`${styles.bubble} ${
+                      mine ? styles.bubbleMine : styles.bubbleTheirs
+                    } ${isWaitlistPrompt ? styles.waitlistBubble : ""}`}
                   >
-                    <div>
-                      <div
-                        className={`${styles.bubble} ${
-                          mine ? styles.bubbleMine : styles.bubbleTheirs
-                        } ${isWaitlistPrompt ? styles.waitlistBubble : ""}`}
-                      >
-                        {isWaitlistPrompt ? (
-                          <WaitlistPromptCard
-                            conversationId={conversationId}
-                            role={role}
-                            asPersona={writeAsPersona}
-                            signup={waitlistJoined}
-                            onJoined={handleWaitlistJoined}
-                          />
-                        ) : (
-                          text
-                        )}
-                      </div>
-                      <div
-                        className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
-                      >
-                        <span>{formatTime(m.serverTs)}</span>
-                        {mine && m.seq === lastReadMineSeq ? (
-                          <span>Leído</span>
-                        ) : null}
-                      </div>
-                    </div>
+                    {isWaitlistPrompt ? (
+                      <WaitlistPromptCard
+                        conversationId={conversationId}
+                        role={role}
+                        asPersona={writeAsPersona}
+                        signup={waitlistJoined}
+                        onJoined={handleWaitlistJoined}
+                      />
+                    ) : (
+                      text
+                    )}
                   </div>
-                );
-              })}
-
-              {pending.map((p) => (
-                <div
-                  key={p.clientMsgId}
-                  className={`${styles.row} ${styles.mine} ${styles.pending}`}
-                >
-                  <div>
-                    <div className={`${styles.bubble} ${styles.bubbleMine}`}>
-                      {isWaitlistPromptPayload(p.content)
-                        ? "Tarjeta de lista de espera"
-                        : p.content}
-                    </div>
-                    <div className={styles.meta}>
-                      <span>
-                        {conn === "online"
-                          ? "Enviando…"
-                          : "Sin conexión · se enviará al reconectar"}
-                      </span>
-                      <button
-                        type="button"
-                        className={styles.retry}
-                        onClick={() => retry(p.clientMsgId)}
-                      >
-                        Reintentar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {otherTyping ? (
-                <div className={styles.typing}>
-                  {otherName} está escribiendo…
-                </div>
-              ) : null}
-            </div>
-
-            {open ? (
-              <div className={styles.composer}>
-                {sendError ? (
-                  <p className={styles.sendError} role="alert">
-                    {sendError}
-                  </p>
-                ) : null}
-                {composerNotice ? (
-                  <p className={styles.composerNotice}>{composerNotice}</p>
-                ) : null}
-                {role === "professional" ? (
-                  <>
-                    <details className={styles.payLinks}>
-                      <summary>Tarjeta de lista de espera</summary>
-                      <p className={styles.payLinksHint}>
-                        Si su caso no es por el terremoto y van a esperar a que
-                        pueda pagar o a seguir por otros medios, envíale esta
-                        tarjeta: dejará su correo y quedará anotado en la lista
-                        de espera. Si no aplica, no la envíes.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => void sendWaitlistPrompt()}
-                        disabled={!e2eeReady || promptSending}
-                      >
-                        {promptSending
-                          ? "Enviando…"
-                          : "Enviar tarjeta de lista de espera"}
-                      </button>
-                    </details>
-                    {paymentLinks.length > 0 ? (
-                      <details className={styles.payLinks}>
-                        <summary>Insertar link de pago</summary>
-                        <p className={styles.payLinksHint}>
-                          Se escribirá en tu mensaje. Compártelo después de
-                          acordarlo con la persona.
-                        </p>
-                        <ul>
-                          {paymentLinks.map((pkg) => (
-                            <li key={pkg.id}>
-                              <button
-                                type="button"
-                                onClick={() => insertPaymentLink(pkg.id)}
-                              >
-                                {pkg.title} · {pkg.priceLabel}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
+                  <div
+                    className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
+                  >
+                    <span>{formatTime(m.serverTs)}</span>
+                    {mine && m.seq === lastReadMineSeq ? (
+                      <span>Leído</span>
                     ) : null}
-                  </>
-                ) : null}
-                <textarea
-                  className={styles.textarea}
-                  value={draft}
-                  onChange={(e) => onDraftChange(e.target.value)}
-                  onKeyDown={onKeyDown}
-                  onBlur={() => sendTyping(false)}
-                  placeholder={
-                    e2eeReady ? "Escribe un mensaje…" : "Cifrado pendiente…"
-                  }
-                  rows={1}
-                  maxLength={MAX_MESSAGE_LENGTH}
-                  aria-label="Escribe un mensaje"
-                  disabled={!e2eeReady}
-                />
-                <button
-                  type="button"
-                  className={`button human ${styles.sendBtn}`}
-                  onClick={() => void submit()}
-                  disabled={!draft.trim() || !e2eeReady}
-                >
-                  Enviar
-                </button>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className={styles.closed}>
-                <p style={{ margin: "0 0 10px" }}>
-                  Esta conversación está cerrada. Puedes leer el historial y
-                  reabrirla para continuar con la misma persona.
-                </p>
-                {reopenError ? (
-                  <p
-                    className="form-error"
-                    role="alert"
-                    style={{ margin: "0 0 10px" }}
+            );
+          })}
+
+          {pending.map((p) => (
+            <div
+              key={p.clientMsgId}
+              className={`${styles.row} ${styles.mine} ${styles.pending}`}
+            >
+              <div>
+                <div className={`${styles.bubble} ${styles.bubbleMine}`}>
+                  {isWaitlistPromptPayload(p.content)
+                    ? "Tarjeta de lista de espera"
+                    : p.content}
+                </div>
+                <div className={styles.meta}>
+                  <span>
+                    {conn === "online"
+                      ? "Enviando…"
+                      : "Sin conexión · se enviará al reconectar"}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.retry}
+                    onClick={() => retry(p.clientMsgId)}
                   >
-                    {reopenError}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  className="button human"
-                  disabled={reopening}
-                  onClick={async () => {
-                    setReopening(true);
-                    setReopenError("");
-                    const res = await reopenConversation(
-                      conversationId,
-                      writeAsPersona,
-                    ).catch(() => ({
-                      ok: false as const,
-                      reason: "not_authorized" as const,
-                    }));
-                    setReopening(false);
-                    if (res.ok) {
-                      router.refresh();
-                    } else {
-                      setReopenError(reopenErrorMessage(res.reason));
-                    }
-                  }}
-                >
-                  {reopening ? "Reabriendo…" : "Reabrir conversación"}
-                </button>
+                    Reintentar
+                  </button>
+                </div>
               </div>
-            )}
-          </>
+            </div>
+          ))}
+
+          {otherTyping ? (
+            <div className={styles.typing}>{otherName} está escribiendo…</div>
+          ) : null}
+        </div>
+
+        {open ? (
+          <div className={styles.composer}>
+            {sendError ? (
+              <p className={styles.sendError} role="alert">
+                {sendError}
+              </p>
+            ) : null}
+            {composerNotice ? (
+              <p className={styles.composerNotice}>{composerNotice}</p>
+            ) : null}
+            {role === "professional" ? (
+              <>
+                <details className={styles.payLinks}>
+                  <summary>Tarjeta de lista de espera</summary>
+                  <p className={styles.payLinksHint}>
+                    Si su caso no es por el terremoto y van a esperar a que
+                    pueda pagar o a seguir por otros medios, envíale esta
+                    tarjeta: dejará su correo y quedará anotado en la lista de
+                    espera. Si no aplica, no la envíes.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void sendWaitlistPrompt()}
+                    disabled={!e2eeReady || promptSending}
+                  >
+                    {promptSending
+                      ? "Enviando…"
+                      : "Enviar tarjeta de lista de espera"}
+                  </button>
+                </details>
+                {paymentLinks.length > 0 ? (
+                  <details className={styles.payLinks}>
+                    <summary>Insertar link de pago</summary>
+                    <p className={styles.payLinksHint}>
+                      Se escribirá en tu mensaje. Compártelo después de
+                      acordarlo con la persona.
+                    </p>
+                    <ul>
+                      {paymentLinks.map((pkg) => (
+                        <li key={pkg.id}>
+                          <button
+                            type="button"
+                            onClick={() => insertPaymentLink(pkg.id)}
+                          >
+                            {pkg.title} · {pkg.priceLabel}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </>
+            ) : null}
+            <textarea
+              className={styles.textarea}
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              onBlur={() => sendTyping(false)}
+              placeholder={
+                e2eeReady ? "Escribe un mensaje…" : "Cifrado pendiente…"
+              }
+              rows={1}
+              maxLength={MAX_MESSAGE_LENGTH}
+              aria-label="Escribe un mensaje"
+              disabled={!e2eeReady}
+            />
+            <button
+              type="button"
+              className={`button human ${styles.sendBtn}`}
+              onClick={() => void submit()}
+              disabled={!draft.trim() || !e2eeReady}
+            >
+              Enviar
+            </button>
+          </div>
+        ) : (
+          <div className={styles.closed}>
+            <p style={{ margin: "0 0 10px" }}>
+              Esta conversación está cerrada. Puedes leer el historial y
+              reabrirla para continuar con la misma persona.
+            </p>
+            {reopenError ? (
+              <p
+                className="form-error"
+                role="alert"
+                style={{ margin: "0 0 10px" }}
+              >
+                {reopenError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="button human"
+              disabled={reopening}
+              onClick={async () => {
+                setReopening(true);
+                setReopenError("");
+                const res = await reopenConversation(
+                  conversationId,
+                  writeAsPersona,
+                ).catch(() => ({
+                  ok: false as const,
+                  reason: "not_authorized" as const,
+                }));
+                setReopening(false);
+                if (res.ok) {
+                  router.refresh();
+                } else {
+                  setReopenError(reopenErrorMessage(res.reason));
+                }
+              }}
+            >
+              {reopening ? "Reabriendo…" : "Reabrir conversación"}
+            </button>
+          </div>
         )}
       </div>
 

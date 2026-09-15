@@ -34,6 +34,24 @@ export async function GET(
     );
   }
 
+  // La sesión debe existir, ser de ESTA conversación y estar vigente: un token
+  // firmado cuyo sid ya no vale (p. ej. sesión revocada o purgada) no debe
+  // entrar. Antes solo se miraba el token, así que un enlace viejo con la fila
+  // borrada dejaba una cookie inservible y la sala respondía “no encontrada”.
+  const sessionRow = await db.query.seekerSessions.findFirst({
+    where: eq(seekerSessions.sid, payload.sid),
+  });
+  if (
+    !sessionRow ||
+    sessionRow.conversationId !== payload.conversationId ||
+    sessionRow.revokedAt ||
+    sessionRow.expiresAt.getTime() <= now
+  ) {
+    return NextResponse.redirect(
+      new URL("/ayuda?acceso=invalido", request.url),
+    );
+  }
+
   // Marca de actividad de la sesión (útil para diagnóstico y limpieza futura).
   await db
     .update(seekerSessions)

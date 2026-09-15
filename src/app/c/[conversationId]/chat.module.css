@@ -319,6 +319,18 @@
   font-size: 0.85rem;
 }
 
+/* Restauración de la clave en un dispositivo nuevo. Va ENCIMA de los mensajes
+   (nunca los sustituye): el compositor sigue visible para que nadie se quede
+   sin saber cómo escribir. */
+.restoreWrap {
+  flex: none;
+  max-height: 58%;
+  overflow-y: auto;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
 /* Restauración de la clave en un dispositivo nuevo. */
 .restore {
   margin: auto;

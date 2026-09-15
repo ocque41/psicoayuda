@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { QuickExit } from "@/components/quick-exit";
-import { loadChatView } from "@/lib/chat-view";
+import { conversationExists, loadChatView } from "@/lib/chat-view";
 import {
   formatEuros,
   listActivePackagesForProfessional,
 } from "@/lib/payments/packages";
 import { getWaitlistSignupForConversation } from "@/lib/waitlist-store";
 import { ChatRoom } from "./chat-room";
+import { ConversationAccessPanel } from "./conversation-access-panel";
 import { ConversationDeletedNotice } from "./conversation-deleted-notice";
 
 export const metadata: Metadata = {
@@ -29,7 +30,18 @@ export default async function ConversationPage({
   // decide; nunca se adivina: la misma preferencia viaja al WebSocket para que
   // lo que escribe se registre con la identidad que está viendo.
   const view = await loadChatView(conversationId, como === "persona");
-  if (!view) notFound();
+  if (!view) {
+    // Sin credencial en ESTE navegador: si la conversación existe, no es un 404
+    // (la página está, solo es privada) → pantalla de acceso con enlace mágico.
+    if (!(await conversationExists(conversationId))) notFound();
+    return (
+      <section className="section">
+        <div className="container">
+          <ConversationAccessPanel />
+        </div>
+      </section>
+    );
+  }
 
   // Papelera: el hilo se borró pero se puede recuperar durante 7 días. No se
   // sirve contenido ni se monta la sala (el WebSocket también lo rechaza).

@@ -424,7 +424,7 @@ export default async function AdminPage({
             {contactCounts.new > 0 ? ` (${contactCounts.new} nuevos)` : ""}
           </a>
           <a className="button secondary" href="#lista-espera">
-            Lista de espera
+            Lista de espera · personas
             {waitlistCounts.waiting > 0
               ? ` (${waitlistCounts.waiting} en espera)`
               : ""}
@@ -457,13 +457,19 @@ export default async function AdminPage({
           updateStatusAction={adminUpdateContactMessageStatus}
         />
 
-        <h2 id="lista-espera">Lista de espera</h2>
+        <h2 id="lista-espera">Lista de espera · Personas</h2>
         <p className="muted">
           Personas que necesitan apoyo psicológico por motivos ajenos al
           terremoto: como la ayuda gratuita de la emergencia está reservada para
           las víctimas, se anotan aquí. Escríbeles cuando haya un cupo
           voluntario y actualiza el estado para llevar el seguimiento (queda
           registrado en la auditoría).
+        </p>
+        <p className="muted">
+          En espera: <strong>{waitlistCounts.waiting}</strong> · Contactadas:{" "}
+          <strong>{waitlistCounts.contacted}</strong> · Emparejadas:{" "}
+          <strong>{waitlistCounts.matched}</strong> · Cerradas:{" "}
+          <strong>{waitlistCounts.closed}</strong>
         </p>
         {waitlistRows.length ? (
           <>

@@ -2,6 +2,42 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.14.0 - 2026-09-15
+
+Volver a una conversación desde otro navegador ya funciona, y el cifrado del
+chat deja de interrumpir a quien no le toca.
+
+- **Enlace abierto en otro navegador**: `/c/<id>` sin credencial ya no responde
+  404. Si la conversación existe, se muestra una pantalla de acceso privado
+  ("Esta conversación es privada") con el correo para pedir el enlace mágico,
+  salida rápida y alternativa de contacto; el 404 queda reservado a
+  conversaciones inexistentes.
+- **El enlace mágico entra de verdad**: la sesión nueva que crea
+  `createSeekerAccessLink` (sid distinto al original) ahora autoriza la sala, las
+  Server Actions y el WebSocket — antes se comparaba contra `seekerSid` y el
+  acceso desde otro navegador quedaba en 404 o sin permisos. La regla es la
+  misma en `chat-view.ts`, `resolveActor`, `auth-gate.ts` y
+  `renewSeekerChatToken`: cualquier `seeker_sessions` vigente de ESA
+  conversación.
+- **`/acceso/[token]` valida la sesión**: si la fila está revocada, expirada,
+  purgada o es de otra conversación, redirige a `/ayuda?acceso=invalido` en vez
+  de dejar una cookie inservible.
+- **Código de recuperación solo cuando hace falta** (`src/shared/e2ee-gating.ts`,
+  regla pura con tests): si el dispositivo tiene la clave no se muestra ningún
+  aviso; si no la tiene, el panel se abre ENCIMA de los mensajes (el compositor
+  sigue visible) y sin prometer lectura — sin código no se lee ni se escribe, ni
+  siquiera para el profesional. El código del profesional vive en la sección
+  "Cifrado" de su panel; entrar a una sala nunca le lanza el código por
+  sorpresa. La vista "como la persona" crea su clave en silencio (la clave real
+  es de la persona y no se puede pedir su código).
+- **El botón "Enviar" siempre visible**: el panel de recuperación ya no
+  sustituye al compositor (antes lo tapaba y parecía que faltaba el botón).
+- **Panel de admin**: la lista de espera de personas (casos ajenos al terremoto)
+  queda rotulada como "Lista de espera · personas", separada de la tabla de
+  profesionales, con contadores por estado (en espera / contactadas /
+  emparejadas / cerradas). La verificación E2E del alta pública y de la
+  tarjeta del chat mostró los registros en esa sección.
+
 ## 0.13.0 - 2026-09-15
 
 Tarjeta de lista de espera dentro del chat: el profesional la envía cuando el
