@@ -2,6 +2,24 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.14.1 - 2026-09-15
+
+El profesional nunca queda bloqueado por el cifrado en una sala.
+
+- **Si este dispositivo no tiene su clave**, el chat la crea y publica
+  automáticamente para que pueda leer lo nuevo y escribir de inmediato. Los
+  mensajes anteriores (cifrados con la clave anterior) se muestran como no
+  disponibles y queda un aviso discreto, NO bloqueante, con el botón "Tengo mi
+  código de recuperación" para recuperarlos. Antes esta situación mostraba el
+  panel de código como muro y parecía que no podía atender.
+- **Si la cuenta tiene publicada otra clave** (otro dispositivo), este equipo
+  sigue funcionando con la suya y se le ofrece el código para unificar; nunca se
+  re-publica en silencio para no alternar claves entre dispositivos.
+- El compositor y el botón "Enviar" permanecen siempre visibles y habilitados en
+  cuanto hay clave y clave de la contraparte.
+- La persona mantiene la regla anterior: en un dispositivo nuevo y con
+  historial, el código es obligatorio para leer (panel).
+
 ## 0.14.0 - 2026-09-15
 
 Volver a una conversación desde otro navegador ya funciona, y el cifrado del
@@ -24,12 +42,11 @@ chat deja de interrumpir a quien no le toca.
   de dejar una cookie inservible.
 - **Código de recuperación solo cuando hace falta** (`src/shared/e2ee-gating.ts`,
   regla pura con tests): si el dispositivo tiene la clave no se muestra ningún
-  aviso; si no la tiene, el panel se abre ENCIMA de los mensajes (el compositor
-  sigue visible) y sin prometer lectura — sin código no se lee ni se escribe, ni
-  siquiera para el profesional. El código del profesional vive en la sección
-  "Cifrado" de su panel; entrar a una sala nunca le lanza el código por
-  sorpresa. La vista "como la persona" crea su clave en silencio (la clave real
-  es de la persona y no se puede pedir su código).
+  aviso ni panel. En un dispositivo nuevo, la persona ve el panel ENCIMA de los
+  mensajes (el compositor sigue visible) — sin código no puede leer —, mientras
+  que el profesional no se bloquea nunca (ver 0.14.1). La vista "como la
+  persona" crea su clave en silencio (la clave real es de la persona y no se
+  puede pedir su código).
 - **El botón "Enviar" siempre visible**: el panel de recuperación ya no
   sustituye al compositor (antes lo tapaba y parecía que faltaba el botón).
 - **Panel de admin**: la lista de espera de personas (casos ajenos al terremoto)

@@ -1,19 +1,20 @@
 /**
  * Regla de cuándo pedir el código de recuperación dentro de una sala. Vive
  * fuera del componente para poder probarla: dentro del chat es fácil romperla
- * sin darse cuenta, y de ella depende que alguien pueda leer sus mensajes.
+ * sin darse cuenta.
  *
  * Principio:
- * - Sin la clave en ESTE dispositivo no se puede leer NI escribir: el código de
- *   recuperación (o crear una clave nueva, perdiendo el historial) es
- *   obligatorio. Esto vale también para el profesional: si su navegador es un
- *   desconocido para esa conversación, se le pide el código igual.
- * - Nada de avisos que prometan lectura: quien no tiene la clave no ve el
- *   contenido.
- * - Si el dispositivo SÍ tiene la clave, no se interrumpe a nadie.
- * - Única excepción: la vista "como la persona" del profesional, donde la clave
- *   real es de la persona y no se le puede pedir su código; ahí se crea una
- *   clave nueva en silencio para poder escribir como ella.
+ * - El PROFESIONAL nunca queda bloqueado en una sala: tiene cuenta y puede
+ *   atender. Si este dispositivo no tiene su clave, se crea y publica una nueva
+ *   en silencio y se le deja un aviso discreto (no bloqueante) por si quiere
+ *   recuperar el historial anterior con su código. El código se gestiona en la
+ *   sección "Cifrado" de su panel, no como muro en cada chat.
+ * - La PERSONA no tiene cuenta: si este dispositivo no tiene la clave y hay
+ *   historial cifrado, el código es la única forma de leerlo (panel). Si no hay
+ *   nada cifrado aún, se crea su clave y se le muestra el código una vez.
+ * - Única excepción en la vista "como la persona" del profesional: la clave real
+ *   es de la persona y no se le puede pedir su código; se crea una nueva en
+ *   silencio para poder escribir como ella.
  */
 
 export type E2eeGateRole = "seeker" | "professional";
@@ -34,12 +35,17 @@ export type E2eeGateInput = {
 };
 
 export type E2eeGateDecision = {
-  /** Mostrar el panel de recuperación (el código es imprescindible). */
+  /** Mostrar el panel de recuperación como paso obligatorio (solo personas). */
   restore: boolean;
-  /** Generar la clave en silencio (sin código ni panel). */
+  /** Generar (y publicar, si es profesional) la clave en silencio. */
   create: boolean;
   /** Al crear la clave, ¿se muestra el código de recuperación? */
   showCode: boolean;
+  /**
+   * Aviso discreto con acceso OPCIONAL al código (profesional). El tipo
+   * distingue el caso para redactar el aviso con precisión.
+   */
+  notice: "rotated" | "mismatch" | null;
 };
 
 export function decideE2eeGate(input: E2eeGateInput): E2eeGateDecision {
@@ -47,29 +53,44 @@ export function decideE2eeGate(input: E2eeGateInput): E2eeGateDecision {
   const isPro = role === "professional";
 
   if (hasLocalIdentity) {
-    // La clave local no sirve si la cuenta publicó otra distinta: hay que
-    // decidir (recuperar la de la cuenta o quedarse con la de este equipo).
-    const mismatch =
+    if (
       isPro &&
-      accountPublicKey !== null &&
-      input.localPublicKey !== accountPublicKey;
-    return { restore: mismatch, create: false, showCode: false };
+      accountPublicKey &&
+      input.localPublicKey !== accountPublicKey
+    ) {
+      // La cuenta publicó otra clave (otro dispositivo): este equipo sigue
+      // funcionando con la suya y se le ofrece el código para unificar.
+      return {
+        restore: false,
+        create: false,
+        showCode: false,
+        notice: "mismatch",
+      };
+    }
+    return { restore: false, create: false, showCode: false, notice: null };
   }
 
-  if (isPro && accountPublicKey) {
-    // La clave de la cuenta vive en otro dispositivo: sin código no se lee.
-    return { restore: true, create: false, showCode: false };
+  if (isPro) {
+    // Sin clave local: se crea y publica una nueva para poder atender ya. Si la
+    // cuenta tenía clave (otro dispositivo), el historial anterior necesita el
+    // código: aviso discreto, nunca muro.
+    return {
+      restore: false,
+      create: true,
+      showCode: false,
+      notice: accountPublicKey !== null ? "rotated" : null,
+    };
   }
 
   if (input.envelopes > 0) {
-    if (proVisitor && !isPro) {
-      // Vista "como la persona": la clave real es de la persona y no se le
-      // puede pedir su código; se crea una nueva en silencio para escribir.
-      return { restore: false, create: true, showCode: false };
+    if (proVisitor) {
+      // Vista "como la persona" del profesional: clave nueva en silencio.
+      return { restore: false, create: true, showCode: false, notice: null };
     }
-    return { restore: true, create: false, showCode: false };
+    // Persona en un dispositivo nuevo: sin el código no puede leer.
+    return { restore: true, create: false, showCode: false, notice: null };
   }
 
-  // Nada cifrado todavía: se puede empezar de cero sin interrumpir.
-  return { restore: false, create: true, showCode: !proVisitor };
+  // Persona al inicio de la conversación: se crea su clave y se le da el código.
+  return { restore: false, create: true, showCode: !proVisitor, notice: null };
 }

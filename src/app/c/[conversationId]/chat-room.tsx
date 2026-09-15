@@ -65,6 +65,19 @@ const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 type Pending = { clientMsgId: string; content: string; envelope: string };
 
+/**
+ * Aviso (no bloqueante) para el profesional cuando este dispositivo entró con
+ * una clave nueva o tiene una distinta de la publicada en su cuenta. Nunca
+ * impide leer ni escribir: solo explica qué pasa con el historial anterior y
+ * ofrece el código de recuperación.
+ */
+function e2eeNoticeText(kind: "rotated" | "mismatch"): string {
+  if (kind === "mismatch") {
+    return "Tu cuenta tiene publicada la clave de otro dispositivo. Puedes seguir atendiendo con la de este equipo; algunos mensajes anteriores pueden no verse aquí. Si guardaste tu código de recuperación, puedes unificarlo con él.";
+  }
+  return "Este dispositivo no tenía tu clave de cifrado, así que se creó una nueva para que puedas atender. Los mensajes anteriores no se pueden leer aquí; si guardaste tu código de recuperación, puedes recuperarlos.";
+}
+
 function wsUrl(conversationId: string, asPersona: boolean): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const query = asPersona ? "?como=persona" : "";
@@ -195,6 +208,13 @@ export function ChatRoom({
   const [identity, setIdentity] = useState<ConversationIdentity | null>(null);
   const [keysLoaded, setKeysLoaded] = useState(false);
   const [restoreNeeded, setRestoreNeeded] = useState(false);
+  // El profesional nunca queda bloqueado: si este dispositivo no tiene su
+  // clave, se crea una nueva y solo se le deja un aviso discreto con acceso
+  // opcional al código (para recuperar historial de otro dispositivo).
+  const [proNotice, setProNotice] = useState<"rotated" | "mismatch" | null>(
+    null,
+  );
+  const [showRestore, setShowRestore] = useState(false);
   const [historyStats, setHistoryStats] = useState<{
     count: number;
     envelopes: number;
@@ -292,6 +312,8 @@ export function ChatRoom({
     let cancelled = false;
     setIdentity(null);
     setRestoreNeeded(false);
+    setProNotice(null);
+    setShowRestore(false);
     setKeysLoaded(false);
     setHistoryStats(null);
     historyStatsSetRef.current = false;
@@ -338,12 +360,16 @@ export function ChatRoom({
 
   useEffect(() => {
     if (e2eeGate?.restore) setRestoreNeeded(true);
+    // El motivo del aviso se fija una vez por carga de sala: al publicar la
+    // clave nueva el prop del servidor queda un instante desactualizado y no
+    // queremos reescribir el aviso (ni hacerlo parpadear).
+    if (e2eeGate?.notice) setProNotice((prev) => prev ?? e2eeGate.notice);
   }, [e2eeGate]);
 
   // Crea la identidad en silencio cuando el gate lo permite (nada cifrado aún,
   // o vista "como la persona" del profesional).
   useEffect(() => {
-    if (!keysLoaded || identity || restoreNeeded) return;
+    if (!keysLoaded || identity || restoreNeeded || showRestore) return;
     if (!e2eeGate?.create) return;
     let cancelled = false;
     void (async () => {
@@ -356,7 +382,15 @@ export function ChatRoom({
     return () => {
       cancelled = true;
     };
-  }, [keysLoaded, identity, restoreNeeded, e2eeGate, slot, setupIdentity]);
+  }, [
+    keysLoaded,
+    identity,
+    restoreNeeded,
+    showRestore,
+    e2eeGate,
+    slot,
+    setupIdentity,
+  ]);
 
   const reloadIdentity = useCallback(async (): Promise<boolean> => {
     const restored = await loadIdentity(slot);
@@ -914,13 +948,37 @@ export function ChatRoom({
           </div>
         ) : null}
 
-        {restoreNeeded ? (
+        {restoreNeeded || showRestore ? (
           <div className={styles.restoreWrap}>
             <E2eeRestorePanel
               audience={role}
-              onRestored={reloadIdentity}
-              onUseNewKeys={startWithNewKeys}
+              onRestored={async () => {
+                const ok = await reloadIdentity();
+                if (ok) {
+                  setProNotice(null);
+                  setShowRestore(false);
+                }
+                return ok;
+              }}
+              onUseNewKeys={async () => {
+                await startWithNewKeys();
+                setProNotice(null);
+                setShowRestore(false);
+              }}
             />
+          </div>
+        ) : null}
+
+        {proNotice && !restoreNeeded && !showRestore ? (
+          <div className={styles.e2eeNotice} role="status">
+            <p>{e2eeNoticeText(proNotice)}</p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setShowRestore(true)}
+            >
+              Tengo mi código de recuperación
+            </button>
           </div>
         ) : null}
 

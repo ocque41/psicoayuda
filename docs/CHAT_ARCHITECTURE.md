@@ -113,16 +113,19 @@ la clave para descifrarlos.
   servidor no puede descifrarlo. Sin el código, un dispositivo nuevo no puede
   leer el historial (y nadie puede recuperarlo); hay un flujo explícito de
   restauración/rotación en la sala.
-- **Cuándo se pide el código (v0.14.0)**: regla pura y probada
+- **Cuándo se pide el código (v0.14.x)**: regla pura y probada
   (`src/shared/e2ee-gating.ts`). Si el dispositivo tiene la clave, nadie ve
-  avisos. Si no la tiene, el panel de recuperación aparece ENCIMA de los
-  mensajes (el compositor sigue visible) y sin prometer lectura: sin código no
-  se lee ni se escribe, y eso vale también para el profesional cuando su
-  navegador es un desconocido para esa conversación. Única excepción: la vista
-  "como la persona" del profesional, donde la clave real es de la persona (no se
-  le puede pedir su código) y se crea una nueva en silencio para poder escribir.
-  El profesional gestiona su clave y ve su código en la sección "Cifrado" de su
-  panel; dentro de la sala nunca recibe el código como interrupción sorpresa.
+  avisos. La PERSONA en un dispositivo nuevo y con historial cifrado ve el panel
+  de recuperación ENCIMA de los mensajes (el compositor sigue visible): sin
+  código no puede leer. El PROFESIONAL nunca queda bloqueado: si su dispositivo
+  no tiene la clave, el chat la crea y publica al momento (los mensajes
+  anteriores quedan como no disponibles) y solo aparece un aviso discreto con el
+  código para recuperarlos; si la cuenta tiene publicada otra clave (otro
+  dispositivo), se le avisa igual y se ofrece el código, sin re-publicar en
+  silencio para no alternar claves. Única excepción: la vista "como la persona"
+  del profesional, donde la clave real es de la persona (no se le puede pedir su
+  código) y se crea una nueva en silencio. El profesional gestiona su clave y ve
+  su código en la sección "Cifrado" de su panel.
 - **Migración del historial legado**: el cliente re-cifra los mensajes en claro
   por lotes (`frame reencrypt`, idempotente) en cuanto hay claves de ambos lados.
 - **Límites honestos**: no hay forward secrecy (el historial es eterno), los

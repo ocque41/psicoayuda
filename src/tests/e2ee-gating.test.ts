@@ -20,6 +20,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
       restore: false,
       create: true,
       showCode: true,
+      notice: null,
     });
   });
 
@@ -28,6 +29,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
       restore: true,
       create: false,
       showCode: false,
+      notice: null,
     });
   });
 
@@ -42,6 +44,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
       restore: false,
       create: false,
       showCode: false,
+      notice: null,
     });
   });
 
@@ -52,7 +55,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
     });
   });
 
-  it("el profesional sin clave en este dispositivo pide código (no puede leer ni escribir)", () => {
+  it("el profesional sin clave en este dispositivo sigue atendiendo: clave nueva y aviso", () => {
     expect(
       decide({
         role: "professional",
@@ -60,27 +63,23 @@ describe("regla del código de recuperación dentro de la sala", () => {
         accountPublicKey: "pro-key",
       }),
     ).toEqual({
-      restore: true,
-      create: false,
+      restore: false,
+      create: true,
       showCode: false,
+      notice: "rotated",
     });
   });
 
-  it("el profesional con historial cifrado y sin clave también pide código", () => {
-    expect(
-      decide({ role: "professional", proVisitor: true, envelopes: 7 }),
-    ).toEqual({ restore: true, create: false, showCode: false });
-  });
-
-  it("el profesional en un chat vacío sin clave publicada arranca sin código", () => {
+  it("el profesional sin clave ni cuenta publicada arranca sin aviso", () => {
     expect(decide({ role: "professional", proVisitor: true })).toEqual({
       restore: false,
       create: true,
       showCode: false,
+      notice: null,
     });
   });
 
-  it("el profesional cuya clave local difiere de la de su cuenta pide código", () => {
+  it("el profesional cuya clave local difiere de la de su cuenta ve aviso (no muro)", () => {
     expect(
       decide({
         role: "professional",
@@ -89,7 +88,12 @@ describe("regla del código de recuperación dentro de la sala", () => {
         localPublicKey: "local-distinta",
         accountPublicKey: "cuenta",
       }),
-    ).toEqual({ restore: true, create: false, showCode: false });
+    ).toEqual({
+      restore: false,
+      create: false,
+      showCode: false,
+      notice: "mismatch",
+    });
   });
 
   it("su clave local coincide con la de la cuenta: sin interrupciones", () => {
@@ -105,6 +109,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
       restore: false,
       create: false,
       showCode: false,
+      notice: null,
     });
   });
 
@@ -120,12 +125,31 @@ describe("regla del código de recuperación dentro de la sala", () => {
       restore: false,
       create: true,
       showCode: false,
+      notice: null,
     });
   });
 
   it("una persona con clave previa pero sin historial tampoco ve nada", () => {
     expect(
       decide({ hasLocalIdentity: true, localPublicKey: "k", envelopes: 0 }),
-    ).toMatchObject({ restore: false, create: false });
+    ).toMatchObject({ restore: false, create: false, notice: null });
+  });
+
+  it("el profesional nunca recibe un muro de código en la sala", () => {
+    for (const accountPublicKey of [null, "pro-key"]) {
+      for (const hasLocalIdentity of [true, false]) {
+        for (const envelopes of [0, 5]) {
+          const decision = decide({
+            role: "professional",
+            proVisitor: true,
+            accountPublicKey,
+            hasLocalIdentity,
+            localPublicKey: hasLocalIdentity ? "otra" : null,
+            envelopes,
+          });
+          expect(decision.restore).toBe(false);
+        }
+      }
+    }
   });
 });

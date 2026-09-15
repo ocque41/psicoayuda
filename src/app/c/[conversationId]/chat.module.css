@@ -331,6 +331,26 @@
   background: var(--surface-soft);
 }
 
+/* Aviso discreto para el profesional: este dispositivo entró con una clave
+   nueva. NO bloquea nada; solo ofrece el código para recuperar el historial. */
+.e2eeNotice {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.e2eeNotice p {
+  margin: 0;
+  flex: 1 1 22ch;
+}
+
 /* Restauración de la clave en un dispositivo nuevo. */
 .restore {
   margin: auto;
