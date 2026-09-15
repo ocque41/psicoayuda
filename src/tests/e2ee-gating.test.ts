@@ -55,7 +55,7 @@ describe("regla del código de recuperación dentro de la sala", () => {
     });
   });
 
-  it("el profesional sin clave en este dispositivo sigue atendiendo: clave nueva y aviso", () => {
+  it("el profesional con clave en su cuenta y sin clave local NO rota: pide el código (uno para todo)", () => {
     expect(
       decide({
         role: "professional",
@@ -63,10 +63,10 @@ describe("regla del código de recuperación dentro de la sala", () => {
         accountPublicKey: "pro-key",
       }),
     ).toEqual({
-      restore: false,
-      create: true,
+      restore: true,
+      create: false,
       showCode: false,
-      notice: "rotated",
+      notice: null,
     });
   });
 
@@ -113,13 +113,29 @@ describe("regla del código de recuperación dentro de la sala", () => {
     });
   });
 
-  it("la vista 'como la persona' del profesional crea en silencio, sin código", () => {
+  it("la vista 'como la persona' con historial pide el código del profesional (keystore completo)", () => {
     expect(
       decide({
         role: "seeker",
         proVisitor: true,
         accountPublicKey: "pro-key",
         envelopes: 2,
+      }),
+    ).toEqual({
+      restore: true,
+      create: false,
+      showCode: false,
+      notice: null,
+    });
+  });
+
+  it("la vista 'como la persona' sin historial crea su clave en silencio", () => {
+    expect(
+      decide({
+        role: "seeker",
+        proVisitor: true,
+        accountPublicKey: "pro-key",
+        envelopes: 0,
       }),
     ).toEqual({
       restore: false,
@@ -135,21 +151,26 @@ describe("regla del código de recuperación dentro de la sala", () => {
     ).toMatchObject({ restore: false, create: false, notice: null });
   });
 
-  it("el profesional nunca recibe un muro de código en la sala", () => {
-    for (const accountPublicKey of [null, "pro-key"]) {
-      for (const hasLocalIdentity of [true, false]) {
-        for (const envelopes of [0, 5]) {
-          const decision = decide({
-            role: "professional",
-            proVisitor: true,
-            accountPublicKey,
-            hasLocalIdentity,
-            localPublicKey: hasLocalIdentity ? "otra" : null,
-            envelopes,
-          });
-          expect(decision.restore).toBe(false);
-        }
+  it("el profesional NUNCA rota su clave en silencio cuando la cuenta ya tiene una", () => {
+    // Rotar rompería el historial en todos sus dispositivos: o la clave local
+    // coincide (nada), o difiere (aviso), o falta (se pide el código).
+    for (const hasLocalIdentity of [true, false]) {
+      for (const envelopes of [0, 5]) {
+        const decision = decide({
+          role: "professional",
+          proVisitor: true,
+          accountPublicKey: "pro-key",
+          hasLocalIdentity,
+          localPublicKey: hasLocalIdentity ? "otra" : null,
+          envelopes,
+        });
+        expect(decision.create).toBe(false);
       }
     }
+    // Primera vez (ni cuenta ni dispositivo): ahí sí se crea, no hay historial.
+    expect(
+      decide({ role: "professional", proVisitor: true, accountPublicKey: null })
+        .create,
+    ).toBe(true);
   });
 });

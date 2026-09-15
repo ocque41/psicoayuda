@@ -4,23 +4,30 @@
  * sin darse cuenta.
  *
  * Principio:
- * - El PROFESIONAL nunca queda bloqueado en una sala: tiene cuenta y puede
- *   atender. Si este dispositivo no tiene su clave, se crea y publica una nueva
- *   en silencio y se le deja un aviso discreto (no bloqueante) por si quiere
- *   recuperar el historial anterior con su código. El código se gestiona en la
- *   sección "Cifrado" de su panel, no como muro en cada chat.
+ * - NADIE rota su clave en silencio cuando la cuenta ya tiene una publicada: al
+ *   rotar, el historial anterior se vuelve ilegible en TODOS los dispositivos
+ *   (los mensajes viejos quedaron cifrados para la clave anterior). Por eso, si
+ *   la cuenta ya tiene clave y este dispositivo no, se pide el CÓDIGO (uno solo
+ *   sirve para todas las conversaciones) con la opción explícita de empezar de
+ *   cero. El profesional nunca pierde su historial por entrar desde otro
+ *   navegador o por volver a entrar.
+ * - El PROFESIONAL solo crea su clave en silencio la primera vez (ni cuenta ni
+ *   dispositivo tienen clave): ahí no hay nada que perder. El código se gestiona
+ *   en la sección "Cifrado" de su panel, no como muro en cada chat.
  * - La PERSONA no tiene cuenta: si este dispositivo no tiene la clave y hay
  *   historial cifrado, el código es la única forma de leerlo (panel). Si no hay
  *   nada cifrado aún, se crea su clave y se le muestra el código una vez.
  * - Única excepción en la vista "como la persona" del profesional: la clave real
- *   es de la persona y no se le puede pedir su código; se crea una nueva en
- *   silencio para poder escribir como ella.
+ *   es de la persona y no se le puede pedir su código; si el dispositivo ya tiene
+ *   la clave de la persona (o el profesional restauró su keystore, que la
+ *   incluye), se usa esa; si no, se crea una nueva en silencio para poder
+ *   escribir como ella.
  */
 
 export type E2eeGateRole = "seeker" | "professional";
 
 export type E2eeGateInput = {
-  /** Rol de la vista actual (con la que se lee y escribe). */
+  /** Rol de la vista actual (con la que se lee y se escribe). */
   role: E2eeGateRole;
   /** Profesional autenticado: su vista o la vista "como la persona". */
   proVisitor: boolean;
@@ -35,17 +42,17 @@ export type E2eeGateInput = {
 };
 
 export type E2eeGateDecision = {
-  /** Mostrar el panel de recuperación como paso obligatorio (solo personas). */
+  /** Mostrar el panel de recuperación como paso obligatorio para leer. */
   restore: boolean;
   /** Generar (y publicar, si es profesional) la clave en silencio. */
   create: boolean;
   /** Al crear la clave, ¿se muestra el código de recuperación? */
   showCode: boolean;
   /**
-   * Aviso discreto con acceso OPCIONAL al código (profesional). El tipo
-   * distingue el caso para redactar el aviso con precisión.
+   * Aviso discreto con acceso OPCIONAL al código (profesional): la cuenta tiene
+   * publicada otra clave (otro dispositivo) y este equipo sigue con la suya.
    */
-  notice: "rotated" | "mismatch" | null;
+  notice: "mismatch" | null;
 };
 
 export function decideE2eeGate(input: E2eeGateInput): E2eeGateDecision {
@@ -71,21 +78,24 @@ export function decideE2eeGate(input: E2eeGateInput): E2eeGateDecision {
   }
 
   if (isPro) {
-    // Sin clave local: se crea y publica una nueva para poder atender ya. Si la
-    // cuenta tenía clave (otro dispositivo), el historial anterior necesita el
-    // código: aviso discreto, nunca muro.
-    return {
-      restore: false,
-      create: true,
-      showCode: false,
-      notice: accountPublicKey !== null ? "rotated" : null,
-    };
+    if (accountPublicKey !== null) {
+      // La cuenta YA tiene clave (otro dispositivo). Crear y publicar una nueva
+      // en silencio rotaría la clave de la cuenta y dejaría ilegible el
+      // historial en todos los dispositivos. Se pide el código (uno para todo)
+      // con la opción explícita de empezar de cero.
+      return { restore: true, create: false, showCode: false, notice: null };
+    }
+    // Primera vez: ni la cuenta ni este dispositivo tienen clave. No hay nada
+    // que perder, se crea en silencio y el código queda en su panel.
+    return { restore: false, create: true, showCode: false, notice: null };
   }
 
   if (input.envelopes > 0) {
     if (proVisitor) {
-      // Vista "como la persona" del profesional: clave nueva en silencio.
-      return { restore: false, create: true, showCode: false, notice: null };
+      // Vista "como la persona": se restaura con el keystore del profesional (que
+      // incluye la clave de la persona si este dispositivo la creó alguna vez);
+      // si no puede, el panel ofrece empezar de cero.
+      return { restore: true, create: false, showCode: false, notice: null };
     }
     // Persona en un dispositivo nuevo: sin el código no puede leer.
     return { restore: true, create: false, showCode: false, notice: null };

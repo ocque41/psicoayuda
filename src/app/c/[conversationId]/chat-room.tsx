@@ -66,17 +66,14 @@ const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 type Pending = { clientMsgId: string; content: string; envelope: string };
 
 /**
- * Aviso (no bloqueante) para el profesional cuando este dispositivo entró con
- * una clave nueva o tiene una distinta de la publicada en su cuenta. Nunca
- * impide leer ni escribir: solo explica qué pasa con el historial anterior y
- * ofrece el código de recuperación.
+ * Aviso (no bloqueante) para el profesional cuando este equipo usa una clave
+ * distinta de la publicada en su cuenta. Nunca impide leer ni escribir: solo
+ * explica qué pasa con los mensajes de otros dispositivos y ofrece el código de
+ * recuperación. (Este dispositivo NUNCA rota la clave de la cuenta en silencio:
+ * si no tiene ninguna, se pide el código con el panel.)
  */
-function e2eeNoticeText(kind: "rotated" | "mismatch"): string {
-  if (kind === "mismatch") {
-    return "Tu cuenta tiene publicada la clave de otro dispositivo. Puedes seguir atendiendo con la de este equipo; algunos mensajes anteriores pueden no verse aquí. Si guardaste tu código de recuperación, puedes unificarlo con él.";
-  }
-  return "Este dispositivo no tenía tu clave de cifrado, así que se creó una nueva para que puedas atender. Los mensajes anteriores no se pueden leer aquí; si guardaste tu código de recuperación, puedes recuperarlos.";
-}
+const E2EE_MISMATCH_NOTICE =
+  "Tu cuenta tiene publicada la clave de otro dispositivo. Puedes seguir atendiendo con la de este equipo; algunos mensajes nuevos pueden no verse aquí. Si guardaste tu código de recuperación, puedes unificarlo con él.";
 
 function wsUrl(conversationId: string, asPersona: boolean): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -208,12 +205,11 @@ export function ChatRoom({
   const [identity, setIdentity] = useState<ConversationIdentity | null>(null);
   const [keysLoaded, setKeysLoaded] = useState(false);
   const [restoreNeeded, setRestoreNeeded] = useState(false);
-  // El profesional nunca queda bloqueado: si este dispositivo no tiene su
-  // clave, se crea una nueva y solo se le deja un aviso discreto con acceso
-  // opcional al código (para recuperar historial de otro dispositivo).
-  const [proNotice, setProNotice] = useState<"rotated" | "mismatch" | null>(
-    null,
-  );
+  // El profesional nunca rota su clave en silencio si la cuenta ya tiene una:
+  // eso rompería el historial en todos sus dispositivos. Si a este dispositivo
+  // le falta, se pide el código (uno solo para todas las conversaciones) con la
+  // opción explícita de empezar de cero; la primera vez se crea sin más.
+  const [proNotice, setProNotice] = useState<"mismatch" | null>(null);
   const [showRestore, setShowRestore] = useState(false);
   const [historyStats, setHistoryStats] = useState<{
     count: number;
@@ -985,7 +981,7 @@ export function ChatRoom({
 
         {proNotice && !restoreNeeded && !showRestore ? (
           <div className={styles.e2eeNotice} role="status">
-            <p>{e2eeNoticeText(proNotice)}</p>
+            <p>{E2EE_MISMATCH_NOTICE}</p>
             <button
               type="button"
               className="button secondary"

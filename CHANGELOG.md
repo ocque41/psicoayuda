@@ -2,6 +2,27 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.18.0 - 2026-09-15
+
+Dos arreglos que evitan perder conversaciones y una vía de contacto más clara.
+
+- **El profesional ya no rota su clave al entrar desde otro navegador**: antes,
+  si este dispositivo no tenía su clave y la cuenta ya tenía una publicada, la
+  sala creaba y PUBLICABA una nueva en silencio. Eso cambiaba la clave de la
+  cuenta y dejaba ilegibles los mensajes anteriores en TODOS sus dispositivos
+  ("se me cifran los mensajes previos"). Ahora se pide el código (el mismo para
+  todas sus conversaciones) con la opción explícita de empezar de cero, que
+  avisa de que se pierde el historial. La primera vez (ni cuenta ni dispositivo
+  con clave) se sigue creando sin interrumpir.
+- **La persona mantiene la regla**: solo se le pide el código si este navegador
+  no tiene su clave y hay historial cifrado; si no hay nada cifrado, se crea su
+  clave y se le muestra el código una vez.
+- **"Contacta ahora" en la ficha de cada profesional**: el chat dentro de Nido
+  pasa a ser el botón principal (verde, arriba) y despliega el formulario con
+  el nombre y el correo opcionales; WhatsApp queda debajo como enlace sin fondo
+  (con su glifo) y después "llamar" y el correo. En las fichas sin teléfono, el
+  formulario se muestra directamente con el botón verde.
+
 ## 0.17.0 - 2026-09-15
 
 La lista de conversaciones del profesional pasa a ser de verdad en tiempo real.

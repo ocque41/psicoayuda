@@ -640,6 +640,83 @@ legend {
   padding-top: 14px;
 }
 
+/* ---- CTA de chat de la ficha profesional (arriba del WhatsApp) ----
+   El chat es la vía principal: botón verde que despliega el formulario.
+   WhatsApp y el resto quedan debajo, como enlaces sin fondo. */
+.pro-chat-cta {
+  margin: 0 0 10px;
+}
+
+.pro-chat-cta > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pro-chat-cta > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron que gira al abrir, para que se vea que despliega. */
+.pro-chat-cta > summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  transition: transform var(--duration-quick) var(--ease-smooth-out);
+}
+
+.pro-chat-cta[open] > summary::after {
+  transform: rotate(225deg) translateY(-1px);
+}
+
+.pro-chat-form {
+  margin-top: 12px;
+}
+
+.pro-chat-form > form > .button {
+  margin-top: 4px;
+}
+
+.pro-contact {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+/* Sin fondo: solo el texto en verde con su glifo. */
+.pro-contact-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--accent-strong);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.pro-contact-wa:hover {
+  color: var(--accent);
+}
+
+.pro-contact-muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pro-chat-cta > summary::after {
+    transition-duration: 1ms;
+  }
+}
+
 /* ---- Panel de acceso profesional (Google + correo/contraseña) ---- */
 .signin {
   max-width: 420px;

@@ -113,18 +113,22 @@ la clave para descifrarlos.
   servidor no puede descifrarlo. Sin el código, un dispositivo nuevo no puede
   leer el historial (y nadie puede recuperarlo); hay un flujo explícito de
   restauración/rotación en la sala.
-- **Cuándo se pide el código (v0.14.x)**: regla pura y probada
+- **Cuándo se pide el código (v0.18)**: regla pura y probada
   (`src/shared/e2ee-gating.ts`). Si el dispositivo tiene la clave, nadie ve
-  avisos. La PERSONA en un dispositivo nuevo y con historial cifrado ve el panel
-  de recuperación ENCIMA de los mensajes (el compositor sigue visible): sin
-  código no puede leer. El PROFESIONAL nunca queda bloqueado: si su dispositivo
-  no tiene la clave, el chat la crea y publica al momento (los mensajes
-  anteriores quedan como no disponibles) y solo aparece un aviso discreto con el
-  código para recuperarlos; si la cuenta tiene publicada otra clave (otro
-  dispositivo), se le avisa igual y se ofrece el código, sin re-publicar en
-  silencio para no alternar claves. Única excepción: la vista "como la persona"
-  del profesional, donde la clave real es de la persona (no se le puede pedir su
-  código) y se crea una nueva en silencio. El profesional gestiona su clave y ve
+  avisos. NADIE rota su clave en silencio cuando la cuenta ya tiene una
+  publicada: al rotar, el historial anterior se vuelve ilegible en TODOS los
+  dispositivos (los mensajes viejos quedaron cifrados para la clave anterior).
+  Por eso: el PROFESIONAL solo crea su clave en silencio la primera vez (ni
+  cuenta ni dispositivo con clave, nada que perder); si la cuenta ya tiene una,
+  la sala pide el código (el mismo para todas sus conversaciones) con la opción
+  explícita de empezar de cero, que avisa de que se pierde el historial. Si este
+  equipo tiene una clave distinta de la publicada, se le deja un aviso discreto
+  (no bloqueante) para unificar con el código. La PERSONA ve el panel de
+  recuperación ENCIMA de los mensajes cuando este navegador no tiene su clave y
+  hay historial cifrado: sin código no puede leer. En la vista "como la persona"
+  del profesional se usa la clave de la persona si está en el keystore (el
+  profesional puede restaurar su keystore completo, que la incluye) y, si no,
+  el mismo panel ofrece empezar de cero. El profesional gestiona su clave y ve
   su código en la sección "Cifrado" de su panel. **Hay UN solo código para todas
   sus conversaciones**: la clave del profesional vive en un único slot del
   keystore del dispositivo (`PRO_SLOT`) y el keystore completo se respalda con ese
