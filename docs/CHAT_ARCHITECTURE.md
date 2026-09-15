@@ -99,10 +99,10 @@ El chat es **E2EE real en el navegador** (`src/shared/e2ee.ts`,
 la clave para descifrarlos.
 
 - **Claves**: pares ECDH P-256. El profesional tiene UNA clave de identidad y
-  publica la pública en su ficha (`professionals.crypto_public_key`) al entrar a
-  su panel (`E2eeProSetupBanner`). La persona tiene una clave por conversación,
-  privada en su IndexedDB; su pública viaja en cada sobre y se publica al DO al
-  conectar (frame `key` → snapshot `keys`).
+  publica la pública en su ficha (`professionals.crypto_public_key`) desde la
+  sección "Cifrado" de su panel (`E2eeProSetupCard`). La persona tiene una clave
+  por conversación, privada en su IndexedDB; su pública viaja en cada sobre y se
+  publica al DO al conectar (frame `key` → snapshot `keys`).
 - **Clave de conversación**: `HKDF(ECDH(mi_priv, pub_contraparte))` con sal del
   `conversationId`. El sobre lleva las DOS públicas para que emisor y receptor
   puedan releer el historial; el AAD (`conversationId|senderRole`) ata cada
