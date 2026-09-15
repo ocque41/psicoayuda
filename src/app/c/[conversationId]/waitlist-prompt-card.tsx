@@ -98,7 +98,7 @@ export function WaitlistPromptCard({
               disabled={pending}
               aria-label="Anotarme en la lista de espera"
             >
-              {pending ? "…" : "→"}
+              {pending ? "Enviando…" : "Anotarme"}
             </button>
           </div>
           {state && !state.ok ? (

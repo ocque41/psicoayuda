@@ -477,14 +477,14 @@
 
 .waitlistSubmit {
   flex: none;
-  width: 44px;
   min-height: 44px;
+  padding: 0 16px;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: #fff;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font: inherit;
+  font-weight: 650;
   cursor: pointer;
 }
 
