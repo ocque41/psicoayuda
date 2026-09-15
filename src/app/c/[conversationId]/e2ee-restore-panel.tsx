@@ -76,7 +76,7 @@ export function E2eeRestorePanel({
       <p className={styles.restoreText}>
         {audience === "seeker"
           ? "Esta conversación está cifrada de extremo a extremo y este dispositivo no tiene la clave."
-          : "El historial cifrado con otra clave solo se puede leer con tu código de recuperación."}{" "}
+          : "El historial cifrado con otra clave solo se puede leer con tu código de recuperación. El mismo código sirve para todas tus conversaciones."}{" "}
         Escribe tu código para volver a leer los mensajes anteriores.
       </p>
 

@@ -2,6 +2,48 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.16.0 - 2026-09-15
+
+El profesional ve todas sus conversaciones sin salir del chat.
+
+- **Lista de conversaciones dentro de la sala** (solo profesionales): columna
+  fija en escritorio y cajón en móvil, con la necesidad, la urgencia, la última
+  actividad, la persona y el aviso de "sin leer". Cambiar de conversación es un
+  toque, sin volver al panel.
+- **Se mantiene al día sola**: cada pocos segundos y al volver a la pestaña, con
+  refresco al instante para la sala abierta (la lista se avisa al recibir,
+  enviar o confirmar un mensaje). Al abrir una sala, su "sin leer" se marca al
+  momento.
+- **Un solo código para todas las conversaciones**: la clave del profesional ya
+  era una sola por cuenta (una para todas sus salas); ahora se dice
+  explícitamente en su panel y en el panel de recuperación, para que nadie
+  piense que cada chat pide su propio código.
+- El cajón móvil es un componente compartido (`SideDrawer`) entre los paneles y
+  la lista de conversaciones: mismo comportamiento (Escape, fondo, foco, scroll
+  bloqueado) y un solo sitio donde mantenerlo.
+
+## 0.15.0 - 2026-09-15
+
+Navegación de los paneles y entrada sin rodeos.
+
+- **Menú lateral en el panel profesional y en el admin**: secciones de la
+  página (con la sección a la vista resaltada al hacer scroll), ajustes y
+  salidas a la web pública, con iconos y contadores de pendientes (chats sin
+  leer, contactos nuevos, lista de espera, solicitudes).
+- **En móvil el menú es un cajón**: botón flotante "Secciones", se desliza
+  desde la izquierda con fondo oscurecido, cierra con Escape, con el fondo o al
+  elegir una sección, bloquea el scroll de detrás y devuelve el foco al botón.
+  Respeta `prefers-reduced-motion` y el área segura del móvil.
+- **Con la sesión abierta, /pro ya no vuelve a pedir la contraseña**: cada rol
+  va a su sitio (profesional a su panel, admin al suyo, y quien no tiene perfil
+  todavía a completarlo).
+- **Entrar manda al panel; crear cuenta, al perfil**: el formulario de acceso
+  separa el destino de "Entrar" (panel) del de "Crear mi cuenta" (perfil), y
+  Google ya no arrastra a un profesional existente al formulario de edición.
+- Escala de movimiento compartida (`--duration-*`, `--ease-smooth-out`) para
+  las transiciones nuevas, y anclas de "Registros incompletos" y "Aliados" en
+  el admin.
+
 ## 0.14.1 - 2026-09-15
 
 El profesional nunca queda bloqueado por el cifrado en una sala.

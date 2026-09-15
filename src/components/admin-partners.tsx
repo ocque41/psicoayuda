@@ -398,7 +398,7 @@ export function AdminPartnersSection({
 }) {
   return (
     <section className="partner-admin">
-      <h2>Aliados (carrusel y escaparate)</h2>
+      <h2 id="aliados">Aliados (carrusel y escaparate)</h2>
       <p className="muted">
         Estas organizaciones aparecen en el carrusel de la portada y en{" "}
         <code>/alianzas</code>. Publica, oculta, reordena o edita el logo y los

@@ -51,6 +51,14 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
+  /* ---- Movimiento (escala compartida, transitions.dev) ---- */
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* ---- Sombras difusas ---- */
   --shadow-sm:
     0 1px 2px rgba(43, 39, 35, 0.04), 0 2px 8px rgba(43, 39, 35, 0.05);
@@ -895,22 +903,546 @@ p:has(> .button) {
   color: var(--danger);
 }
 
-.panel-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 0 0 var(--space-6);
-}
-
-.panel-nav .button {
-  min-height: 40px;
-  padding: 8px 16px;
-  font-size: 0.95rem;
-  border-radius: var(--radius-pill);
-}
-
 h2[id] {
   scroll-margin-top: 96px;
+}
+
+/* ============================================================
+   Paneles con navegación (/pro/dashboard y /admin).
+   Escritorio: columna fija a la izquierda con la sección a la vista resaltada.
+   Móvil: cajón deslizante (botón flotante "Secciones", fondo oscurecido,
+   Escape y bloqueo del scroll de detrás). */
+.panel-container {
+  width: min(100% - 48px, 1040px);
+}
+
+.panel-shell {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.panel-content {
+  min-width: 0;
+}
+
+/* En móvil manda el cajón; la columna aparece a partir de 960px. */
+.panel-sidebar,
+.panel-sidebar-title {
+  display: none;
+}
+
+.panel-nav {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.panel-nav-group {
+  display: grid;
+  gap: 6px;
+}
+
+.panel-nav-heading {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-nav-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 550;
+  line-height: 1.35;
+  text-decoration: none;
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-quick) var(--ease-smooth-out);
+}
+
+.panel-nav-link:hover {
+  background: var(--surface-soft);
+  color: var(--foreground);
+  transform: translateX(2px);
+}
+
+.panel-nav-link[aria-current] {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.panel-nav-icon {
+  flex: none;
+  color: var(--muted);
+  transition: color var(--duration-quick) var(--ease-smooth-out);
+}
+
+.panel-nav-link:hover .panel-nav-icon,
+.panel-nav-link[aria-current] .panel-nav-icon {
+  color: var(--accent);
+}
+
+.panel-nav-label {
+  min-width: 0;
+}
+
+.panel-nav-badge {
+  flex: none;
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.panel-nav-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-2);
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) var(--ease-smooth-out);
+}
+
+.panel-nav-top:hover {
+  background: var(--surface-soft);
+  color: var(--accent-strong);
+}
+
+/* El botón flotante que abre el cajón: solo móvil/tablet estrecha. */
+.side-drawer-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    opacity var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-quick) var(--ease-smooth-out),
+    background-color var(--duration-quick) var(--ease-smooth-out);
+}
+
+.side-drawer-trigger:active {
+  transform: scale(0.98);
+}
+
+.side-drawer-trigger.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Flotante, abajo a la derecha (paneles). */
+.side-drawer-trigger--fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  padding: 12px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+/* Ancho, en el flujo (lista de conversaciones del chat). */
+.side-drawer-trigger--bar {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-sm);
+}
+
+.side-drawer-trigger-badge {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.side-drawer-trigger--fab .side-drawer-trigger-badge {
+  margin-left: 2px;
+  background: #fff;
+  color: var(--accent-strong);
+}
+
+/* Capa del cajón: oculta sin capturar toques cuando está cerrada. */
+.side-drawer-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  visibility: hidden;
+  transition: visibility 0s linear var(--duration-medium);
+}
+
+.side-drawer-layer[data-open] {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.side-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: rgba(43, 39, 35, 0.45);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration-medium) var(--ease-smooth-out);
+}
+
+.side-drawer-layer[data-open] .side-drawer-backdrop {
+  opacity: 1;
+}
+
+.side-drawer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+  width: min(86vw, 330px);
+  max-width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 10px calc(24px + env(safe-area-inset-bottom, 0px));
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transform: translateX(-102%);
+  transition: transform var(--duration-slow) var(--ease-smooth-out);
+}
+
+.side-drawer-layer[data-open] .side-drawer {
+  transform: translateX(0);
+}
+
+/* Cerrar un poco más rápido que abrir (asimetría de cierre). */
+.side-drawer-layer:not([data-open]) .side-drawer {
+  transition-duration: var(--duration-medium);
+}
+
+.side-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 10px;
+}
+
+.side-drawer-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.side-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    color var(--duration-quick) var(--ease-smooth-out);
+}
+
+.side-drawer-close:hover {
+  background: var(--surface-soft);
+  color: var(--foreground);
+}
+
+@media (min-width: 960px) {
+  /* El panel gana ancho: el contenido no se estrecha por la columna lateral. */
+  .panel-container {
+    width: min(100% - 48px, 1200px);
+  }
+
+  .panel-shell {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .panel-aside {
+    position: sticky;
+    top: 84px;
+  }
+
+  .panel-sidebar {
+    display: block;
+    max-height: calc(100vh - 104px);
+    overflow-y: auto;
+    padding: 14px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .panel-sidebar-title {
+    display: block;
+    margin: 0 0 var(--space-4);
+    padding: 0 10px;
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .side-drawer-trigger,
+  .side-drawer-layer {
+    display: none;
+  }
+
+  /* Las secciones respiran y se separan al hacer scroll. */
+  .panel-content > h2 {
+    margin-top: var(--space-10);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+
+  .panel-content > h2:first-of-type {
+    margin-top: var(--space-6);
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel-nav-link {
+    min-height: 44px;
+    padding: 12px 10px;
+  }
+}
+
+/* ============================================================
+   Sala de chat del profesional con su lista de conversaciones: en escritorio,
+   columna a la izquierda con la actividad al día; en móvil, botón + cajón. */
+.chat-shell {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.chat-shell-main {
+  min-width: 0;
+}
+
+.chat-inbox-aside {
+  display: none;
+}
+
+.chat-inbox-card {
+  padding: 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.chat-inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0 8px;
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.chat-inbox-badge {
+  padding: 1px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.chat-inbox-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-inbox-link {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-quick) var(--ease-smooth-out);
+}
+
+.chat-inbox-link:hover {
+  background: var(--surface-soft);
+  transform: translateX(2px);
+}
+
+.chat-inbox-link.is-active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.chat-inbox-link.is-unread {
+  background: var(--surface-soft);
+}
+
+.chat-inbox-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-inbox-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.93rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-inbox-link.is-unread .chat-inbox-title {
+  font-weight: 750;
+}
+
+.chat-inbox-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.chat-inbox-meta {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 960px) {
+  .chat-shell {
+    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .chat-inbox-aside {
+    display: block;
+    position: sticky;
+    top: 84px;
+  }
+
+  .chat-inbox-card {
+    max-height: min(72vh, 640px);
+    overflow-y: auto;
+  }
+
+  /* El botón y el cajón son solo de móvil. */
+  .chat-inbox .side-drawer-trigger--bar,
+  .chat-inbox .side-drawer-layer {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-inbox-link {
+    min-height: 44px;
+    padding: 12px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-inbox-link,
+  .chat-inbox-link:hover {
+    transition-duration: 1ms;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.panel-shell) {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-nav-link,
+  .panel-nav-link:hover,
+  .side-drawer-trigger,
+  .side-drawer,
+  .side-drawer-backdrop,
+  .panel-nav-icon {
+    transition-duration: 1ms;
+  }
+
+  .panel-nav-link:hover,
+  .side-drawer-trigger:active {
+    transform: none;
+  }
 }
 
 /* ============================================================
@@ -1899,7 +2431,6 @@ p {
     align-items: center;
   }
 
-  .admin .panel-nav,
   .admin-request-filter-actions,
   .admin-request-actions,
   .admin-manual-assignment,
@@ -1910,7 +2441,6 @@ p {
     flex-direction: column;
   }
 
-  .admin .panel-nav .button,
   .admin-request-filter-actions .button,
   .admin-request-actions .button,
   .admin-manual-assignment .button,

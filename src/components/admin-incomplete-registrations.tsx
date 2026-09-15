@@ -50,7 +50,7 @@ export function IncompleteRegistrationsSection({
   const hasActions = Boolean(deleteAction || approveAction);
   return (
     <>
-      <h2>Registros incompletos</h2>
+      <h2 id="registros">Registros incompletos</h2>
       <p className="muted">Total: {registrations.length}</p>
 
       {registrations.length > 0 ? (

@@ -1,9 +1,14 @@
+import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthPanel } from "@/components/auth-panel";
 import { RegistroPasos } from "@/components/registro-pasos";
+import { db } from "@/db";
+import { professionals } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
+import { signedInEntryPath } from "@/lib/pro-entry";
 
 export const metadata: Metadata = {
   title: "Voluntariado de psicólogos y fundaciones en Venezuela",
@@ -24,13 +29,27 @@ export default async function ProPage({
   searchParams: Promise<{ cuenta?: string; modo?: string }>;
 }) {
   const session = await getServerSession();
-  const isAdmin = isAdminEmail(session?.user?.email);
   const { cuenta, modo } = await searchParams;
   const defaultMode = modo === "registro" ? "signup" : "signin";
   const googleEnabled = Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() &&
       process.env.GOOGLE_CLIENT_SECRET?.trim(),
   );
+
+  // Con sesión abierta este formulario no tiene nada que hacer: cada rol va a
+  // su panel (y el admin, al suyo) en vez de volver a pedir la contraseña.
+  if (session?.user?.email) {
+    const profile = await db.query.professionals.findFirst({
+      columns: { id: true },
+      where: eq(professionals.userId, session.user.id),
+    });
+    redirect(
+      signedInEntryPath({
+        isAdmin: isAdminEmail(session.user.email),
+        hasProfile: Boolean(profile),
+      }),
+    );
+  }
 
   return (
     <section className="section pro-join">
@@ -52,36 +71,14 @@ export default async function ProPage({
           <li>Verificamos y coordinamos por ti</li>
           <li>100% remoto y voluntario</li>
         </ul>
-        {session?.user ? (
-          isAdmin ? (
-            <p>
-              <Link className="button human" href="/admin">
-                Ir al panel de administración
-              </Link>
-            </p>
-          ) : (
-            <p>
-              <Link className="button human" href="/pro/onboarding">
-                Continuar mi perfil
-              </Link>{" "}
-              <Link className="button secondary" href="/pro/dashboard">
-                Ver mi panel
-              </Link>
-            </p>
-          )
-        ) : (
-          <div className="signin">
-            <RegistroPasos actual={1} />
-            <AuthPanel
-              defaultMode={defaultMode}
-              googleEnabled={googleEnabled}
-            />
-            <p className="muted auth-foot">
-              Entras solo para crear tu perfil profesional; no publicamos nada
-              en tu nombre. Completar tu perfil toma unos 4 minutos.
-            </p>
-          </div>
-        )}
+        <div className="signin">
+          <RegistroPasos actual={1} />
+          <AuthPanel defaultMode={defaultMode} googleEnabled={googleEnabled} />
+          <p className="muted auth-foot">
+            Entras solo para crear tu perfil profesional; no publicamos nada en
+            tu nombre. Completar tu perfil toma unos 4 minutos.
+          </p>
+        </div>
         <div className="org-cta">
           <h2>¿Representas a una fundación u organización?</h2>
           <p>

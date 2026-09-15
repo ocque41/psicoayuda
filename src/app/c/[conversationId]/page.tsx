@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ProChatList } from "@/components/pro-chat-list";
 import { QuickExit } from "@/components/quick-exit";
 import { conversationExists, loadChatView } from "@/lib/chat-view";
+import { conversationsForProfessional } from "@/lib/offers";
 import {
   formatEuros,
   listActivePackagesForProfessional,
 } from "@/lib/payments/packages";
+import { sortProChats, toProChatSummaries } from "@/lib/pro-chats";
 import { getWaitlistSignupForConversation } from "@/lib/waitlist-store";
 import { ChatRoom } from "./chat-room";
 import { ConversationAccessPanel } from "./conversation-access-panel";
@@ -79,20 +82,47 @@ export default async function ConversationPage({
     view.conversationId,
   );
 
+  // El profesional ve, junto a la sala, TODAS sus conversaciones con la
+  // actividad al día: cambiar de persona es un toque, sin volver al panel.
+  const proChats = view.professionalId
+    ? sortProChats(
+        toProChatSummaries(
+          await conversationsForProfessional(view.professionalId),
+        ),
+      )
+    : null;
+
+  const room = (
+    <>
+      {view.role === "seeker" ? <QuickExit /> : null}
+      <ChatRoom
+        conversationId={view.conversationId}
+        role={view.role}
+        otherName={view.otherName}
+        open={view.open}
+        canSwitchView={view.canSwitchView}
+        paymentLinks={paymentLinks}
+        proPublicKey={view.proPublicKey}
+        waitlistSignup={waitlistSignup}
+      />
+    </>
+  );
+
+  if (!proChats) {
+    return (
+      <section className="section">
+        <div className="container">{room}</div>
+      </section>
+    );
+  }
+
   return (
     <section className="section">
-      <div className="container">
-        {view.role === "seeker" ? <QuickExit /> : null}
-        <ChatRoom
-          conversationId={view.conversationId}
-          role={view.role}
-          otherName={view.otherName}
-          open={view.open}
-          canSwitchView={view.canSwitchView}
-          paymentLinks={paymentLinks}
-          proPublicKey={view.proPublicKey}
-          waitlistSignup={waitlistSignup}
-        />
+      <div className="container panel-container">
+        <div className="chat-shell">
+          <ProChatList initial={proChats} activeId={view.conversationId} />
+          <div className="chat-shell-main">{room}</div>
+        </div>
       </div>
     </section>
   );

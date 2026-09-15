@@ -6,9 +6,9 @@ import { type FormEvent, useId, useState } from "react";
 import { repararRegistroHuerfano } from "@/app/actions-account";
 import { trackConversion } from "@/components/click-tracker";
 import { buildProfessionalNewUserCallbackUrl } from "@/lib/contact-messages";
+import { PRO_SIGN_IN_PATH, PRO_SIGN_UP_PATH } from "@/lib/pro-entry";
 
 const authClient = createAuthClient();
-const CALLBACK_URL = "/pro/onboarding";
 
 type Mode = "signin" | "signup";
 
@@ -74,11 +74,15 @@ function GoogleMark() {
 }
 
 export function AuthPanel({
-  callbackURL = CALLBACK_URL,
+  callbackURL = PRO_SIGN_IN_PATH,
+  signupCallbackURL = PRO_SIGN_UP_PATH,
   defaultMode = "signin",
   googleEnabled = false,
 }: {
+  /** Destino al entrar con una cuenta que ya existe (nunca el formulario). */
   callbackURL?: string;
+  /** Destino al crear una cuenta nueva: queda completar el perfil. */
+  signupCallbackURL?: string;
   defaultMode?: Mode;
   googleEnabled?: boolean;
 }) {
@@ -102,7 +106,7 @@ export function AuthPanel({
     setGoogleLoading(true);
     try {
       const newUserCallbackURL =
-        buildProfessionalNewUserCallbackUrl(callbackURL);
+        buildProfessionalNewUserCallbackUrl(signupCallbackURL);
       const res = await authClient.signIn.social({
         provider: "google",
         callbackURL,
@@ -160,7 +164,7 @@ export function AuthPanel({
               email: correo,
               password,
               name: name.trim() || correo,
-              callbackURL,
+              callbackURL: signupCallbackURL,
             })
           : await authClient.signIn.email({ email: correo, password });
 
@@ -178,7 +182,7 @@ export function AuthPanel({
             email: correo,
             password,
             name: name.trim() || correo,
-            callbackURL,
+            callbackURL: signupCallbackURL,
           });
         }
       }
@@ -233,7 +237,7 @@ export function AuthPanel({
       } catch {
         // best-effort: si el navegador lo bloquea, el login sigue igual
       }
-      router.push(callbackURL);
+      router.push(mode === "signup" ? signupCallbackURL : callbackURL);
       router.refresh();
     } catch {
       setError("Algo falló de nuestro lado. Intenta de nuevo en un momento.");

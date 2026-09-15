@@ -10,6 +10,7 @@ import { ContactMessageForm } from "@/components/contact-message-form";
 import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { CredentialSettings } from "@/components/credential-settings";
 import { E2eeProSetupCard } from "@/components/e2ee-pro-setup";
+import { PanelShell } from "@/components/panel-shell";
 import { PaymentSettings } from "@/components/payment-settings";
 import { db } from "@/db";
 import { account, assignments, helpRequests, professionals } from "@/db/schema";
@@ -25,6 +26,7 @@ import {
   missedOffersForProfessional,
   pendingOffersForProfessional,
 } from "@/lib/offers";
+import type { PanelNavGroup } from "@/lib/panel-nav";
 import {
   isStripeSupportedCountry,
   paymentsConfigured,
@@ -287,335 +289,373 @@ export default async function ProDashboardPage({
   const referralUrl = buildProfessionalReferralWhatsAppUrl(SITE_URL);
   const publicContactEmails = getPublicContactEmails();
 
+  // Navegación lateral: secciones de esta página (en el orden en que aparecen)
+  // + ajustes + salidas a la web pública. Los contadores se muestran solo si hay
+  // algo pendiente, para que el menú no grite cuando todo está al día.
+  const panelGroups: PanelNavGroup[] = [
+    {
+      label: "Tu panel",
+      items: [
+        { href: "#cifrado", label: "Cifrado de tus chats", icon: "lock" },
+        {
+          href: "#disponibilidad",
+          label: "Disponibilidad",
+          icon: "calendar",
+        },
+        {
+          href: "#bandeja",
+          label: "Solicitudes para ti",
+          icon: "inbox",
+          badge: offers.length || null,
+        },
+        {
+          href: "#chats",
+          label: "Tus conversaciones",
+          icon: "chat",
+          badge: unreadCount || null,
+        },
+        {
+          href: "#personas",
+          label: "Personas que acompañas",
+          icon: "users",
+        },
+        { href: "#compartir", label: "Cadena de confianza", icon: "share" },
+        { href: "#contacto", label: "Cuéntanos", icon: "mail" },
+      ],
+    },
+    {
+      label: "Ajustes",
+      items: [
+        {
+          href: "/pro/onboarding",
+          label: "Editar mi información",
+          icon: "edit",
+        },
+        { href: "#cuenta", label: "Mi cuenta y contraseña", icon: "user" },
+        { href: "#cobros", label: "Cobros y paquetes", icon: "card" },
+      ],
+    },
+    {
+      label: "Ir a",
+      items: [
+        { href: "/", label: "Página de inicio", icon: "home" },
+        {
+          href: "/profesionales",
+          label: "Directorio de profesionales",
+          icon: "search",
+        },
+        { href: "/ayuda", label: "Centro de ayuda", icon: "help" },
+      ],
+    },
+  ];
+
   return (
     <section className="section">
-      <div className="container">
-        <h1>{nombrePanel ? `Hola, ${nombrePanel}` : "Tu panel"}</h1>
-        <div className="panel-chips">
-          <span
-            className={`panel-chip ${professional.remoteAvailable ? "ok" : "off"}`}
-          >
-            {professional.remoteAvailable
-              ? "Visible en el directorio"
-              : "Oculto del directorio"}
-          </span>
-          <span
-            className={`panel-chip ${professional.acceptingRequests ? "ok" : "off"}`}
-          >
-            {professional.acceptingRequests
-              ? "Recibiendo solicitudes"
-              : "En pausa"}
-          </span>
-          <span className="panel-chip">
-            {professional.currentActiveRequests}/
-            {professional.maxActiveRequests} personas
-          </span>
-          {unreadCount > 0 ? (
-            <span className="panel-chip ok">
-              {unreadCount}{" "}
-              {unreadCount === 1 ? "chat sin leer" : "chats sin leer"}
+      <div className="container panel-container">
+        <PanelShell
+          ariaLabel="Secciones de tu panel"
+          menuLabel="Secciones"
+          title="Tu panel"
+          groups={panelGroups}
+        >
+          <h1>{nombrePanel ? `Hola, ${nombrePanel}` : "Tu panel"}</h1>
+          <div className="panel-chips">
+            <span
+              className={`panel-chip ${professional.remoteAvailable ? "ok" : "off"}`}
+            >
+              {professional.remoteAvailable
+                ? "Visible en el directorio"
+                : "Oculto del directorio"}
             </span>
-          ) : null}
-        </div>
+            <span
+              className={`panel-chip ${professional.acceptingRequests ? "ok" : "off"}`}
+            >
+              {professional.acceptingRequests
+                ? "Recibiendo solicitudes"
+                : "En pausa"}
+            </span>
+            <span className="panel-chip">
+              {professional.currentActiveRequests}/
+              {professional.maxActiveRequests} personas
+            </span>
+            {unreadCount > 0 ? (
+              <span className="panel-chip ok">
+                {unreadCount}{" "}
+                {unreadCount === 1 ? "chat sin leer" : "chats sin leer"}
+              </span>
+            ) : null}
+          </div>
 
-        {/* Todas las secciones a un toque: nadie navega este panel a ciegas. */}
-        <nav className="panel-nav" aria-label="Secciones de tu panel">
-          <Link className="button secondary" href="/">
-            ← Inicio
-          </Link>
-          <Link className="button secondary" href="/pro/onboarding">
-            ✎ Editar mi información
-          </Link>
-          <a className="button secondary" href="#cifrado">
-            🔒 Cifrado
-          </a>
-          <a className="button secondary" href="#disponibilidad">
-            Disponibilidad
-          </a>
-          <a className="button secondary" href="#bandeja">
-            Solicitudes
-          </a>
-          <a className="button secondary" href="#chats">
-            Chats
-          </a>
-          <a className="button secondary" href="#personas">
-            Personas
-          </a>
-          <a className="button secondary" href="#compartir">
-            Invitar a un colega
-          </a>
-          <a className="button secondary" href="#contacto">
-            Contacto
-          </a>
-          <a className="button secondary" href="#cuenta">
-            Mi cuenta
-          </a>
-        </nav>
+          <h2 id="cifrado">Cifrado de tus chats</h2>
+          <E2eeProSetupCard
+            accountPublicKey={professional.cryptoPublicKey ?? null}
+          />
 
-        <h2 id="cifrado">Cifrado de tus chats</h2>
-        <E2eeProSetupCard
-          accountPublicKey={professional.cryptoPublicKey ?? null}
-        />
-
-        <h2 id="disponibilidad">Tu disponibilidad</h2>
-        <div className="card">
-          <p>
-            Estás acompañando a{" "}
-            <strong>{professional.currentActiveRequests}</strong> de{" "}
-            <strong>{professional.maxActiveRequests}</strong> personas.
-          </p>
-          <form action={updateProfessionalAvailability}>
-            <div className="checks">
-              <label>
-                <input
-                  name="acceptingRequests"
-                  type="checkbox"
-                  defaultChecked={professional.acceptingRequests}
-                />
-                Quiero recibir nuevas solicitudes
-              </label>
-            </div>
-            <p className="hint">
-              Desactívalo cuando necesites una pausa; no perderás los casos que
-              ya tienes.
+          <h2 id="disponibilidad">Tu disponibilidad</h2>
+          <div className="card">
+            <p>
+              Estás acompañando a{" "}
+              <strong>{professional.currentActiveRequests}</strong> de{" "}
+              <strong>{professional.maxActiveRequests}</strong> personas.
             </p>
-            <button className="button secondary" type="submit">
-              Guardar
-            </button>
-          </form>
-        </div>
-
-        {oferta ? (
-          <p className="form-error" role="alert">
-            {oferta === "cupo"
-              ? "Llegaste a tu cupo de personas. Libera un caso o súbelo en tu perfil para aceptar más."
-              : "Esa solicitud ya no está disponible (otra persona la tomó primero)."}
-          </p>
-        ) : null}
-
-        <h2 id="bandeja">Solicitudes para ti</h2>
-        <p className="muted">
-          Personas que pidieron apoyo y te lo enviaron. Solo ves el tipo de
-          apoyo y la urgencia; al aceptar se abre el chat y recibes su contacto.
-        </p>
-        {offers.length > 0 ? (
-          <ul className="offer-list">
-            {offers.map((o) => (
-              <li key={o.assignmentId} className="card">
-                <p style={{ margin: "0 0 8px" }}>
-                  <strong>
-                    {needLabels[o.needCategory as keyof typeof needLabels] ??
-                      o.needCategory}
-                  </strong>{" "}
-                  ·{" "}
-                  {urgencyLabels[o.urgency as keyof typeof urgencyLabels] ??
-                    o.urgency}
-                  {o.language
-                    ? ` · ${languageLabels[o.language as keyof typeof languageLabels] ?? o.language}`
-                    : ""}
-                  {o.state ? ` · ${o.state}` : ""}
-                </p>
-                <form action={acceptRequestOffer}>
+            <form action={updateProfessionalAvailability}>
+              <div className="checks">
+                <label>
                   <input
-                    type="hidden"
-                    name="assignmentId"
-                    value={o.assignmentId}
+                    name="acceptingRequests"
+                    type="checkbox"
+                    defaultChecked={professional.acceptingRequests}
                   />
-                  <button type="submit" className="button human">
-                    Aceptar y abrir chat
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">No tienes solicitudes nuevas por ahora.</p>
-        )}
+                  Quiero recibir nuevas solicitudes
+                </label>
+              </div>
+              <p className="hint">
+                Desactívalo cuando necesites una pausa; no perderás los casos
+                que ya tienes.
+              </p>
+              <button className="button secondary" type="submit">
+                Guardar
+              </button>
+            </form>
+          </div>
 
-        {missed.length > 0 ? (
-          <>
-            <p className="muted" style={{ marginTop: 20 }}>
-              Estas ya las tomó otro profesional. Las dejamos aquí un momento
-              para que sepas que se atendieron.
+          {oferta ? (
+            <p className="form-error" role="alert">
+              {oferta === "cupo"
+                ? "Llegaste a tu cupo de personas. Libera un caso o súbelo en tu perfil para aceptar más."
+                : "Esa solicitud ya no está disponible (otra persona la tomó primero)."}
             </p>
+          ) : null}
+
+          <h2 id="bandeja">Solicitudes para ti</h2>
+          <p className="muted">
+            Personas que pidieron apoyo y te lo enviaron. Solo ves el tipo de
+            apoyo y la urgencia; al aceptar se abre el chat y recibes su
+            contacto.
+          </p>
+          {offers.length > 0 ? (
             <ul className="offer-list">
-              {missed.map((m) => (
-                <li
-                  key={m.assignmentId}
-                  className="card"
-                  style={{ opacity: 0.6 }}
-                >
-                  <p style={{ margin: "0 0 4px" }}>
+              {offers.map((o) => (
+                <li key={o.assignmentId} className="card">
+                  <p style={{ margin: "0 0 8px" }}>
                     <strong>
-                      {needLabels[m.needCategory as keyof typeof needLabels] ??
-                        m.needCategory}
+                      {needLabels[o.needCategory as keyof typeof needLabels] ??
+                        o.needCategory}
                     </strong>{" "}
                     ·{" "}
-                    {urgencyLabels[m.urgency as keyof typeof urgencyLabels] ??
-                      m.urgency}
+                    {urgencyLabels[o.urgency as keyof typeof urgencyLabels] ??
+                      o.urgency}
+                    {o.language
+                      ? ` · ${languageLabels[o.language as keyof typeof languageLabels] ?? o.language}`
+                      : ""}
+                    {o.state ? ` · ${o.state}` : ""}
                   </p>
-                  <p className="muted" style={{ margin: 0 }}>
-                    Ya la tomó otro profesional 💚
-                  </p>
+                  <form action={acceptRequestOffer}>
+                    <input
+                      type="hidden"
+                      name="assignmentId"
+                      value={o.assignmentId}
+                    />
+                    <button type="submit" className="button human">
+                      Aceptar y abrir chat
+                    </button>
+                  </form>
                 </li>
               ))}
             </ul>
-          </>
-        ) : null}
+          ) : (
+            <p className="muted">No tienes solicitudes nuevas por ahora.</p>
+          )}
 
-        <h2 id="chats">Tus conversaciones</h2>
-        {chats.length > 0 ? (
-          <ul className="offer-list">
-            {chats.map((c) => (
-              <li key={c.conversationId} className="card">
-                <p style={{ margin: "0 0 8px" }}>
-                  <strong>
-                    {needLabels[c.needCategory as keyof typeof needLabels] ??
-                      c.needCategory ??
-                      "Conversación"}
-                  </strong>
-                  {c.urgency
-                    ? ` · ${urgencyLabels[c.urgency as keyof typeof urgencyLabels] ?? c.urgency}`
-                    : ""}
-                  {c.status !== "open" ? " · cerrada" : ""}
-                </p>
-                <p className="muted" style={{ margin: "0 0 8px" }}>
-                  {c.seekerName ? `${c.seekerName} · ` : ""}
-                  Última actividad:{" "}
-                  {lastActivityLabel(c.lastMessageAt, c.createdAt)}
-                </p>
-                {isUnread(c) ? (
-                  <p
-                    className="badge badge-new"
-                    style={{ display: "inline-block", margin: "0 0 8px" }}
+          {missed.length > 0 ? (
+            <>
+              <p className="muted" style={{ marginTop: 20 }}>
+                Estas ya las tomó otro profesional. Las dejamos aquí un momento
+                para que sepas que se atendieron.
+              </p>
+              <ul className="offer-list">
+                {missed.map((m) => (
+                  <li
+                    key={m.assignmentId}
+                    className="card"
+                    style={{ opacity: 0.6 }}
                   >
-                    Nuevo mensaje
+                    <p style={{ margin: "0 0 4px" }}>
+                      <strong>
+                        {needLabels[
+                          m.needCategory as keyof typeof needLabels
+                        ] ?? m.needCategory}
+                      </strong>{" "}
+                      ·{" "}
+                      {urgencyLabels[m.urgency as keyof typeof urgencyLabels] ??
+                        m.urgency}
+                    </p>
+                    <p className="muted" style={{ margin: 0 }}>
+                      Ya la tomó otro profesional 💚
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+
+          <h2 id="chats">Tus conversaciones</h2>
+          {chats.length > 0 ? (
+            <ul className="offer-list">
+              {chats.map((c) => (
+                <li key={c.conversationId} className="card">
+                  <p style={{ margin: "0 0 8px" }}>
+                    <strong>
+                      {needLabels[c.needCategory as keyof typeof needLabels] ??
+                        c.needCategory ??
+                        "Conversación"}
+                    </strong>
+                    {c.urgency
+                      ? ` · ${urgencyLabels[c.urgency as keyof typeof urgencyLabels] ?? c.urgency}`
+                      : ""}
+                    {c.status !== "open" ? " · cerrada" : ""}
                   </p>
-                ) : null}
-                <Link className="button human" href={`/c/${c.conversationId}`}>
-                  {c.status !== "open" ? "Ver y reabrir" : "Abrir chat"}
-                </Link>
-                <ConversationDeleteButton
-                  conversationId={c.conversationId}
-                  redirectTo="/pro/dashboard#chats"
-                />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">
-            Aún no tienes conversaciones abiertas. Cuando alguien te escriba o
-            aceptes una solicitud, aparecerán aquí.
-          </p>
-        )}
-
-        <h2 id="personas">Personas que acompañas</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Contacto</th>
-                <th>Zona</th>
-                <th>Necesita</th>
-                <th>Cómo lo siente</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assigned.map(({ request, assignment }) => (
-                <tr key={assignment.id}>
-                  <td>{request.email}</td>
-                  <td>{request.city || "No indicada"}</td>
-                  <td>
-                    {needLabels[
-                      request.needCategory as keyof typeof needLabels
-                    ] ?? request.needCategory}
-                  </td>
-                  <td>
-                    {urgencyLabels[
-                      request.urgency as keyof typeof urgencyLabels
-                    ] ?? request.urgency}
-                  </td>
-                  <td>
-                    {requestStatusLabels[request.status] ?? request.status}
-                  </td>
-                </tr>
+                  <p className="muted" style={{ margin: "0 0 8px" }}>
+                    {c.seekerName ? `${c.seekerName} · ` : ""}
+                    Última actividad:{" "}
+                    {lastActivityLabel(c.lastMessageAt, c.createdAt)}
+                  </p>
+                  {isUnread(c) ? (
+                    <p
+                      className="badge badge-new"
+                      style={{ display: "inline-block", margin: "0 0 8px" }}
+                    >
+                      Nuevo mensaje
+                    </p>
+                  ) : null}
+                  <Link
+                    className="button human"
+                    href={`/c/${c.conversationId}`}
+                  >
+                    {c.status !== "open" ? "Ver y reabrir" : "Abrir chat"}
+                  </Link>
+                  <ConversationDeleteButton
+                    conversationId={c.conversationId}
+                    redirectTo="/pro/dashboard#chats"
+                  />
+                </li>
               ))}
-              {assigned.length === 0 ? (
+            </ul>
+          ) : (
+            <p className="muted">
+              Aún no tienes conversaciones abiertas. Cuando alguien te escriba o
+              aceptes una solicitud, aparecerán aquí.
+            </p>
+          )}
+
+          <h2 id="personas">Personas que acompañas</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5}>
-                    Todavía no tienes personas asignadas. Te avisaremos cuando
-                    haya alguien a quien puedas acompañar.
-                  </td>
+                  <th>Contacto</th>
+                  <th>Zona</th>
+                  <th>Necesita</th>
+                  <th>Cómo lo siente</th>
+                  <th>Estado</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-
-        <h2 id="compartir">Cadena de confianza</h2>
-        <div className="card referral-card">
-          <div>
-            <p className="eyebrow">Ayúdanos a sumar más manos</p>
-            <h3>Invita a otro profesional</h3>
-            <p>
-              Las recomendaciones entre colegas nos ayudan a encontrar personas
-              voluntarias comprometidas. Compartiremos un mensaje preparado; tú
-              eliges a quién enviarlo.
-            </p>
+              </thead>
+              <tbody>
+                {assigned.map(({ request, assignment }) => (
+                  <tr key={assignment.id}>
+                    <td>{request.email}</td>
+                    <td>{request.city || "No indicada"}</td>
+                    <td>
+                      {needLabels[
+                        request.needCategory as keyof typeof needLabels
+                      ] ?? request.needCategory}
+                    </td>
+                    <td>
+                      {urgencyLabels[
+                        request.urgency as keyof typeof urgencyLabels
+                      ] ?? request.urgency}
+                    </td>
+                    <td>
+                      {requestStatusLabels[request.status] ?? request.status}
+                    </td>
+                  </tr>
+                ))}
+                {assigned.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      Todavía no tienes personas asignadas. Te avisaremos cuando
+                      haya alguien a quien puedas acompañar.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
-          <a
-            className="button human"
-            data-track="professional_referral_share"
-            data-track-label="Intento de compartir invitación profesional"
-            href={referralUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Invitar por WhatsApp
-          </a>
-        </div>
 
-        <h2 id="contacto">Cuéntanos</h2>
-        <div className="contact-main-card professional-contact-card">
-          <div>
-            <h3>¿Tienes una pregunta o una idea?</h3>
-            <p>
-              También puedes avisarnos si algo no funciona como esperabas. Tu
-              mensaje quedará en la bandeja del equipo para que no se pierda.
-            </p>
-            <ContactMessageForm
-              action={createProfessionalContactMessage}
-              audience="professional"
-            />
-          </div>
-          <aside className="contact-email-panel">
-            <h3>¿Prefieres escribir desde tu correo?</h3>
-            <div className="contact-email-list">
-              {publicContactEmails.map((email) => (
-                <a
-                  className="button secondary"
-                  data-track="contact_email"
-                  data-track-label={`Contacto profesional · ${email}`}
-                  href={buildPreparedEmailUrl(
-                    email,
-                    "Consulta desde el panel profesional de Nido",
-                    "Hola, equipo de Nido:\n\nQuiero comentarles lo siguiente:\n\n",
-                  )}
-                  key={email}
-                >
-                  {email}
-                </a>
-              ))}
+          <h2 id="compartir">Cadena de confianza</h2>
+          <div className="card referral-card">
+            <div>
+              <p className="eyebrow">Ayúdanos a sumar más manos</p>
+              <h3>Invita a otro profesional</h3>
+              <p>
+                Las recomendaciones entre colegas nos ayudan a encontrar
+                personas voluntarias comprometidas. Compartiremos un mensaje
+                preparado; tú eliges a quién enviarlo.
+              </p>
             </div>
-          </aside>
-        </div>
+            <a
+              className="button human"
+              data-track="professional_referral_share"
+              data-track-label="Intento de compartir invitación profesional"
+              href={referralUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Invitar por WhatsApp
+            </a>
+          </div>
 
-        <h2 id="cuenta">Tu cuenta</h2>
-        {credentialSection}
-        <h2 id="cobros">Cobros y paquetes</h2>
-        {paymentSection}
-        <AccountActions />
+          <h2 id="contacto">Cuéntanos</h2>
+          <div className="contact-main-card professional-contact-card">
+            <div>
+              <h3>¿Tienes una pregunta o una idea?</h3>
+              <p>
+                También puedes avisarnos si algo no funciona como esperabas. Tu
+                mensaje quedará en la bandeja del equipo para que no se pierda.
+              </p>
+              <ContactMessageForm
+                action={createProfessionalContactMessage}
+                audience="professional"
+              />
+            </div>
+            <aside className="contact-email-panel">
+              <h3>¿Prefieres escribir desde tu correo?</h3>
+              <div className="contact-email-list">
+                {publicContactEmails.map((email) => (
+                  <a
+                    className="button secondary"
+                    data-track="contact_email"
+                    data-track-label={`Contacto profesional · ${email}`}
+                    href={buildPreparedEmailUrl(
+                      email,
+                      "Consulta desde el panel profesional de Nido",
+                      "Hola, equipo de Nido:\n\nQuiero comentarles lo siguiente:\n\n",
+                    )}
+                    key={email}
+                  >
+                    {email}
+                  </a>
+                ))}
+              </div>
+            </aside>
+          </div>
+
+          <h2 id="cuenta">Tu cuenta</h2>
+          {credentialSection}
+          <h2 id="cobros">Cobros y paquetes</h2>
+          {paymentSection}
+          <AccountActions />
+        </PanelShell>
       </div>
     </section>
   );

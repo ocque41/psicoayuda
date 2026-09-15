@@ -37,6 +37,7 @@ import { AdminPartnersSection } from "@/components/admin-partners";
 import { AdminRequestCard } from "@/components/admin-request-card";
 import { AuthPanel } from "@/components/auth-panel";
 import { MetricsDashboard } from "@/components/metrics-dashboard";
+import { PanelShell } from "@/components/panel-shell";
 import { db } from "@/db";
 import {
   allianceRequests,
@@ -59,6 +60,7 @@ import {
   contactStatuses,
 } from "@/lib/contact-messages";
 import { rankProfessionalsForRequest } from "@/lib/matching";
+import type { PanelNavGroup } from "@/lib/panel-nav";
 import { getAllPartnersForAdmin } from "@/lib/partners";
 import { whatsappUrl } from "@/lib/phone";
 import {
@@ -390,485 +392,556 @@ export default async function AdminPage({
     }
   }
 
+  // Navegación lateral: secciones de esta página en su orden real + accesos a
+  // las herramientas de datos y a la web pública. Los contadores solo aparecen
+  // cuando hay algo pendiente.
+  const panelGroups: PanelNavGroup[] = [
+    {
+      label: "Panel",
+      items: [
+        { href: "#metricas", label: "Métricas", icon: "chart" },
+        {
+          href: "#contactos",
+          label: "Contactos",
+          icon: "mail",
+          badge: contactCounts.new || null,
+        },
+        {
+          href: "#lista-espera",
+          label: "Lista de espera · personas",
+          icon: "clock",
+          badge: waitlistCounts.waiting || null,
+        },
+        { href: "#profesionales", label: "Profesionales", icon: "users" },
+        {
+          href: "#registros",
+          label: "Registros incompletos",
+          icon: "userPlus",
+        },
+        {
+          href: "#alianzas",
+          label: "Alianzas y organizaciones",
+          icon: "globe",
+        },
+        { href: "#aliados", label: "Aliados (carrusel)", icon: "star" },
+        {
+          href: "#solicitudes",
+          label: "Solicitudes",
+          icon: "inbox",
+          badge: newRequestCount || null,
+        },
+      ],
+    },
+    {
+      label: "Datos y revisiones",
+      items: [
+        {
+          href: "/admin/export",
+          label: "Exportar solicitudes (CSV)",
+          icon: "download",
+        },
+        {
+          href: "/admin/fpv",
+          label: "Probar verificación FPV",
+          icon: "shieldCheck",
+        },
+      ],
+    },
+    {
+      label: "Ir a",
+      items: [
+        { href: "/", label: "Página de inicio", icon: "home" },
+        { href: "/profesionales", label: "Directorio público", icon: "search" },
+        { href: "/ayuda", label: "Centro de ayuda", icon: "help" },
+      ],
+    },
+  ];
+
   return (
     <section className="section admin">
-      <div className="container">
-        <h1>Admin</h1>
-        <p className="muted">Sesión admin: {admin.email}</p>
-        {accountResult === "borrada" ? (
-          <p className="status-message" role="status">
-            La cuenta y sus sesiones se borraron correctamente.
-          </p>
-        ) : null}
-        {accountResult === "protegida" ? (
-          <p className="form-error" role="alert">
-            Las cuentas administradoras están protegidas y no se pueden borrar
-            desde este panel.
-          </p>
-        ) : null}
-        {accountResult === "no-encontrada" ? (
-          <p className="form-error" role="alert">
-            La cuenta ya no existe o no se pudo identificar.
-          </p>
-        ) : null}
-        <nav className="panel-nav" aria-label="Secciones del panel de admin">
-          <a className="button secondary" href="#metricas">
-            Métricas
-          </a>
-          <a className="button secondary" href="#solicitudes">
-            Solicitudes
-            {newRequestCount > 0 ? ` (${newRequestCount} nuevas)` : ""}
-          </a>
-          <a className="button secondary" href="#contactos">
-            Contactos
-            {contactCounts.new > 0 ? ` (${contactCounts.new} nuevos)` : ""}
-          </a>
-          <a className="button secondary" href="#lista-espera">
-            Lista de espera · personas
-            {waitlistCounts.waiting > 0
-              ? ` (${waitlistCounts.waiting} en espera)`
-              : ""}
-          </a>
-          <a className="button secondary" href="#profesionales">
-            Profesionales
-          </a>
-          <a className="button secondary" href="#alianzas">
-            Alianzas
-          </a>
-          <Link className="button secondary" href="/admin/export">
-            Exportar solicitudes CSV
-          </Link>
-        </nav>
-
-        <h2 id="metricas">Métricas</h2>
-        <MetricsDashboard />
-
-        <h2 id="contactos">Contactos</h2>
-        <p className="muted">
-          Preguntas, ideas y avisos enviados desde la web y los paneles
-          profesionales. Los mensajes nuevos aparecen primero.
-        </p>
-        <AdminContactInbox
-          rows={contactRows}
-          counts={contactCounts}
-          statusFilter={contactStatusFilter as ContactStatus | ""}
-          sourceFilter={contactSourceFilter as ContactSource | ""}
-          categoryFilter={contactCategoryFilter as ContactCategory | ""}
-          updateStatusAction={adminUpdateContactMessageStatus}
-        />
-
-        <h2 id="lista-espera">Lista de espera · Personas</h2>
-        <p className="muted">
-          Personas que necesitan apoyo psicológico por motivos ajenos al
-          terremoto: como la ayuda gratuita de la emergencia está reservada para
-          las víctimas, se anotan aquí. Escríbeles cuando haya un cupo
-          voluntario y actualiza el estado para llevar el seguimiento (queda
-          registrado en la auditoría).
-        </p>
-        <p className="muted">
-          En espera: <strong>{waitlistCounts.waiting}</strong> · Contactadas:{" "}
-          <strong>{waitlistCounts.contacted}</strong> · Emparejadas:{" "}
-          <strong>{waitlistCounts.matched}</strong> · Cerradas:{" "}
-          <strong>{waitlistCounts.closed}</strong>
-        </p>
-        {waitlistRows.length ? (
-          <>
-            <div className="grid admin-waitlist-list">
-              {waitlistRows.map((entry) => (
-                <article className="card" key={entry.id}>
-                  <h3>{entry.title}</h3>
-                  <p className="muted">
-                    Anotada el {formatAdminDate(entry.createdAt)} · Desde:{" "}
-                    {waitlistSourceLabels[
-                      entry.source as keyof typeof waitlistSourceLabels
-                    ] ?? entry.source}
-                  </p>
-                  <p style={{ whiteSpace: "pre-wrap" }}>{entry.description}</p>
-                  <p>
-                    <strong>Correo:</strong>{" "}
-                    <a href={`mailto:${entry.email}`}>{entry.email}</a>
-                  </p>
-                  <form action={adminUpdateWaitlistStatus}>
-                    <input name="waitlistId" type="hidden" value={entry.id} />
-                    <select
-                      name="status"
-                      defaultValue={entry.status}
-                      aria-label="Estado de la anotación"
-                    >
-                      {waitlistStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {waitlistStatusLabels[status]}
-                        </option>
-                      ))}
-                    </select>{" "}
-                    <button className="button secondary" type="submit">
-                      Guardar
-                    </button>
-                  </form>
-                </article>
-              ))}
-            </div>
-            <p className="hint">
-              Se muestran hasta 200 anotaciones, las más recientes primero.
+      <div className="container panel-container">
+        <PanelShell
+          ariaLabel="Secciones del panel de admin"
+          menuLabel="Secciones"
+          title="Administración"
+          groups={panelGroups}
+        >
+          <h1>Admin</h1>
+          <p className="muted">Sesión admin: {admin.email}</p>
+          {accountResult === "borrada" ? (
+            <p className="status-message" role="status">
+              La cuenta y sus sesiones se borraron correctamente.
             </p>
-          </>
-        ) : (
-          <p className="muted">
-            Todavía no hay anotaciones en la lista de espera.
-          </p>
-        )}
+          ) : null}
+          {accountResult === "protegida" ? (
+            <p className="form-error" role="alert">
+              Las cuentas administradoras están protegidas y no se pueden borrar
+              desde este panel.
+            </p>
+          ) : null}
+          {accountResult === "no-encontrada" ? (
+            <p className="form-error" role="alert">
+              La cuenta ya no existe o no se pudo identificar.
+            </p>
+          ) : null}
 
-        <h2 id="profesionales">Profesionales</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Correo</th>
-                <th>Estado</th>
-                <th>Tipo</th>
-                <th>Verificación</th>
-                <th>Capacidad</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {proRows.map((professional) => (
-                <tr key={professional.id}>
-                  <td data-label="Nombre">
-                    <strong>{professional.fullName}</strong>
-                    <br />
-                    <span className="muted">{professional.licenseCountry}</span>
-                  </td>
-                  <td data-label="Correo">{professional.email}</td>
-                  <td data-label="Estado">{professional.status}</td>
-                  <td data-label="Tipo">
-                    <form action={adminSetProfessionalKind}>
-                      <input
-                        name="professionalId"
-                        type="hidden"
-                        value={professional.id}
-                      />
+          <h2 id="metricas">Métricas</h2>
+          <MetricsDashboard />
+
+          <h2 id="contactos">Contactos</h2>
+          <p className="muted">
+            Preguntas, ideas y avisos enviados desde la web y los paneles
+            profesionales. Los mensajes nuevos aparecen primero.
+          </p>
+          <AdminContactInbox
+            rows={contactRows}
+            counts={contactCounts}
+            statusFilter={contactStatusFilter as ContactStatus | ""}
+            sourceFilter={contactSourceFilter as ContactSource | ""}
+            categoryFilter={contactCategoryFilter as ContactCategory | ""}
+            updateStatusAction={adminUpdateContactMessageStatus}
+          />
+
+          <h2 id="lista-espera">Lista de espera · Personas</h2>
+          <p className="muted">
+            Personas que necesitan apoyo psicológico por motivos ajenos al
+            terremoto: como la ayuda gratuita de la emergencia está reservada
+            para las víctimas, se anotan aquí. Escríbeles cuando haya un cupo
+            voluntario y actualiza el estado para llevar el seguimiento (queda
+            registrado en la auditoría).
+          </p>
+          <p className="muted">
+            En espera: <strong>{waitlistCounts.waiting}</strong> · Contactadas:{" "}
+            <strong>{waitlistCounts.contacted}</strong> · Emparejadas:{" "}
+            <strong>{waitlistCounts.matched}</strong> · Cerradas:{" "}
+            <strong>{waitlistCounts.closed}</strong>
+          </p>
+          {waitlistRows.length ? (
+            <>
+              <div className="grid admin-waitlist-list">
+                {waitlistRows.map((entry) => (
+                  <article className="card" key={entry.id}>
+                    <h3>{entry.title}</h3>
+                    <p className="muted">
+                      Anotada el {formatAdminDate(entry.createdAt)} · Desde:{" "}
+                      {waitlistSourceLabels[
+                        entry.source as keyof typeof waitlistSourceLabels
+                      ] ?? entry.source}
+                    </p>
+                    <p style={{ whiteSpace: "pre-wrap" }}>
+                      {entry.description}
+                    </p>
+                    <p>
+                      <strong>Correo:</strong>{" "}
+                      <a href={`mailto:${entry.email}`}>{entry.email}</a>
+                    </p>
+                    <form action={adminUpdateWaitlistStatus}>
+                      <input name="waitlistId" type="hidden" value={entry.id} />
                       <select
-                        name="kind"
-                        defaultValue={
-                          professional.nonClinicalHelper
-                            ? "non_clinical"
-                            : "certified"
-                        }
-                        aria-label="Tipo de profesional"
+                        name="status"
+                        defaultValue={entry.status}
+                        aria-label="Estado de la anotación"
                       >
-                        <option value="certified">Certificado</option>
-                        <option value="non_clinical">
-                          Auxiliar no clínico
-                        </option>
+                        {waitlistStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {waitlistStatusLabels[status]}
+                          </option>
+                        ))}
                       </select>{" "}
                       <button className="button secondary" type="submit">
                         Guardar
                       </button>
                     </form>
-                  </td>
-                  <td data-label="Verificación">
-                    <AdminFpvBadge
-                      fpvVerified={professional.fpvVerified}
-                      fpvNumber={professional.fpvNumber}
-                      fpvSnapshot={professional.fpvSnapshot}
-                      credentialConfirmed={professional.credentialConfirmed}
-                      nonClinicalHelper={professional.nonClinicalHelper}
-                    />
-                    {/* Confirmación manual solo para clínicos SIN verificación
+                  </article>
+                ))}
+              </div>
+              <p className="hint">
+                Se muestran hasta 200 anotaciones, las más recientes primero.
+              </p>
+            </>
+          ) : (
+            <p className="muted">
+              Todavía no hay anotaciones en la lista de espera.
+            </p>
+          )}
+
+          <h2 id="profesionales">Profesionales</h2>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Estado</th>
+                  <th>Tipo</th>
+                  <th>Verificación</th>
+                  <th>Capacidad</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proRows.map((professional) => (
+                  <tr key={professional.id}>
+                    <td data-label="Nombre">
+                      <strong>{professional.fullName}</strong>
+                      <br />
+                      <span className="muted">
+                        {professional.licenseCountry}
+                      </span>
+                    </td>
+                    <td data-label="Correo">{professional.email}</td>
+                    <td data-label="Estado">{professional.status}</td>
+                    <td data-label="Tipo">
+                      <form action={adminSetProfessionalKind}>
+                        <input
+                          name="professionalId"
+                          type="hidden"
+                          value={professional.id}
+                        />
+                        <select
+                          name="kind"
+                          defaultValue={
+                            professional.nonClinicalHelper
+                              ? "non_clinical"
+                              : "certified"
+                          }
+                          aria-label="Tipo de profesional"
+                        >
+                          <option value="certified">Certificado</option>
+                          <option value="non_clinical">
+                            Auxiliar no clínico
+                          </option>
+                        </select>{" "}
+                        <button className="button secondary" type="submit">
+                          Guardar
+                        </button>
+                      </form>
+                    </td>
+                    <td data-label="Verificación">
+                      <AdminFpvBadge
+                        fpvVerified={professional.fpvVerified}
+                        fpvNumber={professional.fpvNumber}
+                        fpvSnapshot={professional.fpvSnapshot}
+                        credentialConfirmed={professional.credentialConfirmed}
+                        nonClinicalHelper={professional.nonClinicalHelper}
+                      />
+                      {/* Confirmación manual solo para clínicos SIN verificación
                         automática FPV (p. ej. España, México). */}
-                    {!professional.nonClinicalHelper &&
-                    !professional.fpvVerified ? (
-                      <form
-                        action={adminSetCredentialConfirmed}
-                        style={{ marginTop: "6px" }}
-                      >
+                      {!professional.nonClinicalHelper &&
+                      !professional.fpvVerified ? (
+                        <form
+                          action={adminSetCredentialConfirmed}
+                          style={{ marginTop: "6px" }}
+                        >
+                          <input
+                            name="professionalId"
+                            type="hidden"
+                            value={professional.id}
+                          />
+                          <input
+                            name="confirmed"
+                            type="hidden"
+                            value={
+                              professional.credentialConfirmed
+                                ? "false"
+                                : "true"
+                            }
+                          />
+                          <button className="button secondary" type="submit">
+                            {professional.credentialConfirmed
+                              ? "Marcar pendiente"
+                              : "Confirmar credencial"}
+                          </button>
+                        </form>
+                      ) : null}
+                    </td>
+                    <td data-label="Capacidad">
+                      {professional.currentActiveRequests}/
+                      {professional.maxActiveRequests}
+                      <br />
+                      {professional.acceptingRequests ? "Acepta" : "No acepta"}
+                      <br />
+                      <span className="muted">
+                        {professional.remoteAvailable
+                          ? "En el directorio"
+                          : "Oculto"}
+                      </span>{" "}
+                      <form action={adminSetProfessionalVisibility}>
                         <input
                           name="professionalId"
                           type="hidden"
                           value={professional.id}
                         />
                         <input
-                          name="confirmed"
+                          name="visible"
                           type="hidden"
                           value={
-                            professional.credentialConfirmed ? "false" : "true"
+                            professional.remoteAvailable ? "false" : "true"
                           }
                         />
                         <button className="button secondary" type="submit">
-                          {professional.credentialConfirmed
-                            ? "Marcar pendiente"
-                            : "Confirmar credencial"}
+                          {professional.remoteAvailable ? "Ocultar" : "Mostrar"}
                         </button>
                       </form>
+                    </td>
+                    <td data-label="Acción">
+                      <form action={adminUpdateProfessionalStatus}>
+                        <input
+                          name="professionalId"
+                          type="hidden"
+                          value={professional.id}
+                        />
+                        <select
+                          name="status"
+                          defaultValue={professional.status}
+                        >
+                          <option value="pending_verification">
+                            Pendiente
+                          </option>
+                          <option value="approved">Aprobar</option>
+                          <option value="rejected">Rechazar</option>
+                          <option value="suspended">Suspender</option>
+                        </select>{" "}
+                        <button className="button secondary" type="submit">
+                          Guardar
+                        </button>
+                      </form>
+                      {!adminEmails.has(
+                        accountEmailByUserId.get(professional.userId) ?? "",
+                      ) ? (
+                        <AdminDeleteAccountForm
+                          action={adminDeleteAccount}
+                          userId={professional.userId}
+                          accountLabel={professional.email}
+                        />
+                      ) : (
+                        <span className="muted">Cuenta administradora</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <IncompleteRegistrationsSection
+            registrations={incompleteRegistrations}
+            deleteAction={adminDeleteAccount}
+            approveAction={adminApproveIncompleteRegistration}
+          />
+
+          <h2 id="alianzas">Alianzas y organizaciones</h2>
+          {allianceRows.length ? (
+            <div className="grid">
+              {allianceRows.map((alliance) => {
+                const websiteHref = alliance.website
+                  ? /^https?:\/\//i.test(alliance.website)
+                    ? alliance.website
+                    : `https://${alliance.website}`
+                  : null;
+                const waHref = whatsappUrl(alliance.phone);
+                const preferredLabel = alliance.preferredContact
+                  ? (preferredContactLabels[
+                      alliance.preferredContact as keyof typeof preferredContactLabels
+                    ] ?? alliance.preferredContact)
+                  : null;
+                return (
+                  <article className="card" key={alliance.id}>
+                    <h3>{alliance.organizationName}</h3>
+                    <p className="muted">Estado: {alliance.status}</p>
+                    {preferredLabel ? (
+                      <p>
+                        <strong>Forma más rápida:</strong> {preferredLabel}
+                      </p>
                     ) : null}
-                  </td>
-                  <td data-label="Capacidad">
-                    {professional.currentActiveRequests}/
-                    {professional.maxActiveRequests}
-                    <br />
-                    {professional.acceptingRequests ? "Acepta" : "No acepta"}
-                    <br />
-                    <span className="muted">
-                      {professional.remoteAvailable
-                        ? "En el directorio"
-                        : "Oculto"}
-                    </span>{" "}
-                    <form action={adminSetProfessionalVisibility}>
-                      <input
-                        name="professionalId"
-                        type="hidden"
-                        value={professional.id}
-                      />
-                      <input
-                        name="visible"
-                        type="hidden"
-                        value={professional.remoteAvailable ? "false" : "true"}
-                      />
-                      <button className="button secondary" type="submit">
-                        {professional.remoteAvailable ? "Ocultar" : "Mostrar"}
-                      </button>
-                    </form>
-                  </td>
-                  <td data-label="Acción">
-                    <form action={adminUpdateProfessionalStatus}>
-                      <input
-                        name="professionalId"
-                        type="hidden"
-                        value={professional.id}
-                      />
-                      <select name="status" defaultValue={professional.status}>
-                        <option value="pending_verification">Pendiente</option>
-                        <option value="approved">Aprobar</option>
-                        <option value="rejected">Rechazar</option>
-                        <option value="suspended">Suspender</option>
-                      </select>{" "}
-                      <button className="button secondary" type="submit">
-                        Guardar
-                      </button>
-                    </form>
-                    {!adminEmails.has(
-                      accountEmailByUserId.get(professional.userId) ?? "",
-                    ) ? (
-                      <AdminDeleteAccountForm
-                        action={adminDeleteAccount}
-                        userId={professional.userId}
-                        accountLabel={professional.email}
-                      />
-                    ) : (
-                      <span className="muted">Cuenta administradora</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <IncompleteRegistrationsSection
-          registrations={incompleteRegistrations}
-          deleteAction={adminDeleteAccount}
-          approveAction={adminApproveIncompleteRegistration}
-        />
-
-        <h2 id="alianzas">Alianzas y organizaciones</h2>
-        {allianceRows.length ? (
-          <div className="grid">
-            {allianceRows.map((alliance) => {
-              const websiteHref = alliance.website
-                ? /^https?:\/\//i.test(alliance.website)
-                  ? alliance.website
-                  : `https://${alliance.website}`
-                : null;
-              const waHref = whatsappUrl(alliance.phone);
-              const preferredLabel = alliance.preferredContact
-                ? (preferredContactLabels[
-                    alliance.preferredContact as keyof typeof preferredContactLabels
-                  ] ?? alliance.preferredContact)
-                : null;
-              return (
-                <article className="card" key={alliance.id}>
-                  <h3>{alliance.organizationName}</h3>
-                  <p className="muted">Estado: {alliance.status}</p>
-                  {preferredLabel ? (
                     <p>
-                      <strong>Forma más rápida:</strong> {preferredLabel}
+                      <strong>Contacto:</strong> {alliance.contactName}
+                      <br />
+                      <strong>Correo:</strong>{" "}
+                      <a href={`mailto:${alliance.email}`}>{alliance.email}</a>
+                      {alliance.phone ? (
+                        <>
+                          <br />
+                          <strong>Teléfono:</strong> {alliance.phone}
+                          {waHref ? (
+                            <>
+                              {" · "}
+                              <a href={waHref} target="_blank" rel="noreferrer">
+                                WhatsApp
+                              </a>
+                              {" · "}
+                              <a href={`tel:${alliance.phone}`}>Llamar</a>
+                            </>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {websiteHref ? (
+                        <>
+                          <br />
+                          <strong>Web:</strong>{" "}
+                          <a
+                            href={websiteHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {alliance.website}
+                          </a>
+                        </>
+                      ) : null}
                     </p>
-                  ) : null}
-                  <p>
-                    <strong>Contacto:</strong> {alliance.contactName}
-                    <br />
-                    <strong>Correo:</strong>{" "}
-                    <a href={`mailto:${alliance.email}`}>{alliance.email}</a>
-                    {alliance.phone ? (
-                      <>
-                        <br />
-                        <strong>Teléfono:</strong> {alliance.phone}
-                        {waHref ? (
-                          <>
-                            {" · "}
-                            <a href={waHref} target="_blank" rel="noreferrer">
-                              WhatsApp
-                            </a>
-                            {" · "}
-                            <a href={`tel:${alliance.phone}`}>Llamar</a>
-                          </>
-                        ) : null}
-                      </>
+                    {alliance.message ? (
+                      <p style={{ whiteSpace: "pre-wrap" }}>
+                        {alliance.message}
+                      </p>
                     ) : null}
-                    {websiteHref ? (
-                      <>
-                        <br />
-                        <strong>Web:</strong>{" "}
-                        <a href={websiteHref} target="_blank" rel="noreferrer">
-                          {alliance.website}
-                        </a>
-                      </>
+
+                    <form action={adminUpdateAllianceStatus}>
+                      <input
+                        name="allianceId"
+                        type="hidden"
+                        value={alliance.id}
+                      />
+                      {alliance.status !== "approved" ? (
+                        <button
+                          className="button"
+                          type="submit"
+                          name="status"
+                          value="approved"
+                        >
+                          Aprobar
+                        </button>
+                      ) : null}{" "}
+                      {alliance.status !== "rejected" ? (
+                        <button
+                          className="button secondary"
+                          type="submit"
+                          name="status"
+                          value="rejected"
+                        >
+                          Rechazar
+                        </button>
+                      ) : null}{" "}
+                      {alliance.status !== "pending" ? (
+                        <button
+                          className="button secondary"
+                          type="submit"
+                          name="status"
+                          value="pending"
+                        >
+                          Volver a pendiente
+                        </button>
+                      ) : null}
+                    </form>
+                    {alliance.reviewedBy ? (
+                      <p className="muted">
+                        Revisada por {alliance.reviewedBy}
+                      </p>
                     ) : null}
-                  </p>
-                  {alliance.message ? (
-                    <p style={{ whiteSpace: "pre-wrap" }}>{alliance.message}</p>
-                  ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="muted">No hay solicitudes de alianza.</p>
+          )}
 
-                  <form action={adminUpdateAllianceStatus}>
-                    <input
-                      name="allianceId"
-                      type="hidden"
-                      value={alliance.id}
-                    />
-                    {alliance.status !== "approved" ? (
-                      <button
-                        className="button"
-                        type="submit"
-                        name="status"
-                        value="approved"
-                      >
-                        Aprobar
-                      </button>
-                    ) : null}{" "}
-                    {alliance.status !== "rejected" ? (
-                      <button
-                        className="button secondary"
-                        type="submit"
-                        name="status"
-                        value="rejected"
-                      >
-                        Rechazar
-                      </button>
-                    ) : null}{" "}
-                    {alliance.status !== "pending" ? (
-                      <button
-                        className="button secondary"
-                        type="submit"
-                        name="status"
-                        value="pending"
-                      >
-                        Volver a pendiente
-                      </button>
-                    ) : null}
-                  </form>
-                  {alliance.reviewedBy ? (
-                    <p className="muted">Revisada por {alliance.reviewedBy}</p>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="muted">No hay solicitudes de alianza.</p>
-        )}
+          <AdminPartnersSection
+            partners={partnerRows}
+            saveAction={adminSavePartner}
+            deleteAction={adminDeletePartner}
+          />
 
-        <AdminPartnersSection
-          partners={partnerRows}
-          saveAction={adminSavePartner}
-          deleteAction={adminDeletePartner}
-        />
-
-        <h2 id="solicitudes">Solicitudes</h2>
-        <p className="muted">
-          Cada persona que pidió apoyo. La “distribución” muestra en cuántos
-          paneles de profesionales está la solicitud, quién la tomó y cuántos la
-          vieron pasar — así compruebas que les llega a los psicólogos.
-        </p>
-        <form action="/admin" className="admin-request-filters">
-          <label>
-            Estado
-            <select name="estado" defaultValue={statusFilter}>
-              <option value="">Todos</option>
-              <option value="new">Nueva</option>
-              <option value="contacted">Contactada</option>
-              <option value="assigned">Asignada</option>
-              <option value="closed">Cerrada</option>
-            </select>
-          </label>
-          <label>
-            Urgencia
-            <select name="urgencia" defaultValue={urgencyFilter}>
-              <option value="">Todas</option>
-              {requestUrgencyOptions.map((option) => (
-                <option key={option} value={option}>
-                  {urgencyLabels[option]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Buscar
-            <input
-              name="q"
-              type="search"
-              defaultValue={queryFilter}
-              placeholder="Correo, ciudad, país o tipo de apoyo"
-            />
-          </label>
-          <div className="admin-request-filter-actions">
-            <button className="button" type="submit">
-              Filtrar
-            </button>
-            <Link className="button secondary" href="/admin#solicitudes">
-              Limpiar
-            </Link>
-          </div>
-        </form>
-        <div className="grid admin-request-list">
-          {requestRows.map((request) => (
-            <AdminRequestCard
-              anonymizeAction={adminAnonymizeHelpRequest}
-              assignAction={adminAssignRequest}
-              distribution={distribution.get(request.id)}
-              eligibleProfessionals={eligibleProfessionals}
-              key={request.id}
-              request={request}
-              suggestions={suggestions.get(request.id) ?? []}
-              updateStatusAction={adminUpdateHelpRequestStatus}
-            />
-          ))}
-        </div>
-
-        {requestRows.length === 0 ? (
-          <p className="muted">No hay solicitudes en esta página.</p>
-        ) : null}
-
-        {hasPrevPage || hasNextPage ? (
-          <nav className="pagination" aria-label="Paginación de solicitudes">
-            {hasPrevPage ? (
-              <Link className="button secondary" href={adminPageHref(page - 1)}>
-                ← Anteriores
+          <h2 id="solicitudes">Solicitudes</h2>
+          <p className="muted">
+            Cada persona que pidió apoyo. La “distribución” muestra en cuántos
+            paneles de profesionales está la solicitud, quién la tomó y cuántos
+            la vieron pasar — así compruebas que les llega a los psicólogos.
+          </p>
+          <form action="/admin" className="admin-request-filters">
+            <label>
+              Estado
+              <select name="estado" defaultValue={statusFilter}>
+                <option value="">Todos</option>
+                <option value="new">Nueva</option>
+                <option value="contacted">Contactada</option>
+                <option value="assigned">Asignada</option>
+                <option value="closed">Cerrada</option>
+              </select>
+            </label>
+            <label>
+              Urgencia
+              <select name="urgencia" defaultValue={urgencyFilter}>
+                <option value="">Todas</option>
+                {requestUrgencyOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {urgencyLabels[option]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Buscar
+              <input
+                name="q"
+                type="search"
+                defaultValue={queryFilter}
+                placeholder="Correo, ciudad, país o tipo de apoyo"
+              />
+            </label>
+            <div className="admin-request-filter-actions">
+              <button className="button" type="submit">
+                Filtrar
+              </button>
+              <Link className="button secondary" href="/admin#solicitudes">
+                Limpiar
               </Link>
-            ) : (
-              <span />
-            )}
-            <span className="muted">Página {page}</span>
-            {hasNextPage ? (
-              <Link className="button secondary" href={adminPageHref(page + 1)}>
-                Siguientes →
-              </Link>
-            ) : (
-              <span />
-            )}
-          </nav>
-        ) : null}
+            </div>
+          </form>
+          <div className="grid admin-request-list">
+            {requestRows.map((request) => (
+              <AdminRequestCard
+                anonymizeAction={adminAnonymizeHelpRequest}
+                assignAction={adminAssignRequest}
+                distribution={distribution.get(request.id)}
+                eligibleProfessionals={eligibleProfessionals}
+                key={request.id}
+                request={request}
+                suggestions={suggestions.get(request.id) ?? []}
+                updateStatusAction={adminUpdateHelpRequestStatus}
+              />
+            ))}
+          </div>
+
+          {requestRows.length === 0 ? (
+            <p className="muted">No hay solicitudes en esta página.</p>
+          ) : null}
+
+          {hasPrevPage || hasNextPage ? (
+            <nav className="pagination" aria-label="Paginación de solicitudes">
+              {hasPrevPage ? (
+                <Link
+                  className="button secondary"
+                  href={adminPageHref(page - 1)}
+                >
+                  ← Anteriores
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="muted">Página {page}</span>
+              {hasNextPage ? (
+                <Link
+                  className="button secondary"
+                  href={adminPageHref(page + 1)}
+                >
+                  Siguientes →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          ) : null}
+        </PanelShell>
       </div>
     </section>
   );

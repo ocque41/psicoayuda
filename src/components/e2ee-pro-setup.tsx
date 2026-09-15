@@ -128,9 +128,9 @@ export function E2eeProSetupCard({
           <p>
             <strong>Este dispositivo no tiene tu clave de cifrado.</strong> Tus
             conversaciones están cifradas de extremo a extremo y la clave vive
-            solo en los dispositivos donde la creaste. Recupérala con tu código
-            de recuperación o crea una nueva aquí (el historial anterior dejará
-            de poder leerse).
+            solo en los dispositivos donde la creaste. Tienes UN solo código
+            para todas tus conversaciones: recupérala con él o crea una nueva
+            aquí (el historial anterior dejará de poder leerse).
           </p>
           <E2eeRestorePanel
             audience="professional"
@@ -156,7 +156,7 @@ export function E2eeProSetupCard({
           <p>
             <strong>Cifrado de extremo a extremo.</strong>{" "}
             {hasLocalKey
-              ? "Listo: tus conversaciones se cifran en tu dispositivo y Nido no puede leer su contenido. Guarda tu código de recuperación para poder leerlas en otro dispositivo."
+              ? "Listo: tus conversaciones se cifran en tu dispositivo y Nido no puede leer su contenido. Un único código de recuperación sirve para TODAS tus conversaciones; guárdalo para poder leerlas en otro dispositivo."
               : "Preparando la clave de este dispositivo…"}
           </p>
           {hasLocalKey && !code ? (

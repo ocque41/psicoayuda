@@ -486,6 +486,16 @@ export function ChatRoom({
             // Acuse de lectura para la otra parte.
             sendRaw({ type: "read", upToSeq: m.seq });
           }
+          // La lista de conversaciones del profesional se refresca al momento:
+          // esta sala (y su "sin leer") no debe esperar al siguiente sondeo.
+          if (role === "professional") {
+            window.dispatchEvent(new Event("nido:chat-update"));
+            if (m.senderRole === "seeker") {
+              // El espejo de D1 marca leído al abrir la sala; con mensajes
+              // nuevos hay que volver a marcarlo (best-effort, sin bloquear).
+              void ensureProChatToken(conversationId).catch(() => undefined);
+            }
+          }
           break;
         }
         case "ack": {
@@ -509,6 +519,10 @@ export function ChatRoom({
             );
           }
           if (frame.seq > lastSeqRef.current) lastSeqRef.current = frame.seq;
+          // Mensaje propio confirmado: la actividad de la sala cambió.
+          if (role === "professional") {
+            window.dispatchEvent(new Event("nido:chat-update"));
+          }
           break;
         }
         case "keys":
@@ -531,7 +545,7 @@ export function ChatRoom({
           break;
       }
     },
-    [role, sendRaw],
+    [role, sendRaw, conversationId],
   );
 
   // Descifra los sobres que van llegando (historial, sync, mensajes nuevos).

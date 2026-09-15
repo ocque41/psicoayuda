@@ -163,6 +163,9 @@ export async function loadChatView(
     conversationId,
     open,
     otherName,
+    // La vista "como la persona" del profesional también puede abrir la lista
+    // de sus conversaciones: solo en ese caso se expone su id.
+    professionalId: canSwitchView ? conversation.professionalId : undefined,
     canSwitchView,
     deleted,
     purgeAfter,

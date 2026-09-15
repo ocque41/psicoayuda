@@ -125,7 +125,20 @@ la clave para descifrarlos.
   silencio para no alternar claves. Única excepción: la vista "como la persona"
   del profesional, donde la clave real es de la persona (no se le puede pedir su
   código) y se crea una nueva en silencio. El profesional gestiona su clave y ve
-  su código en la sección "Cifrado" de su panel.
+  su código en la sección "Cifrado" de su panel. **Hay UN solo código para todas
+  sus conversaciones**: la clave del profesional vive en un único slot del
+  keystore del dispositivo (`PRO_SLOT`) y el keystore completo se respalda con ese
+  código, así que restaurarlo en otro dispositivo recupera todas las salas a la
+  vez (nunca uno por chat).
+- **Bandeja del profesional dentro del chat (v0.16)**: la sala muestra a su
+  izquierda todas sus conversaciones (`ProChatList`, columna en escritorio y
+  cajón en móvil) con metadatos, no contenido: la vista y la ruta
+  `/api/pro/chats` usan `conversationsForProfessional` +
+  `src/lib/pro-chats.ts`. Se refresca por sondeo ligero (cada 3 s, solo con la
+  pestaña visible), al volver a la pestaña y al instante para la sala abierta
+  (el chat emite `nido:chat-update` al recibir/enviar/confirmar). Abrir una sala
+  marca su lectura en D1 (`ensureProChatToken`), también cuando llega un mensaje
+  con la sala abierta.
 - **Migración del historial legado**: el cliente re-cifra los mensajes en claro
   por lotes (`frame reencrypt`, idempotente) en cuanto hay claves de ambos lados.
 - **Límites honestos**: no hay forward secrecy (el historial es eterno), los
