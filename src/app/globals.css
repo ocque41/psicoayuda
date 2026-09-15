@@ -643,49 +643,21 @@ legend {
 /* ---- CTA de chat de la ficha profesional (arriba del WhatsApp) ----
    El chat es la vía principal: botón verde que despliega el formulario.
    WhatsApp y el resto quedan debajo, como enlaces sin fondo. */
-.pro-chat-cta {
-  margin: 0 0 10px;
+/* El chat dentro de Nido es la acción principal de la ficha: un solo botón
+   grande; las demás vías quedan debajo en enlaces pequeños. */
+.pro-chat-main {
+  margin: 0 0 12px;
 }
 
-.pro-chat-cta > summary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.pro-chat-cta > summary::-webkit-details-marker {
-  display: none;
-}
-
-/* Chevron que gira al abrir, para que se vea que despliega. */
-.pro-chat-cta > summary::after {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg) translateY(-1px);
-  transition: transform var(--duration-quick) var(--ease-smooth-out);
-}
-
-.pro-chat-cta[open] > summary::after {
-  transform: rotate(225deg) translateY(-1px);
-}
-
-.pro-chat-form {
-  margin-top: 12px;
-}
-
-.pro-chat-form > form > .button {
-  margin-top: 4px;
+.pro-chat-main > .button {
+  min-height: 54px;
+  padding-block: 15px;
+  font-size: 1.08rem;
 }
 
 .pro-contact {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   justify-items: start;
 }
 
@@ -693,10 +665,11 @@ legend {
 .pro-contact-wa {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-height: 44px;
   color: var(--accent-strong);
-  font-weight: 650;
+  font-weight: 600;
+  font-size: 0.92rem;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -707,14 +680,11 @@ legend {
 }
 
 .pro-contact-muted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
   color: var(--muted);
-  font-size: 0.95rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pro-chat-cta > summary::after {
-    transition-duration: 1ms;
-  }
+  font-size: 0.88rem;
 }
 
 /* ---- Panel de acceso profesional (Google + correo/contraseña) ---- */

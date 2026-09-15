@@ -24,6 +24,9 @@ const REOPEN_MS = 8000;
 const REFRESH_EVENT = "nido:chat-update";
 
 // Formateador único: crear Intl.DateTimeFormat en cada pintado es caro.
+// La hora va fija en la zona de Venezuela: así el servidor y el navegador
+// pintan lo mismo (sin desajuste de hidratación) y todas las partes ven la
+// misma hora, sin importar dónde esté su dispositivo.
 const activityFormatter = (() => {
   try {
     return new Intl.DateTimeFormat("es-VE", {
@@ -31,6 +34,7 @@ const activityFormatter = (() => {
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Caracas",
     });
   } catch {
     return null;
@@ -69,6 +73,12 @@ export function ProChatList({
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [inboxReady, setInboxReady] = useState(false);
+  // La hora la pinta el navegador recién hidratada: el servidor (Workers) y el
+  // navegador escriben distinto los espacios de "p. m." (uno usa espacio duro),
+  // y eso React lo ve como un texto que no coincide. Con esto el primer render
+  // del cliente es idéntico al del servidor.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const fingerprintRef = useRef(proChatsFingerprint(sortProChats(initial)));
 
   // Aplica una lista nueva solo si cambió de verdad (la huella evita repintados).
@@ -239,7 +249,7 @@ export function ProChatList({
                 {chat.urgency
                   ? `${urgencyLabels[chat.urgency as keyof typeof urgencyLabels] ?? chat.urgency} · `
                   : ""}
-                {activityLabel(chat.lastActivityAt)}
+                {activityLabel(mounted ? chat.lastActivityAt : 0)}
                 {chat.status !== "open" ? " · cerrada" : ""}
               </span>
             </Link>

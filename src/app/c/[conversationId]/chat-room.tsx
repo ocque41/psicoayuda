@@ -81,11 +81,15 @@ function wsUrl(conversationId: string, asPersona: boolean): string {
   return `${proto}//${window.location.host}/parties/conversation/${conversationId}${query}`;
 }
 
+// Hora de los mensajes, fija en la zona de Venezuela: el servidor y el
+// navegador pintan lo mismo (sin desajuste de hidratación) y ambas partes ven
+// la misma hora.
 function formatTime(ms: number): string {
   try {
     return new Date(ms).toLocaleTimeString("es-VE", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Caracas",
     });
   } catch {
     return "";

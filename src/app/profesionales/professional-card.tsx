@@ -46,51 +46,6 @@ export function FeedProfessionalCard({
     `Hola ${professional.name}, te contacto desde Nido (saludmental-venezuela.com). Me gustaría hablar contigo.`,
   );
 
-  // El chat dentro de Nido es la vía principal (no exige compartir el teléfono y
-  // el profesional no ve la identidad de la persona). El correo es opcional y
-  // solo sirve para volver después, también desde otro dispositivo.
-  const chatForm = (submitLabel: string) => (
-    <form action={createConversation}>
-      <input type="hidden" name="professionalId" value={professional.id} />
-      <div className="field">
-        <label htmlFor={`name-${professional.id}`}>
-          ¿Cómo quieres que te llame? (opcional)
-        </label>
-        <input
-          id={`name-${professional.id}`}
-          name="seekerName"
-          type="text"
-          maxLength={40}
-          autoComplete="off"
-          placeholder="Un nombre o apodo"
-        />
-      </div>
-      <div className="field">
-        <label htmlFor={`email-${professional.id}`}>
-          Tu correo para volver después (opcional)
-        </label>
-        <input
-          id={`email-${professional.id}`}
-          name="seekerEmail"
-          type="email"
-          maxLength={254}
-          autoComplete="email"
-          inputMode="email"
-          autoCapitalize="none"
-          spellCheck={false}
-          placeholder="tucorreo@ejemplo.com"
-        />
-        <p className="hint" style={{ margin: "4px 0 0" }}>
-          Solo para enviarte el enlace de regreso (también desde otro
-          dispositivo). Puedes dejarlo vacío.
-        </p>
-      </div>
-      <button className="button human block" type="submit">
-        {submitLabel}
-      </button>
-    </form>
-  );
-
   // WhatsApp y demás vías telefónicas, sin fondo: quedan debajo del chat.
   const phoneLinks = (
     <div className="pro-contact">
@@ -229,27 +184,21 @@ export function FeedProfessionalCard({
           </p>
         ) : null}
         {available ? (
-          <>
-            {hasPhone ? (
-              <details className="pro-chat-cta">
-                <summary
-                  className="button human block"
-                  data-track="chat_start"
-                  data-track-label={professional.name}
-                >
-                  Contacta ahora
-                </summary>
-                <div className="pro-chat-form">
-                  {chatForm("Empezar la conversación")}
-                </div>
-              </details>
-            ) : (
-              <div className="pro-chat-form">{chatForm("Contacta ahora")}</div>
-            )}
-            {phoneLinks}
-          </>
-        ) : hasPhone ? (
-          phoneLinks
+          <form action={createConversation} className="pro-chat-main">
+            <input
+              type="hidden"
+              name="professionalId"
+              value={professional.id}
+            />
+            <button
+              className="button human block"
+              type="submit"
+              data-track="chat_start"
+              data-track-label={professional.name}
+            >
+              Contactar ahora
+            </button>
+          </form>
         ) : (
           <button
             className="button secondary block"
@@ -261,6 +210,7 @@ export function FeedProfessionalCard({
             Sin cupo ahora mismo
           </button>
         )}
+        {phoneLinks}
       </div>
     </article>
   );

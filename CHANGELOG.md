@@ -2,6 +2,20 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.18.1 - 2026-09-15
+
+Ficha del profesional más simple y hora del chat sin saltos.
+
+- **"Contactar ahora" es un solo botón grande**: se quitó el desplegable con
+  formulario. El botón verde crea la conversación directo y, debajo, las demás
+  vías (WhatsApp, llamada y correo) quedan como enlaces pequeños. Si el
+  profesional no tiene cupo, el botón se muestra apagado con "Sin cupo ahora
+  mismo" para no prometer algo que el servidor va a rechazar.
+- **La hora del chat y de la lista del profesional va fija en la zona de
+  Venezuela**: antes el servidor pinta una hora (UTC) y el navegador otra, lo
+  que provocaba un desajuste de hidratación (error #418) y un salto visible en
+  la hora al cargar. Ahora ambas partes ven la misma hora, estén donde estén.
+
 ## 0.18.0 - 2026-09-15
 
 Dos arreglos que evitan perder conversaciones y una vía de contacto más clara.
