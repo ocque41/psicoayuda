@@ -411,6 +411,12 @@ legend {
   color: var(--accent-strong);
 }
 
+/* Enlaces dentro de avisos: el verde normal sobre la superficie suave no llega
+   a 4.5:1 (falla AA); el verde fuerte sí. Mismo color que el hover global. */
+.notice a {
+  color: var(--accent-strong);
+}
+
 /* El aviso de Contacto combina bastante texto, un bloque de crisis y un CTA.
    En escritorio usa dos columnas legibles y reserva una fila completa para el
    botón, evitando que flex lo comprima hasta separar cada palabra. */
@@ -1478,6 +1484,137 @@ tr:last-child td {
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+/* ---- Lista de espera (apoyo por motivos ajenos al terremoto) ---- */
+
+/* Panel completo: explicación + formulario. Se coloca antes del catálogo de
+   /profesionales y en /ayuda; en móvil colapsa solo (auto-fit). */
+.waitlist-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--space-8);
+  align-items: start;
+  margin: var(--space-8) 0;
+  padding: var(--space-8);
+  border: 1px solid var(--accent-tint);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    var(--surface) 0 60%,
+    var(--accent-soft) 100%
+  );
+  box-shadow: var(--shadow-sm);
+}
+
+.waitlist-panel-copy .eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.waitlist-panel-copy h2 {
+  margin-top: 0;
+}
+
+.waitlist-panel-copy .lead {
+  margin-bottom: var(--space-5);
+}
+
+.waitlist-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.waitlist-options li {
+  padding-left: 16px;
+  border-left: 3px solid var(--accent-tint);
+}
+
+.waitlist-options li strong {
+  color: var(--foreground);
+}
+
+.waitlist-panel-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* Formulario en tarjeta clara, con las mismas medidas táctiles del contacto. */
+.waitlist-form {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 88%);
+}
+
+.waitlist-form h3 {
+  margin: 0;
+  font-size: var(--step-2);
+}
+
+.waitlist-form .field-help {
+  margin: 0;
+}
+
+.waitlist-form label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 650;
+}
+
+.waitlist-form input,
+.waitlist-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.waitlist-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.waitlist-form :is(input, textarea):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.waitlist-form .button {
+  justify-self: start;
+}
+
+.waitlist-form-success {
+  margin-top: 0;
+  align-self: start;
+}
+
+/* Aviso compacto (sin formulario) para páginas donde solo se menciona. */
+.waitlist-callout {
+  margin: var(--space-6) 0;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.waitlist-callout p {
+  margin: 0;
 }
 
 .referral-card {

@@ -2,6 +2,13 @@ import { z } from "zod";
 import { languages, needCategories, urgencyLevels } from "@/lib/constants";
 import { contactCategories, contactStatuses } from "@/lib/contact-messages";
 import { toIntlNumber } from "@/lib/phone";
+import {
+  WAITLIST_DESCRIPTION_MAX_LENGTH,
+  WAITLIST_DESCRIPTION_MIN_LENGTH,
+  WAITLIST_TITLE_MAX_LENGTH,
+  waitlistSources,
+  waitlistStatuses,
+} from "@/lib/waitlist";
 
 // Red de seguridad: cualquier error de Zod sin mensaje propio sale en español
 // en vez del "Invalid input" en inglés que confundía a los profesionales.
@@ -63,6 +70,59 @@ export const contactMessageSchema = z.object({
 });
 
 export const contactStatusSchema = z.enum(contactStatuses);
+
+// Anotación en la lista de espera (apoyo por motivos ajenos al terremoto).
+// Pedimos lo mínimo: correo, un título breve y una descripción. El origen es un
+// campo oculto del formulario; si alguien lo manipula, cae al valor por defecto
+// en vez de romper el envío.
+export const waitlistEntrySchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200, "El correo es demasiado largo.")
+    .pipe(z.email("Escribe un correo válido (ej. nombre@correo.com).")),
+  title: z
+    .string()
+    .trim()
+    .min(4, "Escribe en pocas palabras con qué necesitas ayuda.")
+    .max(
+      WAITLIST_TITLE_MAX_LENGTH,
+      "El título es demasiado largo (máximo 120 caracteres).",
+    ),
+  description: z
+    .string()
+    .trim()
+    .min(
+      WAITLIST_DESCRIPTION_MIN_LENGTH,
+      "Cuéntanos un poco más para poder ayudarte (al menos 20 caracteres).",
+    )
+    .max(
+      WAITLIST_DESCRIPTION_MAX_LENGTH,
+      "La descripción es demasiado larga (máximo 1500 caracteres).",
+    ),
+  source: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.enum(waitlistSources).catch("lista-de-espera"),
+  ),
+});
+
+export const waitlistStatusSchema = z.enum(waitlistStatuses);
+
+// Correo que la persona deja en la tarjeta del chat. Solo validamos el correo:
+// el título, la descripción y el origen los deriva el servidor de la propia
+// conversación (nunca se aceptan del cliente).
+export const waitlistChatSignupSchema = z.object({
+  email: z.preprocess(
+    (value) => (typeof value === "string" ? value : ""),
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(200, "El correo es demasiado largo.")
+      .pipe(z.email("Escribe un correo válido (ej. nombre@correo.com).")),
+  ),
+});
 
 const optionalNumber = z.preprocess(
   (value) => (value === "" || value === null ? undefined : value),

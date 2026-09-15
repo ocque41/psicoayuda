@@ -392,3 +392,115 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* ---- Tarjeta de lista de espera (mensaje especial del hilo) ---- */
+
+/* La tarjeta sustituye al fondo de la burbuja: tiene su propio borde/fondo y se
+   lee igual en la vista de la persona y en la del profesional. */
+.waitlistBubble {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.waitlistCard {
+  width: min(100%, 24rem);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-sm);
+  white-space: normal;
+}
+
+.waitlistTitle {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.waitlistText {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.waitlistForm {
+  display: grid;
+  gap: 6px;
+}
+
+.waitlistLabel {
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.waitlistRow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.waitlistInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.waitlistInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.waitlistSubmit {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.waitlistSubmit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.waitlistHint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.waitlistError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.waitlistDone {
+  display: grid;
+  gap: 6px;
+}
+
+.waitlistDoneLine {
+  margin: 0;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}

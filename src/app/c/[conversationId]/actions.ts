@@ -15,13 +15,17 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { chooseChatIdentity } from "@/lib/chat-identity";
+import { needLabels } from "@/lib/constants";
 import { TRASH_GRACE_MS } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
 import {
   conversationUrl,
+  notifyAdminWaitlistEntry,
   notifyConversationDeleted,
   notifyConversationReopened,
+  notifyWaitlistConfirmation,
 } from "@/lib/notifications";
+import { getRequesterHash } from "@/lib/requester-hash";
 import {
   createSeekerAccessLink,
   SEEKER_SESSION_TTL_MS,
@@ -34,6 +38,9 @@ import {
   verifyProfessionalToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
+import { waitlistChatSignupSchema } from "@/lib/validation";
+import { waitlistSourceLabels } from "@/lib/waitlist";
+import { storeWaitlistEntry } from "@/lib/waitlist-store";
 
 const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
 
@@ -630,4 +637,129 @@ export async function restoreConversation(
   });
 
   return { ok: true, role: actor.role };
+}
+
+export type JoinWaitlistState =
+  | { ok: true; email: string }
+  | { ok: false; message: string }
+  | null;
+
+/**
+ * La PERSONA deja su correo desde la tarjeta de lista de espera del chat.
+ *
+ * Solo puede hacerlo la persona de la conversación (cookie de sala vigente y
+ * misma prelación de identidad que la vista/WebSocket): el profesional dueño
+ * que esté viendo la sala como la persona también puede, porque actúa con su
+ * credencial. El correo NUNCA viaja por el chat: va por HTTPS a D1 con el mismo
+ * límite antiabuso del formulario público. El título y la descripción los
+ * deriva el servidor de la conversación (área del caso y profesional), nunca
+ * se aceptan del cliente.
+ */
+export async function joinWaitlistFromChat(
+  _previous: JoinWaitlistState,
+  formData: FormData,
+): Promise<JoinWaitlistState> {
+  const conversationId = String(formData.get("conversationId") ?? "").trim();
+  if (!conversationId) {
+    return { ok: false, message: "No pudimos identificar la conversación." };
+  }
+
+  const parsed = waitlistChatSignupSchema.safeParse({
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Revisa tu correo e inténtalo de nuevo.",
+    };
+  }
+  const email = parsed.data.email;
+
+  try {
+    const conversation = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
+    });
+    if (!conversation || conversation.deletedAt || conversation.anonymizedAt) {
+      return {
+        ok: false,
+        message: "Esta conversación ya no está disponible para anotarte.",
+      };
+    }
+
+    const asPersona = String(formData.get("asPersona") ?? "") === "1";
+    const actor = await resolveActor(conversation, asPersona);
+    if (actor?.role !== "seeker") {
+      return {
+        ok: false,
+        message: "Solo la persona de esta conversación puede anotar su correo.",
+      };
+    }
+
+    // Contexto para la ficha del admin: área del caso y nombre del profesional.
+    const [request, pro] = await Promise.all([
+      conversation.helpRequestId
+        ? db.query.helpRequests.findFirst({
+            where: eq(helpRequests.id, conversation.helpRequestId),
+            columns: { needCategory: true },
+          })
+        : null,
+      db.query.professionals.findFirst({
+        where: eq(professionals.id, conversation.professionalId),
+        columns: { displayName: true, fullName: true },
+      }),
+    ]);
+    const needCategory = request?.needCategory as
+      | keyof typeof needLabels
+      | undefined;
+    const needLabel = needCategory ? needLabels[needCategory] : undefined;
+    const proName =
+      pro?.displayName || pro?.fullName || "un profesional voluntario";
+
+    const requesterHash = await getRequesterHash("waitlist_entry");
+    const stored = await storeWaitlistEntry({
+      email,
+      title: needLabel ?? "Apoyo psicológico (desde el chat)",
+      description: `Anotación creada desde la tarjeta de lista de espera del chat con ${proName}. La persona busca apoyo por un motivo ajeno al terremoto y quiere que le avisemos cuando haya disponibilidad.`,
+      source: "chat",
+      conversationId,
+      requesterHash,
+    });
+    if (!stored.ok) {
+      return {
+        ok: false,
+        message:
+          stored.reason === "rate_limited"
+            ? "Ya te anotamos hace poco. Espera un rato antes de intentarlo de nuevo."
+            : "No pudimos guardar tu anotación. Inténtalo de nuevo en unos minutos.",
+      };
+    }
+
+    // Un chat directo puede no tener correo (p. ej. sin solicitud de /ayuda):
+    // guardarlo habilita los avisos por correo y el enlace mágico de /acceso.
+    // Nunca sobreescribimos un correo ya existente con uno nuevo.
+    if (!conversation.seekerEmail) {
+      await db
+        .update(conversations)
+        .set({ seekerEmail: email, updatedAt: nowIso() })
+        .where(eq(conversations.id, conversationId));
+    }
+
+    // Solo la PRIMERA anotación dispara correos (actualizar no reenvía avisos).
+    if (stored.created) {
+      await notifyAdminWaitlistEntry({
+        sourceLabel: waitlistSourceLabels.chat,
+      }).catch(() => undefined);
+      await notifyWaitlistConfirmation({ email }).catch(() => undefined);
+    }
+
+    return { ok: true, email };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "No pudimos guardar tu anotación. Inténtalo de nuevo en unos minutos.",
+    };
+  }
 }

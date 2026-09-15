@@ -25,6 +25,7 @@ import {
 import { adminDeleteAccount } from "@/app/actions-account";
 import { adminUpdateContactMessageStatus } from "@/app/actions-contact";
 import { adminDeletePartner, adminSavePartner } from "@/app/actions-partners";
+import { adminUpdateWaitlistStatus } from "@/app/actions-waitlist";
 import { AdminContactInbox } from "@/components/admin-contact-inbox";
 import { AdminDeleteAccountForm } from "@/components/admin-delete-account-form";
 import { AdminFpvBadge } from "@/components/admin-fpv-badge";
@@ -44,6 +45,7 @@ import {
   helpRequests,
   professionals,
   user,
+  waitlistEntries,
 } from "@/db/schema";
 import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
@@ -59,6 +61,12 @@ import {
 import { rankProfessionalsForRequest } from "@/lib/matching";
 import { getAllPartnersForAdmin } from "@/lib/partners";
 import { whatsappUrl } from "@/lib/phone";
+import {
+  type WaitlistStatus,
+  waitlistSourceLabels,
+  waitlistStatuses,
+  waitlistStatusLabels,
+} from "@/lib/waitlist";
 
 export const metadata: Metadata = {
   title: "Administración",
@@ -80,6 +88,16 @@ function normalizeOption<T extends readonly string[]>(
   options: T,
 ): T[number] | "" {
   return options.includes(value ?? "") ? (value as T[number]) : "";
+}
+
+function formatAdminDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("es-VE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default async function AdminPage({
@@ -205,6 +223,8 @@ export default async function AdminPage({
     allianceRows,
     partnerRows,
     contactRows,
+    waitlistRows,
+    waitlistCountRows,
   ] = await Promise.all([
     // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
     // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
@@ -252,6 +272,17 @@ export default async function AdminPage({
       .where(contactWhere)
       .orderBy(desc(contactMessages.createdAt))
       .limit(100),
+    // Lista de espera: las anotaciones nuevas primero. La descripción es
+    // contenido sensible, pero el panel ya está gateado por ADMIN_EMAILS.
+    db
+      .select()
+      .from(waitlistEntries)
+      .orderBy(desc(waitlistEntries.createdAt))
+      .limit(200),
+    db
+      .select({ status: waitlistEntries.status, total: count() })
+      .from(waitlistEntries)
+      .groupBy(waitlistEntries.status),
   ]);
 
   const hasNextPage = requestPage.length > REQUESTS_PAGE_SIZE;
@@ -347,6 +378,17 @@ export default async function AdminPage({
       contactCounts[row.status as ContactStatus] = row.total;
     }
   }
+  const waitlistCounts: Record<WaitlistStatus, number> = {
+    waiting: 0,
+    contacted: 0,
+    matched: 0,
+    closed: 0,
+  };
+  for (const row of waitlistCountRows) {
+    if (waitlistStatuses.includes(row.status as WaitlistStatus)) {
+      waitlistCounts[row.status as WaitlistStatus] = row.total;
+    }
+  }
 
   return (
     <section className="section admin">
@@ -381,6 +423,12 @@ export default async function AdminPage({
             Contactos
             {contactCounts.new > 0 ? ` (${contactCounts.new} nuevos)` : ""}
           </a>
+          <a className="button secondary" href="#lista-espera">
+            Lista de espera
+            {waitlistCounts.waiting > 0
+              ? ` (${waitlistCounts.waiting} en espera)`
+              : ""}
+          </a>
           <a className="button secondary" href="#profesionales">
             Profesionales
           </a>
@@ -408,6 +456,61 @@ export default async function AdminPage({
           categoryFilter={contactCategoryFilter as ContactCategory | ""}
           updateStatusAction={adminUpdateContactMessageStatus}
         />
+
+        <h2 id="lista-espera">Lista de espera</h2>
+        <p className="muted">
+          Personas que necesitan apoyo psicológico por motivos ajenos al
+          terremoto: como la ayuda gratuita de la emergencia está reservada para
+          las víctimas, se anotan aquí. Escríbeles cuando haya un cupo
+          voluntario y actualiza el estado para llevar el seguimiento (queda
+          registrado en la auditoría).
+        </p>
+        {waitlistRows.length ? (
+          <>
+            <div className="grid admin-waitlist-list">
+              {waitlistRows.map((entry) => (
+                <article className="card" key={entry.id}>
+                  <h3>{entry.title}</h3>
+                  <p className="muted">
+                    Anotada el {formatAdminDate(entry.createdAt)} · Desde:{" "}
+                    {waitlistSourceLabels[
+                      entry.source as keyof typeof waitlistSourceLabels
+                    ] ?? entry.source}
+                  </p>
+                  <p style={{ whiteSpace: "pre-wrap" }}>{entry.description}</p>
+                  <p>
+                    <strong>Correo:</strong>{" "}
+                    <a href={`mailto:${entry.email}`}>{entry.email}</a>
+                  </p>
+                  <form action={adminUpdateWaitlistStatus}>
+                    <input name="waitlistId" type="hidden" value={entry.id} />
+                    <select
+                      name="status"
+                      defaultValue={entry.status}
+                      aria-label="Estado de la anotación"
+                    >
+                      {waitlistStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {waitlistStatusLabels[status]}
+                        </option>
+                      ))}
+                    </select>{" "}
+                    <button className="button secondary" type="submit">
+                      Guardar
+                    </button>
+                  </form>
+                </article>
+              ))}
+            </div>
+            <p className="hint">
+              Se muestran hasta 200 anotaciones, las más recientes primero.
+            </p>
+          </>
+        ) : (
+          <p className="muted">
+            Todavía no hay anotaciones en la lista de espera.
+          </p>
+        )}
 
         <h2 id="profesionales">Profesionales</h2>
         <div className="table-wrap">

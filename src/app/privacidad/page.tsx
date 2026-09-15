@@ -109,6 +109,16 @@ export default function PrivacyPage() {
             de tu cuenta para evitar suplantaciones. No debes incluir datos
             privados de las personas que acompañas.
           </p>
+          <p>
+            Si te anotas en la <strong>lista de espera</strong> (para recibir
+            apoyo psicológico por un motivo ajeno al terremoto), guardamos tu
+            correo, un título breve y la descripción que escribas, además de un
+            código irreversible de la conexión para limitar envíos repetidos.
+            Esos datos los usa solo el equipo de coordinación, para avisarte
+            cuando haya disponibilidad; no se publican ni se comparten con
+            terceros. Puedes pedir que te quitemos de la lista escribiendo al
+            correo de privacidad.
+          </p>
         </section>
 
         <section className="card">
@@ -211,6 +221,12 @@ export default function PrivacyPage() {
             seguimiento, incluso si una persona profesional borra su cuenta; en
             ese caso se desvinculan de su perfil. Puedes pedir que revisemos o
             eliminemos tus mensajes escribiendo al correo de privacidad.
+          </p>
+          <p>
+            Las anotaciones en la lista de espera se anonimizan después de 12
+            meses sin actividad: se borran el correo, el título y la descripción
+            y la anotación queda cerrada. Si antes de ese plazo te escribimos y
+            retomas el contacto, el plazo se renueva.
           </p>
           <p>
             Tienes derecho a solicitar, en cualquier momento, acceder a los

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 
 export const metadata: Metadata = {
   title: "Ayuda psicológica gratis en Venezuela: cómo funciona",
@@ -127,6 +128,10 @@ export default function Page() {
             </p>
           </article>
         </div>
+
+        {/* Tercer camino posible: quien no es víctima del terremoto. Sin esto,
+            podía llenar el formulario de la emergencia y ocupar un cupo. */}
+        <WaitlistCallout />
 
         <h2>¿Cuánto tarda?</h2>
         <p className="reassurance">

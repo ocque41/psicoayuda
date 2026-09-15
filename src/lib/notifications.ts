@@ -19,6 +19,8 @@ import {
   buildNewOfferEmail,
   buildSeekerAccessLinksEmail,
   buildSeekerNewMessageEmail,
+  buildWaitlistAlertEmail,
+  buildWaitlistConfirmationEmail,
 } from "@/lib/email-templates";
 
 function appBaseUrl() {
@@ -335,6 +337,47 @@ export async function notifyAdminContactMessage(input: {
   // Se inician todos los avisos a la vez: si el proveedor rechaza una
   // dirección, la otra administradora aún recibe el suyo. El llamador trata la
   // notificación como best-effort porque el mensaje ya quedó guardado.
+  await Promise.allSettled(
+    recipients.map((to) =>
+      sendEmail({
+        to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        headers: mail.headers,
+      }),
+    ),
+  );
+}
+
+/**
+ * Confirmación a la persona de que quedó en la lista de espera (apoyo por
+ * motivos ajenos al terremoto). El correo solo confirma y orienta; la fila en
+ * D1 es la fuente de verdad, así que un fallo del proveedor no pierde nada.
+ */
+export async function notifyWaitlistConfirmation(input: { email: string }) {
+  const mail = buildWaitlistConfirmationEmail({
+    associationsUrl: `${appBaseUrl()}/alianzas`,
+    emergencyUrl: `${appBaseUrl()}/emergencia`,
+    contactUrl: `${appBaseUrl()}/contacto`,
+  });
+  return sendEmail({
+    to: input.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    headers: mail.headers,
+  });
+}
+
+/** Avisa de una anotación nueva en la lista de espera, sin PII. */
+export async function notifyAdminWaitlistEntry(input: { sourceLabel: string }) {
+  const recipients = getAdminEmails();
+  if (recipients.length === 0) return;
+  const mail = buildWaitlistAlertEmail({
+    adminUrl: `${appBaseUrl()}/admin#lista-espera`,
+    sourceLabel: input.sourceLabel,
+  });
   await Promise.allSettled(
     recipients.map((to) =>
       sendEmail({

@@ -6,6 +6,7 @@ import {
 import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
 import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
 
@@ -90,6 +91,7 @@ export default async function HomePage() {
               </p>
             </div>
           )}
+          <WaitlistCallout />
         </div>
       </section>
 

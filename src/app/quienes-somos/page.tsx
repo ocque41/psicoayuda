@@ -122,6 +122,16 @@ export default function Page() {
           competencia y de su disponibilidad. A las personas que piden apoyo por
           la emergencia no se les solicita ningún dato de pago, jamás.
         </p>
+        <p>
+          Por eso mismo, la ayuda gratuita está reservada para las víctimas del
+          terremoto. Si necesitas apoyo psicológico por otro motivo, también hay
+          camino: puedes{" "}
+          <Link href="/lista-de-espera">anotarte en la lista de espera</Link> o{" "}
+          <Link href="/alianzas">
+            encontrar ayuda en una de las asociaciones aliadas
+          </Link>
+          .
+        </p>
         <ul className="reassurance">
           <li>
             Para pedir apoyo no necesitas crear una cuenta ni dar tu identidad

@@ -9,6 +9,7 @@ import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
+import { WaitlistPanel } from "@/components/waitlist-panel";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
 import {
@@ -101,6 +102,10 @@ export default async function HelpPage({
           ¿Ya escribiste antes y quieres retomar tu conversación?{" "}
           <Link href="/acceso">Entra con tu correo</Link>.
         </p>
+
+        {/* Antes de contactar: la ayuda gratuita es para las víctimas del
+            terremoto. Quien no lo es tiene aquí su camino sin ocupar cupos. */}
+        <WaitlistPanel source="ayuda" />
 
         {professionals.length > 0 || organizations.length > 0 ? (
           <>

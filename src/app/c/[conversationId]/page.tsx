@@ -6,6 +6,7 @@ import {
   formatEuros,
   listActivePackagesForProfessional,
 } from "@/lib/payments/packages";
+import { getWaitlistSignupForConversation } from "@/lib/waitlist-store";
 import { ChatRoom } from "./chat-room";
 import { ConversationDeletedNotice } from "./conversation-deleted-notice";
 
@@ -60,6 +61,12 @@ export default async function ConversationPage({
         )
       : [];
 
+  // Anotación de lista de espera nacida de esta conversación (si existe): la
+  // tarjeta del chat muestra "Anotado" a las dos partes en vez del formulario.
+  const waitlistSignup = await getWaitlistSignupForConversation(
+    view.conversationId,
+  );
+
   return (
     <section className="section">
       <div className="container">
@@ -72,6 +79,7 @@ export default async function ConversationPage({
           canSwitchView={view.canSwitchView}
           paymentLinks={paymentLinks}
           proPublicKey={view.proPublicKey}
+          waitlistSignup={waitlistSignup}
         />
       </div>
     </section>

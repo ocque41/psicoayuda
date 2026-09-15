@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
 import { FaqJsonLd } from "@/components/structured-data";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 import { HOME_FAQ, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -61,11 +62,21 @@ const RESPONSE_TIME_FAQ = {
     "Queremos ser honestos contigo: Nido lo sostienen personas voluntarias, así que no respondemos al instante ni podemos prometer un tiempo exacto. Tu mensaje no se pierde; lo revisa el equipo de coordinación y se busca a alguien que pueda acompañarte. La espera puede variar según cuántas personas voluntarias estén disponibles. Por eso es importante recordar que Nido no es un servicio de emergencia: si estás en peligro ahora mismo o sientes que no puedes esperar, busca ayuda inmediata en la página de emergencia o consulta las líneas de apoyo en recursos.",
 };
 
+// Pregunta específica de quienes NO son víctimas del terremoto. La respuesta
+// visible lleva enlaces; esta es su versión en texto plano para el JSON-LD.
+const WAITLIST_FAQ = {
+  question: "No soy víctima del terremoto, ¿pueden ayudarme?",
+  answer:
+    "La ayuda gratuita de Nido está reservada para las víctimas del terremoto. Si necesitas apoyo psicológico por otro motivo, puedes anotarte en la lista de espera: déjanos tu correo y cuéntanos qué necesitas, y te escribiremos cuando haya un profesional voluntario disponible para acompañarte. También puedes encontrar ayuda en una de las asociaciones aliadas.",
+};
+
 export default function Page() {
   return (
     <section className="section">
       <div className="container">
-        <FaqJsonLd items={[...HOME_FAQ, ...PRO_FAQ, RESPONSE_TIME_FAQ]} />
+        <FaqJsonLd
+          items={[...HOME_FAQ, WAITLIST_FAQ, ...PRO_FAQ, RESPONSE_TIME_FAQ]}
+        />
         <h1>Preguntas frecuentes sobre {SITE_NAME}</h1>
         <p className="lead">
           Aquí respondemos las dudas más comunes sobre cómo pedir apoyo
@@ -81,7 +92,29 @@ export default function Page() {
           Para pedir ayuda no necesitas crear una cuenta. Cuando estés lista o
           listo, empieza en <Link href="/ayuda">pedir apoyo</Link>.
         </p>
+
+        {/* La ayuda gratuita es para las víctimas del terremoto: quien no lo es
+            tiene la lista de espera o las asociaciones aliadas. */}
+        <WaitlistCallout />
+
         <div className="faq">
+          <article className="card">
+            <h3>{WAITLIST_FAQ.question}</h3>
+            <p>
+              La ayuda gratuita de Nido está reservada para las víctimas del
+              terremoto. Si necesitas apoyo psicológico por otro motivo, puedes{" "}
+              <Link href="/lista-de-espera">
+                anotarte en la lista de espera
+              </Link>
+              : déjanos tu correo y cuéntanos qué necesitas, y te escribiremos
+              cuando haya un profesional voluntario disponible para acompañarte.
+              También puedes{" "}
+              <Link href="/alianzas">
+                encontrar ayuda en una de las asociaciones aliadas
+              </Link>
+              .
+            </p>
+          </article>
           {HOME_FAQ.map((q) => (
             <article className="card" key={q.question}>
               <h3>{q.question}</h3>

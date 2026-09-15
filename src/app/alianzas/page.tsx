@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FoundationContactForm } from "@/components/foundation-contact-form";
 import { PartnersShowcase } from "@/components/partners-showcase";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 
 export const metadata: Metadata = {
   title: "Fundaciones y organizaciones aliadas",
@@ -36,6 +37,11 @@ export default function AlianzasPage() {
             psicología y quieres ser voluntario/a, entra por{" "}
             <Link href="/pro">el acceso para profesionales</Link>.
           </p>
+
+          {/* La ayuda gratuita es para las víctimas del terremoto: quien busca
+              apoyo por otro motivo puede anotarse en la lista de espera o
+              contactar directamente a las organizaciones del escaparate. */}
+          <WaitlistCallout showAssociationsLink={false} />
         </div>
       </section>
 

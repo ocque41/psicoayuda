@@ -6,6 +6,7 @@ import {
   DirectoryJsonLd,
 } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
+import { WaitlistPanel } from "@/components/waitlist-panel";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
 import {
@@ -88,6 +89,11 @@ export default async function ProfesionalesPage({
           Y si prefieres no elegir, deja tu mensaje y le llega a todo el equipo.
         </p>
         <EmergencyNotice />
+
+        {/* Segunda sección antes del catálogo: deja claro para quién es la ayuda
+            gratuita y ofrece el camino de quien no es víctima del terremoto
+            (lista de espera o asociaciones aliadas) ANTES de contactar. */}
+        <WaitlistPanel source="profesionales" />
 
         <SupportDirectory
           professionals={professionals}

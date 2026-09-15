@@ -43,12 +43,17 @@ import {
   parseEnvelope,
 } from "@/shared/e2ee";
 import {
+  buildWaitlistPromptPayload,
+  isWaitlistPromptPayload,
+} from "@/shared/waitlist-prompt";
+import {
   ensureProChatToken,
   renewSeekerChatToken,
   reopenConversation,
 } from "./actions";
 import styles from "./chat.module.css";
 import { E2eeRestorePanel } from "./e2ee-restore-panel";
+import { WaitlistPromptCard } from "./waitlist-prompt-card";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
 
@@ -143,6 +148,7 @@ export function ChatRoom({
   canSwitchView = false,
   paymentLinks = [],
   proPublicKey = null,
+  waitlistSignup = null,
 }: {
   conversationId: string;
   role: SenderRole;
@@ -156,6 +162,9 @@ export function ChatRoom({
   paymentLinks?: { id: string; title: string; priceLabel: string }[];
   // Clave pública E2EE del profesional (la persona la necesita para cifrar).
   proPublicKey?: string | null;
+  // Anotación de lista de espera nacida de esta conversación (si existe), para
+  // que la tarjeta muestre el estado a las dos partes.
+  waitlistSignup?: { email: string; createdAt: string } | null;
 }) {
   // El profesional puede estar viendo la sala como la persona. En ese caso TODO
   // (WebSocket, reabrir, borrar) actúa con la identidad de la persona: lo que
@@ -190,6 +199,11 @@ export function ChatRoom({
   }>({});
   const [decrypted, setDecrypted] = useState<Record<string, string | null>>({});
   const [backupCode, setBackupCode] = useState<string | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState<{
+    email: string;
+    createdAt: string;
+  } | null>(waitlistSignup);
+  const [promptSending, setPromptSending] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const lastSeqRef = useRef(0);
@@ -704,10 +718,9 @@ export function ChatRoom({
     typingTimerRef.current = setTimeout(() => sendTyping(false), 2500);
   }
 
-  async function submit() {
-    const content = draft.trim();
-    if (!content || content.length > MAX_MESSAGE_LENGTH) return;
-    if (!identity || !peerKey) return;
+  /** Cifra y envía un texto ya construido (composer o tarjeta del sistema). */
+  async function sendPlaintext(content: string): Promise<boolean> {
+    if (!identity || !peerKey) return false;
     setSendError("");
     let envelope: string;
     try {
@@ -720,21 +733,49 @@ export function ChatRoom({
       });
     } catch {
       setSendError("No pudimos cifrar el mensaje en este dispositivo.");
-      return;
+      return false;
     }
     const clientMsgId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     setPending((prev) => [...prev, { clientMsgId, content, envelope }]);
-    setDraft("");
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    sendTyping(false);
     if (!sendRaw({ type: "send", clientMsgId, content: envelope })) {
       // Queda pendiente y se reenvía al reconectar.
       setSendError("");
     }
+    return true;
   }
+
+  async function submit() {
+    const content = draft.trim();
+    if (!content || content.length > MAX_MESSAGE_LENGTH) return;
+    if (!e2eeReady) return;
+    const sent = await sendPlaintext(content);
+    if (!sent) return;
+    setDraft("");
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    sendTyping(false);
+  }
+
+  /**
+   * Tarjeta de lista de espera (solo profesional): va como mensaje cifrado con
+   * un payload JSON marcado. La persona lo ve como formulario para dejar su
+   * correo; si no aplica, el profesional simplemente no la envía.
+   */
+  async function sendWaitlistPrompt() {
+    if (!e2eeReady || promptSending) return;
+    setPromptSending(true);
+    try {
+      await sendPlaintext(buildWaitlistPromptPayload());
+    } finally {
+      setPromptSending(false);
+    }
+  }
+
+  const handleWaitlistJoined = useCallback((email: string) => {
+    setWaitlistJoined({ email, createdAt: new Date().toISOString() });
+  }, []);
 
   function retry(clientMsgId: string) {
     const item = pendingRef.current.find((x) => x.clientMsgId === clientMsgId);
@@ -901,6 +942,8 @@ export function ChatRoom({
 
               {confirmed.map((m) => {
                 const mine = m.senderRole === role;
+                const text = messageText(m);
+                const isWaitlistPrompt = isWaitlistPromptPayload(text);
                 return (
                   <div
                     key={m.serverId}
@@ -910,9 +953,19 @@ export function ChatRoom({
                       <div
                         className={`${styles.bubble} ${
                           mine ? styles.bubbleMine : styles.bubbleTheirs
-                        }`}
+                        } ${isWaitlistPrompt ? styles.waitlistBubble : ""}`}
                       >
-                        {messageText(m)}
+                        {isWaitlistPrompt ? (
+                          <WaitlistPromptCard
+                            conversationId={conversationId}
+                            role={role}
+                            asPersona={writeAsPersona}
+                            signup={waitlistJoined}
+                            onJoined={handleWaitlistJoined}
+                          />
+                        ) : (
+                          text
+                        )}
                       </div>
                       <div
                         className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
@@ -934,7 +987,9 @@ export function ChatRoom({
                 >
                   <div>
                     <div className={`${styles.bubble} ${styles.bubbleMine}`}>
-                      {p.content}
+                      {isWaitlistPromptPayload(p.content)
+                        ? "Tarjeta de lista de espera"
+                        : p.content}
                     </div>
                     <div className={styles.meta}>
                       <span>
@@ -971,26 +1026,48 @@ export function ChatRoom({
                 {composerNotice ? (
                   <p className={styles.composerNotice}>{composerNotice}</p>
                 ) : null}
-                {role === "professional" && paymentLinks.length > 0 ? (
-                  <details className={styles.payLinks}>
-                    <summary>Insertar link de pago</summary>
-                    <p className={styles.payLinksHint}>
-                      Se escribirá en tu mensaje. Compártelo después de
-                      acordarlo con la persona.
-                    </p>
-                    <ul>
-                      {paymentLinks.map((pkg) => (
-                        <li key={pkg.id}>
-                          <button
-                            type="button"
-                            onClick={() => insertPaymentLink(pkg.id)}
-                          >
-                            {pkg.title} · {pkg.priceLabel}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
+                {role === "professional" ? (
+                  <>
+                    <details className={styles.payLinks}>
+                      <summary>Tarjeta de lista de espera</summary>
+                      <p className={styles.payLinksHint}>
+                        Si su caso no es por el terremoto y van a esperar a que
+                        pueda pagar o a seguir por otros medios, envíale esta
+                        tarjeta: dejará su correo y quedará anotado en la lista
+                        de espera. Si no aplica, no la envíes.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void sendWaitlistPrompt()}
+                        disabled={!e2eeReady || promptSending}
+                      >
+                        {promptSending
+                          ? "Enviando…"
+                          : "Enviar tarjeta de lista de espera"}
+                      </button>
+                    </details>
+                    {paymentLinks.length > 0 ? (
+                      <details className={styles.payLinks}>
+                        <summary>Insertar link de pago</summary>
+                        <p className={styles.payLinksHint}>
+                          Se escribirá en tu mensaje. Compártelo después de
+                          acordarlo con la persona.
+                        </p>
+                        <ul>
+                          {paymentLinks.map((pkg) => (
+                            <li key={pkg.id}>
+                              <button
+                                type="button"
+                                onClick={() => insertPaymentLink(pkg.id)}
+                              >
+                                {pkg.title} · {pkg.priceLabel}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </>
                 ) : null}
                 <textarea
                   className={styles.textarea}

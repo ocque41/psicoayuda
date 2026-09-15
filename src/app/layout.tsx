@@ -156,6 +156,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/seguridad">Seguridad</Link>
               <Link href="/transparencia">Transparencia</Link>
               <Link href="/recursos">Recursos</Link>
+              <Link href="/lista-de-espera">Lista de espera</Link>
               <Link href="/emergencia">Emergencia</Link>
               <Link href="/situacion">Situación del terremoto</Link>
               <Link href="/contacto">Contacto</Link>

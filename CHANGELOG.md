@@ -2,6 +2,73 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.13.0 - 2026-09-15
+
+Tarjeta de lista de espera dentro del chat: el profesional la envía cuando el
+caso es ajeno al terremoto y la persona deja su correo en el propio hilo, sin
+salir de la conversación.
+
+- **Botón del profesional** (`chat-room.tsx`): "Tarjeta de lista de espera" en el
+  compositor (junto al de link de pago, con la misma confirmación desplegable).
+  Si no aplica, el profesional simplemente no la envía.
+- **Mensaje-tarjeta**: va como mensaje cifrado E2EE cuyo texto plano es un JSON
+  marcado (`src/shared/waitlist-prompt.ts`); el Durable Object lo trata como
+  cualquier mensaje, así que no hay tipos nuevos en el protocolo ni cambios en
+  el DO. La persona lo ve como una tarjeta con input de correo; envía con Enter
+  o con la flecha.
+- **Registro real**: el correo viaja por HTTPS a una Server Action autenticada
+  por la cookie de sala (nunca por el chat) con el mismo límite antiabuso del
+  formulario público; se guarda en `waitlist_entries` con `source = 'chat'` y
+  `conversation_id` (migración aditiva `0028_waitlist_chat`), con confirmación
+  por correo a la persona y aviso interno sin PII. El título y la descripción
+  los deriva el servidor del caso (área y profesional), nunca el cliente.
+- **Estado para ambas partes**: la tarjeta muestra "Anotado: correo" (y la fecha
+  a la persona) en cuanto existe la anotación; el profesional la ve al recargar
+  el hilo. Si el chat directo no tenía correo, queda guardado en la conversación
+  para los avisos y el enlace mágico de re-entrada.
+- **Retención**: la anonimización a los 12 meses también borra el vínculo con la
+  conversación.
+- **Tests**: payload puro, Server Action del chat (credencial de sala, validación,
+  actualización sin reavisar, límite, conversaciones anonimizadas/en papelera,
+  correo que no se sobreescribe) y migración. E2E real con dos navegadores y el
+  DO: tarjeta enviada, correo anotado y estado visible en las dos vistas.
+
+## 0.12.0 - 2026-09-15
+
+Lista de espera para quienes necesitan apoyo psicológico por motivos ajenos al
+terremoto: la ayuda gratuita de la emergencia está reservada para las víctimas,
+así que las demás personas se anotan y se les avisa cuando haya un cupo.
+
+- **Aviso "Antes de contactar"** (`src/components/waitlist-panel.tsx`): sección
+  que explica que el acompañamiento es gratis solo para las víctimas del
+  terremoto y ofrece los dos caminos de quien no lo es: anotarse en la lista de
+  espera o encontrar ayuda en una de las asociaciones aliadas. Se muestra antes
+  del catálogo de `/profesionales`, en `/ayuda` y en la nueva página
+  `/lista-de-espera`; cada página menciona además un aviso compacto
+  (`waitlist-callout.tsx`) en la portada, la FAQ, cómo funciona, alianzas y
+  quiénes somos.
+- **Formulario** (`waitlist-form.tsx`): correo, título ("¿Con qué necesitas
+  ayuda?") y descripción, con honeypot antirrobots, límite de 3 anotaciones
+  nuevas por correo o conexión en una hora y guardado en una sola sentencia
+  SQLite (verificación y escritura atómicas). UNA fila por correo: si la persona
+  reenvía el formulario se actualiza su anotación, sin duplicados.
+- **Tabla `waitlist_entries`** (migración aditiva `0027_waitlist_entries.sql`):
+  correo, título, descripción, origen, estado, hash irreversible de la conexión
+  y `anonymized_at`. Sin tocar ninguna tabla existente.
+- **Correos** (`email-templates.ts`): confirmación a la persona ("Te anotamos en
+  la lista de espera", con asociaciones aliadas y líneas de emergencia) y aviso
+  interno SIN datos personales que enlaza a `/admin#lista-espera`.
+- **Panel admin**: sección "Lista de espera" con las anotaciones (correo,
+  título, descripción, origen, fecha) y cambio de estado (En espera, Contactada,
+  En acompañamiento, Cerrada) con auditoría en `audit_logs`.
+- **Retención** (`retention.ts`): las anotaciones con 12 meses sin actividad se
+  anonimizan (se borran correo, título y descripción) y quedan cerradas.
+- **Privacidad y SEO**: política de privacidad actualizada (datos y retención de
+  la lista), `/lista-de-espera` en el sitemap y en el pie del sitio, y nueva
+  pregunta frecuente "No soy víctima del terremoto, ¿pueden ayudarme?".
+- **Accesibilidad**: enlaces dentro de los avisos con verde de mayor contraste
+  (`--accent-strong`, AA) para eliminar un fallo de contraste preexistente.
+
 ## 0.11.0 - 2026-09-14
 
 Cifrado de extremo a extremo del chat, historial completo sin tope práctico y

@@ -121,6 +121,16 @@ la clave para descifrarlos.
   malicioso del propio operador.
 - **El servidor no descifra nunca** y ningún flujo (correos, panel, métricas,
   admin, retención) necesita el contenido.
+- **Tarjeta de lista de espera (v0.13.0)**: mensaje especial dentro del hilo. El
+  profesional la envía con un botón del compositor y el texto plano del sobre es
+  un JSON marcado (`src/shared/waitlist-prompt.ts`); el DO lo trata como
+  cualquier mensaje (no hay tipos nuevos en el protocolo). La persona ve la
+  tarjeta con un input de correo; al enviarlo (Enter o flecha) el correo viaja
+  por HTTPS a una Server Action autenticada por la cookie de sala — nunca por el
+  chat — y se guarda en `waitlist_entries` (`source = 'chat'`,
+  `conversation_id`), con confirmación por correo y aviso interno. La tarjeta
+  muestra "Anotado" a las dos partes (la página lee la anotación vigente de la
+  conversación) y el profesional que no aplica simplemente no envía la tarjeta.
 
 ## Plan por fases
 - **Fase 0** — ✅ Spike de integración DO+WS sobre OpenNext (custom-worker echo).
@@ -132,6 +142,7 @@ la clave para descifrarlos.
 - **Fase 6 (v0.8.0)** — ✅ Persistencia: retención 90/180, sesión deslizante, `/acceso`, aviso de respuesta a la persona, reapertura del mismo hilo, bandeja del profesional con no leídos y cupo del chat directo.
 - **Fase 7 (v0.10.0)** — ✅ Chats eternos + borrado definitivo por las partes (purga del DO), cupo liberable por inactividad y links de pago insertables en el chat (módulo `src/lib/payments`).
 - **Fase 8 (v0.11.0)** — ✅ E2EE del chat (claves en el navegador, código de recuperación, migración del historial legado), paginación hacia atrás del historial, tope de mensajes ampliado a 20.000 y papelera con deshacer de 7 días antes del borrado definitivo.
+- **Fase 9 (v0.13.0)** — ✅ Tarjeta de lista de espera en el chat (para casos ajenos al terremoto): el profesional la envía con un botón y la persona deja su correo en el propio hilo; se guarda en `waitlist_entries` con vínculo a la conversación y avisos, sin tocar el protocolo ni el DO.
 
 ## Notificaciones por email (PRIMERA PRIORIDAD)
 

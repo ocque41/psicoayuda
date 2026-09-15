@@ -9,10 +9,12 @@ import {
   helpRequests,
   payments,
   professionals,
+  waitlistEntries,
 } from "@/db/schema";
 import { releaseAssignmentsForRequest } from "@/lib/assignment";
 import { finalizeConversationPurge } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
+import { WAITLIST_ANONYMIZE_AFTER_MS } from "@/lib/waitlist";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CLOSE_AFTER_MS = 90 * DAY_MS;
@@ -78,6 +80,45 @@ export async function anonymizeHelpRequest(
     action: "data_anonymization",
     entityType: "help_request",
     entityId: requestId,
+    createdAt: timestamp,
+  });
+
+  return { ok: true as const };
+}
+
+/**
+ * Anonimización de una anotación de la lista de espera: borra los datos
+ * personales (correo, título y descripción) y cierra la fila. El actor queda en
+ * la auditoría (null = cron). Idempotente vía `anonymized_at`.
+ */
+export async function anonymizeWaitlistEntry(
+  entryId: string,
+  actorEmail: string | null,
+) {
+  const timestamp = nowIso();
+
+  await db
+    .update(waitlistEntries)
+    .set({
+      // Token aleatorio: sin enlace residual al correo original.
+      email: `anon-${newId("waitlist")}@nido.local`,
+      title: "Anotación anonimizada",
+      description: "Contenido eliminado por la política de retención.",
+      // También se rompe el vínculo con la conversación de origen.
+      conversationId: null,
+      requesterHash: null,
+      status: "closed",
+      anonymizedAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .where(eq(waitlistEntries.id, entryId));
+
+  await db.insert(auditLogs).values({
+    id: newId("log"),
+    actorEmail,
+    action: "data_anonymization",
+    entityType: "waitlist_entry",
+    entityId: entryId,
     createdAt: timestamp,
   });
 
@@ -277,6 +318,29 @@ export async function runRetention(now: number = Date.now()) {
     else if (result === "do_failed") purgeFailed += 1;
   }
 
+  // 7) Anonimiza las anotaciones de la lista de espera sin actividad > 12 meses
+  // (apoyo por motivos ajenos al terremoto): se borran correo, título y
+  // descripción y la fila queda cerrada. Antes de anonimizar comprobamos que la
+  // fila sigue vencida para evitar carreras con una anotación recién actualizada.
+  const waitlistCutoff = new Date(
+    now - WAITLIST_ANONYMIZE_AFTER_MS,
+  ).toISOString();
+  const staleWaitlist = await db
+    .select({ id: waitlistEntries.id, updatedAt: waitlistEntries.updatedAt })
+    .from(waitlistEntries)
+    .where(
+      and(
+        isNull(waitlistEntries.anonymizedAt),
+        lt(waitlistEntries.updatedAt, waitlistCutoff),
+      ),
+    );
+  let waitlistAnonymized = 0;
+  for (const entry of staleWaitlist) {
+    if (isoMs(entry.updatedAt) >= now - WAITLIST_ANONYMIZE_AFTER_MS) continue;
+    await anonymizeWaitlistEntry(entry.id, null);
+    waitlistAnonymized += 1;
+  }
+
   return {
     anonymized,
     closed,
@@ -287,5 +351,6 @@ export async function runRetention(now: number = Date.now()) {
     paymentsExpired: expiredPayments.length,
     purgedTrash,
     purgeFailed,
+    waitlistAnonymized,
   };
 }

@@ -1435,3 +1435,88 @@ Nido · apoyo psicológico voluntario, gratis y a distancia.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
+
+/**
+ * Confirmación a la persona de que quedó anotada en la lista de espera (apoyo
+ * por motivos AJENOS al terremoto). Sin datos clínicos: confirma la anotación,
+ * recuerda para quién es la ayuda gratuita, explica qué sigue y ofrece los
+ * caminos alternativos (asociaciones aliadas y líneas de emergencia).
+ */
+export function buildWaitlistConfirmationEmail(input: {
+  associationsUrl: string;
+  emergencyUrl: string;
+  contactUrl: string;
+}): BuiltEmail {
+  const associationsUrl = escapeHtml(input.associationsUrl);
+  const emergencyUrl = escapeHtml(input.emergencyUrl);
+  const contactUrl = escapeHtml(input.contactUrl);
+  const subject = "Te anotamos en la lista de espera — Nido";
+  const preheader =
+    "Te escribiremos cuando haya disponibilidad para acompañarte.";
+
+  const html = securityEmailHtml({
+    subject,
+    preheader,
+    greeting: "Hola,",
+    paragraphs: [
+      "Te anotamos en la <strong>lista de espera</strong> de Nido. Cuando haya un profesional voluntario disponible, te escribiremos a este correo para acompañarte.",
+      "Recuerda: la ayuda gratuita de Nido está reservada hoy para las víctimas del terremoto. Tu anotación es para recibir apoyo psicológico por otro motivo cuando se libere un cupo.",
+      `Mientras tanto, puedes encontrar ayuda en una de las <a href="${associationsUrl}" target="_blank" style="color:#2f7a5b;">asociaciones aliadas</a>.`,
+    ],
+    cta: { label: "Ver asociaciones aliadas", url: input.associationsUrl },
+    footnote: `Si necesitas ayuda antes o estás en peligro, no esperes: revisa las <a href="${emergencyUrl}" target="_blank" style="color:#2f7a5b;">líneas de ayuda inmediata</a>. Si ya no quieres seguir en la lista, <a href="${contactUrl}" target="_blank" style="color:#2f7a5b;">escríbenos</a> y te quitamos.`,
+  });
+
+  const text = `Hola,
+
+Te anotamos en la lista de espera de Nido. Cuando haya un profesional voluntario disponible, te escribiremos a este correo para acompañarte.
+
+Recuerda: la ayuda gratuita de Nido está reservada hoy para las víctimas del terremoto. Tu anotación es para recibir apoyo psicológico por otro motivo cuando se libere un cupo.
+
+Mientras tanto, puedes encontrar ayuda en una de las asociaciones aliadas:
+${input.associationsUrl}
+
+Si necesitas ayuda antes o estás en peligro, no esperes:
+${input.emergencyUrl}
+
+Si ya no quieres seguir en la lista, escríbenos:
+${input.contactUrl}
+
+Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia.`;
+
+  return { subject, html, text, headers: {} };
+}
+
+/**
+ * Aviso interno de una anotación nueva en la lista de espera. Sin datos
+ * personales: el correo, el título y la descripción viven tras /admin.
+ */
+export function buildWaitlistAlertEmail(input: {
+  adminUrl: string;
+  sourceLabel: string;
+}): BuiltEmail {
+  const url = input.adminUrl;
+  const urlAttr = escapeHtml(url);
+  const subject = "Nueva anotación en la lista de espera — Nido";
+  const html = `<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(subject)}</title></head>
+  <body style="margin:0;padding:24px;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <div style="max-width:560px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e7decf;border-radius:14px;">
+      <p style="margin:0 0 4px;font-weight:700;color:#245f47;">Nido · lista de espera</p>
+      <h1 style="margin:0 0 16px;font-size:22px;">Alguien se anotó para recibir apoyo</h1>
+      <p style="line-height:1.6;">Llegó una anotación desde <strong>${escapeHtml(input.sourceLabel)}</strong> (persona que necesita apoyo psicológico por un motivo ajeno al terremoto). Por privacidad, el correo y el contenido se ven únicamente en el panel protegido.</p>
+      <p><a href="${urlAttr}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#2f7a5b;color:#fff;text-decoration:none;font-weight:700;">Abrir la lista de espera</a></p>
+    </div>
+  </body>
+</html>`;
+  const text = [
+    "Llegó una anotación nueva a la lista de espera de Nido.",
+    `Origen: ${input.sourceLabel}`,
+    "",
+    "Por privacidad, revisa el correo y el contenido en el panel protegido:",
+    url,
+  ].join("\n");
+
+  return { subject, html, text, headers: {} };
+}

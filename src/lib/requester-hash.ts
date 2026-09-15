@@ -7,7 +7,8 @@ import { getAuthSecret } from "@/lib/auth-secret";
 export type RequesterHashPurpose =
   | "contact_message"
   | "help_request"
-  | "payment_checkout";
+  | "payment_checkout"
+  | "waitlist_entry";
 
 /**
  * El propósito forma parte del hash para que el código de un formulario de
