@@ -109,7 +109,6 @@ export function PracticeCalendar({
   );
   const dateButtons = useRef(new Map<number, HTMLButtonElement>());
   const restoreFocus = useRef<{ month: string; day: number } | null>(null);
-  const transition = useRef<ViewTransition | null>(null);
   const first = new Date(`${month}-01T12:00:00Z`);
   const final = new Date(first);
   final.setUTCMonth(final.getUTCMonth() + 1);
@@ -171,26 +170,12 @@ export function PracticeCalendar({
     setFocusedDay(day);
     dateButtons.current.get(day)?.focus();
   }, [month, days]);
-  useEffect(() => () => transition.current?.skipTransition(), []);
 
   function monthHref(target: string, day?: string) {
     return calendarHref(pathname, params.toString(), month, {
       mes: target,
       dia: day ?? null,
     });
-  }
-  function morph(update: () => void) {
-    transition.current?.skipTransition();
-    if (
-      typeof document.startViewTransition === "function" &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      transition.current = document.startViewTransition(() =>
-        flushSync(update),
-      );
-      // Rapid repeated selections can legitimately skip the prior snapshot.
-      void transition.current.ready.catch(() => {});
-    } else update();
   }
   function select(day: string | null) {
     updateContext({ dia: day });
@@ -200,19 +185,22 @@ export function PracticeCalendar({
     vista?: CalendarView;
   }) {
     // Next.js integra History con useSearchParams sin consultar el mes al servidor.
-    const href = calendarHref(
-      pathname,
-      window.location.search,
-      month,
-      { mes: month, ...changes },
-      window.location.hash.slice(1),
-    );
-    if (
-      `${window.location.pathname}${window.location.search}${window.location.hash}` ===
-      href
-    )
-      return;
-    morph(() => window.history.pushState(null, "", href));
+    flushSync(() => {
+      // Cada clic se compone desde la URL vigente y se refleja al instante.
+      const href = calendarHref(
+        pathname,
+        window.location.search,
+        month,
+        { mes: month, ...changes },
+        window.location.hash.slice(1),
+      );
+      if (
+        `${window.location.pathname}${window.location.search}${window.location.hash}` ===
+        href
+      )
+        return;
+      window.history.pushState(null, "", href);
+    });
   }
   function focusDate(day: number) {
     if (day >= 1 && day <= days) {
@@ -470,7 +458,7 @@ export function PracticeCalendar({
               return (
                 <article
                   className={`calendar-event calendar-event-${event.status}`}
-                  key={event.id}
+                  key={`${view}:${selected ?? "mes"}:${event.id}`}
                 >
                   <time
                     className="calendar-event-time"
@@ -506,7 +494,10 @@ export function PracticeCalendar({
               );
             })}
             {!visible.length ? (
-              <div className="calendar-empty">
+              <div
+                className="calendar-empty"
+                key={`${view}:${selected ?? "mes"}:empty`}
+              >
                 <span className="calendar-empty-icon">
                   <WorkspaceIcon name="leaf" />
                 </span>

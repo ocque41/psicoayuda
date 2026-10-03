@@ -3742,7 +3742,6 @@ a.professional-carousel-link:focus-visible {
   background: var(--accent-strong);
   color: #fff;
   outline: 0;
-  view-transition-name: nido-calendar-selection;
 }
 .calendar-day.selected:focus-visible {
   outline: 2px solid var(--accent);
@@ -3788,7 +3787,6 @@ a.professional-carousel-link:focus-visible {
   min-width: 0;
   border-left: 1px solid var(--border);
   padding-left: 28px;
-  view-transition-name: nido-calendar-agenda;
 }
 .calendar-view-list .calendar-agenda {
   border: 0;
@@ -3984,20 +3982,7 @@ a.professional-carousel-link:focus-visible {
   white-space: nowrap;
 }
 
-::view-transition-group(nido-calendar-selection),
-::view-transition-group(nido-calendar-agenda) {
-  animation-duration: var(--motion-duration);
-  animation-timing-function: var(--motion-ease);
-}
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-::view-transition-old(nido-calendar-agenda) {
-  animation: nido-agenda-out 120ms ease both;
-}
-::view-transition-new(nido-calendar-agenda) {
+.calendar-events > * {
   animation: nido-agenda-in var(--motion-duration) var(--motion-ease) both;
 }
 @keyframes nido-agenda-in {
@@ -4008,11 +3993,6 @@ a.professional-carousel-link:focus-visible {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-@keyframes nido-agenda-out {
-  to {
-    opacity: 0;
   }
 }
 
@@ -4366,13 +4346,7 @@ a.professional-carousel-link:focus-visible {
   .site-navigation .nav-links.is-open {
     animation: none;
   }
-  .calendar-day.selected,
-  .calendar-agenda {
-    view-transition-name: none;
-  }
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
+  .calendar-events > * {
     animation: none;
   }
 }

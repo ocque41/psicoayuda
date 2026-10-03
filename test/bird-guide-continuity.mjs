@@ -209,6 +209,32 @@ try {
     });
   });
   await check(
+    "tarjeta móvil alta conserva título y acción; ave completa bajo la cabecera y sobre la guía",
+    async () => {
+      await cli("set", "viewport", "390", "844");
+      await evaluate(
+        "const header=document.createElement('header');header.className='topbar';header.id='fixture-navbar';header.textContent='Cabecera ficticia';header.style.cssText='position:fixed;inset:0 0 auto;height:70px;background:#faf6f0;z-index:50';document.body.prepend(header);document.getElementById('demo-agenda').style.minHeight='760px';",
+      );
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "(()=>{const bird=document.querySelector('span[data-step]');const target=document.getElementById('demo-agenda').getBoundingClientRect();return bird?.dataset.flying==='false' && target.top>=90 && target.top<=120;})()",
+      );
+      assert.equal(
+        await evaluate(
+          "const panel=document.querySelector('[role=dialog]').getBoundingClientRect();const target=document.getElementById('demo-agenda');const title=target.querySelector('h2').getBoundingClientRect();const button=target.querySelector('button');const control=button.getBoundingClientRect();const bird=document.querySelector('span[data-step]');const b=bird.getBoundingClientRect();const navbar=document.getElementById('fixture-navbar').getBoundingClientRect();return panel.top>500 && panel.bottom<=innerHeight-10 && title.top>navbar.bottom && title.bottom<panel.top && control.bottom<panel.top && document.elementFromPoint(control.left+control.width/2,control.top+control.height/2)===button && b.top>=navbar.bottom+8 && b.bottom<panel.top && b.left>=0 && b.right<=innerWidth && getComputedStyle(bird).opacity==='1';",
+        ),
+        true,
+      );
+      await cli("screenshot", "/tmp/nido-bird-guide-fixture-mobile-tall.png");
+      await cli("press", "Escape");
+      await until("!document.querySelector('[role=dialog]')");
+      await evaluate(
+        "document.getElementById('fixture-navbar').remove();document.getElementById('demo-agenda').style.minHeight='220px';window.scrollTo({top:0,behavior:'instant'});",
+      );
+      await until("scrollY===0");
+    },
+  );
+  await check(
     "objetivo ausente se explica y observer recupera su montaje",
     async () => {
       await evaluate(
@@ -216,7 +242,7 @@ try {
       );
       await cli("click", "button[aria-expanded=false]");
       await until(
-        "document.querySelector('[role=dialog]').textContent.includes('Esta sección no está visible')",
+        "document.querySelector('[role=dialog]')?.textContent.includes('Esta sección no está visible')",
       );
       await evaluate(
         "const el=document.getElementById('demo-temporal');el.id='demo-agenda';el.appendChild(document.createElement('span'));",
@@ -267,6 +293,18 @@ try {
       2,
     ),
   );
+} catch (error) {
+  if (launched) {
+    await cli("screenshot", "/tmp/nido-bird-guide-fixture-failure.png").catch(
+      () => {},
+    );
+    console.error(
+      await evaluate(
+        "return {panel:document.querySelector('[role=dialog]')?.textContent||null,trigger:document.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded'),target:!!document.getElementById('demo-agenda'),temporaryTarget:!!document.getElementById('demo-temporal'),active:document.activeElement?.tagName};",
+      ).catch(() => null),
+    );
+  }
+  throw error;
 } finally {
   if (launched) await cli("close").catch(() => {});
   await new Promise((resolve) => server.close(resolve));

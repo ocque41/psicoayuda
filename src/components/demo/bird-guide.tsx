@@ -151,6 +151,7 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
     const bird = birdRef.current;
     const highlight = highlightRef.current;
     if (!panel || !bird || !highlight) return;
+    const navbar = document.querySelector<HTMLElement>("header.topbar");
     bird.dataset.step = stepId;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
@@ -187,20 +188,38 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
         Number.parseFloat(
           getComputedStyle(panel).getPropertyValue("--guide-safe-bottom"),
         ) || 0;
+      const navbarRect = navbar?.getBoundingClientRect();
+      const contentTop = Math.max(
+        top + 12,
+        navbarRect && navbarRect.top <= top + 1
+          ? navbarRect.bottom + 12
+          : top + 12,
+      );
       const rect = target?.getBoundingClientRect();
       const available = Boolean(rect && rect.width > 0 && rect.height > 0);
+      const tallMobileTarget = Boolean(
+        width < 640 &&
+          rect &&
+          rect.height > height - panelHeight - (contentTop - top) - 24,
+      );
       setTargetVisible(available);
       highlight.style.opacity = available ? "1" : "0";
       if (available && target && rect && !scrolled) {
         scrolled = true;
         // Reservar espacio para el panel, sin cambiar estilos ni foco de la demo.
-        const desiredTop = Math.min(
-          108,
-          Math.max(
-            24,
-            (height - panelHeight - Math.min(rect.height, height / 2)) / 2,
-          ),
-        );
+        const desiredTop = tallMobileTarget
+          ? contentTop - top + 12
+          : Math.max(
+              contentTop - top + 12,
+              Math.min(
+                108,
+                Math.max(
+                  24,
+                  (height - panelHeight - Math.min(rect.height, height / 2)) /
+                    2,
+                ),
+              ),
+            );
         window.scrollTo({
           top: Math.max(0, window.scrollY + rect.top - top - desiredTop),
           behavior: reduced.matches ? "instant" : "smooth",
@@ -219,7 +238,7 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
         top + 12,
         top + height - panelHeight - Math.max(12, safeBottom + 8),
       );
-      const topY = top + Math.min(84, height / 5);
+      const topY = Math.max(contentTop, top + Math.min(84, height / 5));
       const overlap = (y: number) =>
         rect
           ? Math.max(
@@ -232,7 +251,12 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
               Math.min(rect.bottom, y + panelHeight) - Math.max(rect.top, y),
             )
           : 0;
-      const panelY = overlap(topY) < overlap(bottomY) ? topY : bottomY;
+      // Una tarjeta alta puede intersectar ambos docks: en móvil proteger su cabecera.
+      const panelY = tallMobileTarget
+        ? bottomY
+        : overlap(topY) < overlap(bottomY)
+          ? topY
+          : bottomY;
       panel.style.transform = `translate3d(${panelX}px, ${panelY}px, 0)`;
       panel.dataset.ready = "true";
       const birdX = Math.min(
@@ -241,15 +265,20 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
       );
       let birdY = Math.min(
         top + height - 82,
-        Math.max(top + 8, rect ? rect.top - 62 : panelY - 72),
+        Math.max(contentTop, rect ? rect.top - 62 : panelY - 80),
       );
+      let birdFits = birdY >= contentTop;
       if (
         birdX + 72 > panelX &&
         birdX < panelX + panelWidth &&
         birdY + 72 > panelY &&
         birdY < panelY + panelHeight
-      )
-        birdY = Math.max(top + 8, panelY - 72);
+      ) {
+        if (panelY - 80 >= contentTop) birdY = panelY - 80;
+        else if (panelY + panelHeight + 80 <= top + height - 10)
+          birdY = panelY + panelHeight + 8;
+        else birdFits = false;
+      }
       if (!flightStarted) {
         flightStarted = true;
         bird.dataset.flying = "true";
@@ -258,7 +287,7 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
         }, 850);
       }
       bird.style.transform = `translate3d(${birdX}px, ${birdY}px, 0)`;
-      bird.style.opacity = available ? "1" : "0";
+      bird.style.opacity = available && birdFits ? "1" : "0";
       if (rect) {
         highlight.style.transform = `translate3d(${rect.left - 4}px, ${rect.top - 4}px, 0)`;
         highlight.style.width = `${rect.width + 8}px`;
@@ -270,6 +299,7 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
     }
     const resize = new ResizeObserver(schedule);
     resize.observe(panel);
+    if (navbar) resize.observe(navbar);
     const mutation = new MutationObserver(schedule);
     mutation.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", schedule, { passive: true });
