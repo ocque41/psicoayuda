@@ -53,6 +53,8 @@ export function WorkspaceNav({
           {audience === "patient" ? "Tu espacio" : "Tu consulta"}
         </p>
         <nav
+          id={audience === "professional" ? "practice-navigation" : undefined}
+          data-workspace-navigation
           className="workspace-nav"
           aria-label={
             audience === "patient" ? "Tu espacio personal" : "Tu consulta"

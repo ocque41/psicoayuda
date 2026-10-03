@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
-import { PracticeDemo } from "@/components/demo/practice-demo";
+import { getServerSession } from "@/lib/auth-server";
+import { PracticeEntry } from "./practice-entry";
 
 export const metadata: Metadata = {
-  title: "Conoce tu consulta · Demo de Nido",
+  title: "Entra a tu consulta · Nido",
   description:
-    "Explora la agenda, pacientes, notas, mensajes y cobros de Nido en una demostración guiada con datos de ejemplo.",
+    "Entra en tu cuenta para organizar tu agenda, fichas y conversaciones reales.",
   robots: { index: false, follow: false },
 };
-export default function DemoPage() {
-  return <PracticeDemo initialMonth={new Date().toISOString().slice(0, 7)} />;
+export default async function PracticeEntryPage() {
+  const session = await getServerSession();
+  return (
+    <PracticeEntry
+      signedIn={Boolean(session?.user.id)}
+      googleEnabled={Boolean(
+        process.env.GOOGLE_CLIENT_ID?.trim() &&
+          process.env.GOOGLE_CLIENT_SECRET?.trim(),
+      )}
+    />
+  );
 }

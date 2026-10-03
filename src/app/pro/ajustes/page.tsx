@@ -27,7 +27,7 @@ export default async function SettingsPage({
       <div className="container practice-shell">
         <h1>Tu consulta, a tu medida</h1>
         <PracticeNav />
-        <div className="card">
+        <div className="card" id="practice-settings">
           <h2>Zona horaria y horario de solicitudes</h2>
           <p>
             Las nuevas ofertas automáticas se envían durante este horario. Los
@@ -64,11 +64,13 @@ export default async function SettingsPage({
           audience="professional"
           timeZone={settings?.timeZone || "America/Caracas"}
         />
-        <CalendarConnectionPanel
-          userId={pro.userId}
-          audience="pro"
-          feedback={params.calendario}
-        />
+        <div id="practice-calendar-settings">
+          <CalendarConnectionPanel
+            userId={pro.userId}
+            audience="pro"
+            feedback={params.calendario}
+          />
+        </div>
       </div>
     </section>
   );

@@ -65,7 +65,11 @@ export default async function ReceiptsPage({
             Los pagos externos que has registrado, con su fecha efectiva y un
             historial que conserva cada cambio.
           </p>
-          <form method="get" className={styles.filters}>
+          <form
+            method="get"
+            className={styles.filters}
+            id="practice-receipt-filters"
+          >
             <label>
               Periodo
               <input
@@ -115,7 +119,7 @@ export default async function ReceiptsPage({
               </p>
             )}
           </section>
-          <div className={styles.actions}>
+          <div className={styles.actions} id="practice-receipt-actions">
             <Link className="button secondary" href="/pro/pacientes">
               Registrar un pago en una ficha
             </Link>

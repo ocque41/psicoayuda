@@ -35,13 +35,13 @@ export default function ProfessionalLanding() {
               >
                 Crear mi perfil<span aria-hidden="true">↗</span>
               </Link>
-              <Link className="marketing-text-link" href="/pro">
+              <Link className="marketing-text-link" href="/pro/consulta">
                 Entrar a mi consulta<span aria-hidden="true">→</span>
               </Link>
             </div>
             <p>
-              <Link className="marketing-text-link" href="/demo/consulta">
-                Explorar mi consulta con el pajarito
+              <Link className="marketing-text-link" href="/pro/consulta">
+                Abrir mi consulta y su recorrido guiado
                 <span aria-hidden="true">→</span>
               </Link>
             </p>
