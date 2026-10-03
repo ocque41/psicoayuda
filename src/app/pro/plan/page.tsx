@@ -122,8 +122,11 @@ export default async function PlanPage({
               </PracticeForm>
             ) : (
               <p className="hint">
-                Los cobros del software aún no están abiertos. Puedes usar la
-                consulta durante la beta.
+                {!ready
+                  ? "Los cobros del software aún no están abiertos. Puedes usar la consulta durante la beta."
+                  : pro.status !== "approved"
+                    ? "Tu perfil necesita aprobación antes de contratar el software."
+                    : "Activa primero tu prueba gratuita para elegir un plan."}
               </p>
             )}
             {member?.stripeCustomerId ? (

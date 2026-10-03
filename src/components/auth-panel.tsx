@@ -149,7 +149,7 @@ export function AuthPanel({
           return;
         }
         setInfo(
-          "Si ese correo tiene cuenta, te enviamos un enlace para crear una contraseña nueva. Revisa también el spam; caduca en 1 hora.",
+          "Si ese correo tiene cuenta y podemos enviar el correo, recibirás un enlace para crear una contraseña nueva. Revisa también el spam; el enlace caduca en 1 hora.",
         );
         return;
       }

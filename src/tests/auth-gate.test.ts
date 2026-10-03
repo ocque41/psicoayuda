@@ -112,8 +112,8 @@ describe("authorizeConnection", () => {
 describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
   const now = 1000;
 
-  it("permite cuando no hay fila (se apoya en el token ya validado)", () => {
-    expect(seekerSessionAllows(null, now)).toBe(true);
+  it("rechaza cuando no hay fila registrada", () => {
+    expect(seekerSessionAllows(null, now)).toBe(false);
   });
 
   it("permite sesión vigente y conversación abierta", () => {
@@ -197,7 +197,7 @@ describe("seekerCanSend (lectura vs escritura)", () => {
     anonymized_at: null,
   };
   it("escribir solo con conversación abierta", () => {
-    expect(seekerCanSend(null)).toBe(true);
+    expect(seekerCanSend(null)).toBe(false);
     expect(seekerCanSend({ ...base, status: "open" })).toBe(true);
     expect(seekerCanSend({ ...base, status: "closed" })).toBe(false);
     expect(seekerCanSend({ ...base, status: "closed", anonymized_at: 1 })).toBe(
@@ -207,8 +207,8 @@ describe("seekerCanSend (lectura vs escritura)", () => {
 });
 
 describe("professionalConnectionAllows (kill-switch del profesional)", () => {
-  it("permite cuando no hay fila (se apoya en el token ya validado)", () => {
-    expect(professionalConnectionAllows(null)).toBe(true);
+  it("rechaza cuando no hay fila registrada", () => {
+    expect(professionalConnectionAllows(null)).toBe(false);
   });
 
   it("permite conversación abierta y profesional activo", () => {
@@ -255,7 +255,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
 
 describe("professionalCanSend (lectura vs escritura)", () => {
   it("escribir solo con conversación abierta", () => {
-    expect(professionalCanSend(null)).toBe(true);
+    expect(professionalCanSend(null)).toBe(false);
     expect(
       professionalCanSend({
         conversation_status: "open",
@@ -276,12 +276,33 @@ describe("professionalCanSend (lectura vs escritura)", () => {
 });
 
 describe("makeOnBeforeConnect (guard de Origin)", () => {
-  // env sin DB: el kill-switch de sesión es best-effort y permite, así que estos
-  // tests aíslan el comportamiento del guard de Origin.
+  // Base simulada explícita: estos casos aíslan el guard de Origin,
+  // mientras auth-gate-d1 prueba las consultas y permisos reales.
   const env = {
     // Literal allowlisted en scripts/secret-scan.mjs (no es un secreto real).
     BETTER_AUTH_SECRET: "test-secret",
     BETTER_AUTH_URL: "https://nido.example",
+    DB: {
+      prepare: (query: string) => ({
+        bind: () => ({
+          first: async () =>
+            query.includes("professional_status")
+              ? {
+                  conversation_status: "open",
+                  professional_status: "approved",
+                  deleted_at: null,
+                  anonymized_at: null,
+                }
+              : {
+                  status: "open",
+                  revoked_at: null,
+                  expires_at: Date.now() + 3600000,
+                  deleted_at: null,
+                  anonymized_at: null,
+                },
+        }),
+      }),
+    } as unknown as D1Database,
   };
   const lobby = { party: "conversation", name: CONV };
   // makeOnBeforeConnect usa Date.now() real, así que el token necesita una

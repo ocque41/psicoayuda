@@ -1,5 +1,5 @@
 "use server";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -31,6 +31,10 @@ import {
   serviceSchema,
   settingsSchema,
 } from "@/lib/practice/domain";
+import {
+  currentPracticeActor,
+  nextPracticeTimestamp,
+} from "@/lib/practice/mutation-guard";
 import { receiptReceivedAt } from "@/lib/practice/receipts";
 
 export type PracticeFormState = { ok: boolean; message: string } | null;
@@ -46,15 +50,32 @@ function refresh() {
   revalidatePath("/pro/mensajes");
   revalidatePath("/pro/dashboard");
 }
-function audit(pro: { email: string }, action: string, entityId: string) {
-  return db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: pro.email,
-    action,
-    entityType: "practice",
-    entityId,
-    createdAt: nowIso(),
-  });
+function audit(
+  pro: { id: string; userId: string; email: string },
+  action: string,
+  entityId: string,
+) {
+  // Debe ir inmediatamente después de la mutación dentro del mismo batch.
+  return db.insert(auditLogs).select(
+    db
+      .select({
+        id: sql<string>`${newId("log")}`.as("id"),
+        actorEmail: sql<string>`${pro.email}`.as("actor_email"),
+        action: sql<string>`${action}`.as("action"),
+        entityType: sql<string>`'practice'`.as("entity_type"),
+        entityId: sql<string>`${entityId}`.as("entity_id"),
+        metadata: sql<null>`NULL`.as("metadata"),
+        createdAt: sql<string>`${nowIso()}`.as("created_at"),
+      })
+      .from(professionals)
+      .where(
+        and(
+          eq(professionals.id, pro.id),
+          currentPracticeActor(pro.id, pro.userId),
+          sql`changes() > 0`,
+        ),
+      ),
+  );
 }
 
 export async function createPatient(
@@ -66,37 +87,66 @@ export async function createPatient(
   if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
   const conversationId = String(form.get("conversationId") || "");
   let program = parsed.data.program;
+  let linkedHelpRequestId: string | null = null;
   if (conversationId) {
     const chat = await db.query.conversations.findFirst({
       where: and(
         eq(conversations.id, conversationId),
         eq(conversations.professionalId, pro.id),
+        eq(conversations.status, "open"),
+        isNull(conversations.closedAt),
         isNull(conversations.deletedAt),
+        isNull(conversations.anonymizedAt),
       ),
     });
     if (!chat) return invalid("Esta conversación no está disponible.");
+    linkedHelpRequestId = chat.helpRequestId;
     // El formulario de ayuda existente pertenece al programa del terremoto.
     if (chat.helpRequestId) program = "earthquake";
   }
   const id = newId("patient");
   const timestamp = nowIso();
   try {
-    await db.batch([
-      db.insert(practicePatients).values({
-        id,
-        professionalId: pro.id,
-        conversationId: conversationId || null,
-        name: parsed.data.name,
-        email: parsed.data.email,
-        country: parsed.data.country,
-        timeZone: parsed.data.timeZone,
-        program,
-        consentAt: timestamp,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }),
+    const [saved] = await db.batch([
+      db
+        .insert(practicePatients)
+        .select(
+          db
+            .select({
+              id: sql<string>`${id}`.as("id"),
+              professionalId: professionals.id,
+              conversationId: sql<string | null>`${conversationId || null}`.as(
+                "conversation_id",
+              ),
+              name: sql<string>`${parsed.data.name}`.as("name"),
+              email: sql<string>`${parsed.data.email}`.as("email"),
+              country: sql<string>`${parsed.data.country}`.as("country"),
+              timeZone: sql<string>`${parsed.data.timeZone}`.as("time_zone"),
+              program:
+                sql<string>`CASE WHEN EXISTS (SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.help_request_id IS NOT NULL) THEN 'earthquake' ELSE ${program} END`.as(
+                  "program",
+                ),
+              status: sql<string>`'new'`.as("status"),
+              consentAt: sql<string>`${timestamp}`.as("consent_at"),
+              createdAt: sql<string>`${timestamp}`.as("created_at"),
+              updatedAt: sql<string>`${timestamp}`.as("updated_at"),
+            })
+            .from(professionals)
+            .where(
+              and(
+                eq(professionals.id, pro.id),
+                currentPracticeActor(pro.id, pro.userId),
+                sql`(${conversationId}='' OR EXISTS (SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.professional_id=${pro.id} AND c.status='open' AND c.closed_at IS NULL AND c.deleted_at IS NULL AND c.anonymized_at IS NULL AND c.help_request_id IS ${linkedHelpRequestId}))`,
+              ),
+            ),
+        )
+        .returning({ id: practicePatients.id }),
       audit(pro, "patient_created", id),
     ]);
+    if (!saved.length)
+      return invalid(
+        "Tu consulta o esta conversación cambió. Actualiza la página antes de guardar la ficha.",
+      );
   } catch {
     return invalid(
       "No pudimos guardar la ficha. Si ya vinculaste ese chat, abre su ficha existente.",
@@ -117,16 +167,46 @@ export async function saveService(
   if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
   const { price, ...data } = parsed.data;
   const id = newId("service");
-  await db.batch([
-    db.insert(practiceServices).values({
-      ...data,
-      priceCents: moneyCents(price),
-      id,
-      professionalId: pro.id,
-      createdAt: nowIso(),
-    }),
+  const [saved] = await db.batch([
+    db
+      .insert(practiceServices)
+      .select(
+        db
+          .select({
+            id: sql<string>`${id}`.as("id"),
+            professionalId: professionals.id,
+            title: sql<string>`${data.title}`.as("title"),
+            durationMinutes: sql<number>`${data.durationMinutes}`.as(
+              "duration_minutes",
+            ),
+            sessionsCount: sql<number>`${data.sessionsCount}`.as(
+              "sessions_count",
+            ),
+            priceCents: sql<number>`${moneyCents(price)}`.as("price_cents"),
+            currency: sql<string>`${data.currency}`.as("currency"),
+            interval: sql<string>`${data.interval}`.as("interval"),
+            validityDays: sql<number>`${data.validityDays}`.as("validity_days"),
+            cancellationHours: sql<number>`${data.cancellationHours}`.as(
+              "cancellation_hours",
+            ),
+            active: sql<boolean>`1`.as("active"),
+            createdAt: sql<string>`${nowIso()}`.as("created_at"),
+          })
+          .from(professionals)
+          .where(
+            and(
+              eq(professionals.id, pro.id),
+              currentPracticeActor(pro.id, pro.userId),
+            ),
+          ),
+      )
+      .returning({ id: practiceServices.id }),
     audit(pro, "service_created", id),
   ]);
+  if (!saved.length)
+    return invalid(
+      "Tu consulta cambió y no pudimos guardar el servicio. Actualiza la página.",
+    );
   revalidatePath("/pro/servicios");
   refresh();
   return { ok: true, message: "Servicio guardado." };
@@ -138,13 +218,44 @@ export async function saveSettings(
   const pro = await requirePracticeProfessional();
   const parsed = settingsSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
-  await db
+  const previous = await db.query.practiceSettings.findFirst({
+    where: eq(practiceSettings.professionalId, pro.id),
+  });
+  const timestamp = nextPracticeTimestamp(previous?.updatedAt);
+  const saved = await db
     .insert(practiceSettings)
-    .values({ ...parsed.data, professionalId: pro.id, updatedAt: nowIso() })
+    .select(
+      db
+        .select({
+          professionalId: professionals.id,
+          timeZone: sql<string>`${parsed.data.timeZone}`.as("time_zone"),
+          workStart: sql<number>`${parsed.data.workStart}`.as("work_start"),
+          workEnd: sql<number>`${parsed.data.workEnd}`.as("work_end"),
+          updatedAt: sql<string>`${timestamp}`.as("updated_at"),
+        })
+        .from(professionals)
+        .where(
+          and(
+            eq(professionals.id, pro.id),
+            currentPracticeActor(pro.id, pro.userId),
+            previous
+              ? sql`EXISTS (SELECT 1 FROM practice_settings prior WHERE prior.professional_id=${pro.id} AND prior.updated_at=${previous.updatedAt})`
+              : sql`NOT EXISTS (SELECT 1 FROM practice_settings prior WHERE prior.professional_id=${pro.id})`,
+          ),
+        ),
+    )
     .onConflictDoUpdate({
       target: practiceSettings.professionalId,
-      set: { ...parsed.data, updatedAt: nowIso() },
-    });
+      set: { ...parsed.data, updatedAt: timestamp },
+      setWhere: previous
+        ? eq(practiceSettings.updatedAt, previous.updatedAt)
+        : sql`0`,
+    })
+    .returning({ id: practiceSettings.professionalId });
+  if (!saved.length)
+    return invalid(
+      "Tu consulta o el horario cambió en otra ventana. Actualiza la página antes de guardar.",
+    );
   revalidatePath("/pro/ajustes");
   refresh();
   return { ok: true, message: "Horario guardado." };
@@ -202,28 +313,75 @@ export async function scheduleAppointment(
   const id = newId("appointment");
   const timestamp = nowIso();
   try {
-    await db.batch([
-      db.insert(practiceAppointments).values({
-        id,
-        professionalId: pro.id,
-        patientId,
-        careCycleId: careCycleId || null,
-        serviceId: service.id,
-        startsAt,
-        endsAt,
-        timeZone,
-        modality,
-        priceCents:
-          patient.program === "earthquake"
-            ? 0
-            : Math.round(service.priceCents / service.sessionsCount),
-        currency: service.currency,
-        cancellationHours: service.cancellationHours,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }),
+    const [saved] = await db.batch([
+      db
+        .insert(practiceAppointments)
+        .select(
+          db
+            .select({
+              id: sql<string>`${id}`.as("id"),
+              professionalId: professionals.id,
+              patientId: practicePatients.id,
+              serviceId: practiceServices.id,
+              startsAt: sql<string>`${startsAt}`.as("starts_at"),
+              endsAt: sql<string>`${endsAt}`.as("ends_at"),
+              timeZone: sql<string>`${timeZone}`.as("time_zone"),
+              status: sql<string>`'scheduled'`.as("status"),
+              modality: sql<string>`${modality}`.as("modality"),
+              priceCents:
+                sql<number>`CASE WHEN ${practicePatients.program}='earthquake' THEN 0 ELSE round(${practiceServices.priceCents} * 1.0 / ${practiceServices.sessionsCount}) END`.as(
+                  "price_cents",
+                ),
+              currency: practiceServices.currency,
+              cancellationHours: practiceServices.cancellationHours,
+              dailyRoom: sql<null>`NULL`.as("daily_room"),
+              careCycleId: sql<string | null>`${careCycleId || null}`.as(
+                "care_cycle_id",
+              ),
+              createdAt: sql<string>`${timestamp}`.as("created_at"),
+              updatedAt: sql<string>`${timestamp}`.as("updated_at"),
+            })
+            .from(professionals)
+            .innerJoin(
+              practicePatients,
+              eq(practicePatients.professionalId, professionals.id),
+            )
+            .innerJoin(
+              practiceServices,
+              eq(practiceServices.professionalId, professionals.id),
+            )
+            .where(
+              and(
+                eq(professionals.id, pro.id),
+                currentPracticeActor(pro.id, pro.userId),
+                eq(practicePatients.id, patient.id),
+                ne(practicePatients.status, "closed"),
+                eq(practicePatients.updatedAt, patient.updatedAt),
+                eq(practiceServices.id, service.id),
+                eq(practiceServices.active, true),
+                eq(practiceServices.durationMinutes, service.durationMinutes),
+                eq(practiceServices.priceCents, service.priceCents),
+                eq(practiceServices.sessionsCount, service.sessionsCount),
+                eq(practiceServices.currency, service.currency),
+                eq(
+                  practiceServices.cancellationHours,
+                  service.cancellationHours,
+                ),
+                sql`coalesce((SELECT time_zone FROM practice_settings WHERE professional_id=${pro.id}),'America/Caracas')=${timeZone}`,
+                sql`${startsAt} > strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+                careCycleId
+                  ? sql`EXISTS (SELECT 1 FROM care_cycles cycle JOIN care_plans plan ON plan.id=cycle.care_plan_id WHERE cycle.id=${careCycleId} AND plan.patient_id=${patient.id} AND plan.professional_id=${pro.id} AND plan.service_id=${service.id} AND cycle.status='paid')`
+                  : undefined,
+              ),
+            ),
+        )
+        .returning({ id: practiceAppointments.id }),
       audit(pro, "appointment_scheduled", id),
     ]);
+    if (!saved.length)
+      return invalid(
+        "La ficha, el servicio o tu consulta cambió. Actualiza la página antes de programar.",
+      );
   } catch {
     return invalid(
       "No pudimos guardar la cita. Comprueba si ya tienes otra sesión a esa hora.",
@@ -251,9 +409,13 @@ export async function updateAppointment(
   });
   if (appt?.status !== "scheduled")
     return invalid("La cita ya cambió de estado. Actualiza la página.");
+  if (status.data === "scheduled")
+    return invalid(
+      "Esta sesión ya está programada. Elige un cambio de estado.",
+    );
   if (status.data === "completed" && Date.parse(appt.startsAt) > Date.now())
     return invalid("La sesión todavía no ha comenzado.");
-  if (appt.dailyRoom && status.data !== "scheduled") {
+  if (appt.dailyRoom) {
     try {
       const { dailyRequest } = await import("@/lib/practice/calls");
       await dailyRequest(`/rooms/${appt.dailyRoom}`, undefined, "DELETE");
@@ -263,19 +425,41 @@ export async function updateAppointment(
       );
     }
   }
-  await db.batch([
+  const [changed] = await db.batch([
     db
       .update(practiceAppointments)
-      .set({ status: status.data, updatedAt: nowIso() })
+      .set({
+        status: status.data,
+        updatedAt: nextPracticeTimestamp(appt.updatedAt),
+      })
       .where(
         and(
           eq(practiceAppointments.id, id),
           eq(practiceAppointments.professionalId, pro.id),
+          eq(practiceAppointments.patientId, appt.patientId),
+          sql`${practiceAppointments.serviceId} IS ${appt.serviceId}`,
+          sql`${practiceAppointments.careCycleId} IS ${appt.careCycleId}`,
           eq(practiceAppointments.status, "scheduled"),
+          eq(practiceAppointments.updatedAt, appt.updatedAt),
+          eq(practiceAppointments.startsAt, appt.startsAt),
+          eq(practiceAppointments.endsAt, appt.endsAt),
+          appt.dailyRoom
+            ? eq(practiceAppointments.dailyRoom, appt.dailyRoom)
+            : isNull(practiceAppointments.dailyRoom),
+          currentPracticeActor(pro.id, pro.userId),
+          sql`EXISTS (SELECT 1 FROM practice_patients patient WHERE patient.id=${practiceAppointments.patientId} AND patient.professional_id=${pro.id})`,
+          status.data === "completed"
+            ? sql`${practiceAppointments.startsAt} <= strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+            : undefined,
         ),
-      ),
+      )
+      .returning({ id: practiceAppointments.id }),
     audit(pro, `appointment_${status.data}`, id),
   ]);
+  if (!changed.length)
+    return invalid(
+      "La sesión o tu consulta cambió mientras guardabas. Actualiza la página.",
+    );
   refresh();
   return { ok: true, message: "Estado de sesión actualizado." };
 }
@@ -350,6 +534,8 @@ export async function saveReceipt(
                 eq(practicePatients.program, "general"),
                 eq(professionals.status, "approved"),
                 eq(professionals.nonClinicalHelper, false),
+                currentPracticeActor(pro.id, pro.userId),
+                sql`coalesce((SELECT time_zone FROM practice_settings WHERE professional_id=${pro.id}),'America/Caracas')=${receiptZone}`,
               ),
             ),
         )
@@ -402,18 +588,31 @@ export async function setPatientStatus(
   );
   const state = z.enum(patientStates).safeParse(form.get("status"));
   if (!patient || !state.success) return invalid();
-  await db.batch([
+  if (state.data === patient.status)
+    return invalid("La ficha ya tiene este estado.");
+  const [changed] = await db.batch([
     db
       .update(practicePatients)
-      .set({ status: state.data, updatedAt: nowIso() })
+      .set({
+        status: state.data,
+        updatedAt: nextPracticeTimestamp(patient.updatedAt),
+      })
       .where(
         and(
           eq(practicePatients.id, patient.id),
           eq(practicePatients.professionalId, pro.id),
+          eq(practicePatients.updatedAt, patient.updatedAt),
+          eq(practicePatients.status, patient.status),
+          currentPracticeActor(pro.id, pro.userId),
         ),
-      ),
+      )
+      .returning({ id: practicePatients.id }),
     audit(pro, `patient_${state.data}`, patient.id),
   ]);
+  if (!changed.length)
+    return invalid(
+      "La ficha o tu consulta cambió mientras guardabas. Actualiza la página.",
+    );
   refresh();
   return {
     ok: true,
@@ -427,28 +626,28 @@ export async function releaseConversationQuota(
 ): Promise<PracticeFormState> {
   const pro = await requirePracticeProfessional();
   const id = String(form.get("conversationId") || "");
-  // Idempotencia y contador en el mismo batch; el decremento se calcula ANTES de marcar.
-  await db.batch([
+  const timestamp = nowIso();
+  const results = await db.batch([
     db
       .update(professionals)
       .set({
-        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - (SELECT count(*) FROM conversations WHERE id = ${id} AND professional_id = ${pro.id} AND status = 'open' AND quota_released_at IS NULL AND deleted_at IS NULL AND (help_request_id IS NULL OR EXISTS (SELECT 1 FROM assignments WHERE help_request_id = conversations.help_request_id AND professional_id = ${pro.id} AND status IN ('assigned', 'accepted')))))`,
-        updatedAt: nowIso(),
+        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - (SELECT count(*) FROM conversations c
+        WHERE c.id=${id} AND c.professional_id=${pro.id} AND c.status='open' AND c.quota_released_at IS NULL
+          AND c.deleted_at IS NULL AND c.anonymized_at IS NULL AND (c.help_request_id IS NULL OR EXISTS
+            (SELECT 1 FROM assignments a WHERE a.help_request_id=c.help_request_id AND a.professional_id=${pro.id} AND a.status IN ('assigned','accepted')))))`,
+        updatedAt: timestamp,
       })
-      .where(eq(professionals.id, pro.id)),
-    db
-      .update(assignments)
-      .set({ status: "closed", updatedAt: nowIso() })
       .where(
         and(
-          eq(assignments.professionalId, pro.id),
-          sql`${assignments.helpRequestId} = (SELECT help_request_id FROM conversations WHERE id = ${id} AND professional_id = ${pro.id} AND quota_released_at IS NULL)`,
-          sql`${assignments.status} IN ('assigned', 'accepted')`,
+          eq(professionals.id, pro.id),
+          currentPracticeActor(pro.id, pro.userId),
+          sql`EXISTS(SELECT 1 FROM conversations c WHERE c.id=${id} AND c.professional_id=${pro.id} AND c.status='open'
+        AND c.quota_released_at IS NULL AND c.deleted_at IS NULL AND c.anonymized_at IS NULL)`,
         ),
       ),
     db
       .update(conversations)
-      .set({ quotaReleasedAt: new Date(), updatedAt: nowIso() })
+      .set({ quotaReleasedAt: new Date(), updatedAt: timestamp })
       .where(
         and(
           eq(conversations.id, id),
@@ -456,10 +655,36 @@ export async function releaseConversationQuota(
           eq(conversations.status, "open"),
           isNull(conversations.quotaReleasedAt),
           isNull(conversations.deletedAt),
+          isNull(conversations.anonymizedAt),
+          sql`changes()=1`,
+        ),
+      )
+      .returning({ id: conversations.id }),
+    audit(pro, "conversation_quota_released", id),
+    db
+      .update(assignments)
+      .set({ status: "closed", updatedAt: timestamp })
+      .where(
+        and(
+          eq(assignments.professionalId, pro.id),
+          sql`changes()=1`,
+          sql`${assignments.helpRequestId}=(SELECT help_request_id FROM conversations WHERE id=${id} AND professional_id=${pro.id})`,
+          sql`${assignments.status} IN ('assigned','accepted')`,
         ),
       ),
-    audit(pro, "conversation_quota_released", id),
   ]);
+  if (!results[1].length) {
+    // Repetir una liberación propia ya confirmada es seguro; un id ajeno o una
+    // cuenta que cambió no equivalen a un cupo liberado.
+    const released =
+      await db.all(sql`SELECT c.id FROM conversations c WHERE c.id=${id} AND c.professional_id=${pro.id}
+      AND c.status='open' AND c.quota_released_at IS NOT NULL AND c.deleted_at IS NULL AND c.anonymized_at IS NULL
+      AND ${currentPracticeActor(pro.id, pro.userId)}`);
+    if (!released.length)
+      return invalid(
+        "El chat o tu acceso ya cambió. Actualiza la página antes de liberar el cupo.",
+      );
+  }
   refresh();
   return {
     ok: true,
@@ -471,14 +696,26 @@ export async function toggleService(
   form: FormData,
 ): Promise<PracticeFormState> {
   const pro = await requirePracticeProfessional();
-  await db
-    .update(practiceServices)
-    .set({ active: form.get("active") === "1" })
-    .where(
-      and(
-        eq(practiceServices.id, String(form.get("serviceId") || "")),
-        eq(practiceServices.professionalId, pro.id),
-      ),
+  const id = String(form.get("serviceId") || "");
+  const active = form.get("active") === "1";
+  const [changed] = await db.batch([
+    db
+      .update(practiceServices)
+      .set({ active })
+      .where(
+        and(
+          eq(practiceServices.id, id),
+          eq(practiceServices.professionalId, pro.id),
+          eq(practiceServices.active, !active),
+          currentPracticeActor(pro.id, pro.userId),
+        ),
+      )
+      .returning({ id: practiceServices.id }),
+    audit(pro, active ? "service_activated" : "service_paused", id),
+  ]);
+  if (!changed.length)
+    return invalid(
+      "El servicio o tu consulta cambió, o ya tenía este estado. Actualiza la página.",
     );
   revalidatePath("/pro/servicios");
   refresh();
@@ -524,12 +761,22 @@ export async function linkPatientConversation(
     const results = await db.batch([
       db
         .update(practicePatients)
-        .set({ conversationId: chat.id, updatedAt: nowIso() })
+        .set({
+          conversationId: chat.id,
+          updatedAt: nextPracticeTimestamp(patient.updatedAt),
+        })
         .where(
           and(
             eq(practicePatients.id, patient.id),
             eq(practicePatients.professionalId, pro.id),
             isNull(practicePatients.conversationId),
+            eq(practicePatients.updatedAt, patient.updatedAt),
+            sql`${practicePatients.status} != 'closed'`,
+            currentPracticeActor(pro.id, pro.userId),
+            sql`EXISTS(SELECT 1 FROM conversations c WHERE c.id=${chat.id} AND c.professional_id=${pro.id}
+              AND c.status='open' AND c.deleted_at IS NULL AND c.anonymized_at IS NULL
+              AND ((c.help_request_id IS NOT NULL AND ${practicePatients.program}='earthquake')
+                OR (c.help_request_id IS NULL AND ${practicePatients.program}='general')))`,
           ),
         )
         .returning({ id: practicePatients.id }),
@@ -582,24 +829,41 @@ export async function rescheduleAppointment(
     }
   }
   try {
-    await db.batch([
+    const [changed] = await db.batch([
       db
         .update(practiceAppointments)
         .set({
           startsAt,
           endsAt: new Date(Date.parse(startsAt) + duration).toISOString(),
           dailyRoom: null,
-          updatedAt: nowIso(),
+          updatedAt: nextPracticeTimestamp(appt.updatedAt),
         })
         .where(
           and(
             eq(practiceAppointments.id, id),
             eq(practiceAppointments.professionalId, pro.id),
+            eq(practiceAppointments.patientId, appt.patientId),
+            sql`${practiceAppointments.serviceId} IS ${appt.serviceId}`,
+            sql`${practiceAppointments.careCycleId} IS ${appt.careCycleId}`,
             eq(practiceAppointments.status, "scheduled"),
+            eq(practiceAppointments.updatedAt, appt.updatedAt),
+            eq(practiceAppointments.startsAt, appt.startsAt),
+            eq(practiceAppointments.endsAt, appt.endsAt),
+            appt.dailyRoom
+              ? eq(practiceAppointments.dailyRoom, appt.dailyRoom)
+              : isNull(practiceAppointments.dailyRoom),
+            currentPracticeActor(pro.id, pro.userId),
+            sql`EXISTS (SELECT 1 FROM practice_patients patient WHERE patient.id=${practiceAppointments.patientId} AND patient.professional_id=${pro.id} AND patient.status != 'closed')`,
+            sql`${startsAt} > strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
           ),
-        ),
+        )
+        .returning({ id: practiceAppointments.id }),
       audit(pro, "appointment_rescheduled", id),
     ]);
+    if (!changed.length)
+      return invalid(
+        "La sesión, la ficha o tu consulta cambió mientras guardabas. Actualiza la página.",
+      );
   } catch {
     return invalid(
       "La nueva hora coincide con otra sesión o está fuera de la vigencia del ciclo.",
@@ -628,7 +892,7 @@ export async function updatePatientContact(
     program: patient.program,
   });
   if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
-  await db.batch([
+  const [changed] = await db.batch([
     db
       .update(practicePatients)
       .set({
@@ -636,16 +900,25 @@ export async function updatePatientContact(
         email: parsed.data.email,
         country: parsed.data.country,
         timeZone: parsed.data.timeZone,
-        updatedAt: nowIso(),
+        updatedAt: nextPracticeTimestamp(patient.updatedAt),
       })
       .where(
         and(
           eq(practicePatients.id, patient.id),
           eq(practicePatients.professionalId, pro.id),
+          eq(practicePatients.updatedAt, patient.updatedAt),
+          eq(practicePatients.program, patient.program),
+          currentPracticeActor(pro.id, pro.userId),
+          sql`(${practicePatients.name} IS NOT ${parsed.data.name} OR ${practicePatients.email} IS NOT ${parsed.data.email} OR ${practicePatients.country} IS NOT ${parsed.data.country} OR ${practicePatients.timeZone} IS NOT ${parsed.data.timeZone})`,
         ),
-      ),
+      )
+      .returning({ id: practicePatients.id }),
     audit(pro, "patient_contact_updated", patient.id),
   ]);
+  if (!changed.length)
+    return invalid(
+      "La ficha o tu consulta cambió, o estos datos ya estaban guardados. Actualiza la página.",
+    );
   refresh();
   return { ok: true, message: "Datos de contacto actualizados." };
 }

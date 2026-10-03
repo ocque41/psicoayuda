@@ -45,11 +45,13 @@ import {
 } from "@/shared/e2ee";
 import {
   ensureProChatToken,
+  markProfessionalChatRead,
   renewSeekerChatToken,
   reopenConversation,
 } from "./actions";
 import styles from "./chat.module.css";
 import { nextHistorySyncCursor } from "./chat-history";
+import { createReadPersistence } from "./chat-read-persistence";
 import { E2eeRestorePanel } from "./e2ee-restore-panel";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
@@ -190,7 +192,7 @@ export function ChatRoom({
   // El profesional puede estar viendo la sala como la persona. En ese caso TODO
   // (WebSocket, reabrir, borrar) actúa con la identidad de la persona: lo que
   // escribe se registra como suyo y el caso se cierra en vez de reencolarse.
-  const writeAsPersona = role === "seeker" && canSwitchView;
+  const writeAsPersona = role === "seeker";
   const [confirmed, setConfirmed] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [conn, setConn] = useState<ConnStatus>("connecting");
@@ -450,6 +452,16 @@ export function ChatRoom({
 
   const e2eeReady = identity !== null && peerKey !== null;
 
+  const readPersistence = useMemo(
+    () =>
+      role === "professional"
+        ? createReadPersistence((timestamp) =>
+            markProfessionalChatRead(conversationId, timestamp),
+          )
+        : null,
+    [conversationId, role],
+  );
+
   const acknowledgeVisibleMessages = useCallback(() => {
     const el = listRef.current;
     if (
@@ -464,6 +476,7 @@ export function ChatRoom({
     ) {
       return;
     }
+    void readPersistence?.retry();
     for (let index = confirmed.length - 1; index >= 0; index -= 1) {
       const message = confirmed[index];
       if (message.seq <= lastReadSentRef.current) return;
@@ -476,6 +489,7 @@ export function ChatRoom({
       }
       if (sendRaw({ type: "read", upToSeq: message.seq })) {
         lastReadSentRef.current = message.seq;
+        void readPersistence?.record(message.serverTs);
       }
       return;
     }
@@ -487,6 +501,7 @@ export function ChatRoom({
     backupCode,
     role,
     sendRaw,
+    readPersistence,
   ]);
 
   useLayoutEffect(() => {

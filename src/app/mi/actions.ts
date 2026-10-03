@@ -74,14 +74,29 @@ export async function savePatientPreferences(
   _: PracticeFormState,
   form: FormData,
 ): Promise<PracticeFormState> {
-  const { account } = await requirePatientAccount();
+  const { account, user: actor } = await requirePatientAccount();
   const parsed = patientOnboardingSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success)
     return { ok: false, message: parsed.error.issues[0].message };
-  await db
+  const changed = await db
     .update(patientAccounts)
     .set({ ...parsed.data, updatedAt: nowIso() })
-    .where(eq(patientAccounts.userId, account.userId));
+    .where(
+      and(
+        eq(patientAccounts.userId, actor.id),
+        eq(patientAccounts.userId, account.userId),
+        eq(patientAccounts.deletionState, "active"),
+        sql`${patientAccounts.onboardingCompletedAt} IS NOT NULL`,
+        sql`EXISTS (SELECT 1 FROM user u WHERE u.id=${patientAccounts.userId} AND u.id=${actor.id})`,
+      ),
+    )
+    .returning({ userId: patientAccounts.userId });
+  if (!changed.length)
+    return {
+      ok: false,
+      message:
+        "No pudimos guardar las preferencias. La cuenta cambió o está completando su baja; vuelve a entrar antes de intentarlo.",
+    };
   revalidatePath("/mi", "layout");
   return {
     ok: true,

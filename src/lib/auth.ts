@@ -2,12 +2,17 @@ import "server-only";
 
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { syncProfessionalEmailOnUserUpdate } from "@/lib/credentials";
-import { sendEmail } from "@/lib/email";
+import { type SendEmailInput, sendEmail } from "@/lib/email";
 import {
   buildEmailChangeConfirmationEmail,
   buildEmailVerificationEmail,
@@ -15,6 +20,20 @@ import {
 } from "@/lib/email-templates";
 import { hashPassword, verifyPassword } from "@/lib/password-hash";
 import { SITE_URL } from "@/lib/site";
+
+// Los hooks de envío requieren aceptación del proveedor. Su cuerpo de error
+// puede contener destinatarios o credenciales, así que devolvemos uno seguro.
+async function sendRequiredAuthEmail(input: SendEmailInput) {
+  let accepted = false;
+  try {
+    accepted = (await sendEmail(input)).ok;
+  } catch {}
+  if (!accepted)
+    throw new APIError("SERVICE_UNAVAILABLE", {
+      code: "AUTH_EMAIL_UNAVAILABLE",
+      message: "No pudimos enviar el correo. Vuelve a intentarlo.",
+    });
+}
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
@@ -73,6 +92,53 @@ export const auth = betterAuth({
     provider: "sqlite",
     schema,
   }),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/send-verification-email") {
+        const send =
+          ctx.context.options.emailVerification?.sendVerificationEmail;
+        if (!send || (await getSessionFromCtx(ctx))) return;
+        // La ruta pública conserva su respuesta neutra y su espera mínima:
+        // un proveedor caído tampoco debe revelar si existe una dirección.
+        return {
+          context: {
+            context: {
+              options: {
+                emailVerification: {
+                  sendVerificationEmail: async (
+                    ...args: Parameters<typeof send>
+                  ) => {
+                    try {
+                      await send(...args);
+                    } catch (error) {
+                      if (
+                        !(error instanceof APIError) ||
+                        error.body?.code !== "AUTH_EMAIL_UNAVAILABLE"
+                      )
+                        throw error;
+                    }
+                  },
+                },
+              },
+            },
+          },
+        };
+      }
+      if (ctx.path !== "/change-email" && ctx.path !== "/verify-email") return;
+      // En 1.6.22 la espera normal captura errores del proveedor y devolvería
+      // éxito al pedir un cambio de correo. Esta copia solo afecta la petición
+      // actual. El reset público conserva la respuesta anti-enumeración.
+      return {
+        context: {
+          context: {
+            runInBackgroundOrAwait: async (promise: Promise<unknown>) => {
+              await promise;
+            },
+          },
+        },
+      };
+    }),
+  },
   // Login dinámico: Google O correo+contraseña (como Fiverr y similares).
   emailAndPassword: {
     enabled: true,
@@ -92,7 +158,7 @@ export const auth = betterAuth({
         resetUrl: url,
         name: user.name,
       });
-      await sendEmail({
+      await sendRequiredAuthEmail({
         to: user.email,
         subject: correo.subject,
         html: correo.html,
@@ -120,7 +186,7 @@ export const auth = betterAuth({
           newEmail,
           name: user.name,
         });
-        await sendEmail({
+        await sendRequiredAuthEmail({
           to: user.email,
           subject: correo.subject,
           html: correo.html,
@@ -140,7 +206,7 @@ export const auth = betterAuth({
         verifyUrl: url,
         name: user.name,
       });
-      await sendEmail({
+      await sendRequiredAuthEmail({
         to: user.email,
         subject: correo.subject,
         html: correo.html,

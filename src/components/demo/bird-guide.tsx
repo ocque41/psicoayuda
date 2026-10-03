@@ -99,7 +99,7 @@ function Arrow({ previous = false }: { previous?: boolean }) {
   );
 }
 
-/** Guía no modal: el recorrido acompaña a la demo sin bloquear sus controles. */
+/** Guía no modal: el recorrido acompaña la consulta sin bloquear sus controles. */
 export function BirdGuide({
   steps,
   stepId: selectedStepId,
@@ -142,6 +142,7 @@ export function BirdGuide({
   }
 
   function start() {
+    window.dispatchEvent(new CustomEvent("nido:guide-started", { detail: id }));
     birdPositionRef.current = null;
     returnFocusRef.current =
       document.activeElement instanceof HTMLElement
@@ -150,6 +151,19 @@ export function BirdGuide({
     selectStep(0);
     setOpen(true);
   }
+
+  useEffect(() => {
+    function onGuideStarted(event: Event) {
+      if ((event as CustomEvent<string>).detail === id) return;
+      // Preferencias también tiene un recorrido específico de recordatorios.
+      // Sólo una guía puede estar abierta y la nueva conserva el foco.
+      returnFocusRef.current = null;
+      setOpen(false);
+    }
+    window.addEventListener("nido:guide-started", onGuideStarted);
+    return () =>
+      window.removeEventListener("nido:guide-started", onGuideStarted);
+  }, [id]);
 
   useEffect(() => {
     if (!active) return;
