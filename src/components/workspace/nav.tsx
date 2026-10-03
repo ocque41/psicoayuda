@@ -21,12 +21,12 @@ const patientLinks: NavItem[] = [
 const professionalLinks: NavItem[] = [
   {
     href: "/pro/consulta",
-    label: "Agenda y pacientes",
+    label: "Agenda",
     icon: "calendar",
-    match: "/pro/pacientes/",
   },
+  { href: "/pro/pacientes", label: "Pacientes", icon: "profile" },
+  { href: "/pro/mensajes", label: "Mensajes", icon: "message" },
   { href: "/pro/servicios", label: "Servicios", icon: "leaf" },
-  { href: "/pro/dashboard#chats", label: "Mensajes", icon: "message" },
   { href: "/pro/cobros", label: "Cobros", icon: "payment" },
   { href: "/pro/ajustes", label: "Horario", icon: "settings" },
   { href: "/pro/soporte", label: "Soporte", icon: "help" },

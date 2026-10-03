@@ -8,7 +8,11 @@ type SessionUser = { id: string };
 
 /** Public pages do not load the auth SDK. Protected/account routes resolve the
  * session once per area; HttpOnly cookies are deliberately never inspected. */
-export function SiteNav() {
+export function SiteNav({
+  variant = "site",
+}: {
+  variant?: "site" | "workspace";
+}) {
   const pathname = usePathname();
   const professionalArea =
     pathname === "/pro" ||
@@ -138,7 +142,15 @@ export function SiteNav() {
         type="button"
         className="site-nav-toggle"
         ref={menuButton}
-        aria-label={menuOpen ? "Cerrar navegación" : "Abrir navegación"}
+        aria-label={
+          variant === "workspace"
+            ? menuOpen
+              ? "Cerrar menú de cuenta"
+              : "Abrir menú de cuenta"
+            : menuOpen
+              ? "Cerrar navegación"
+              : "Abrir navegación"
+        }
         aria-expanded={menuOpen}
         aria-controls="site-nav-links"
         onClick={() => setMenuOpen((open) => !open)}
@@ -147,22 +159,26 @@ export function SiteNav() {
           <span />
           <span />
         </span>
-        <span>Menú</span>
+        <span>{variant === "workspace" ? "Cuenta" : "Menú"}</span>
       </button>
       <div
         className={`nav-links${menuOpen ? " is-open" : ""}`}
         id="site-nav-links"
       >
-        <Link href="/profesionales" onClick={() => setMenuOpen(false)}>
-          Buscar psicólogo
-        </Link>
-        <Link href="/orientacion" onClick={() => setMenuOpen(false)}>
-          Ayúdame a elegir
-        </Link>
-        {!session ? (
-          <Link href="/para-psicologos" onClick={() => setMenuOpen(false)}>
-            Soy profesional
-          </Link>
+        {variant === "site" ? (
+          <>
+            <Link href="/profesionales" onClick={() => setMenuOpen(false)}>
+              Buscar psicólogo
+            </Link>
+            <Link href="/orientacion" onClick={() => setMenuOpen(false)}>
+              Ayúdame a elegir
+            </Link>
+            {!session ? (
+              <Link href="/para-psicologos" onClick={() => setMenuOpen(false)}>
+                Soy profesional
+              </Link>
+            ) : null}
+          </>
         ) : null}
         {session ? (
           <Link

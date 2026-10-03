@@ -67,7 +67,7 @@ export function InboxNotifier({ initial }: { initial?: InboxSnapshot }) {
           notice.onclick = () => {
             window.focus();
             notice.close();
-            window.location.assign("/pro/dashboard#chats");
+            window.location.assign("/pro/mensajes");
           };
         }
         last.current = data.latest;
@@ -121,7 +121,7 @@ export function InboxNotifier({ initial }: { initial?: InboxSnapshot }) {
       <div className="inbox-notifier-copy">
         <p aria-live="polite">
           {snapshot?.unread ? (
-            <Link href="/pro/dashboard#chats">
+            <Link href="/pro/mensajes">
               Tienes {snapshot.unread}{" "}
               {snapshot.unread === 1 ? "chat por leer" : "chats por leer"} →
             </Link>

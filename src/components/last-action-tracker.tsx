@@ -26,9 +26,12 @@ export function LastActionTracker() {
           "/paciente",
           "/empezar",
           "/entrar",
+          "/demo/consulta",
         ].some((prefix) => location.pathname.startsWith(prefix))
       ) {
-        sessionStorage.removeItem(KEY);
+        try {
+          sessionStorage.removeItem(KEY);
+        } catch {}
         return;
       }
       const target = event.target as Element | null;

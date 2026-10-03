@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { BirdGuide, type BirdGuideStep } from "./bird-guide";
@@ -79,6 +80,16 @@ const steps: BirdGuideStep[] = [
       "Puedes seguir explorando o crear tu perfil profesional. Tu práctica real empezará con el recorrido de incorporación y revisión.",
   },
 ];
+const labels: Record<string, string> = {
+  inicio: "Mi consulta",
+  agenda: "Agenda",
+  pacientes: "Pacientes",
+  notas: "Notas",
+  mensajes: "Mensajes",
+  cobros: "Cobros",
+  cierre: "Tu próximo paso",
+};
+
 const icons: Record<string, string> = {
   inicio: "M3 10 12 3l9 7M5 9v12h14V9M9 21v-7h6v7",
   agenda: "M5 5h14v16H5zM8 3v4m8-4v4M5 10h14M8 14h2m4 0h2m-8 3h2",
@@ -103,6 +114,10 @@ const money = (amountCents: number, currency: string) =>
 
 export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
   const [active, setActive] = useState("inicio");
+  const activeView = useRef("inicio");
+  const focusView = useRef(false);
+  const viewTitle = useRef<HTMLHeadingElement>(null);
+  const navigation = useRef<HTMLElement>(null);
   const [month, setMonth] = useState(initialMonth);
   const [selectedDay, setSelectedDay] = useState("09");
   const [patientId, setPatientId] = useState("ana");
@@ -128,7 +143,12 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
       text: "Claro. A las diez está reservado para nuestro encuentro de ejemplo.",
     },
   ]);
-  const [messageDraft, setMessageDraft] = useState("");
+  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>(
+    {},
+  );
+  const messageDraft = messageDrafts[patientId] || "";
+  const setMessageDraft = (text: string) =>
+    setMessageDrafts((previous) => ({ ...previous, [patientId]: text }));
   const [receipts, setReceipts] = useState<DemoReceipt[]>([
     {
       id: "pago-1",
@@ -145,8 +165,89 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const modalOpener = useRef<HTMLElement | null>(null);
   const chat = useRef<HTMLDivElement>(null);
-  const latestMessageId = messages.at(-1)?.id;
+  const latestMessageId = messages
+    .filter((message) => message.patient === patientId)
+    .at(-1)?.id;
   const patient = patients.find((p) => p.id === patientId) || patients[0];
+  function navigate(id: string, focus = true) {
+    const step = steps.find((candidate) => candidate.id === id);
+    if (!step) return;
+    focusView.current = focus;
+    const url = new URL(window.location.href);
+    url.hash = step.targetId;
+    if (url.hash !== window.location.hash)
+      window.history.pushState(
+        { ...window.history.state, nidoDemoView: id },
+        "",
+        url,
+      );
+    activeView.current = id;
+    setActive(id);
+    if (focus && active === id)
+      viewTitle.current?.focus({ preventScroll: true });
+  }
+  useEffect(() => {
+    const synchronize = (focus: boolean) => {
+      const step = steps.find(
+        (candidate) => `#${candidate.targetId}` === window.location.hash,
+      );
+      const saved = steps.find(
+        (candidate) => candidate.id === window.history.state?.nidoDemoView,
+      );
+      const view =
+        window.location.hash === "#contenido"
+          ? saved?.id || activeView.current
+          : step?.id || "inicio";
+      activeView.current = view;
+      window.history.replaceState(
+        { ...window.history.state, nidoDemoView: view },
+        "",
+      );
+      focusView.current = focus;
+      setActive(view);
+    };
+    const onHistory = () => synchronize(true);
+    synchronize(false);
+    window.addEventListener("hashchange", onHistory);
+    window.addEventListener("popstate", onHistory);
+    return () => {
+      window.removeEventListener("hashchange", onHistory);
+      window.removeEventListener("popstate", onHistory);
+    };
+  }, []);
+  useEffect(() => {
+    const menu = navigation.current;
+    const revealSelected = () => {
+      const selected = menu?.querySelector<HTMLElement>(
+        '[aria-current="page"]',
+      );
+      if (!menu || !selected) return;
+      const item = selected.getBoundingClientRect();
+      const bounds = menu.getBoundingClientRect();
+      if (item.left < bounds.left || item.right > bounds.right)
+        menu.scrollTo({
+          left:
+            menu.scrollLeft +
+            item.left -
+            bounds.left -
+            (bounds.width - item.width) / 2,
+          behavior: "instant",
+        });
+    };
+    revealSelected();
+    const resize = new ResizeObserver(revealSelected);
+    if (menu) resize.observe(menu);
+    // El destino ya está pintado antes de enfocar su título.
+    if (
+      focusView.current &&
+      viewTitle.current?.textContent === labels[active]
+    ) {
+      focusView.current = false;
+      viewTitle.current.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+    return () => resize.disconnect();
+  }, [active]);
   const [year, monthNumber] = month.split("-").map(Number);
   const monthDate = new Date(Date.UTC(year, monthNumber - 1, 1));
   const firstDay = (monthDate.getUTCDay() + 6) % 7;
@@ -160,9 +261,9 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
     .filter((s) => s.date.startsWith(`${month}-${selectedDay}`))
     .sort((a, b) => a.date.localeCompare(b.date));
   useEffect(() => {
-    if (latestMessageId && chat.current)
+    if (active === "mensajes" && latestMessageId && chat.current)
       chat.current.scrollTop = chat.current.scrollHeight;
-  }, [latestMessageId]);
+  }, [latestMessageId, active]);
   useEffect(() => {
     if (modal && dialog.current && !dialog.current.open)
       dialog.current.showModal();
@@ -244,78 +345,156 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
     closeModal();
   }
   return (
-    <section className={`section ${styles.demo}`}>
-      <div className="container">
-        <div className={styles.intro} id="demo-home">
-          <div>
-            <p className="eyebrow">Un recorrido por tu próxima consulta</p>
-            <h1>Hazte un lugar en Nido.</h1>
-            <p className="lead">
-              Explora tu práctica con ejemplos. Nuestro pajarito te acompaña, un
-              paso a la vez.
-            </p>
-          </div>
-          <div className={styles.guideStart}>
-            <BirdGuide
-              steps={steps}
-              onStepChange={(step) => setActive(step.id)}
-            />
-            <span className={styles.demoBadge}>Demo · datos de ejemplo</span>
-          </div>
+    <section className={styles.demo}>
+      <header className={styles.appbar} data-workspace-header>
+        <Link
+          className={styles.brand}
+          href="/demo/consulta"
+          aria-label="Nido · Mi consulta de ejemplo"
+          onClick={(event) => {
+            if (
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey ||
+              event.altKey ||
+              event.button !== 0
+            )
+              return;
+            event.preventDefault();
+            navigate("inicio");
+          }}
+        >
+          <Image src="/brand/nido-icon-128.png" width={40} height={40} alt="" />
+          <span>
+            Nido<small>Tu consulta</small>
+          </span>
+        </Link>
+        <div className={styles.headerActions}>
+          <span className={styles.demoBadge}>Demo · datos de ejemplo</span>
+          <BirdGuide
+            steps={steps}
+            stepId={active}
+            onStepChange={(step) => navigate(step.id, false)}
+          />
         </div>
-        <div className={styles.layout}>
-          <aside className={styles.sidebar}>
-            <p className={styles.sidebarTitle}>
-              Tu consulta <span>de ejemplo</span>
-            </p>
-            <nav
-              aria-label="Secciones de la demostración"
-              className={styles.menu}
-            >
-              {steps.slice(0, 6).map((step) => (
-                <a
-                  key={step.id}
-                  href={`#${step.targetId}`}
-                  aria-current={active === step.id ? "location" : undefined}
-                  onClick={() => setActive(step.id)}
+      </header>
+      <div className={styles.layout}>
+        <aside className={styles.sidebar} data-workspace-navigation>
+          <p className={styles.sidebarTitle}>
+            Tu espacio <span>Profesional · demo</span>
+          </p>
+          <nav
+            ref={navigation}
+            aria-label="Secciones de la demostración"
+            className={styles.menu}
+          >
+            {steps.slice(0, 6).map((step) => (
+              <a
+                key={step.id}
+                href={`#${step.targetId}`}
+                aria-current={active === step.id ? "page" : undefined}
+                onClick={(event) => {
+                  if (
+                    event.ctrlKey ||
+                    event.metaKey ||
+                    event.shiftKey ||
+                    event.altKey ||
+                    event.button !== 0
+                  )
+                    return;
+                  event.preventDefault();
+                  navigate(step.id);
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    aria-hidden="true"
-                  >
-                    <path d={icons[step.id]} />
-                  </svg>
-                  <span>
-                    {step.id === "inicio"
-                      ? "Mi consulta"
-                      : step.title === "Haz espacio para cada encuentro"
-                        ? "Agenda"
-                        : step.id === "pacientes"
-                          ? "Pacientes"
-                          : step.id === "notas"
-                            ? "Notas"
-                            : step.id === "mensajes"
-                              ? "Mensajes"
-                              : "Cobros"}
-                  </span>
-                </a>
-              ))}
-            </nav>
+                  <path d={icons[step.id]} />
+                </svg>
+                <span>{labels[step.id]}</span>
+              </a>
+            ))}
+          </nav>
+          <div className={styles.sidebarFooter}>
             <p className={styles.localHint}>
-              Puedes probar los controles. Los ejemplos se conservan mientras
-              estés en esta página.
+              Tu ejemplo se conserva al cambiar de ventana. Al recargar, la demo
+              vuelve a empezar.
             </p>
             <Link href="/pro/consulta" className={styles.back}>
-              Volver a mi consulta ↗
+              Entrar a mi consulta ↗
             </Link>
-          </aside>
+          </div>
+        </aside>
+        <div className={styles.workspace}>
+          <div className={styles.windowHeading}>
+            <div>
+              <p className="eyebrow">Tu consulta · demo</p>
+              <h1 ref={viewTitle} tabIndex={-1}>
+                {labels[active]}
+              </h1>
+            </div>
+            <span className={styles.windowHint}>
+              Un espacio para cada paso.
+            </span>
+          </div>
           <div className={styles.panels}>
+            <section
+              className={`${styles.panel} ${styles.home}`}
+              id="demo-home"
+              hidden={active !== "inicio"}
+              aria-labelledby="demo-home-title"
+            >
+              <p className="kicker">A tu manera de acompañar</p>
+              <h2 id="demo-home-title">Todo listo para tu próximo paso.</h2>
+              <p className={styles.homeDescription}>
+                Tu agenda, las personas y sus conversaciones tienen su propio
+                lugar. Elige una ventana o deja que nuestro pajarito te
+                acompañe.
+              </p>
+              <div className={styles.overview}>
+                <div>
+                  <span>Personas de ejemplo</span>
+                  <strong>{patients.length}</strong>
+                </div>
+                <div>
+                  <span>Encuentros organizados</span>
+                  <strong>{sessions.length}</strong>
+                </div>
+                <div>
+                  <span>Notas guardadas</span>
+                  <strong>{Object.keys(savedNotes).length}</strong>
+                </div>
+              </div>
+              <div className={styles.shortcuts}>
+                <button type="button" onClick={() => navigate("agenda")}>
+                  <span className={styles.shortcutIcon}>↗</span>
+                  <strong>Abrir mi agenda</strong>
+                  <span>Un día, un encuentro, un próximo paso.</span>
+                </button>
+                <button type="button" onClick={() => navigate("pacientes")}>
+                  <span className={styles.shortcutIcon}>◎</span>
+                  <strong>Ver mis pacientes</strong>
+                  <span>Cada persona tiene su propio contexto.</span>
+                </button>
+                <button type="button" onClick={() => navigate("mensajes")}>
+                  <span className={styles.shortcutIcon}>↔</span>
+                  <strong>Continuar una conversación</strong>
+                  <span>Mensajes y borradores, en su lugar.</span>
+                </button>
+              </div>
+              <p className="hint">
+                Esta es una demostración con personas ficticias. No envía
+                mensajes ni realiza cobros.
+              </p>
+            </section>
             <section
               className={styles.panel}
               id="demo-agenda"
+              hidden={active !== "agenda"}
               aria-labelledby="demo-agenda-title"
             >
               <div className={styles.panelHead}>
@@ -427,6 +606,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
             <section
               className={styles.panel}
               id="demo-pacientes"
+              hidden={active !== "pacientes"}
               aria-labelledby="demo-patients-title"
             >
               <p className="kicker">Personas primero</p>
@@ -444,7 +624,6 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                     aria-pressed={patientId === p.id}
                     onClick={() => {
                       setPatientId(p.id);
-                      setMessageDraft("");
                       setNotice(null);
                     }}
                   >
@@ -453,7 +632,9 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                     </span>
                     <strong>{p.name} · ejemplo</strong>
                     <span>{p.description}</span>
-                    <span className={styles.openPatient}>Abrir ficha ↗</span>
+                    <span className={styles.openPatient}>
+                      Seleccionar ficha →
+                    </span>
                   </button>
                 ))}
               </div>
@@ -465,18 +646,48 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                     Notas de ejemplo y un próximo paso claro, en el mismo lugar.
                   </p>
                 </div>
-                <span className="workspace-tag">
-                  En acompañamiento · ejemplo
-                </span>
+                <div className={styles.contextActions}>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={() => navigate("notas")}
+                  >
+                    Abrir notas
+                  </button>
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={() => navigate("mensajes")}
+                  >
+                    Abrir conversación
+                  </button>
+                </div>
               </div>
             </section>
             <section
               className={styles.panel}
               id="demo-notas"
+              hidden={active !== "notas"}
               aria-labelledby="demo-notes-title"
             >
               <p className="kicker">Tu espacio para preparar</p>
               <h2 id="demo-notes-title">Una nota para continuar.</h2>
+              <label className={styles.patientSwitcher}>
+                Paciente de ejemplo
+                <select
+                  value={patientId}
+                  onChange={(event) => {
+                    setPatientId(event.target.value);
+                    setNotice(null);
+                  }}
+                >
+                  {patients.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name} · ejemplo
+                    </option>
+                  ))}
+                </select>
+              </label>
               <p className="hint">
                 Ficha de {patient.name} · usa texto de ejemplo para probar esta
                 demostración.
@@ -530,6 +741,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
             <section
               className={styles.panel}
               id="demo-mensajes"
+              hidden={active !== "mensajes"}
               aria-labelledby="demo-chat-title"
             >
               <div className={styles.panelHead}>
@@ -538,6 +750,22 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   <h2 id="demo-chat-title">La conversación, en su lugar.</h2>
                 </div>
                 <span className="workspace-tag">Chat de ejemplo</span>
+                <label className={styles.patientSwitcher}>
+                  Paciente de ejemplo
+                  <select
+                    value={patientId}
+                    onChange={(event) => {
+                      setPatientId(event.target.value);
+                      setNotice(null);
+                    }}
+                  >
+                    {patients.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name} · ejemplo
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <div
                 className={styles.chat}
@@ -615,6 +843,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
             <section
               className={styles.panel}
               id="demo-cobros"
+              hidden={active !== "cobros"}
               aria-labelledby="demo-payments-title"
             >
               <div className={styles.panelHead}>
@@ -679,6 +908,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
             <section
               className={`${styles.panel} ${styles.finish}`}
               id="demo-cierre"
+              hidden={active !== "cierre"}
               aria-labelledby="demo-finish-title"
             >
               <p className="kicker">A tu manera de acompañar</p>
@@ -713,7 +943,10 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
           }}
           onClose={() => {
             setModal(null);
-            modalOpener.current?.focus();
+            const opener = modalOpener.current;
+            if (opener?.isConnected && opener.getClientRects().length)
+              opener.focus({ preventScroll: true });
+            else viewTitle.current?.focus({ preventScroll: true });
           }}
         >
           <div className={styles.dialogHeader}>

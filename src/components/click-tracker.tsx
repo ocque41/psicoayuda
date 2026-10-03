@@ -25,6 +25,7 @@ type StoredUtm = {
 
 // Captura los utm_* de la URL actual una sola vez por sesión (first-touch).
 function captureLandingUtm() {
+  if (location.pathname.startsWith("/demo/consulta")) return;
   try {
     if (sessionStorage.getItem(UTM_KEY)) return;
     const p = new URLSearchParams(location.search);
@@ -71,6 +72,7 @@ function classify(
       "/paciente",
       "/empezar",
       "/entrar",
+      "/demo/consulta",
     ].some((prefix) => location.pathname.startsWith(prefix))
   )
     return null;
@@ -119,6 +121,7 @@ function classify(
 }
 
 function send(payload: Record<string, unknown>) {
+  if (location.pathname.startsWith("/demo/consulta")) return;
   try {
     const body = JSON.stringify(payload);
     // sendBeacon sobrevive a la navegación (clave para enlaces salientes que
@@ -144,6 +147,7 @@ function send(payload: Record<string, unknown>) {
 // conversión real a la campaña — no basta con el clic en el botón (se dispara
 // aunque el formulario sea inválido).
 export function trackConversion(type: string, label?: string) {
+  if (location.pathname.startsWith("/demo/consulta")) return;
   send({
     type,
     label: label ?? null,

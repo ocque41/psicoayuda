@@ -41,7 +41,9 @@ function invalid(
 }
 function refresh() {
   revalidatePath("/pro/consulta");
+  revalidatePath("/pro/pacientes");
   revalidatePath("/pro/pacientes", "layout");
+  revalidatePath("/pro/mensajes");
   revalidatePath("/pro/dashboard");
 }
 function audit(pro: { email: string }, action: string, entityId: string) {

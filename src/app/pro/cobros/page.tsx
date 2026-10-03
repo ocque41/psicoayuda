@@ -116,7 +116,7 @@ export default async function ReceiptsPage({
             )}
           </section>
           <div className={styles.actions}>
-            <Link className="button secondary" href="/pro/consulta#pacientes">
+            <Link className="button secondary" href="/pro/pacientes">
               Registrar un pago en una ficha
             </Link>
             {receipts.rows.length ? (

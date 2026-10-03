@@ -229,7 +229,7 @@ export default async function PatientPage({
   return (
     <section className="section">
       <div className="container practice-shell">
-        <Link href="/pro/consulta">← Todos los pacientes</Link>
+        <Link href="/pro/pacientes">← Todos los pacientes</Link>
         <h1>{patient.name}</h1>
         <p>
           {patient.country} · {patient.timeZone} ·{" "}

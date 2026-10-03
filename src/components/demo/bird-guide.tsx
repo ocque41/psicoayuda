@@ -13,6 +13,7 @@ export type BirdGuideStep = {
 
 type BirdGuideProps = {
   steps: BirdGuideStep[];
+  stepId?: string;
   onStepChange?: (step: BirdGuideStep, index: number) => void;
 };
 
@@ -89,7 +90,11 @@ function Arrow({ previous = false }: { previous?: boolean }) {
 }
 
 /** Guía no modal: el recorrido acompaña a la demo sin bloquear sus controles. */
-export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
+export function BirdGuide({
+  steps,
+  stepId: selectedStepId,
+  onStepChange,
+}: BirdGuideProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
@@ -101,7 +106,13 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const birdRef = useRef<HTMLSpanElement>(null);
   const highlightRef = useRef<HTMLSpanElement>(null);
-  const currentIndex = Math.min(index, Math.max(0, steps.length - 1));
+  const selectedIndex = selectedStepId
+    ? steps.findIndex((candidate) => candidate.id === selectedStepId)
+    : -1;
+  const currentIndex =
+    selectedIndex >= 0
+      ? selectedIndex
+      : Math.min(index, Math.max(0, steps.length - 1));
   const step = steps[currentIndex];
   const active = open && Boolean(step);
   const targetId = step?.targetId;
@@ -151,7 +162,12 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
     const bird = birdRef.current;
     const highlight = highlightRef.current;
     if (!panel || !bird || !highlight) return;
-    const navbar = document.querySelector<HTMLElement>("header.topbar");
+    const navbar = document.querySelector<HTMLElement>(
+      "[data-workspace-header], header.topbar",
+    );
+    const navigation = document.querySelector<HTMLElement>(
+      "[data-workspace-navigation]",
+    );
     bird.dataset.step = stepId;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
@@ -189,10 +205,16 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
           getComputedStyle(panel).getPropertyValue("--guide-safe-bottom"),
         ) || 0;
       const navbarRect = navbar?.getBoundingClientRect();
+      const navigationRect = navigation?.getBoundingClientRect();
       const contentTop = Math.max(
         top + 12,
         navbarRect && navbarRect.top <= top + 1
           ? navbarRect.bottom + 12
+          : top + 12,
+        navigationRect &&
+          navigationRect.width > width * 0.75 &&
+          navigationRect.top <= (navbarRect?.bottom ?? top) + 12
+          ? navigationRect.bottom + 12
           : top + 12,
       );
       const rect = target?.getBoundingClientRect();
@@ -300,6 +322,7 @@ export function BirdGuide({ steps, onStepChange }: BirdGuideProps) {
     const resize = new ResizeObserver(schedule);
     resize.observe(panel);
     if (navbar) resize.observe(navbar);
+    if (navigation) resize.observe(navigation);
     const mutation = new MutationObserver(schedule);
     mutation.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("resize", schedule, { passive: true });
