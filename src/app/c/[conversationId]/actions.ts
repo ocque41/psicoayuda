@@ -213,7 +213,7 @@ export async function ensureProChatToken(
 export async function markProfessionalChatRead(
   conversationId: string,
   messageTimestamp: number,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; retryable?: boolean }> {
   if (
     !Number.isSafeInteger(messageTimestamp) ||
     messageTimestamp <= 0 ||
@@ -228,11 +228,23 @@ export async function markProfessionalChatRead(
       return { ok: false };
     const actor = await resolveActor(conversation, false);
     if (actor?.role !== "professional") return { ok: false };
+    // El DO entrega el mensaje antes de que su espejo de metadatos alcance D1.
+    // Si todavía va detrás, conservar la lectura pendiente evita confirmar una
+    // marca menor que luego convertiría el mensaje ya leído en no leído.
     const rows = await db.all(sql`UPDATE conversations
-      SET pro_last_read_at=max(coalesce(pro_last_read_at,0),min(last_message_at,${messageTimestamp}))
+      SET pro_last_read_at=max(coalesce(pro_last_read_at,0),${messageTimestamp})
       WHERE id=${conversationId} AND last_message_at IS NOT NULL AND deleted_at IS NULL AND anonymized_at IS NULL
-        AND status IN ('open','closed') AND ${actorPermission(actor, conversationId)} RETURNING id`);
-    return { ok: rows.length > 0 };
+        AND last_message_at >= ${messageTimestamp} AND status IN ('open','closed')
+        AND ${actorPermission(actor, conversationId)} RETURNING id`);
+    if (rows.length > 0) return { ok: true };
+    // Sólo el retraso comprobado de metadatos permite un reintento automático.
+    // Volvemos a verificar permisos y estado para no reintentar una revocación.
+    const lagging = await db.all(sql`SELECT id FROM conversations
+      WHERE id=${conversationId} AND deleted_at IS NULL AND anonymized_at IS NULL
+        AND status IN ('open','closed')
+        AND (last_message_at IS NULL OR last_message_at < ${messageTimestamp})
+        AND ${actorPermission(actor, conversationId)} LIMIT 1`);
+    return lagging.length > 0 ? { ok: false, retryable: true } : { ok: false };
   } catch {
     return { ok: false };
   }
