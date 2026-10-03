@@ -1,0 +1,10 @@
+.loading {
+  /* Reserva el viewport bajo la cabecera mientras llega el contenido. */
+  min-block-size: calc(100vh - 4rem);
+}
+
+@supports (height: 100svh) {
+  .loading {
+    min-block-size: calc(100svh - 4rem);
+  }
+}

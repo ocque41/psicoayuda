@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import type { ContactFormState } from "@/app/actions-contact";
 import {
   contactCategories,
@@ -19,11 +26,48 @@ export function ContactMessageForm({
   action: ContactAction;
   audience: "public" | "professional";
 }) {
-  const [state, formAction, pending] = useActionState(action, null);
+  const [message, setMessage] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [category, setCategory] = useState<string>("question");
+  const safeAction = useCallback(
+    async (
+      previous: ContactFormState,
+      data: FormData,
+    ): Promise<ContactFormState> => {
+      try {
+        return await action(previous, data);
+      } catch (error) {
+        const digest =
+          error && typeof error === "object" && "digest" in error
+            ? String(error.digest)
+            : "";
+        if (
+          digest.startsWith("NEXT_REDIRECT") ||
+          digest.startsWith("NEXT_HTTP_ERROR_FALLBACK")
+        )
+          throw error;
+        return {
+          ok: false,
+          message:
+            audience === "professional"
+              ? "No pudimos confirmar el envío. Tu texto sigue aquí. Comprueba el historial de soporte antes de enviarlo otra vez."
+              : "No pudimos confirmar el envío. Tu texto sigue aquí. Comprueba si recibiste respuesta antes de repetir el mensaje.",
+        };
+      }
+    },
+    [action, audience],
+  );
+  const [state, formAction, pending] = useActionState(safeAction, null);
   const formId = useId();
   const errorRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
+    if (state?.ok) {
+      setMessage("");
+      setName("");
+      setEmail("");
+    }
     if (state && !state.ok) errorRef.current?.focus();
   }, [state]);
 
@@ -66,6 +110,9 @@ export function ContactMessageForm({
             <input
               id={`${formId}-name`}
               name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              readOnly={pending}
               type="text"
               maxLength={120}
               autoComplete="name"
@@ -76,6 +123,9 @@ export function ContactMessageForm({
             <input
               id={`${formId}-email`}
               name="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              readOnly={pending}
               type="email"
               inputMode="email"
               autoCapitalize="none"
@@ -89,7 +139,14 @@ export function ContactMessageForm({
 
       <label htmlFor={`${formId}-category`}>
         ¿Sobre qué quieres escribirnos?
-        <select id={`${formId}-category`} name="category" required>
+        <select
+          id={`${formId}-category`}
+          name="category"
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          disabled={pending}
+          required
+        >
           {contactCategories.map((category) => (
             <option key={category} value={category}>
               {contactCategoryLabels[category]}
@@ -103,6 +160,9 @@ export function ContactMessageForm({
         <textarea
           id={`${formId}-message`}
           name="message"
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          readOnly={pending}
           rows={6}
           minLength={10}
           maxLength={2000}

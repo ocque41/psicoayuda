@@ -557,6 +557,18 @@ export const contactMessages = sqliteTable(
       table.createdAt,
     ),
     index("contact_messages_created_idx").on(table.createdAt),
+    index("contact_messages_updated_order_idx").on(table.updatedAt, table.id),
+    index("contact_messages_status_updated_order_idx").on(
+      table.status,
+      table.updatedAt,
+      table.id,
+    ),
+    index("contact_messages_pro_updated_order_idx").on(
+      table.professionalId,
+      table.source,
+      table.updatedAt,
+      table.id,
+    ),
   ],
 );
 
@@ -889,9 +901,33 @@ export const supportReplies = sqliteTable(
       .references(() => contactMessages.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     authorEmail: text("author_email").notNull(),
+    authorRole: text("author_role", { enum: ["staff", "professional"] })
+      .default("staff")
+      .notNull(),
+    actorUserId: text("actor_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    submissionId: text("submission_id"),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("support_replies_contact_idx").on(t.contactId)],
+  (t) => [
+    index("support_replies_contact_idx").on(t.contactId),
+    index("support_replies_thread_order_idx").on(
+      t.contactId,
+      t.createdAt,
+      t.id,
+    ),
+    index("support_replies_actor_time_idx").on(
+      t.authorRole,
+      t.actorUserId,
+      t.createdAt,
+    ),
+    uniqueIndex("support_replies_submission_idx").on(
+      t.authorRole,
+      t.actorUserId,
+      t.submissionId,
+    ),
+  ],
 );
 export const callConsents = sqliteTable(
   "call_consents",

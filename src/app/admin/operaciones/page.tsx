@@ -1,27 +1,20 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  replySupport,
   reviewProfessional,
   reviewScope,
   revokeScope,
-  updateSupportStatus,
 } from "@/app/admin/operaciones/actions";
 import { PracticeForm } from "@/components/practice/forms";
+import { SupportTicketList } from "@/components/support/list";
 import { db } from "@/db";
-import {
-  contactMessages,
-  practiceCredentials,
-  professionals,
-  supportReplies,
-} from "@/db/schema";
+import { practiceCredentials, professionals } from "@/db/schema";
 import { countries } from "@/lib/constants";
-import { contactCategoryLabels } from "@/lib/contact-messages";
-import { dateLabel } from "@/lib/practice/domain";
-import { orient } from "@/lib/practice/orientation";
 import { requirePracticeStaff } from "@/lib/practice/staff";
+import { requireSupportStaff } from "@/lib/practice/support-access";
+import { readStaffSupportList } from "@/lib/practice/support-queries";
 export const metadata: Metadata = {
   title: "Operaciones profesionales",
   robots: { index: false, follow: false },
@@ -29,30 +22,21 @@ export const metadata: Metadata = {
 export default async function OperationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; pagina?: string }>;
 }) {
   const [support, reviewer] = await Promise.all([
-    requirePracticeStaff("support"),
+    requireSupportStaff(),
     requirePracticeStaff("credentials"),
   ]);
   if (!support && !reviewer) redirect("/pro");
   const query = await searchParams;
   const [tickets, pros, scopes] = await Promise.all([
     support
-      ? db
-          .select()
-          .from(contactMessages)
-          .where(
-            eq(
-              contactMessages.status,
-              ["new", "in_review", "resolved"].includes(query.estado || "")
-                ? query.estado || "new"
-                : "new",
-            ),
-          )
-          .orderBy(asc(contactMessages.createdAt))
-          .limit(50)
-      : [],
+      ? readStaffSupportList(support, {
+          status: query.estado || "new",
+          page: query.pagina,
+        })
+      : null,
     reviewer
       ? db
           .select({
@@ -79,19 +63,6 @@ export default async function OperationsPage({
           .orderBy(asc(practiceCredentials.expiresAt))
       : [],
   ]);
-  const replies =
-    support && tickets.length
-      ? await db
-          .select()
-          .from(supportReplies)
-          .where(
-            inArray(
-              supportReplies.contactId,
-              tickets.map((t) => t.id),
-            ),
-          )
-          .orderBy(asc(supportReplies.createdAt))
-      : [];
   return (
     <section className="section">
       <div className="container practice-shell">
@@ -104,102 +75,19 @@ export default async function OperationsPage({
         <p>
           <Link href="/admin">Administración general</Link>
         </p>
-        {support ? (
+        {support && tickets ? (
           <section>
             <h2>Soporte</h2>
-            <nav className="panel-nav">
-              <Link href="?estado=new">Nuevos</Link>
-              <Link href="?estado=in_review">En revisión</Link>
-              <Link href="?estado=resolved">Resueltos</Link>
-            </nav>
-            {tickets.map((t) => {
-              const flags = orient({
-                text: t.message,
-                country: "Venezuela",
-                language: "es",
-                ageGroup: "adult",
-                forWhom: "self",
-                immediateDanger: "no",
-              });
-              return (
-                <article className="card" key={t.id}>
-                  <h3>
-                    {t.name || "Contacto"} ·{" "}
-                    {contactCategoryLabels[
-                      t.category as keyof typeof contactCategoryLabels
-                    ] || "Consulta"}
-                  </h3>
-                  <p className="hint">
-                    {dateLabel(t.createdAt)} ·{" "}
-                    {t.source === "professional_dashboard"
-                      ? "Panel profesional"
-                      : "Contacto público"}
-                  </p>
-                  {flags.safetySignal ? (
-                    <p role="alert">
-                      Hay una mención que requiere revisión humana prioritaria.
-                      No confirmar seguridad a partir de esta señal automática.
-                    </p>
-                  ) : null}
-                  <p style={{ whiteSpace: "pre-wrap" }}>{t.message}</p>
-                  {replies
-                    .filter((r) => r.contactId === t.id)
-                    .map((r) => (
-                      <div className="orientation-message" key={r.id}>
-                        <p>{r.body}</p>
-                        <small>{dateLabel(r.createdAt)}</small>
-                      </div>
-                    ))}
-                  {t.professionalId ? (
-                    <PracticeForm
-                      action={replySupport}
-                      submit="Publicar respuesta"
-                    >
-                      <input type="hidden" name="contactId" value={t.id} />
-                      <label>
-                        Respuesta en el panel del profesional
-                        <textarea
-                          name="body"
-                          required
-                          minLength={3}
-                          maxLength={2000}
-                          rows={4}
-                        />
-                      </label>
-                      <label>
-                        Estado
-                        <select name="status">
-                          <option value="in_review">En revisión</option>
-                          <option value="resolved">Resuelto</option>
-                        </select>
-                      </label>
-                    </PracticeForm>
-                  ) : (
-                    <div>
-                      <a
-                        href={`mailto:${encodeURIComponent(t.email)}?subject=Respuesta%20de%20Nido`}
-                      >
-                        Responder desde el correo
-                      </a>
-                      <PracticeForm
-                        action={updateSupportStatus}
-                        submit="Guardar estado"
-                      >
-                        <input type="hidden" name="contactId" value={t.id} />
-                        <label>
-                          Estado
-                          <select name="status">
-                            <option value="in_review">En revisión</option>
-                            <option value="resolved">Resuelto</option>
-                          </select>
-                        </label>
-                      </PracticeForm>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-            {!tickets.length ? <p>No hay mensajes en este estado.</p> : null}
+            <p className="hint">
+              Abre una consulta para revisar el historial, responder y registrar
+              su estado.
+            </p>
+            <SupportTicketList
+              list={tickets}
+              basePath="/admin/operaciones"
+              detailPath="/admin/operaciones/soporte"
+              staff
+            />
           </section>
         ) : null}
         {reviewer ? (

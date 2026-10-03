@@ -2,10 +2,10 @@
 
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { auditLogs, contactMessages, professionals } from "@/db/schema";
+import { auditLogs, contactMessages } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
-import { getServerSession } from "@/lib/auth-server";
 import {
   type ContactCategory,
   type ContactSource,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/contact-messages";
 import { newId, nowIso } from "@/lib/ids";
 import { notifyAdminContactMessage } from "@/lib/notifications";
+import { requireSupportProfessional } from "@/lib/practice/support-access";
 import { getRequesterHash } from "@/lib/requester-hash";
 import { contactMessageSchema, contactStatusSchema } from "@/lib/validation";
 
@@ -35,6 +36,7 @@ async function storeContactWithinRateLimit(input: {
   name?: string;
   email: string;
   professionalId?: string;
+  actorUserId?: string;
   message: string;
   requesterHash?: string;
 }) {
@@ -52,6 +54,13 @@ async function storeContactWithinRateLimit(input: {
         : sql`source = 'public_contact' AND email = ${input.email}`
       : sql`source = 'professional_dashboard' AND professional_id = ${input.professionalId ?? ""}`;
 
+  const identityCondition =
+    input.source === "professional_dashboard"
+      ? sql`EXISTS (SELECT 1 FROM professionals AS contact_pro JOIN user AS contact_actor ON contact_actor.id = contact_pro.user_id
+       WHERE contact_pro.id = ${input.professionalId ?? ""} AND contact_pro.user_id = ${input.actorUserId ?? ""}
+         AND contact_pro.status <> 'deleting' AND lower(contact_actor.email) = lower(${input.email}))`
+      : sql`1 = 1`;
+
   // La comprobación y el INSERT viven en UNA sentencia SQLite. D1 serializa la
   // escritura de la sentencia completa, así que varios envíos paralelos no
   // pueden pasar todos por un conteo antiguo. `RETURNING` queda vacío cuando se
@@ -65,7 +74,7 @@ async function storeContactWithinRateLimit(input: {
       ${id}, ${input.source}, ${input.category}, ${input.name ?? null},
       ${input.email}, ${input.professionalId ?? null}, ${input.message}, 'new',
       ${input.requesterHash ?? null}, ${timestamp}, ${timestamp}
-    WHERE (
+    WHERE ${identityCondition} AND (
       SELECT COUNT(*)
       FROM contact_messages
       WHERE ${rateCondition} AND created_at >= ${since}
@@ -80,6 +89,8 @@ async function storeContactWithinRateLimit(input: {
     categoryLabel: contactCategoryLabels[input.category],
   }).catch(() => undefined);
   revalidatePath("/admin");
+  revalidatePath("/admin/operaciones");
+  if (input.source === "professional_dashboard") revalidatePath("/pro/soporte");
   return true;
 }
 
@@ -128,25 +139,18 @@ export async function createProfessionalContactMessage(
   formData: FormData,
 ): Promise<ContactFormState> {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.id || !session.user.email) {
-      return { ok: false, message: "Tu sesión terminó. Entra de nuevo." };
-    }
-
-    const professional = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (!professional) {
+    const actor = await requireSupportProfessional();
+    if (!actor)
       return {
         ok: false,
-        message: "Tu perfil profesional aún no tiene acceso a esta sección.",
+        message:
+          "Tu sesión terminó o tu perfil ya no está disponible. Entra de nuevo.",
       };
-    }
 
     const parsed = contactMessageSchema.safeParse(
       professionalContactFormInput(formEntries(formData), {
-        name: professional.displayName || professional.fullName,
-        email: session.user.email,
+        name: actor.displayName,
+        email: actor.email,
       }),
     );
     if (!parsed.success) {
@@ -161,13 +165,14 @@ export async function createProfessionalContactMessage(
     const stored = await storeContactWithinRateLimit({
       source: "professional_dashboard",
       ...parsed.data,
-      professionalId: professional.id,
+      professionalId: actor.professionalId,
+      actorUserId: actor.userId,
     });
     if (!stored) {
       return {
         ok: false,
         message:
-          "Ya recibimos varios mensajes tuyos recientemente. Espera un poco antes de enviar otro.",
+          "Ya recibimos varios mensajes tuyos o tu perfil cambió. Actualiza la página y espera un poco antes de enviar otro.",
       };
     }
     return { ok: true };
@@ -190,9 +195,13 @@ export async function adminUpdateContactMessageStatus(formData: FormData) {
 
   const existing = await db.query.contactMessages.findFirst({
     where: eq(contactMessages.id, id),
-    columns: { id: true, status: true },
+    columns: { id: true, status: true, source: true },
   });
-  if (!existing || existing.status === parsedStatus.data) return;
+  if (!existing) return;
+  // El buzón antiguo no puede resolver una conversación cuya revisión no leyó.
+  if (existing.source === "professional_dashboard")
+    redirect(`/admin/operaciones/soporte/${id}`);
+  if (existing.status === parsedStatus.data) return;
 
   const timestamp = nowIso();
   // D1 no admite transacciones SQL interactivas, pero `db.batch()` sí ejecuta

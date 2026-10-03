@@ -30,7 +30,11 @@ let client;
 try {
   run(["exec", "drizzle-kit", "push", "--force"]);
   client = createClient({ url });
-  for (const file of ["0027_practice_crm.sql", "0030_practice_notes.sql"]) {
+  for (const file of [
+    "0027_practice_crm.sql",
+    "0030_practice_notes.sql",
+    "0032_support_continuity.sql",
+  ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),
       "utf8",

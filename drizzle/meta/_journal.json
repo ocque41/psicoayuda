@@ -225,6 +225,13 @@
       "when": 1790989351161,
       "tag": "0031_opennext_tag_cache_upsert",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1791043729463,
+      "tag": "0032_support_continuity",
+      "breakpoints": true
     }
   ]
 }

@@ -159,28 +159,43 @@ export function AdminContactInbox({
               ) : null}
 
               <div className="admin-contact-actions">
-                <a
-                  className="button human"
-                  href={buildPreparedEmailUrl(
-                    row.email,
-                    `Respuesta de Nido: ${categoryLabel(row.category)}`,
-                  )}
-                >
-                  Responder por correo
-                </a>
-                <form action={updateStatusAction}>
-                  <input name="contactMessageId" type="hidden" value={row.id} />
-                  <select name="status" defaultValue={row.status}>
-                    {contactStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {contactStatusLabels[status]}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="button secondary" type="submit">
-                    Guardar estado
-                  </button>
-                </form>
+                {row.source === "professional_dashboard" ? (
+                  <Link
+                    className="button human"
+                    href={`/admin/operaciones/soporte/${row.id}`}
+                  >
+                    Abrir conversación
+                  </Link>
+                ) : (
+                  <>
+                    <a
+                      className="button human"
+                      href={buildPreparedEmailUrl(
+                        row.email,
+                        `Respuesta de Nido: ${categoryLabel(row.category)}`,
+                      )}
+                    >
+                      Responder por correo
+                    </a>
+                    <form action={updateStatusAction}>
+                      <input
+                        name="contactMessageId"
+                        type="hidden"
+                        value={row.id}
+                      />
+                      <select name="status" defaultValue={row.status}>
+                        {contactStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {contactStatusLabels[status]}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="button secondary" type="submit">
+                        Guardar estado
+                      </button>
+                    </form>{" "}
+                  </>
+                )}
               </div>
             </article>
           ))}

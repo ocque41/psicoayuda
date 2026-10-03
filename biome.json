@@ -12,7 +12,8 @@
       "!_references",
       "!drizzle",
       "!src/worker-bindings.d.ts",
-      "!google-cloud-sdk"
+      "!google-cloud-sdk",
+      "!docs/producto"
     ]
   },
   "formatter": {

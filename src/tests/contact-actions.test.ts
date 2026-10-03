@@ -304,6 +304,40 @@ describe("contacto profesional", () => {
     });
   });
 
+  it("usa el correo actual aunque la sesión conserva otro anterior", async () => {
+    mocks.getServerSession.mockResolvedValue({
+      user: { id: professionalUserId, email: `${PREFIX}-anterior@example.com` },
+    });
+    expect(
+      await createProfessionalContactMessage(null, contactForm({})),
+    ).toEqual({ ok: true });
+    const saved = await db.query.contactMessages.findFirst({
+      where: eq(contactMessages.professionalId, professionalId),
+    });
+    expect(saved?.email).toBe(professionalEmail);
+  });
+
+  it("rechaza nuevas consultas cuando la cuenta está en proceso de baja", async () => {
+    mocks.getServerSession.mockResolvedValue({
+      user: { id: professionalUserId, email: professionalEmail },
+    });
+    await db
+      .update(professionals)
+      .set({ status: "deleting" })
+      .where(eq(professionals.id, professionalId));
+    try {
+      expect(
+        await createProfessionalContactMessage(null, contactForm({})),
+      ).toMatchObject({ ok: false });
+      expect(await testContactIds()).toHaveLength(0);
+    } finally {
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, professionalId));
+    }
+  });
+
   it("limita a cinco mensajes por profesional", async () => {
     mocks.getServerSession.mockResolvedValue({
       user: { id: professionalUserId, email: professionalEmail },
@@ -344,7 +378,8 @@ describe("contacto profesional", () => {
 
     expect(state).toEqual({
       ok: false,
-      message: "Tu sesión terminó. Entra de nuevo.",
+      message:
+        "Tu sesión terminó o tu perfil ya no está disponible. Entra de nuevo.",
     });
   });
 });
@@ -389,6 +424,27 @@ describe("estado del buzón administrativo", () => {
         ),
       );
     expect(audits).toHaveLength(0);
+  });
+
+  it("el buzón antiguo dirige el soporte profesional al detalle y no cambia su estado", async () => {
+    const id = `${PREFIX}-legacy-pro`;
+    await insertContact({ id, email: professionalEmail, professionalId });
+    const form = new FormData();
+    form.set("contactMessageId", id);
+    form.set("status", "resolved");
+    await expect(adminUpdateContactMessageStatus(form)).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(
+      (
+        await db.query.contactMessages.findFirst({
+          where: eq(contactMessages.id, id),
+        })
+      )?.status,
+    ).toBe("new");
+    expect(
+      await db.select().from(auditLogs).where(eq(auditLogs.entityId, id)),
+    ).toHaveLength(0);
   });
 
   it("cambia el estado y crea su auditoría en el mismo batch", async () => {

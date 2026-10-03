@@ -4,75 +4,46 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import type { PracticeFormState } from "@/app/pro/consulta/actions";
 import { db } from "@/db";
-import {
-  auditLogs,
-  contactMessages,
-  practiceCredentials,
-  professionals,
-  supportReplies,
-} from "@/db/schema";
+import { auditLogs, practiceCredentials, professionals } from "@/db/schema";
 import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { countries } from "@/lib/constants";
 import { newId, nowIso } from "@/lib/ids";
 import { requirePracticeStaff } from "@/lib/practice/staff";
+import {
+  requireSupportStaff,
+  type SupportFormState,
+  writeSupportReply,
+  writeSupportStatus,
+} from "@/lib/practice/support";
 export async function replySupport(
   _prev: PracticeFormState,
   form: FormData,
-): Promise<PracticeFormState> {
-  const staff = await requirePracticeStaff("support");
-  if (!staff)
-    return { ok: false, message: "Tu cuenta no tiene permiso de soporte." };
-  const parsed = z
-    .object({
-      contactId: z.string().min(1),
-      body: z.string().trim().min(3).max(2000),
-      status: z.enum(["in_review", "resolved"]),
-    })
-    .safeParse(Object.fromEntries(form));
-  if (!parsed.success)
-    return { ok: false, message: "Escribe una respuesta y elige el estado." };
-  const ticket = await db.query.contactMessages.findFirst({
-    where: eq(contactMessages.id, parsed.data.contactId),
-  });
-  if (!ticket?.professionalId)
+): Promise<SupportFormState> {
+  try {
+    const staff = await requireSupportStaff();
+    if (!staff)
+      return {
+        ok: false,
+        code: "unauthorized",
+        message: "Tu cuenta no tiene permiso de soporte.",
+      };
+    const state = await writeSupportReply(staff, form);
+    if (state?.ok) {
+      revalidatePath("/admin/operaciones");
+      revalidatePath("/pro/soporte");
+      const contactId = String(form.get("contactId") ?? "").trim();
+      revalidatePath(`/pro/soporte/${contactId}`);
+      revalidatePath(`/admin/operaciones/soporte/${contactId}`);
+    }
+    return state;
+  } catch {
     return {
       ok: false,
+      code: "unavailable",
       message:
-        "Esta respuesta interna está disponible para consultas de profesionales. Usa el correo del contacto público desde su ficha.",
+        "No pudimos guardar la respuesta. Conserva el texto y vuelve a intentarlo.",
     };
-  const timestamp = nowIso();
-  await db.batch([
-    db.insert(supportReplies).values({
-      id: newId("reply"),
-      contactId: ticket.id,
-      body: parsed.data.body,
-      authorEmail: staff.email,
-      createdAt: timestamp,
-    }),
-    db
-      .update(contactMessages)
-      .set({
-        status: parsed.data.status,
-        handledBy: staff.email,
-        handledAt: timestamp,
-        updatedAt: timestamp,
-      })
-      .where(eq(contactMessages.id, ticket.id)),
-    db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail: staff.email,
-      action: "support_reply",
-      entityType: "contact_message",
-      entityId: ticket.id,
-      createdAt: timestamp,
-    }),
-  ]);
-  revalidatePath("/admin/operaciones");
-  revalidatePath("/pro/soporte");
-  return {
-    ok: true,
-    message: "Respuesta publicada en el soporte del profesional.",
-  };
+  }
 }
 export async function reviewScope(
   _prev: PracticeFormState,
@@ -294,43 +265,29 @@ export async function revokeScope(
 export async function updateSupportStatus(
   _prev: PracticeFormState,
   form: FormData,
-): Promise<PracticeFormState> {
-  const staff = await requirePracticeStaff("support");
-  if (!staff)
-    return { ok: false, message: "Tu cuenta no tiene permiso de soporte." };
-  const parsed = z
-    .object({
-      contactId: z.string().min(1),
-      status: z.enum(["in_review", "resolved"]),
-    })
-    .safeParse(Object.fromEntries(form));
-  if (!parsed.success)
-    return { ok: false, message: "Elige el estado de la consulta." };
-  const ticket = await db.query.contactMessages.findFirst({
-    where: eq(contactMessages.id, parsed.data.contactId),
-    columns: { id: true },
-  });
-  if (!ticket) return { ok: false, message: "No encontramos esta consulta." };
-  await db.batch([
-    db
-      .update(contactMessages)
-      .set({
-        status: parsed.data.status,
-        handledBy: staff.email,
-        handledAt: nowIso(),
-        updatedAt: nowIso(),
-      })
-      .where(eq(contactMessages.id, ticket.id)),
-    db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail: staff.email,
-      action: "support_status_updated",
-      entityType: "contact_message",
-      entityId: ticket.id,
-      metadata: JSON.stringify({ status: parsed.data.status }),
-      createdAt: nowIso(),
-    }),
-  ]);
-  revalidatePath("/admin/operaciones");
-  return { ok: true, message: "Estado guardado." };
+): Promise<SupportFormState> {
+  try {
+    const staff = await requireSupportStaff();
+    if (!staff)
+      return {
+        ok: false,
+        code: "unauthorized",
+        message: "Tu cuenta no tiene permiso de soporte.",
+      };
+    const state = await writeSupportStatus(staff, form);
+    if (state?.ok) {
+      revalidatePath("/admin/operaciones");
+      revalidatePath("/pro/soporte");
+      const contactId = String(form.get("contactId") ?? "").trim();
+      revalidatePath(`/pro/soporte/${contactId}`);
+      revalidatePath(`/admin/operaciones/soporte/${contactId}`);
+    }
+    return state;
+  } catch {
+    return {
+      ok: false,
+      code: "unavailable",
+      message: "No pudimos guardar el estado. Vuelve a intentarlo.",
+    };
+  }
 }
