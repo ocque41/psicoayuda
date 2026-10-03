@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -18,12 +18,19 @@ const runBrowser = promisify(execFile);
 const session = `nido-guide-${crypto.randomUUID()}`;
 const directory = await mkdtemp(join(tmpdir(), "nido-guide-regression-"));
 const checks = [];
+const idleEvidence = [];
+const artifacts = process.env.NIDO_GUIDE_ARTIFACT_DIR;
+async function capture(name) {
+  if (!artifacts) return;
+  await mkdir(artifacts, { recursive: true });
+  await cli("screenshot", join(artifacts, `${name}.png`));
+}
 let launched = false;
 async function cli(...args) {
   const { stdout } = await runBrowser(
     browser,
     ["--session", session, "--json", ...args],
-    { encoding: "utf8", timeout: 15000 },
+    { encoding: "utf8", timeout: args[0] === "open" ? 45000 : 30000 },
   );
   const result = JSON.parse(stdout);
   assert.equal(
@@ -87,8 +94,8 @@ try {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   assert.ok(address && typeof address === "object");
-  await cli("open", `http://127.0.0.1:${address.port}/`);
   launched = true;
+  await cli("open", `http://127.0.0.1:${address.port}/`);
   await cli("set", "viewport", "390", "844");
   await cli("snapshot", "-i");
   await cli("click", "button[aria-expanded='false']");
@@ -124,7 +131,7 @@ try {
       await until("document.activeElement.textContent==='Conoce agenda'");
     },
   );
-  await cli("screenshot", "/tmp/nido-bird-guide-fixture-mobile.png");
+  await capture("mobile");
   await until(
     "document.querySelector('span[data-step]')?.dataset.flying==='false'",
   );
@@ -197,7 +204,7 @@ try {
       true,
     );
   });
-  await cli("screenshot", "/tmp/nido-bird-guide-fixture-desktop.png");
+  await capture("desktop");
   await check("Escape cierra, devuelve foco y limpia observers", async () => {
     await cli("press", "Escape");
     await until("!document.querySelector('[role=dialog]')");
@@ -228,7 +235,7 @@ try {
         ),
         true,
       );
-      await cli("screenshot", "/tmp/nido-bird-guide-fixture-mobile-tall.png");
+      await capture("mobile-tall");
       await cli("press", "Escape");
       await until("!document.querySelector('[role=dialog]')");
       await evaluate(
@@ -446,11 +453,218 @@ try {
       });
     },
   );
+  await cli("set", "media", "light", "no-preference");
+  await check(
+    "gestos naturales visibles y finitos se repiten con pausas sin mover el anclaje ni el foco",
+    async () => {
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      const sample = () =>
+        evaluate(
+          "const bird=document.querySelector('span[data-step]');const pose=bird.firstElementChild;return {anchor:bird.style.transform,pose:getComputedStyle(pose).transform,focus:document.activeElement.textContent,scroll:scrollY,animations:bird.getAnimations({subtree:true}).map(a=>({duration:a.effect.getTiming().duration,iterations:a.effect.getTiming().iterations})),timers:window.fixture.pendingTimers()};",
+        );
+      const first = await sample();
+      assert.equal(first.animations.length, 4);
+      assert.ok(
+        first.animations.every(
+          (a) => a.duration === 1800 && a.iterations === 1,
+        ),
+      );
+      await capture("idle-desktop-a");
+      await delay(250);
+      const second = await sample();
+      assert.equal(second.anchor, first.anchor);
+      assert.notEqual(second.pose, first.pose);
+      assert.equal(second.focus, first.focus);
+      assert.equal(second.scroll, first.scroll);
+      await capture("idle-desktop-b");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='rest' && window.fixture.motion.active===0",
+      );
+      const pause = await sample();
+      assert.equal(pause.animations.length, 0);
+      assert.equal(pause.timers, 1);
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      idleEvidence.push({ first, second, pause, repeated: true });
+    },
+  );
+  await check(
+    "gestos en móvil conservan el ave dentro del viewport y los controles editables",
+    async () => {
+      await cli("set", "viewport", "390", "844");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      assert.equal(
+        await evaluate(
+          "const bird=document.querySelector('span[data-step]');const art=bird.firstElementChild.getBoundingClientRect();const button=document.querySelector('#demo-agenda button');const c=button.getBoundingClientRect();const panel=document.querySelector('[role=dialog]').getBoundingClientRect();return art.left>=0&&art.right<=innerWidth&&art.top>=0&&art.bottom<=innerHeight&&c.bottom<panel.top&&document.elementFromPoint(c.left+c.width/2,c.top+c.height/2)===button;",
+        ),
+        true,
+      );
+      await cli("fill", "#input-agenda", "Borrador ficticio con ave activa");
+      assert.equal(
+        await evaluate("return document.activeElement.id;"),
+        "input-agenda",
+      );
+      await capture("idle-mobile");
+    },
+  );
+  await check(
+    "cambiar destino durante un gesto cancela sus animaciones y conserva el vuelo curvo",
+    async () => {
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      await evaluate("window.fixture.setStep('pacientes');");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.step==='pacientes' && document.querySelector('span[data-step]').dataset.phase==='flight'",
+      );
+      assert.equal(
+        await evaluate(
+          "const bird=document.querySelector('span[data-step]');return window.fixture.motion.active===2&&bird.firstElementChild.getAnimations().every(a=>a.effect.getTiming().duration<=1000);",
+        ),
+        true,
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+    },
+  );
+  await check(
+    "Escape durante un gesto libera animaciones y timers sin reinicios tardíos",
+    async () => {
+      await cli("press", "Escape");
+      await until(
+        "!document.querySelector('[role=dialog]') && window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      const created = await evaluate("return window.fixture.motion.created;");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      assert.deepEqual(await evaluate("return window.fixture.resources;"), {
+        resize: 0,
+        mutation: 0,
+        listeners: 0,
+      });
+      await capture("idle-cleanup");
+    },
+  );
+  await check(
+    "ocultar durante un gesto cancela también su siguiente pausa y no lo reactiva al volver",
+    async () => {
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      await evaluate("window.fixture.setHidden(true);");
+      await until(
+        "window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      const created = await evaluate("return window.fixture.motion.created;");
+      await evaluate("window.fixture.setHidden(null);");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await cli("press", "Escape");
+    },
+  );
+  await check(
+    "activar movimiento reducido durante un gesto lo detiene y deja navegación disponible",
+    async () => {
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      await cli("set", "media", "light", "reduced-motion");
+      await until(
+        "window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      const created = await evaluate("return window.fixture.motion.created;");
+      await cli("press", "ArrowRight");
+      await until("document.activeElement.textContent==='Conoce pacientes'");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await capture("idle-reduced-motion");
+      await cli("press", "Escape");
+    },
+  );
+  await cli("set", "media", "light", "no-preference");
+  await check(
+    "conexión lenta y ahorro de datos cancelan gestos y timers incluso al cambiar la conexión",
+    async () => {
+      await evaluate(
+        "Object.defineProperty(navigator,'connection',{configurable:true,value:Object.assign(new EventTarget(),{saveData:false,effectiveType:'4g'})});",
+      );
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      await evaluate(
+        "navigator.connection.effectiveType='2g';navigator.connection.dispatchEvent(new Event('change'));",
+      );
+      await until(
+        "window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      const created = await evaluate("return window.fixture.motion.created;");
+      await evaluate("window.fixture.setStep('mensajes');");
+      await until("document.activeElement.textContent==='Conoce mensajes'");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await capture("idle-low-connectivity");
+      await evaluate(
+        "navigator.connection.effectiveType='4g';navigator.connection.saveData=true;navigator.connection.dispatchEvent(new Event('change'));window.fixture.setStep('cobros');",
+      );
+      await until("document.activeElement.textContent==='Conoce cobros'");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await cli("press", "Escape");
+      await until(
+        "window.fixture.resources.listeners===0 && window.fixture.pendingTimers()===0",
+      );
+      await evaluate("Reflect.deleteProperty(navigator,'connection');");
+    },
+  );
+  await check(
+    "desmontar durante un gesto limpia timers, animaciones y listeners",
+    async () => {
+      await cli("click", "button[aria-expanded=false]");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
+      );
+      await evaluate("window.fixture.remount();");
+      await until(
+        "!document.querySelector('[role=dialog]') && window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      assert.deepEqual(await evaluate("return window.fixture.resources;"), {
+        resize: 0,
+        mutation: 0,
+        listeners: 0,
+      });
+    },
+  );
   console.log(
     JSON.stringify(
       {
         checks: checks.length,
         passed: checks,
+        idleEvidence,
         environment: "ReactDOM real, demo ficticia, sin BD ni proveedores",
       },
       null,
@@ -458,10 +672,9 @@ try {
     ),
   );
 } catch (error) {
+  console.error(JSON.stringify({ completedChecks: checks }, null, 2));
   if (launched) {
-    await cli("screenshot", "/tmp/nido-bird-guide-fixture-failure.png").catch(
-      () => {},
-    );
+    await capture("failure").catch(() => {});
     console.error(
       await evaluate(
         "return {panel:document.querySelector('[role=dialog]')?.textContent||null,trigger:document.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded'),target:!!document.getElementById('demo-agenda'),temporaryTarget:!!document.getElementById('demo-temporal'),active:document.activeElement?.tagName};",
