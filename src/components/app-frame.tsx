@@ -50,6 +50,7 @@ export function AppFrame({
 
   return (
     <>
+      {/* biome-ignore lint/a11y/useValidAnchor: El destino main existe; el foco explícito conserva los borradores del router. */}
       <a
         className="skip-link"
         href="#contenido"
