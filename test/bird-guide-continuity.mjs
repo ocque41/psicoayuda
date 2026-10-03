@@ -125,6 +125,9 @@ try {
     },
   );
   await cli("screenshot", "/tmp/nido-bird-guide-fixture-mobile.png");
+  await until(
+    "document.querySelector('span[data-step]')?.dataset.flying==='false'",
+  );
   await check(
     "editar la demo no reinicia scroll ni roba foco con props recreadas",
     async () => {
@@ -280,6 +283,167 @@ try {
         listeners: 0,
       });
       await cli("press", "Escape");
+    },
+  );
+  await cli("set", "media", "light", "no-preference");
+  await cli("set", "viewport", "1280", "900");
+  await evaluate(
+    "window.fixture.control();window.fixture.remount();scrollTo({top:0,behavior:'instant'});",
+  );
+  await until("document.querySelector('button[aria-expanded=false]')");
+  const firstPath = await evaluate(
+    "return window.fixture.motion.paths.length;",
+  );
+  await cli("click", "button[aria-expanded=false]");
+  await check(
+    "vuelo nativo curvo, orientado y con inclinación finita",
+    async () => {
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.flying==='true'",
+      );
+      assert.equal(
+        await evaluate(
+          `const bird=document.querySelector('span[data-step]');const paths=window.fixture.motion.paths.slice(${firstPath});const points=paths[0].transforms.map(t=>new DOMMatrixReadOnly(t));const start=points[0],end=points.at(-1);const curved=points.some(p=>Math.abs((end.m41-start.m41)*(p.m42-start.m42)-(end.m42-start.m42)*(p.m41-start.m41))>12);const tilt=bird.querySelector('span').getAnimations()[0]?.effect.getKeyframes();return bird.dataset.direction==='right' && curved && paths.every(p=>p.duration>0&&p.duration<=1000) && tilt?.some(k=>String(k.transform)!=='rotate(0deg)') && points.every(p=>p.m41>=0&&p.m41+72<=innerWidth&&p.m42>=0&&p.m42+72<=innerHeight);`,
+        ),
+        true,
+      );
+    },
+  );
+  await check(
+    "aterrizaje y microvida terminan sin animación en reposo",
+    async () => {
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='rest'",
+      );
+      await until("window.fixture.motion.active===0");
+      assert.equal(
+        await evaluate(
+          "const bird=document.querySelector('span[data-step]');return bird.dataset.flying==='false' && bird.getAnimations({subtree:true}).length===0 && getComputedStyle(bird).willChange==='auto';",
+        ),
+        true,
+      );
+    },
+  );
+  await check(
+    "stepId controlado muestra solo una vista y vuela hacia la izquierda",
+    async () => {
+      const resting = await evaluate(
+        "const b=document.querySelector('span[data-step]');return {inline:b.style.transform,computed:getComputedStyle(b).transform,x:b.getBoundingClientRect().x,positioned:b.dataset.positioned};",
+      );
+      await evaluate(
+        "document.getElementById('demo-pacientes').style.width='280px';window.fixture.setStep('pacientes');",
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.step==='pacientes' && document.querySelector('span[data-step]').dataset.flying==='true'",
+      );
+      const observed = await evaluate(
+        "const bird=document.querySelector('span[data-step]');return {direction:bird.dataset.direction,views:[...document.querySelectorAll('main>section')].filter(e=>!e.hidden).length,focus:document.activeElement.textContent,facing:getComputedStyle(bird.firstElementChild.firstElementChild).transform.startsWith('matrix(-1')};",
+      );
+      assert.deepEqual(
+        observed,
+        {
+          direction: "left",
+          views: 1,
+          focus: "Conoce pacientes",
+          facing: true,
+        },
+        JSON.stringify({
+          resting,
+          paths: await evaluate(
+            "return window.fixture.motion.paths.slice(-3);",
+          ),
+        }),
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='rest'",
+      );
+    },
+  );
+  await check(
+    "ventanas con el mismo anclaje tienen un arco corto; cambio rápido cancela el vuelo anterior",
+    async () => {
+      const before = await evaluate(
+        "return window.fixture.motion.paths.length;",
+      );
+      await evaluate(
+        "document.getElementById('demo-notas').style.width='280px';window.fixture.setStep('notas');",
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.step==='notas' && document.querySelector('span[data-step]').dataset.flying==='true'",
+      );
+      assert.equal(
+        await evaluate(
+          `const path=window.fixture.motion.paths[${before}];const points=path.transforms.map(t=>new DOMMatrixReadOnly(t));return Math.hypot(points.at(-1).m41-points[0].m41,points.at(-1).m42-points[0].m42)<20 && points.some(p=>Math.hypot(p.m41-points[0].m41,p.m42-points[0].m42)>8);`,
+        ),
+        true,
+      );
+      await evaluate("window.fixture.setStep('mensajes');");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.step==='mensajes'",
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.phase==='rest' && window.fixture.motion.active===0",
+      );
+      assert.ok(
+        (await evaluate("return window.fixture.motion.paths.length;")) -
+          before <=
+          16,
+      );
+    },
+  );
+  await check(
+    "ocultar la página cancela vuelo y microvida sin reactivarlos al volver",
+    async () => {
+      await evaluate("window.fixture.setStep('cobros');");
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.flying==='true'",
+      );
+      await evaluate("window.fixture.setHidden(true);");
+      await until("window.fixture.motion.active===0");
+      const created = await evaluate("return window.fixture.motion.created;");
+      assert.equal(
+        await evaluate(
+          "const bird=document.querySelector('span[data-step]');return bird.dataset.phase==='rest' && bird.dataset.flying==='false' && bird.getAnimations({subtree:true}).length===0;",
+        ),
+        true,
+      );
+      await evaluate("window.fixture.setHidden(null);");
+      await delay(140);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+    },
+  );
+  await check(
+    "ahorro de datos y movimiento reducido evitan animaciones nativas",
+    async () => {
+      const created = await evaluate("return window.fixture.motion.created;");
+      await evaluate(
+        "Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true}});window.fixture.setStep('cierre');",
+      );
+      await until("document.activeElement.textContent==='Conoce cierre'");
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await evaluate("Reflect.deleteProperty(navigator,'connection');");
+      await cli("set", "media", "light", "reduced-motion");
+      await evaluate("window.fixture.setStep('notas');");
+      await until("document.activeElement.textContent==='Conoce notas'");
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      await cli("press", "Escape");
+      await until(
+        "!document.querySelector('[role=dialog]') && window.fixture.motion.active===0",
+      );
+      assert.deepEqual(await evaluate("return window.fixture.resources;"), {
+        resize: 0,
+        mutation: 0,
+        listeners: 0,
+      });
     },
   );
   console.log(

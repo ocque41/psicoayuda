@@ -13,9 +13,49 @@ const sections = [
 const fixture = {
   steps: [] as string[],
   resources: { resize: 0, mutation: 0, listeners: 0 },
+  motion: {
+    created: 0,
+    active: 0,
+    paths: [] as Array<{ transforms: string[]; duration: number }>,
+  },
   remount: () => {},
+  control: () => {},
+  setStep: (_step: string) => {},
+  setHidden: (_hidden: boolean | null) => {},
 };
 Object.assign(window, { fixture });
+const nativeAnimate = Element.prototype.animate;
+Element.prototype.animate = function (keyframes, options) {
+  const animation = nativeAnimate.call(this, keyframes, options);
+  fixture.motion.created++;
+  fixture.motion.active++;
+  let active = true;
+  const release = () => {
+    if (!active) return;
+    active = false;
+    fixture.motion.active--;
+  };
+  animation.addEventListener("finish", release, { once: true });
+  animation.addEventListener("cancel", release, { once: true });
+  if (this instanceof HTMLElement && this.dataset.step && animation.effect) {
+    fixture.motion.paths.push({
+      transforms: (animation.effect as KeyframeEffect)
+        .getKeyframes()
+        .map((frame) => String(frame.transform)),
+      duration: Number(animation.effect.getTiming().duration),
+    });
+  }
+  return animation;
+};
+fixture.setHidden = (hidden) => {
+  if (hidden === null) Reflect.deleteProperty(document, "hidden");
+  else
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => hidden,
+    });
+  document.dispatchEvent(new Event("visibilitychange"));
+};
 const nativeAdd = EventTarget.prototype.addEventListener;
 const nativeRemove = EventTarget.prototype.removeEventListener;
 const listeners = new Map<
@@ -28,7 +68,7 @@ function tracked(target: EventTarget, type: string) {
       target === document ||
       target === window.visualViewport ||
       target instanceof MediaQueryList) &&
-    ["resize", "scroll", "keydown", "change"].includes(type)
+    ["resize", "scroll", "keydown", "change", "visibilitychange"].includes(type)
   );
 }
 EventTarget.prototype.addEventListener = function (type, listener, options) {
@@ -83,12 +123,17 @@ window.MutationObserver = class extends NativeMutationObserver {
 function Fixture() {
   const [draft, setDraft] = useState("");
   const [mounted, setMounted] = useState(true);
+  const [controlled, setControlled] = useState(false);
+  const [selectedStep, setSelectedStep] = useState("agenda");
   fixture.remount = () => setMounted((value) => !value);
+  fixture.control = () => setControlled(true);
+  fixture.setStep = (step) => setSelectedStep(step);
   return (
     <main>
       <h1>Consulta completamente ficticia</h1>
       {mounted ? (
         <BirdGuide
+          stepId={controlled ? selectedStep : undefined}
           steps={sections.map((name) => ({
             id: name,
             targetId: `demo-${name}`,
@@ -96,13 +141,17 @@ function Fixture() {
             description:
               "Explora esta sección ficticia. Los controles siguen disponibles y no se envía ni guarda información fuera de esta página.",
           }))}
-          onStepChange={(step) => fixture.steps.push(step.id)}
+          onStepChange={(step) => {
+            fixture.steps.push(step.id);
+            if (controlled) setSelectedStep(step.id);
+          }}
         />
       ) : null}
       {sections.map((name) => (
         <section
           id={`demo-${name}`}
           key={name}
+          hidden={controlled && selectedStep !== name}
           style={{
             marginTop: 72,
             padding: 24,
