@@ -30,6 +30,7 @@ export function NoteEditor({
   const [pending, startTransition] = useTransition();
   const dirty = content !== saved;
   const leaveDialog = useRef<HTMLDialogElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const destination = useRef<string | null>(null);
   const leaving = useRef(false);
   useEffect(() => {
@@ -135,6 +136,7 @@ export function NoteEditor({
         {note ? "Tu nota privada" : "Nueva nota privada"}
       </label>
       <textarea
+        ref={textarea}
         id={labelId}
         value={content}
         onChange={(event) => setContent(event.target.value)}
@@ -170,6 +172,23 @@ export function NoteEditor({
         >
           {state.message}
         </p>
+      ) : null}
+      {!note && identity.revision > 0 ? (
+        <button
+          type="button"
+          className="button secondary"
+          disabled={pending || dirty}
+          onClick={() => {
+            setIdentity({ id: crypto.randomUUID(), revision: 0 });
+            setContent("");
+            setSaved("");
+            setState(null);
+            setConfirmDelete(false);
+            textarea.current?.focus();
+          }}
+        >
+          Escribir otra nota para esta sesión
+        </button>
       ) : null}
       {identity.revision ? (
         <details

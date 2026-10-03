@@ -128,6 +128,7 @@ const money = (amountCents: number, currency: string) =>
 
 export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
   const [active, setActive] = useState("inicio");
+  const [guideStep, setGuideStep] = useState("inicio");
   const activeView = useRef("inicio");
   const focusView = useRef(false);
   const viewTitle = useRef<HTMLHeadingElement>(null);
@@ -209,6 +210,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
       );
     activeView.current = id;
     setActive(id);
+    setGuideStep(id);
     if (focus && active === id)
       viewTitle.current?.focus({ preventScroll: true });
   }
@@ -231,6 +233,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
       );
       focusView.current = focus;
       setActive(view);
+      setGuideStep(view);
     };
     const onHistory = () => synchronize(true);
     synchronize(false);
@@ -399,15 +402,16 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
           <span className={styles.demoBadge}>Demo · datos de ejemplo</span>
           <BirdGuide
             steps={guideSteps}
-            stepId={active}
-            onStepChange={(step) =>
+            stepId={guideStep}
+            onStepChange={(step) => {
               navigate(
                 step.id.startsWith("recordatorios-")
                   ? "recordatorios"
                   : step.id,
                 false,
-              )
-            }
+              );
+              setGuideStep(step.id);
+            }}
           />
         </div>
       </header>
