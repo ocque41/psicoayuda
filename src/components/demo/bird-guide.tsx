@@ -18,11 +18,20 @@ type BirdGuideProps = {
 };
 
 /** Ilustración vectorial original: salvia, verde y el pequeño acento dorado de Nido. */
-function Bird({ flightKey }: { flightKey?: string }) {
+function Bird() {
   return (
-    <span className={styles.birdArt} key={flightKey} aria-hidden="true">
+    <span className={styles.birdArt} aria-hidden="true">
+      <span className={styles.tail}>
+        <svg
+          viewBox="0 0 26 30"
+          fill="none"
+          focusable="false"
+          aria-hidden="true"
+        >
+          <path d="m25 8-23 20 5-25" fill="#c5ddc5" />
+        </svg>
+      </span>
       <svg viewBox="0 0 88 80" fill="none" focusable="false" aria-hidden="true">
-        <path d="m27 47-17 8 9-18" fill="#c5ddc5" />
         <path
           d="M19 39c0-11 9-19 20-19 9 0 11 7 18 7 12 0 20 8 20 17 0 16-14 24-30 24-17 0-28-11-28-29Z"
           fill="#c5ddc5"
@@ -34,8 +43,6 @@ function Bird({ flightKey }: { flightKey?: string }) {
           fill="#f9f5ec"
         />
         <path d="m74 35 11 5-11 5Z" fill="#c69224" />
-        <circle cx="66" cy="36" r="2.4" fill="#245f47" />
-        <circle cx="65.4" cy="35.4" r="0.7" fill="#fff" />
         <path
           d="m41 67-2 6m12-6 2 6"
           stroke="#c69224"
@@ -49,6 +56,7 @@ function Bird({ flightKey }: { flightKey?: string }) {
           strokeLinecap="round"
         />
       </svg>
+      <span className={styles.eye} />
       <span className={styles.wing}>
         <svg
           viewBox="0 0 44 42"
@@ -105,6 +113,8 @@ export function BirdGuide({
   const panelRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const birdRef = useRef<HTMLSpanElement>(null);
+  const poseRef = useRef<HTMLSpanElement>(null);
+  const birdPositionRef = useRef<{ x: number; y: number } | null>(null);
   const highlightRef = useRef<HTMLSpanElement>(null);
   const selectedIndex = selectedStepId
     ? steps.findIndex((candidate) => candidate.id === selectedStepId)
@@ -128,6 +138,7 @@ export function BirdGuide({
   }
 
   function start() {
+    birdPositionRef.current = null;
     returnFocusRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -159,9 +170,12 @@ export function BirdGuide({
   useEffect(() => {
     if (!active || !targetId) return;
     const panel = panelRef.current;
-    const bird = birdRef.current;
+    const birdElement = birdRef.current;
+    const poseElement = poseRef.current;
     const highlight = highlightRef.current;
-    if (!panel || !bird || !highlight) return;
+    if (!panel || !birdElement || !poseElement || !highlight) return;
+    const bird = birdElement;
+    const pose = poseElement;
     const navbar = document.querySelector<HTMLElement>(
       "[data-workspace-header], header.topbar",
     );
@@ -171,16 +185,207 @@ export function BirdGuide({
     bird.dataset.step = stepId;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
-    let flightTimer = 0;
+    let landingTimer = 0;
+    let retargetTimer = 0;
+    let flight: Animation | null = null;
+    let tilt: Animation | null = null;
+    let flightStart = 0;
+    let flightEnd = 0;
+    let lastRetarget = 0;
+    let flightDestination = { x: 0, y: 0 };
+    let arrived = false;
     let target: HTMLElement | null = null;
     let scrolled = false;
-    let flightStarted = false;
     let closed = false;
     if (!bird.dataset.positioned) {
       const origin = triggerRef.current?.getBoundingClientRect();
-      if (origin)
-        bird.style.transform = `translate3d(${origin.left}px, ${origin.top}px, 0)`;
+      const position =
+        birdPositionRef.current ||
+        (origin ? { x: origin.left, y: origin.top } : null);
+      if (position) {
+        bird.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+        birdPositionRef.current = position;
+      }
       bird.dataset.positioned = "true";
+    }
+
+    const motionAllowed = () =>
+      !document.hidden &&
+      !reduced.matches &&
+      !(navigator as Navigator & { connection?: { saveData?: boolean } })
+        .connection?.saveData &&
+      typeof bird.animate === "function";
+    function cancelFlight(keepPosition = false) {
+      if (flight) {
+        if (keepPosition && bird.isConnected) {
+          const transform = getComputedStyle(bird).transform;
+          if (transform !== "none") {
+            bird.style.transform = transform;
+            const matrix = new DOMMatrixReadOnly(transform);
+            birdPositionRef.current = { x: matrix.m41, y: matrix.m42 };
+          }
+        }
+        flight.onfinish = null;
+        flight.cancel();
+        flight = null;
+      }
+      tilt?.cancel();
+      tilt = null;
+      clearTimeout(retargetTimer);
+      retargetTimer = 0;
+    }
+    function rest() {
+      cancelFlight(true);
+      clearTimeout(landingTimer);
+      arrived = true;
+      bird.dataset.flying = "false";
+      bird.dataset.phase = "rest";
+    }
+    function moveBird(
+      x: number,
+      y: number,
+      bounds: { left: number; right: number; top: number; bottom: number },
+      visible: boolean,
+    ) {
+      const destination = `translate3d(${x}px, ${y}px, 0)`;
+      const position = !flight ? birdPositionRef.current : null;
+      if (!visible) {
+        cancelFlight(true);
+        clearTimeout(landingTimer);
+        bird.dataset.flying = "false";
+        bird.dataset.phase = "rest";
+        return;
+      }
+      if (!motionAllowed()) {
+        rest();
+        bird.style.transform = destination;
+        birdPositionRef.current = { x, y };
+        return;
+      }
+      if (arrived) {
+        bird.style.transform = destination;
+        birdPositionRef.current = { x, y };
+        return;
+      }
+      const now = performance.now();
+      const changed = Math.hypot(
+        x - flightDestination.x,
+        y - flightDestination.y,
+      );
+      if (flight && changed < 5) {
+        bird.style.transform = destination;
+        return;
+      }
+      if (flight && now - lastRetarget < 90) {
+        bird.style.transform = destination;
+        if (!retargetTimer)
+          retargetTimer = window.setTimeout(
+            () => {
+              retargetTimer = 0;
+              schedule();
+            },
+            90 - (now - lastRetarget),
+          );
+        return;
+      }
+      // En reposo la posición propia es la referencia; solo leer el estilo
+      // interpolado cuando existe un vuelo que se está redirigiendo.
+      const matrix = new DOMMatrixReadOnly(
+        flight
+          ? getComputedStyle(bird).transform
+          : bird.style.transform || "none",
+      );
+      const clamp = (value: number, min: number, max: number) =>
+        Math.min(Math.max(min, max), Math.max(min, value));
+      const fromX = clamp(position?.x ?? matrix.m41, bounds.left, bounds.right);
+      const fromY = clamp(position?.y ?? matrix.m42, bounds.top, bounds.bottom);
+      const dx = x - fromX;
+      const dy = y - fromY;
+      const distance = Math.hypot(dx, dy);
+      if (!flightStart) {
+        flightStart = now;
+        flightEnd = now + Math.min(1000, Math.max(680, distance * 1.5));
+      }
+      if (now >= flightEnd - 80) {
+        rest();
+        bird.style.transform = destination;
+        birdPositionRef.current = { x, y };
+        return;
+      }
+      const direction =
+        Math.abs(dx) > 8
+          ? Math.sign(dx)
+          : x > (bounds.left + bounds.right) / 2
+            ? -1
+            : 1;
+      // Incluso entre ventanas con la misma geometría, un arco corto da vida al cambio.
+      const hop = distance < 20;
+      const bend = Math.min(54, Math.max(26, distance * 0.16));
+      const controlX = clamp(
+        (fromX + x) / 2 + (hop ? direction * 44 : (-Math.sign(dy) * bend) / 2),
+        bounds.left,
+        bounds.right,
+      );
+      const controlY = clamp(
+        (fromY + y) / 2 +
+          (Math.min(fromY, y) - bounds.top < bend ? bend : -bend),
+        bounds.top,
+        bounds.bottom,
+      );
+      const frames = [0, 0.2, 0.45, 0.72, 0.9, 1].map((offset) => {
+        const inverse = 1 - offset;
+        const px =
+          inverse * inverse * fromX +
+          2 * inverse * offset * controlX +
+          offset * offset * x;
+        const py =
+          inverse * inverse * fromY +
+          2 * inverse * offset * controlY +
+          offset * offset * y;
+        return { offset, transform: `translate3d(${px}px, ${py}px, 0)` };
+      });
+      const previousTilt = getComputedStyle(pose).transform;
+      cancelFlight();
+      bird.style.transform = destination;
+      birdPositionRef.current = { x, y };
+      bird.dataset.direction = direction < 0 ? "left" : "right";
+      bird.dataset.flying = "true";
+      bird.dataset.phase = "flight";
+      flightDestination = { x, y };
+      lastRetarget = now;
+      const duration = flightEnd - now;
+      const bank =
+        direction *
+        Math.max(-18, Math.min(18, (dy / Math.max(60, distance)) * 20));
+      flight = bird.animate(frames, {
+        duration,
+        easing: "cubic-bezier(0.2, 0.65, 0.25, 1)",
+        fill: "none",
+      });
+      tilt = pose.animate(
+        [
+          {
+            transform: previousTilt === "none" ? "rotate(0deg)" : previousTilt,
+            offset: 0,
+          },
+          { transform: `rotate(${bank - direction * 9}deg)`, offset: 0.25 },
+          { transform: `rotate(${bank}deg)`, offset: 0.55 },
+          { transform: `rotate(${direction * 5}deg)`, offset: 0.86 },
+          { transform: "rotate(0deg)", offset: 1 },
+        ],
+        { duration, easing: "ease-in-out", fill: "none" },
+      );
+      flight.onfinish = () => {
+        if (closed) return;
+        cancelFlight();
+        arrived = true;
+        bird.dataset.flying = "false";
+        bird.dataset.phase = "landing";
+        // Un aterrizaje y un parpadeo, sin ciclos de movimiento en reposo.
+        landingTimer = window.setTimeout(() => {
+          bird.dataset.phase = "rest";
+        }, 1800);
+      };
     }
 
     const measure = () => {
@@ -301,14 +506,17 @@ export function BirdGuide({
           birdY = panelY + panelHeight + 8;
         else birdFits = false;
       }
-      if (!flightStarted) {
-        flightStarted = true;
-        bird.dataset.flying = "true";
-        flightTimer = window.setTimeout(() => {
-          bird.dataset.flying = "false";
-        }, 850);
-      }
-      bird.style.transform = `translate3d(${birdX}px, ${birdY}px, 0)`;
+      moveBird(
+        birdX,
+        birdY,
+        {
+          left: left + 10,
+          right: left + width - 82,
+          top: contentTop,
+          bottom: top + height - 82,
+        },
+        available && birdFits,
+      );
       bird.style.opacity = available && birdFits ? "1" : "0";
       if (rect) {
         highlight.style.transform = `translate3d(${rect.left - 4}px, ${rect.top - 4}px, 0)`;
@@ -317,7 +525,12 @@ export function BirdGuide({
       }
     };
     function schedule() {
-      if (!frame && !closed) frame = requestAnimationFrame(measure);
+      if (!frame && !closed && !document.hidden)
+        frame = requestAnimationFrame(measure);
+    }
+    function visibilityChanged() {
+      if (!motionAllowed()) rest();
+      schedule();
     }
     const resize = new ResizeObserver(schedule);
     resize.observe(panel);
@@ -336,20 +549,25 @@ export function BirdGuide({
     window.visualViewport?.addEventListener("scroll", schedule, {
       passive: true,
     });
-    reduced.addEventListener("change", schedule);
+    reduced.addEventListener("change", visibilityChanged);
+    document.addEventListener("visibilitychange", visibilityChanged);
     titleRef.current?.focus({ preventScroll: true });
     schedule();
     return () => {
       closed = true;
       cancelAnimationFrame(frame);
-      clearTimeout(flightTimer);
+      cancelFlight(true);
+      clearTimeout(landingTimer);
+      bird.dataset.flying = "false";
+      bird.dataset.phase = "rest";
       resize.disconnect();
       mutation.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
-      reduced.removeEventListener("change", schedule);
+      reduced.removeEventListener("change", visibilityChanged);
+      document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [active, targetId, stepId]);
 
@@ -380,7 +598,11 @@ export function BirdGuide({
                 aria-hidden="true"
               />
               <span ref={birdRef} className={styles.bird} aria-hidden="true">
-                <Bird flightKey={step.id} />
+                <span ref={poseRef} className={styles.pose}>
+                  <span className={styles.facing}>
+                    <Bird />
+                  </span>
+                </span>
               </span>
               <section
                 ref={panelRef}
