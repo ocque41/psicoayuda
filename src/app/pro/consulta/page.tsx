@@ -1,6 +1,5 @@
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ProfessionalPatientRequests } from "@/app/mi/professional-requests";
 import { PracticeCalendar } from "@/components/practice/calendar";
 import { InboxNotifier } from "@/components/practice/inbox-notifier";
@@ -132,11 +131,6 @@ export default async function PracticePage({
         <p className="lead">
           Hola, {pro.displayName || pro.fullName.split(" ")[0]}. Este es tu
           espacio para acompañar y organizar el próximo paso.
-        </p>
-        <p>
-          <Link href="/demo/consulta">
-            Conocer mi consulta con el pajarito →
-          </Link>
         </p>
         <PracticeNav />
         <LegacyPracticeNavigation />
