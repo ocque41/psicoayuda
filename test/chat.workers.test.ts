@@ -51,11 +51,15 @@ type Client = {
   waitFor: (type: ServerFrame["type"]) => Promise<ServerFrame>;
   buffered: () => ServerFrame[];
   close: () => void;
+  closed: Promise<number>;
 };
 
 function wrap(ws: WebSocket): Client {
   const inbox: ServerFrame[] = [];
   const waiters: Array<(f: ServerFrame) => void> = [];
+  const closed = new Promise<number>((resolve) => {
+    ws.addEventListener("close", (event: CloseEvent) => resolve(event.code));
+  });
   ws.accept();
   ws.addEventListener("message", (event: MessageEvent) => {
     const frame = JSON.parse(event.data as string) as ServerFrame;
@@ -80,6 +84,7 @@ function wrap(ws: WebSocket): Client {
     },
     buffered: () => inbox,
     close: () => ws.close(),
+    closed,
   };
 }
 
@@ -178,6 +183,127 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 describe("chat Durable Object (runtime de Workers)", () => {
+  it.each([
+    "seeker",
+    "professional",
+  ] as const)("bloquea una conexión %s ya abierta si falla D1", async (role) => {
+    const conv = `conv_live_failure_${role}`;
+    const client = await open(
+      conv,
+      role === "seeker" ? seekerCookie(conv) : proCookie(conv),
+    );
+    await client.waitFor("history");
+    const stub = await getServerByName(env.Conversation, conv);
+    await runInDurableObject(stub, (instance) => {
+      const runtime = instance as unknown as { env: { DB: D1Database } };
+      runtime.env.DB = {
+        prepare: () => {
+          throw new Error("unavailable");
+        },
+      } as unknown as D1Database;
+    });
+    client.send({
+      type: "send",
+      clientMsgId: "denied",
+      content: "Dato ficticio",
+    });
+    expect(await client.closed).toBe(4003);
+    expect(
+      await runInDurableObject(
+        stub,
+        (_instance, state) =>
+          state.storage.sql.exec("SELECT COUNT(*) AS count FROM messages").one()
+            .count,
+      ),
+    ).toBe(0);
+  });
+
+  it("bloquea el envío tras el borrado aunque el aviso de desconexión no llegue", async () => {
+    const conv = "conv_live_deleted";
+    const client = await open(conv, seekerCookie(conv));
+    await client.waitFor("history");
+    const stub = await getServerByName(env.Conversation, conv);
+    await runInDurableObject(stub, (instance) => {
+      const runtime = instance as unknown as { env: { DB: D1Database } };
+      runtime.env.DB = {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => ({
+              status: "deleted",
+              revoked_at: null,
+              expires_at: Date.now() + 3600000,
+              deleted_at: Date.now(),
+              anonymized_at: null,
+            }),
+          }),
+        }),
+      } as unknown as D1Database;
+    });
+    client.send({
+      type: "send",
+      clientMsgId: "after-delete",
+      content: "Dato ficticio",
+    });
+    expect(await client.closed).toBe(4003);
+    expect(
+      await runInDurableObject(
+        stub,
+        (_instance, state) =>
+          state.storage.sql.exec("SELECT COUNT(*) AS count FROM messages").one()
+            .count,
+      ),
+    ).toBe(0);
+  });
+
+  it("conserva el orden del mismo emisor cuando la verificación necesita esperar", async () => {
+    const conv = "conv_live_order";
+    const client = await open(conv, seekerCookie(conv));
+    await client.waitFor("history");
+    const stub = await getServerByName(env.Conversation, conv);
+    await runInDurableObject(stub, (instance) => {
+      let reads = 0;
+      const runtime = instance as unknown as { env: { DB: D1Database } };
+      runtime.env.DB = {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => {
+              if (++reads === 1)
+                await new Promise((resolve) => setTimeout(resolve, 30));
+              return {
+                status: "open",
+                revoked_at: null,
+                expires_at: Date.now() + 3600000,
+                deleted_at: null,
+                anonymized_at: null,
+              };
+            },
+          }),
+        }),
+      } as unknown as D1Database;
+    });
+    client.send({
+      type: "send",
+      clientMsgId: "first",
+      content: "Primero ficticio",
+    });
+    client.send({
+      type: "send",
+      clientMsgId: "second",
+      content: "Segundo ficticio",
+    });
+    await client.waitFor("ack");
+    await client.waitFor("ack");
+    expect(
+      await runInDurableObject(stub, (_instance, state) =>
+        state.storage.sql
+          .exec("SELECT content FROM messages ORDER BY seq")
+          .toArray()
+          .map((row) => row.content),
+      ),
+    ).toEqual(["Primero ficticio", "Segundo ficticio"]);
+    client.close();
+  });
+
   it("rechaza conexiones sin token o de otra sala (403)", async () => {
     expect((await connect("conv_auth", null)).status).toBe(403);
     expect(

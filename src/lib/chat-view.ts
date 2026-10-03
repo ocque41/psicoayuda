@@ -58,7 +58,12 @@ export async function loadChatView(
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
   });
-  if (!conversation) return null;
+  if (
+    !conversation ||
+    conversation.anonymizedAt ||
+    !["open", "closed"].includes(conversation.status)
+  )
+    return null;
 
   const open = conversation.status === "open";
   const cookieStore = await cookies();
@@ -74,7 +79,7 @@ export async function loadChatView(
     if (
       pro &&
       pro.id === conversation.professionalId &&
-      pro.status !== "suspended"
+      pro.status === "approved"
     ) {
       isProfessional = true;
       professionalRow = pro;
@@ -92,7 +97,7 @@ export async function loadChatView(
         const row = await db.query.professionals.findFirst({
           where: eq(professionals.id, conversation.professionalId),
         });
-        if (row && row.status !== "suspended") {
+        if (row && row.status === "approved") {
           isProfessional = true;
           professionalRow = row;
         }

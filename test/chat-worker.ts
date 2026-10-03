@@ -5,10 +5,41 @@
 // para poder afirmarlas desde el script e2e.
 import { routePartykitRequest } from "partyserver";
 import { makeOnBeforeConnect } from "../src/server/auth-gate";
-import { Conversation } from "../src/server/conversation";
+import { Conversation as ProductionConversation } from "../src/server/conversation";
 import type { Env } from "../src/server/types";
 
-export { Conversation };
+const fixtureStatus = new Map<string, "open" | "closed">();
+const fixtureDatabase = {
+  prepare: (query: string) => ({
+    bind: (...params: unknown[]) => ({
+      first: async () => {
+        const status = fixtureStatus.get(String(params[1])) ?? "open";
+        return query.includes("professional_status")
+          ? {
+              conversation_status: status,
+              professional_status: "approved",
+              deleted_at: null,
+              anonymized_at: null,
+            }
+          : {
+              status,
+              revoked_at: null,
+              expires_at: Date.now() + 3600000,
+              deleted_at: null,
+              anonymized_at: null,
+            };
+      },
+    }),
+  }),
+} as unknown as D1Database;
+
+// Transporte de prueba explícito. La aplicación real siempre recibe el binding
+// D1; este fixture también permite probar el guard de una conexión ya abierta.
+export class Conversation extends ProductionConversation {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, { ...env, DB: env.DB ?? fixtureDatabase });
+  }
+}
 
 const recorded: unknown[] = [];
 
@@ -43,8 +74,17 @@ export default {
     const routed = await routePartykitRequest(request, env, {
       prefix: "parties",
       onBeforeConnect: async (upgradeRequest, lobby) => {
-        const result = await makeOnBeforeConnect(env)(upgradeRequest, lobby);
-        // Solo-test: sin binding D1 no se puede simular una conversación cerrada;
+        // Harness explícito de transporte: las pruebas de autorización D1
+        // viven en auth-gate-d1.test.ts. Producción nunca permite faltar D1.
+        fixtureStatus.set(
+          lobby.name,
+          request.headers.get("x-test-can-send") === "0" ? "closed" : "open",
+        );
+        const result = await makeOnBeforeConnect({
+          ...env,
+          DB: env.DB ?? fixtureDatabase,
+        })(upgradeRequest, lobby);
+        // Solo-test: la base simulada no conserva cambios de estado;
         // este header permite forzar `x-nido-can-send` para el caso de solo
         // lectura (nunca existe en producción: el gate pisa el valor que llega).
         const override = request.headers.get("x-test-can-send");

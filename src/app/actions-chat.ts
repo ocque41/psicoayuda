@@ -1,11 +1,10 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { conversations, professionals, seekerSessions } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
@@ -24,21 +23,6 @@ async function getRequesterHash() {
   return createHash("sha256").update(`${getAuthSecret()}:${ip}`).digest("hex");
 }
 
-async function isOpenRateLimited(requesterHash?: string) {
-  if (!requesterHash) return false;
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const [row] = await db
-    .select({ total: count() })
-    .from(seekerSessions)
-    .where(
-      and(
-        eq(seekerSessions.requesterHash, requesterHash),
-        gte(seekerSessions.issuedAt, oneHourAgo),
-      ),
-    );
-  return (row?.total ?? 0) >= 3;
-}
-
 /**
  * El seeker pulsa "Hablar con X": crea la conversación + sesión efímera, mintea
  * un token HMAC, lo guarda en una cookie httpOnly y redirige a /c/<id>. Sin
@@ -46,9 +30,8 @@ async function isOpenRateLimited(requesterHash?: string) {
  */
 export async function createConversation(formData: FormData) {
   const professionalId = String(formData.get("professionalId") ?? "");
-  const helpRequestId = formData.get("helpRequestId")
-    ? String(formData.get("helpRequestId"))
-    : undefined;
+  // El contacto directo no posee una solicitud verificada. Su identificador
+  // nunca puede venir del formulario público ni conceder acceso a otro caso.
   // Alias opcional ("¿Cómo quieres que te llamemos?"): se muestra al profesional
   // en el aviso "te están escribiendo". Acotado y sin identidad forzada.
   const seekerName =
@@ -69,94 +52,36 @@ export async function createConversation(formData: FormData) {
 
   if (!professionalId) redirect("/profesionales");
 
-  const professional = await db.query.professionals.findFirst({
-    where: eq(professionals.id, professionalId),
-  });
-  if (!professional) redirect("/profesionales");
-  if (
-    professional.status !== "approved" ||
-    !professional.acceptingRequests ||
-    professional.currentActiveRequests >= professional.maxActiveRequests
-  ) {
-    redirect("/profesionales");
-  }
-
   const requesterHash = await getRequesterHash();
-  if (await isOpenRateLimited(requesterHash)) {
-    redirect("/profesionales");
-  }
-
+  const cookieStore = await cookies();
   const now = Date.now();
   const conversationId = newId("conv");
   const sid = newId("seek");
   const timestamp = nowIso();
 
-  // Reserva de cupo ATÓMICA: antes se comprobaba el tope pero no se reservaba,
-  // así que el chat directo evadía el límite del profesional. Si la inserción
-  // falla, se compensa.
-  const reserved = await db
-    .update(professionals)
-    .set({
-      currentActiveRequests: sql`${professionals.currentActiveRequests} + 1`,
-      updatedAt: nowIso(),
-    })
-    .where(
-      and(
-        eq(professionals.id, professionalId),
-        eq(professionals.status, "approved"),
-        eq(professionals.acceptingRequests, true),
-        eq(professionals.remoteAvailable, true),
-        sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
-      ),
-    )
-    .returning({ id: professionals.id });
-  if (reserved.length === 0) redirect("/profesionales");
-
-  try {
-    await db.insert(conversations).values({
-      id: conversationId,
-      helpRequestId,
-      professionalId,
-      seekerSid: sid,
-      seekerName,
-      seekerEmail,
-      status: "open",
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
-
-    await db.insert(seekerSessions).values({
-      sid,
-      conversationId,
-      requesterHash,
-      role: "seeker",
-      issuedAt: new Date(now),
-      expiresAt: new Date(now + TOKEN_TTL_MS),
-    });
-  } catch (error) {
-    await db
-      .update(professionals)
-      .set({
-        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-        updatedAt: nowIso(),
-      })
-      .where(eq(professionals.id, professionalId));
-    throw error;
-  }
-
   const token = mintSeekerToken(
-    {
-      sid,
-      conversationId,
-      helpRequestId,
-      role: "seeker",
-      iat: now,
-      exp: now + TOKEN_TTL_MS,
-    },
+    { sid, conversationId, role: "seeker", iat: now, exp: now + TOKEN_TTL_MS },
     getAuthSecret(),
   );
+  // Reserva, hilo y sesión se confirman juntos. El límite de solicitudes también
+  // se evalúa dentro de la transacción, antes de crear la sesión nueva.
+  const results = await db.batch([
+    db.all(sql`UPDATE professionals SET current_active_requests=current_active_requests+1,updated_at=${timestamp}
+      WHERE id=${professionalId} AND status='approved' AND accepting_requests=1 AND remote_available=1
+        AND current_active_requests < max_active_requests
+        AND (${requesterHash ?? null} IS NULL OR (SELECT count(*) FROM seeker_sessions
+          WHERE requester_hash=${requesterHash ?? null} AND issued_at >= ${now - 3600000}) < 3)
+      RETURNING id`),
+    db.all(sql`INSERT INTO conversations (id,professional_id,seeker_sid,seeker_name,seeker_email,status,created_at,updated_at)
+      SELECT ${conversationId},${professionalId},${sid},${seekerName},${seekerEmail},'open',${timestamp},${timestamp}
+      WHERE changes()=1 RETURNING id`),
+    db.all(sql`INSERT INTO seeker_sessions (sid,conversation_id,requester_hash,role,issued_at,expires_at)
+      SELECT ${sid},${conversationId},${requesterHash ?? null},'seeker',${now},${now + TOKEN_TTL_MS}
+      WHERE changes()=1 AND EXISTS(SELECT 1 FROM conversations WHERE id=${conversationId}) RETURNING sid`),
+  ]);
+  if (!results[0].length || !results[1].length || !results[2].length)
+    redirect("/profesionales");
 
-  const cookieStore = await cookies();
   cookieStore.set(SEEKER_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -168,9 +93,15 @@ export async function createConversation(formData: FormData) {
     maxAge: TOKEN_TTL_MS / 1000,
   });
 
-  const session = await getServerSession();
-  if (session?.user.id)
-    await linkPatientConversation(session.user.id, conversationId, token);
+  // Vincular la cuenta es opcional: un fallo no convierte un chat ya creado en
+  // un envío fallido ni invita a duplicarlo. Su cookie conserva el acceso.
+  try {
+    const session = await getServerSession();
+    if (session?.user.id)
+      await linkPatientConversation(session.user.id, conversationId, token);
+  } catch {
+    // La persona puede conectar este mismo hilo desde sus ajustes más tarde.
+  }
 
   redirect(`/c/${conversationId}`);
 }

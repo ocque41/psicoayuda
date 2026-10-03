@@ -14,7 +14,7 @@ import {
   callsConfigured,
   captureConfigured,
 } from "@/lib/practice/calls";
-import { dateLabel } from "@/lib/practice/domain";
+import { appointmentStateLabels, dateLabel } from "@/lib/practice/domain";
 import { filesForAppointment } from "@/lib/practice/media";
 export const metadata: Metadata = {
   title: "Tu sesión",
@@ -44,7 +44,7 @@ export default async function SessionPage({
   return (
     <section className="section">
       <div className="container orientation-chat">
-        <h1>Tu próximo encuentro</h1>
+        <h1>Tu sesión</h1>
         <p>
           {dateLabel(
             actor.appointment.startsAt,
@@ -53,21 +53,25 @@ export default async function SessionPage({
               : actor.appointment.timeZone,
           )}
         </p>
+        <p>Estado: {appointmentStateLabels[actor.appointment.status]}</p>
         <div className="card">
           <h2>Un espacio para conversar</h2>
-          <p>
-            Puedes entrar 15 minutos antes. Usa auriculares y un lugar donde
-            puedas hablar con privacidad. Si tu conexión es débil, puedes apagar
-            el vídeo desde la llamada.
-          </p>
+          {callsConfigured() && actor.appointment.status === "scheduled" ? (
+            <p>
+              Puedes entrar 15 minutos antes. Usa auriculares y un lugar donde
+              puedas hablar con privacidad. Si tu conexión es débil, puedes
+              apagar el vídeo desde la llamada.
+            </p>
+          ) : null}
           {callsConfigured() && actor.appointment.status === "scheduled" ? (
             <PracticeForm action={joinSession} submit="Entrar a la llamada">
               <input type="hidden" name="appointmentId" value={appointmentId} />
             </PracticeForm>
           ) : (
             <p>
-              Las llamadas integradas todavía no están habilitadas. Acuerda el
-              encuentro con tu profesional en el chat.
+              {actor.appointment.status !== "scheduled"
+                ? "Esta sesión conserva su historial. Puedes revisar el encuentro en tu agenda y continuar la conversación desde el chat."
+                : "Las llamadas integradas todavía no están habilitadas. Acuerda el encuentro con tu profesional en el chat."}
             </p>
           )}
         </div>

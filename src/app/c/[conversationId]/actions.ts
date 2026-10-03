@@ -1,11 +1,9 @@
 "use server";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { db } from "@/db";
 import {
-  assignments,
-  auditLogs,
   conversations,
   helpRequests,
   professionals,
@@ -50,12 +48,21 @@ async function resolveActor(
 ): Promise<{
   role: "seeker" | "professional";
   actorEmail: string | null;
+  professionalId: string | null;
+  userId: string | null;
+  seekerSid: string | null;
 } | null> {
+  if (
+    conversation.anonymizedAt ||
+    !["open", "closed"].includes(conversation.status)
+  )
+    return null;
   const cookieStore = await cookies();
 
   // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
   let isProfessional = false;
   let actorEmail: string | null = null;
+  let professionalUserId: string | null = null;
   const session = await getServerSession();
   if (session?.user?.id) {
     const pro = await db.query.professionals.findFirst({
@@ -64,10 +71,11 @@ async function resolveActor(
     if (
       pro &&
       pro.id === conversation.professionalId &&
-      pro.status !== "suspended"
+      pro.status === "approved"
     ) {
       isProfessional = true;
       actorEmail = session.user.email ?? null;
+      professionalUserId = session.user.id;
     }
   }
   if (!isProfessional) {
@@ -82,7 +90,7 @@ async function resolveActor(
         const row = await db.query.professionals.findFirst({
           where: eq(professionals.id, conversation.professionalId),
         });
-        if (row && row.status !== "suspended") {
+        if (row && row.status === "approved") {
           isProfessional = true;
           actorEmail = row.email;
         }
@@ -115,8 +123,36 @@ async function resolveActor(
   );
   if (!identity) return null;
   return identity === "professional"
-    ? { role: "professional", actorEmail }
-    : { role: "seeker", actorEmail: null };
+    ? {
+        role: "professional",
+        actorEmail,
+        professionalId: conversation.professionalId,
+        userId: professionalUserId,
+        seekerSid: null,
+      }
+    : {
+        role: "seeker",
+        actorEmail: null,
+        professionalId: null,
+        userId: null,
+        seekerSid,
+      };
+}
+
+// Se repite dentro de la escritura: un permiso leído antes de otro await no
+// autoriza una operación si la cuenta, la sesión o el dueño ya cambió.
+function actorPermission(
+  actor: NonNullable<Awaited<ReturnType<typeof resolveActor>>>,
+  conversationId: string,
+) {
+  if (actor.role === "professional") {
+    return sql`EXISTS(SELECT 1 FROM conversations owned JOIN professionals p ON p.id=owned.professional_id
+      WHERE owned.id=${conversationId} AND p.id=${actor.professionalId} AND p.status='approved'
+        AND (${actor.userId} IS NULL OR p.user_id=${actor.userId}))`;
+  }
+  return sql`EXISTS(SELECT 1 FROM seeker_sessions s WHERE s.sid=${actor.seekerSid}
+    AND s.conversation_id=${conversationId} AND s.role='seeker' AND s.revoked_at IS NULL
+    AND s.expires_at > ${Date.now()})`;
 }
 
 /**
@@ -134,20 +170,20 @@ export async function ensureProChatToken(
   const pro = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
   });
-  if (!pro) return { ok: false };
+  if (pro?.status !== "approved") return { ok: false };
 
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
   });
-  if (!conversation || conversation.professionalId !== pro.id) {
+  if (
+    !conversation ||
+    conversation.professionalId !== pro.id ||
+    conversation.anonymizedAt ||
+    conversation.deletedAt ||
+    !["open", "closed"].includes(conversation.status)
+  ) {
     return { ok: false };
   }
-
-  // Marca de lectura: al abrir la sala se limpia el "nuevo" de su bandeja.
-  await db
-    .update(conversations)
-    .set({ proLastReadAt: new Date() })
-    .where(eq(conversations.id, conversationId));
 
   const now = Date.now();
   const token = mintProfessionalToken(
@@ -171,6 +207,35 @@ export async function ensureProChatToken(
     maxAge: TTL_MS / 1000,
   });
   return { ok: true };
+}
+
+/** El timestamp corresponde al mensaje visible y descifrado, nunca a abrir la sala. */
+export async function markProfessionalChatRead(
+  conversationId: string,
+  messageTimestamp: number,
+): Promise<{ ok: boolean }> {
+  if (
+    !Number.isSafeInteger(messageTimestamp) ||
+    messageTimestamp <= 0 ||
+    messageTimestamp > Date.now()
+  )
+    return { ok: false };
+  try {
+    const conversation = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
+    });
+    if (!conversation || conversation.deletedAt || conversation.anonymizedAt)
+      return { ok: false };
+    const actor = await resolveActor(conversation, false);
+    if (actor?.role !== "professional") return { ok: false };
+    const rows = await db.all(sql`UPDATE conversations
+      SET pro_last_read_at=max(coalesce(pro_last_read_at,0),min(last_message_at,${messageTimestamp}))
+      WHERE id=${conversationId} AND last_message_at IS NOT NULL AND deleted_at IS NULL AND anonymized_at IS NULL
+        AND status IN ('open','closed') AND ${actorPermission(actor, conversationId)} RETURNING id`);
+    return { ok: rows.length > 0 };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /**
@@ -197,7 +262,13 @@ export async function renewSeekerChatToken(
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
   });
-  if (!conversation || conversation.anonymizedAt) return { ok: false };
+  if (
+    !conversation ||
+    conversation.anonymizedAt ||
+    conversation.deletedAt ||
+    !["open", "closed"].includes(conversation.status)
+  )
+    return { ok: false };
 
   const session = await db.query.seekerSessions.findFirst({
     where: eq(seekerSessions.sid, payload.sid),
@@ -214,10 +285,21 @@ export async function renewSeekerChatToken(
 
   const now = Date.now();
   const expiresAt = now + SEEKER_SESSION_TTL_MS;
-  await db
+  const renewed = await db
     .update(seekerSessions)
     .set({ expiresAt: new Date(expiresAt), lastSeenAt: new Date(now) })
-    .where(eq(seekerSessions.sid, payload.sid));
+    .where(
+      and(
+        eq(seekerSessions.sid, payload.sid),
+        eq(seekerSessions.conversationId, conversationId),
+        eq(seekerSessions.role, "seeker"),
+        isNull(seekerSessions.revokedAt),
+        sql`${seekerSessions.expiresAt} > ${now}`,
+        sql`EXISTS(SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.anonymized_at IS NULL AND c.deleted_at IS NULL AND c.status IN ('open','closed'))`,
+      ),
+    )
+    .returning({ sid: seekerSessions.sid });
+  if (!renewed.length) return { ok: false };
 
   const token = mintSeekerToken(
     {
@@ -269,7 +351,7 @@ export async function reopenConversation(
   });
   if (!conversation) return { ok: false, reason: "not_found" };
   if (conversation.anonymizedAt) return { ok: false, reason: "anonymized" };
-  if (conversation.status !== "closed") {
+  if (conversation.deletedAt || conversation.status !== "closed") {
     return { ok: false, reason: "not_closed" };
   }
 
@@ -279,141 +361,56 @@ export async function reopenConversation(
   if (!actor) return { ok: false, reason: "not_authorized" };
   const { role, actorEmail } = actor;
 
-  // Re-reserva de cupo (una sola sentencia atómica; guardas de estado y tope).
-  const reserved = await db
-    .update(professionals)
-    .set({
-      currentActiveRequests: sql`${professionals.currentActiveRequests} + 1`,
-      updatedAt: nowIso(),
-    })
-    .where(
-      and(
-        eq(professionals.id, conversation.professionalId),
-        eq(professionals.status, "approved"),
-        sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
-      ),
-    )
-    .returning({ id: professionals.id });
-  if (reserved.length === 0) {
-    return { ok: false, reason: "no_capacity" };
-  }
-
   const timestamp = nowIso();
+  const logId = newId("log");
+  let results: unknown[][];
   try {
-    // Solo reabre si sigue cerrada: dos reaperturas simultáneas no duplican cupo.
-    const reopened = await db
-      .update(conversations)
-      .set({
-        status: "open",
-        closedAt: null,
-        closedReason: null,
-        reopenedAt: new Date(),
-        // Reabrir re-ocupa un cupo: la marca de "cupo liberado" deja de aplicar.
-        quotaReleasedAt: null,
-        updatedAt: timestamp,
-      })
-      .where(
-        and(
-          eq(conversations.id, conversationId),
-          eq(conversations.status, "closed"),
-        ),
-      )
-      .returning({ id: conversations.id });
-    if (reopened.length === 0) {
-      await db
-        .update(professionals)
-        .set({
-          currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-          updatedAt: nowIso(),
-        })
-        .where(eq(professionals.id, conversation.professionalId));
-      return { ok: false, reason: "not_closed" };
-    }
-
-    // Rearma el caso si la conversación venía de una solicitud. El reclamo es
-    // ATÓMICO y amplía los estados reclamables (closed/new/offered): si el caso
-    // quedó reencolado (p. ej. por una suspensión) y otra persona lo tomó,
-    // `assigned` ya no es reclamable y no reabrimos para no duplicar atención.
-    if (conversation.helpRequestId) {
-      const claimedRequest = await db
-        .update(helpRequests)
-        .set({ status: "assigned", updatedAt: timestamp })
-        .where(
-          and(
-            eq(helpRequests.id, conversation.helpRequestId),
-            inArray(helpRequests.status, ["closed", "new", "offered"]),
-          ),
-        )
-        .returning({ id: helpRequests.id });
-      if (claimedRequest.length === 0) {
-        // Alguien más está atendiendo este caso: deshacemos conversación y cupo.
-        await db
-          .update(conversations)
-          .set({
-            status: "closed",
-            closedAt: timestamp,
-            closedReason: conversation.closedReason,
-            reopenedAt: conversation.reopenedAt,
-            updatedAt: timestamp,
-          })
-          .where(eq(conversations.id, conversationId));
-        await db
-          .update(professionals)
-          .set({
-            currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-            updatedAt: nowIso(),
-          })
-          .where(eq(professionals.id, conversation.professionalId));
-        return { ok: false, reason: "unavailable" };
-      }
-
-      // Cierra ofertas hermanas pendientes: nadie más puede tomarla ahora.
-      await db
-        .update(assignments)
-        .set({ status: "missed", updatedAt: timestamp })
-        .where(
-          and(
-            eq(assignments.helpRequestId, conversation.helpRequestId),
-            eq(assignments.status, "offered"),
-          ),
-        );
-
-      const assignment = await db.query.assignments.findFirst({
-        where: and(
-          eq(assignments.helpRequestId, conversation.helpRequestId),
-          eq(assignments.professionalId, conversation.professionalId),
-        ),
-      });
-      if (assignment && assignment.status === "closed") {
-        await db
-          .update(assignments)
-          .set({
-            status: assignment.source === "seeker" ? "accepted" : "assigned",
-            updatedAt: timestamp,
-          })
-          .where(eq(assignments.id, assignment.id));
-      }
-    }
-
-    await db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail,
-      action: "conversation_reopened",
-      entityType: "conversation",
-      entityId: conversationId,
-      metadata: JSON.stringify({ role }),
-      createdAt: timestamp,
+    results = await db.batch([
+      db.all(sql`UPDATE professionals SET current_active_requests=current_active_requests+1,updated_at=${timestamp}
+        WHERE id=${conversation.professionalId} AND status='approved' AND current_active_requests < max_active_requests
+          AND ${actorPermission(actor, conversationId)}
+          AND EXISTS(SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.professional_id=professionals.id
+            AND c.status='closed' AND c.deleted_at IS NULL AND c.anonymized_at IS NULL
+            AND (c.help_request_id IS NULL OR EXISTS(SELECT 1 FROM help_requests h WHERE h.id=c.help_request_id
+              AND h.status IN ('closed','new','offered') AND h.anonymized_at IS NULL))) RETURNING id`),
+      db.all(sql`UPDATE conversations SET status='open',closed_at=NULL,closed_reason=NULL,reopened_at=${Date.now()},quota_released_at=NULL,updated_at=${timestamp}
+        WHERE id=${conversationId} AND status='closed' AND changes()=1 RETURNING id`),
+      db.all(sql`INSERT INTO audit_logs(id,actor_email,action,entity_type,entity_id,metadata,created_at)
+        SELECT ${logId},${actorEmail},'conversation_reopened','conversation',${conversationId},${JSON.stringify({ role })},${timestamp} WHERE changes()=1 RETURNING id`),
+      db.all(sql`UPDATE help_requests SET status='assigned',updated_at=${timestamp}
+        WHERE id=${conversation.helpRequestId} AND EXISTS(SELECT 1 FROM audit_logs WHERE id=${logId})`),
+      db.all(sql`UPDATE assignments SET status='missed',updated_at=${timestamp}
+        WHERE help_request_id=${conversation.helpRequestId} AND status='offered' AND EXISTS(SELECT 1 FROM audit_logs WHERE id=${logId})`),
+      db.all(sql`UPDATE assignments SET status=CASE WHEN source='seeker' THEN 'accepted' ELSE 'assigned' END,updated_at=${timestamp}
+        WHERE help_request_id=${conversation.helpRequestId} AND professional_id=${conversation.professionalId} AND status='closed'
+          AND EXISTS(SELECT 1 FROM audit_logs WHERE id=${logId})`),
+    ]);
+  } catch {
+    // Todo el batch revierte: no se compensa sólo el contador de un hilo abierto.
+    return { ok: false, reason: "unavailable" };
+  }
+  if (!results[0].length || !results[1].length) {
+    const current = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
     });
-  } catch (error) {
-    // Compensa el cupo si algo falló tras reservarlo.
-    await db
-      .update(professionals)
-      .set({
-        currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
-        updatedAt: nowIso(),
-      })
-      .where(eq(professionals.id, conversation.professionalId));
-    throw error;
+    if (
+      !current ||
+      current.deletedAt ||
+      current.anonymizedAt ||
+      current.status !== "closed"
+    )
+      return { ok: false, reason: "not_closed" };
+    if (!(await resolveActor(current, asPersona)))
+      return { ok: false, reason: "not_authorized" };
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.id, current.professionalId),
+    });
+    if (
+      pro?.status !== "approved" ||
+      pro.currentActiveRequests >= pro.maxActiveRequests
+    )
+      return { ok: false, reason: "no_capacity" };
+    return { ok: false, reason: "unavailable" };
   }
 
   // Los sockets vivos siguen con canSend=false de cuando se cerró: se cortan y
@@ -505,29 +502,34 @@ export async function deleteConversation(
   const timestamp = nowIso();
   const purgeAfter = new Date(Date.now() + TRASH_GRACE_MS);
 
-  await db
-    .update(conversations)
-    .set({
-      deletedAt: new Date(),
-      purgeAfter,
-      deletedByRole: role,
-      updatedAt: timestamp,
-    })
-    .where(eq(conversations.id, conversationId));
-
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail,
-    action: "conversation_deleted",
-    entityType: "conversation",
-    entityId: conversationId,
-    metadata: JSON.stringify({
-      role,
-      trash: true,
-      purgeAfter: purgeAfter.toISOString(),
-    }),
-    createdAt: timestamp,
-  });
+  const results = await db.batch([
+    db
+      .update(conversations)
+      .set({
+        deletedAt: new Date(),
+        purgeAfter,
+        deletedByRole: role,
+        updatedAt: timestamp,
+      })
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          isNull(conversations.deletedAt),
+          isNull(conversations.anonymizedAt),
+          actorPermission(actor, conversationId),
+        ),
+      )
+      .returning({ id: conversations.id }),
+    db.all(sql`INSERT INTO audit_logs(id,actor_email,action,entity_type,entity_id,metadata,created_at)
+      SELECT ${newId("log")},${actorEmail},'conversation_deleted','conversation',${conversationId},${JSON.stringify({ role, trash: true, purgeAfter: purgeAfter.toISOString() })},${timestamp} WHERE changes()=1`),
+  ]);
+  if (!results[0].length)
+    return {
+      ok: false,
+      message:
+        "La conversación ya cambió. Actualiza la página antes de borrarla.",
+    };
+  await disconnectConversationSockets(conversationId);
 
   // Avisa a la CONTRAPARTE (best-effort: un fallo de correo no rompe el borrado)
   // para que no se sorprenda y pueda recuperarla durante la ventana.
@@ -609,25 +611,34 @@ export async function restoreConversation(
   }
 
   const timestamp = nowIso();
-  await db
-    .update(conversations)
-    .set({
-      deletedAt: null,
-      purgeAfter: null,
-      deletedByRole: null,
-      updatedAt: timestamp,
-    })
-    .where(eq(conversations.id, conversationId));
-
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: actor.actorEmail,
-    action: "conversation_restored",
-    entityType: "conversation",
-    entityId: conversationId,
-    metadata: JSON.stringify({ role: actor.role }),
-    createdAt: timestamp,
-  });
+  const results = await db.batch([
+    db
+      .update(conversations)
+      .set({
+        deletedAt: null,
+        purgeAfter: null,
+        deletedByRole: null,
+        updatedAt: timestamp,
+      })
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.deletedAt, conversation.deletedAt),
+          isNull(conversations.anonymizedAt),
+          sql`${conversations.purgeAfter} > ${Date.now()}`,
+          actorPermission(actor, conversationId),
+        ),
+      )
+      .returning({ id: conversations.id }),
+    db.all(sql`INSERT INTO audit_logs(id,actor_email,action,entity_type,entity_id,metadata,created_at)
+      SELECT ${newId("log")},${actor.actorEmail},'conversation_restored','conversation',${conversationId},${JSON.stringify({ role: actor.role })},${timestamp} WHERE changes()=1`),
+  ]);
+  if (!results[0].length)
+    return {
+      ok: false,
+      message:
+        "El plazo o el acceso a esta conversación ya cambió. Actualiza la página.",
+    };
 
   return { ok: true, role: actor.role };
 }

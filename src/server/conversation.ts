@@ -7,12 +7,14 @@ import {
 } from "partyserver";
 import {
   type ChatMessage,
+  type ClientFrame,
   parseClientFrame,
   type SenderRole,
   type ServerFrame,
   serialize,
 } from "@/shared/chat-protocol";
 import { isEnvelope } from "@/shared/e2ee";
+import { currentConnectionGate } from "./auth-gate";
 import type { Env } from "./types";
 
 const HISTORY_PAGE = 30;
@@ -29,7 +31,7 @@ const FRAME_WINDOW_MS = 10_000;
 const FRAME_MAX_PER_WINDOW = 40;
 const MAX_MESSAGES_PER_CONVERSATION = 20000;
 
-type ConnState = { role: SenderRole; canSend: boolean };
+type ConnState = { role: SenderRole; id: string; canSend: boolean };
 
 type MessageRow = {
   server_id: string;
@@ -70,6 +72,7 @@ export class Conversation extends Server<Env> {
   // Contador de frames por conexión (en memoria; un flood mantiene el DO
   // despierto, así que la ventana persiste durante el ataque).
   private rate = new Map<string, { winStart: number; count: number }>();
+  private frameQueues = new Map<string, Promise<void>>();
 
   // Token-bucket por conexión: limita frames/ventana (anti-flood de mensajes,
   // typing, etc.). Devuelve false si la conexión excede el límite.
@@ -148,7 +151,11 @@ export class Conversation extends Server<Env> {
     // `0` cuando la conversación está cerrada (o anonimizada): el historial se
     // sirve en solo lectura y el envío se rechaza hasta reabrir.
     const canSend = ctx.request.headers.get("x-nido-can-send") !== "0";
-    connection.setState({ role, canSend } satisfies ConnState);
+    connection.setState({
+      role,
+      id: ctx.request.headers.get("x-nido-id") ?? "",
+      canSend,
+    } satisfies ConnState);
 
     const rows = this.ctx.storage.sql
       .exec(
@@ -196,8 +203,44 @@ export class Conversation extends Server<Env> {
       this.sendTo(connection, { type: "error", code: "rate_limited" });
       return;
     }
-    const role = (connection.state as ConnState | null)?.role ?? "seeker";
-    const canSend = (connection.state as ConnState | null)?.canSend ?? true;
+    // D1 añade una espera: mantener el orden de frames del mismo dispositivo
+    // evita que dos consultas completadas al revés inviertan sus mensajes.
+    const previous = this.frameQueues.get(connection.id) ?? Promise.resolve();
+    const pending = previous
+      .catch(() => {})
+      .then(() => this.processFrame(connection, frame));
+    this.frameQueues.set(connection.id, pending);
+    try {
+      await pending;
+    } finally {
+      if (this.frameQueues.get(connection.id) === pending)
+        this.frameQueues.delete(connection.id);
+    }
+  }
+
+  private async processFrame(connection: Connection, frame: ClientFrame) {
+    const state = connection.state as ConnState | null;
+    if (!state?.id) {
+      connection.close(4003, "Acceso no disponible");
+      return;
+    }
+    // Una conexión hibernada conserva el estado del handshake. Volver a D1
+    // hace efectivo el cierre/revocación aunque falle el aviso al socket.
+    const gate = await currentConnectionGate(
+      this.env,
+      state.role,
+      state.id,
+      this.name,
+      Date.now(),
+    );
+    if (!gate.allowed) {
+      connection.close(4003, "Acceso no disponible");
+      return;
+    }
+    const role = state.role;
+    const canSend = gate.canSend;
+    if (canSend !== state.canSend)
+      connection.setState({ ...state, canSend } satisfies ConnState);
 
     switch (frame.type) {
       case "send":

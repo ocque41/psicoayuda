@@ -75,7 +75,13 @@ export default async function PatientCalendar({
           dateText: dateLabel(a.startsAt, account.timezone),
           name: a.name,
           status: a.status,
-          href: `/sesion/${a.id}`,
+          href:
+            a.conversationStatus === "open" &&
+            !a.conversationClosedAt &&
+            a.professionalStatus === "approved" &&
+            !a.nonClinicalHelper
+              ? `/sesion/${a.id}`
+              : `/mi/mensajes/${a.conversationId}`,
         }))}
       />
       <section className="workspace-card">
