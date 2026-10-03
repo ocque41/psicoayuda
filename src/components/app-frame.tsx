@@ -50,6 +50,18 @@ export function AppFrame({
 
   return (
     <>
+      <a
+        className="skip-link"
+        href="#contenido"
+        onClick={(event) => {
+          event.preventDefault();
+          const content = document.getElementById("contenido");
+          content?.focus({ preventScroll: true });
+          content?.scrollIntoView({ block: "start", behavior: "instant" });
+        }}
+      >
+        Saltar al contenido
+      </a>
       {area === "public" ? publicHeader : null}
       {isWorkspace ? (
         <header className={styles.header} data-workspace-header>
@@ -77,6 +89,7 @@ export function AppFrame({
       ) : null}
       <main
         id="contenido"
+        tabIndex={-1}
         className={area === "public" ? undefined : styles.main}
       >
         {children}

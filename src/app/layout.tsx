@@ -102,9 +102,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es" className={`${hanken.variable} ${spaceGrotesk.variable}`}>
       <body>
-        <a className="skip-link" href="#contenido">
-          Saltar al contenido
-        </a>
         <AppFrame
           publicHeader={
             <header className="topbar">
