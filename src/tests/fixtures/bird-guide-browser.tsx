@@ -22,8 +22,35 @@ const fixture = {
   control: () => {},
   setStep: (_step: string) => {},
   setHidden: (_hidden: boolean | null) => {},
+  pendingTimers: () => 0,
 };
 Object.assign(window, { fixture });
+const pendingTimers = new Set<number>();
+const timerWindow = window as unknown as {
+  setTimeout: (
+    handler: TimerHandler,
+    timeout?: number,
+    ...args: unknown[]
+  ) => number;
+  clearTimeout: (timer?: number) => void;
+};
+const nativeTimeout = timerWindow.setTimeout.bind(window);
+const nativeClearTimeout = timerWindow.clearTimeout.bind(window);
+timerWindow.setTimeout = (handler, timeout, ...args) => {
+  if (typeof handler !== "function")
+    return nativeTimeout(handler, timeout, ...args);
+  const timer = nativeTimeout(() => {
+    pendingTimers.delete(timer);
+    handler(...args);
+  }, timeout);
+  pendingTimers.add(timer);
+  return timer;
+};
+timerWindow.clearTimeout = (timer) => {
+  if (timer !== undefined) pendingTimers.delete(timer);
+  nativeClearTimeout(timer);
+};
+fixture.pendingTimers = () => pendingTimers.size;
 const nativeAnimate = Element.prototype.animate;
 Element.prototype.animate = function (keyframes, options) {
   const animation = nativeAnimate.call(this, keyframes, options);
@@ -67,6 +94,8 @@ function tracked(target: EventTarget, type: string) {
     (target === window ||
       target === document ||
       target === window.visualViewport ||
+      target ===
+        (navigator as Navigator & { connection?: EventTarget }).connection ||
       target instanceof MediaQueryList) &&
     ["resize", "scroll", "keydown", "change", "visibilitychange"].includes(type)
   );
@@ -87,7 +116,8 @@ EventTarget.prototype.addEventListener = function (type, listener, options) {
   nativeAdd.call(this, type, listener, options);
 };
 EventTarget.prototype.removeEventListener = function (type, listener, options) {
-  if (listener && tracked(this, type)) {
+  // La conexión puede sustituirse en una prueba; liberar el target registrado.
+  if (listener && listeners.has(this)) {
     const key = `${type}:${typeof options === "boolean" ? options : Boolean(options?.capture)}`;
     if (listeners.get(this)?.get(key)?.delete(listener))
       fixture.resources.listeners--;
@@ -123,7 +153,9 @@ window.MutationObserver = class extends NativeMutationObserver {
 function Fixture() {
   const [draft, setDraft] = useState("");
   const [mounted, setMounted] = useState(true);
-  const [controlled, setControlled] = useState(false);
+  const [controlled, setControlled] = useState(() =>
+    new URLSearchParams(window.location.search).has("windows"),
+  );
   const [selectedStep, setSelectedStep] = useState("agenda");
   fixture.remount = () => setMounted((value) => !value);
   fixture.control = () => setControlled(true);

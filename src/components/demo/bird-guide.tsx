@@ -19,6 +19,14 @@ type BirdGuideProps = {
   guideLabel?: string;
 };
 
+type GuideConnection = EventTarget & {
+  saveData?: boolean;
+  effectiveType?: string;
+};
+
+const guideConnection = () =>
+  (navigator as Navigator & { connection?: GuideConnection }).connection;
+
 /** Ilustración vectorial original: salvia, verde y el pequeño acento dorado de Nido. */
 function Bird() {
   return (
@@ -202,9 +210,15 @@ export function BirdGuide({
     );
     bird.dataset.step = stepId;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const connection = guideConnection();
     let frame = 0;
     let landingTimer = 0;
     let retargetTimer = 0;
+    let idleTimer = 0;
+    let idleEndTimer = 0;
+    let idleAnimations: Animation[] = [];
+    let idleBeat = 0;
+    let idleSuspended = false;
     let flight: Animation | null = null;
     let tilt: Animation | null = null;
     let flightStart = 0;
@@ -230,9 +244,92 @@ export function BirdGuide({
     const motionAllowed = () =>
       !document.hidden &&
       !reduced.matches &&
-      !(navigator as Navigator & { connection?: { saveData?: boolean } })
-        .connection?.saveData &&
+      !guideConnection()?.saveData &&
+      !["slow-2g", "2g"].includes(guideConnection()?.effectiveType ?? "") &&
       typeof bird.animate === "function";
+    function cancelIdle() {
+      clearTimeout(idleTimer);
+      clearTimeout(idleEndTimer);
+      idleTimer = 0;
+      idleEndTimer = 0;
+      for (const animation of idleAnimations) animation.cancel();
+      idleAnimations = [];
+    }
+    function queueIdle() {
+      if (
+        closed ||
+        idleSuspended ||
+        idleTimer ||
+        idleEndTimer ||
+        !arrived ||
+        bird.dataset.phase !== "rest" ||
+        !motionAllowed() ||
+        bird.style.opacity !== "1"
+      )
+        return;
+      // Gestos cortos con pausas distintas; no hay un bucle por frame en reposo.
+      idleTimer = window.setTimeout(
+        () => {
+          idleTimer = 0;
+          if (!motionAllowed()) {
+            rest(true);
+            return;
+          }
+          if (closed || idleSuspended || bird.style.opacity !== "1") return;
+          const turn = idleBeat++ % 2 === 0 ? 1 : -1;
+          bird.dataset.phase = "idle";
+          const animate = (element: Element | null, frames: Keyframe[]) => {
+            if (element)
+              idleAnimations.push(
+                element.animate(frames, {
+                  duration: 1800,
+                  easing: "ease-in-out",
+                  fill: "none",
+                }),
+              );
+          };
+          animate(pose, [
+            { transform: "translateY(0) rotate(0deg)", offset: 0 },
+            {
+              transform: `translateY(-4px) rotate(${turn * 4}deg)`,
+              offset: 0.3,
+            },
+            {
+              transform: `translateY(-1px) rotate(${-turn * 2}deg)`,
+              offset: 0.65,
+            },
+            { transform: "translateY(0) rotate(0deg)", offset: 1 },
+          ]);
+          animate(pose.querySelector(`.${styles.wing}`), [
+            { transform: "rotate(-12deg)", offset: 0 },
+            { transform: "rotate(12deg) scaleY(1.04)", offset: 0.32 },
+            { transform: "rotate(-17deg)", offset: 0.48 },
+            { transform: "rotate(-5deg)", offset: 0.62 },
+            { transform: "rotate(-12deg)", offset: 1 },
+          ]);
+          animate(pose.querySelector(`.${styles.tail}`), [
+            { transform: "rotate(0deg)", offset: 0 },
+            { transform: `rotate(${turn * 10}deg)`, offset: 0.35 },
+            { transform: `rotate(${-turn * 6}deg)`, offset: 0.6 },
+            { transform: "rotate(0deg)", offset: 1 },
+          ]);
+          animate(pose.querySelector(`.${styles.eye}`), [
+            { transform: "scaleY(1)", offset: 0 },
+            { transform: "scaleY(1)", offset: 0.48 },
+            { transform: "scaleY(0.08)", offset: 0.52 },
+            { transform: "scaleY(1)", offset: 0.56 },
+            { transform: "scaleY(1)", offset: 1 },
+          ]);
+          idleEndTimer = window.setTimeout(() => {
+            cancelIdle();
+            if (closed) return;
+            bird.dataset.phase = "rest";
+            queueIdle();
+          }, 1800);
+        },
+        idleBeat === 0 ? 1600 : idleBeat % 2 === 0 ? 3200 : 2400,
+      );
+    }
     function cancelFlight(keepPosition = false) {
       if (flight) {
         if (keepPosition && bird.isConnected) {
@@ -252,9 +349,11 @@ export function BirdGuide({
       clearTimeout(retargetTimer);
       retargetTimer = 0;
     }
-    function rest() {
+    function rest(suspendIdle = false) {
       cancelFlight(true);
+      cancelIdle();
       clearTimeout(landingTimer);
+      idleSuspended ||= suspendIdle;
       arrived = true;
       bird.dataset.flying = "false";
       bird.dataset.phase = "rest";
@@ -269,13 +368,14 @@ export function BirdGuide({
       const position = !flight ? birdPositionRef.current : null;
       if (!visible) {
         cancelFlight(true);
+        cancelIdle();
         clearTimeout(landingTimer);
         bird.dataset.flying = "false";
         bird.dataset.phase = "rest";
         return;
       }
       if (!motionAllowed()) {
-        rest();
+        rest(true);
         bird.style.transform = destination;
         birdPositionRef.current = { x, y };
         return;
@@ -283,6 +383,7 @@ export function BirdGuide({
       if (arrived) {
         bird.style.transform = destination;
         birdPositionRef.current = { x, y };
+        queueIdle();
         return;
       }
       const now = performance.now();
@@ -328,6 +429,7 @@ export function BirdGuide({
         rest();
         bird.style.transform = destination;
         birdPositionRef.current = { x, y };
+        queueIdle();
         return;
       }
       const direction =
@@ -364,6 +466,7 @@ export function BirdGuide({
       });
       const previousTilt = getComputedStyle(pose).transform;
       cancelFlight();
+      cancelIdle();
       bird.style.transform = destination;
       birdPositionRef.current = { x, y };
       bird.dataset.direction = direction < 0 ? "left" : "right";
@@ -399,9 +502,10 @@ export function BirdGuide({
         arrived = true;
         bird.dataset.flying = "false";
         bird.dataset.phase = "landing";
-        // Un aterrizaje y un parpadeo, sin ciclos de movimiento en reposo.
+        // El aterrizaje termina antes de los gestos de compañía con pausas.
         landingTimer = window.setTimeout(() => {
           bird.dataset.phase = "rest";
+          queueIdle();
         }, 1800);
       };
     }
@@ -547,7 +651,7 @@ export function BirdGuide({
         frame = requestAnimationFrame(measure);
     }
     function visibilityChanged() {
-      if (!motionAllowed()) rest();
+      if (!motionAllowed()) rest(true);
       schedule();
     }
     const resize = new ResizeObserver(schedule);
@@ -568,6 +672,7 @@ export function BirdGuide({
       passive: true,
     });
     reduced.addEventListener("change", visibilityChanged);
+    connection?.addEventListener?.("change", visibilityChanged);
     document.addEventListener("visibilitychange", visibilityChanged);
     titleRef.current?.focus({ preventScroll: true });
     schedule();
@@ -575,6 +680,7 @@ export function BirdGuide({
       closed = true;
       cancelAnimationFrame(frame);
       cancelFlight(true);
+      cancelIdle();
       clearTimeout(landingTimer);
       bird.dataset.flying = "false";
       bird.dataset.phase = "rest";
@@ -585,6 +691,7 @@ export function BirdGuide({
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
       reduced.removeEventListener("change", visibilityChanged);
+      connection?.removeEventListener?.("change", visibilityChanged);
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [active, targetId, stepId]);
