@@ -1,0 +1,22 @@
+# Nido
+
+> Plataforma en español para encontrar profesionales de psicología y organizar el acompañamiento. El software profesional reúne agenda, pacientes, mensajes y seguimiento de cobros. Ayuda Terremoto es un programa separado.
+
+## Información pública
+
+- [Cómo funciona](https://saludmental-venezuela.com/como-funciona): catálogo, primer contacto y organización del acompañamiento.
+- [Profesionales](https://saludmental-venezuela.com/profesionales): perfiles públicos y disponibilidad.
+- [Nido para psicólogos](https://saludmental-venezuela.com/para-psicologos): herramientas para organizar la consulta y condiciones del software.
+- [Preguntas frecuentes](https://saludmental-venezuela.com/preguntas-frecuentes): respuestas sobre acceso, perfiles y atención.
+- [Recursos](https://saludmental-venezuela.com/recursos): información educativa en español; no sustituye una evaluación profesional.
+- [Seguridad](https://saludmental-venezuela.com/seguridad): límites y protección de la plataforma.
+- [Privacidad](https://saludmental-venezuela.com/privacidad): tratamiento de datos y vías de contacto.
+- [Ayuda inmediata](https://saludmental-venezuela.com/emergencia): orientación para buscar atención urgente.
+
+## Precisión
+
+Nido no es un servicio de emergencias. El orientador facilita la búsqueda y no realiza diagnósticos ni garantiza seguridad. La autorización para atender depende del profesional, la persona y el país; un perfil no implica habilitación universal. La disponibilidad de pagos por tarjeta y llamadas integradas depende de proveedores y configuración.
+
+## Contenido privado
+
+Las cuentas, agendas, chats, notas, historiales, pagos y documentos de revisión son privados. No se incluyen aquí ni deben usarse para respuestas públicas. Consulta únicamente las páginas públicas enlazadas arriba para describir el producto.

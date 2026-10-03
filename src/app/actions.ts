@@ -1,14 +1,17 @@
 "use server";
 
-import { and, count, eq, gte, or } from "drizzle-orm";
+import { and, count, eq, gte, ne, or, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
+  accountOnboardingDrafts,
   allianceRequests,
   assignments,
   auditLogs,
   helpRequests,
+  practiceCredentials,
+  practiceSettings,
   professionals,
   user,
 } from "@/db/schema";
@@ -30,6 +33,7 @@ import {
   notifyProfessionalAssignment,
 } from "@/lib/notifications";
 import { offerRequestToProfessionals } from "@/lib/offers";
+import { validTimeZone } from "@/lib/onboarding/locale";
 import { getRequesterHash } from "@/lib/requester-hash";
 import { anonymizeHelpRequest } from "@/lib/retention";
 import {
@@ -339,8 +343,29 @@ export async function saveProfessionalOnboarding(
   }
 
   const raw = formEntries(formData);
+  const existing = await db.query.professionals.findFirst({
+    where: eq(professionals.userId, session.user.id),
+  });
+  if (existing?.status === "deleting")
+    return {
+      ok: false as const,
+      message:
+        "Tu cuenta está en proceso de eliminación. Espera a que termine antes de guardar cambios.",
+    };
+  const requestedTimeZone = String(formData.get("timezone") ?? "");
+  if (requestedTimeZone && !validTimeZone(requestedTimeZone)) {
+    return {
+      ok: false as const,
+      message: "Elige una zona horaria válida.",
+      field: "timezone",
+    };
+  }
   const parsed = professionalSchema.safeParse({
     ...raw,
+    // Un comprobante ya recibido solo se lee desde el perfil de esta cuenta.
+    // Editar otro dato no exige volver a enviar el documento ni lo borra.
+    registrationProofDoc:
+      raw.registrationProofDoc || existing?.registrationProofDoc || "",
     supportAreas: formData.getAll("supportAreas"),
   });
 
@@ -355,6 +380,7 @@ export async function saveProfessionalOnboarding(
     return {
       ok: false as const,
       message: firstIssueMessage(parsed.error, PROFESSIONAL_FIELD_LABELS),
+      field: String(parsed.error.issues[0]?.path[0] ?? ""),
       values: {
         ...rest,
         supportAreas: formData.getAll("supportAreas").map(String),
@@ -363,9 +389,6 @@ export async function saveProfessionalOnboarding(
   }
 
   const timestamp = nowIso();
-  const existing = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
 
   const values = {
     userId: session.user.id,
@@ -422,24 +445,111 @@ export async function saveProfessionalOnboarding(
         }))
       : null;
 
-  if (existing) {
-    // ponytail: no tocamos status al editar — preserva una posible suspensión/baja del admin.
-    await db
-      .update(professionals)
-      .set({ ...values, ...(fpvFields ?? {}) })
-      .where(eq(professionals.id, existing.id));
-  } else {
-    await db.insert(professionals).values({
-      ...values,
-      ...(fpvFields ?? {}),
-      id: newId("pro"),
-      // Sin verificación previa: el profesional queda activo al instante (la
-      // marca "verificado FPV" es una señal adicional, no una puerta de acceso).
-      status: "approved",
-      currentActiveRequests: 0,
-      createdAt: timestamp,
-    });
-  }
+  const professionalId = existing?.id ?? newId("pro");
+  const credentialChanged = Boolean(
+    existing &&
+      (existing.licenseNumber !== values.licenseNumber ||
+        existing.licenseCountry !== values.licenseCountry ||
+        existing.fpvNumber !== values.fpvNumber ||
+        existing.supervisionInfo !== values.supervisionInfo ||
+        existing.nonClinicalHelper !== values.nonClinicalHelper ||
+        existing.registrationType !== values.registrationType ||
+        existing.registrationDetail !== values.registrationDetail ||
+        existing.registrationProofDoc !== values.registrationProofDoc),
+  );
+  const reviewChange =
+    credentialChanged && existing?.status === "approved"
+      ? { status: "pending_verification" }
+      : {};
+  const outdatedFpv =
+    existing && existing.fpvNumber !== values.fpvNumber && !fpvFields
+      ? { fpvVerified: false, fpvVerifiedAt: null }
+      : {};
+  const profileWrite = existing
+    ? db
+        .update(professionals)
+        .set({
+          ...values,
+          ...reviewChange,
+          ...outdatedFpv,
+          ...(fpvFields ?? {}),
+        })
+        .where(
+          and(
+            eq(professionals.id, existing.id),
+            eq(professionals.userId, session.user.id),
+            ne(professionals.status, "deleting"),
+          ),
+        )
+        .returning({ id: professionals.id })
+    : db
+        .insert(professionals)
+        .values({
+          ...values,
+          ...(fpvFields ?? {}),
+          id: professionalId,
+          status: "pending_verification",
+          currentActiveRequests: 0,
+          createdAt: timestamp,
+        })
+        .returning({ id: professionals.id });
+  // Se evalúa dentro del mismo batch que el perfil. Si la baja ganó la
+  // carrera, tampoco se cambian preferencias, ámbitos ni memoria del alta.
+  const profileSaved = sql`EXISTS(SELECT 1 FROM professionals p WHERE p.id=${professionalId} AND p.user_id=${session.user.id} AND p.status!='deleting' AND p.updated_at=${timestamp})`;
+  const settingsWrite = requestedTimeZone
+    ? [
+        db
+          .insert(practiceSettings)
+          .select(
+            sql`SELECT ${professionalId},${requestedTimeZone},9,18,${timestamp} WHERE ${profileSaved}`,
+          )
+          .onConflictDoUpdate({
+            target: practiceSettings.professionalId,
+            set: { timeZone: requestedTimeZone, updatedAt: timestamp },
+          }),
+      ]
+    : [];
+  const results = await db.batch([
+    profileWrite,
+    ...(credentialChanged
+      ? [
+          db
+            .insert(auditLogs)
+            .select(
+              sql`SELECT ${newId("audit")},${session.user.email},'professional_credential_review_requested','professional',${professionalId},NULL,${timestamp} WHERE changes()=1`,
+            ),
+        ]
+      : []),
+    ...settingsWrite,
+    ...(credentialChanged
+      ? [
+          db
+            .update(practiceCredentials)
+            .set({ expiresAt: timestamp })
+            .where(
+              and(
+                eq(practiceCredentials.professionalId, professionalId),
+                profileSaved,
+              ),
+            ),
+        ]
+      : []),
+    db
+      .delete(accountOnboardingDrafts)
+      .where(
+        and(
+          eq(accountOnboardingDrafts.userId, session.user.id),
+          eq(accountOnboardingDrafts.role, "pro"),
+          profileSaved,
+        ),
+      ),
+  ]);
+  if (!results[0].length)
+    return {
+      ok: false as const,
+      message:
+        "Tu perfil inició su eliminación antes de guardar. Conservamos tu borrador; espera a que termine antes de hacer cambios.",
+    };
 
   revalidateDirectoryViews();
   redirect("/pro/dashboard");
@@ -511,6 +621,11 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
 
   const professionalId = String(formData.get("professionalId") ?? "");
   const status = professionalStatusSchema.parse(formData.get("status"));
+  const existing = await db.query.professionals.findFirst({
+    where: eq(professionals.id, professionalId),
+    columns: { id: true, status: true },
+  });
+  if (!existing || existing.status === "deleting") redirect("/admin");
   const timestamp = nowIso();
   const actionByStatus = {
     pending_verification: "professional_pending_verification",
@@ -533,10 +648,24 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
         }
       : { status, acceptingRequests: false, updatedAt: timestamp };
 
-  await db
-    .update(professionals)
-    .set(updates)
-    .where(eq(professionals.id, professionalId));
+  const results = await db.batch([
+    db
+      .update(professionals)
+      .set(updates)
+      .where(
+        and(
+          eq(professionals.id, professionalId),
+          ne(professionals.status, "deleting"),
+        ),
+      )
+      .returning({ id: professionals.id }),
+    db
+      .insert(auditLogs)
+      .select(
+        sql`SELECT ${newId("log")},${admin.email},${actionByStatus[status]},'professional',${professionalId},NULL,${timestamp} WHERE changes()=1`,
+      ),
+  ]);
+  if (!results[0].length) redirect("/admin");
 
   // Al suspender/rechazar, libera capacidad y devuelve sus solicitudes a la
   // cola para reasignación: nadie queda huérfano y los cupos no se pierden.
@@ -558,15 +687,6 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
       });
     }
   }
-
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: admin.email,
-    action: actionByStatus[status],
-    entityType: "professional",
-    entityId: professionalId,
-    createdAt: timestamp,
-  });
 
   revalidatePath("/admin");
   revalidateDirectoryViews();

@@ -12,6 +12,7 @@ import { TurnstileWidget } from "@/components/turnstile-widget";
 type CommonProps = {
   turnstileSiteKey: string | null;
 };
+type CredentialReturnTo = "/pro/dashboard" | "/mi/ajustes";
 
 /** Reacciona al resultado de la acción: limpia el widget (token de un uso). */
 function useTurnstileReset(state: CredentialFormState) {
@@ -55,7 +56,9 @@ function EmailForm({
   emailVerified,
   hasPassword,
   turnstileSiteKey,
+  returnTo,
 }: CommonProps & {
+  returnTo: CredentialReturnTo;
   currentEmail: string;
   emailVerified: boolean;
   hasPassword: boolean;
@@ -78,6 +81,7 @@ function EmailForm({
             : "Te enviaremos un enlace de confirmación a la dirección nueva; hasta confirmarlo, tu correo actual sigue siendo el de tu cuenta."}
         </p>
         <form action={action}>
+          <input type="hidden" name="credentialReturnTo" value={returnTo} />
           <div className="field">
             <label htmlFor={`${ids}-email`}>Correo nuevo</label>
             <input
@@ -157,7 +161,8 @@ function EmailForm({
 function PasswordForm({
   hasPassword,
   turnstileSiteKey,
-}: CommonProps & { hasPassword: boolean }) {
+  returnTo,
+}: CommonProps & { hasPassword: boolean; returnTo: CredentialReturnTo }) {
   const ids = useId();
   const initialState: CredentialFormState = null;
   const [state, action, pending] = useActionState(
@@ -170,6 +175,14 @@ function PasswordForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [show, setShow] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
+  useEffect(() => {
+    if (state?.status !== "success") return;
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShow(false);
+    setCapsLock(false);
+  }, [state]);
 
   if (!hasPassword) {
     return (
@@ -195,6 +208,7 @@ function PasswordForm({
           dispositivos con la contraseña nueva).
         </p>
         <form action={action}>
+          <input type="hidden" name="credentialReturnTo" value={returnTo} />
           <div className="field">
             <label htmlFor={`${ids}-current`}>Contraseña actual</label>
             <div className="password-field">
@@ -365,42 +379,50 @@ export function CredentialSettings({
   currentEmail,
   emailVerified,
   hasPassword,
-  phone,
-  landline,
-  emailPublic,
+  phone = null,
+  landline = null,
+  emailPublic = true,
   turnstileSiteKey,
+  showPhones = true,
+  returnTo = "/pro/dashboard",
 }: {
   currentEmail: string;
   emailVerified: boolean;
   hasPassword: boolean;
-  phone: string | null;
-  landline: string | null;
-  emailPublic: boolean;
+  phone?: string | null;
+  landline?: string | null;
+  emailPublic?: boolean;
   turnstileSiteKey: string | null;
+  showPhones?: boolean;
+  returnTo?: CredentialReturnTo;
 }) {
   return (
     <div className="credential-settings">
       <p className="hint">
-        Aquí gestionas tus datos de acceso y contacto. Los cambios de correo y
-        contraseña se confirman por correo; los avisos de seguridad llegan a tu
-        dirección de la cuenta.
+        Aquí gestionas tus datos de acceso{showPhones ? " y contacto" : ""}. El
+        cambio de correo requiere confirmación. La contraseña se cambia al
+        guardar; los avisos de seguridad se envían al correo de tu cuenta.
       </p>
       <EmailForm
         currentEmail={currentEmail}
         emailVerified={emailVerified}
         hasPassword={hasPassword}
         turnstileSiteKey={turnstileSiteKey}
+        returnTo={returnTo}
       />
       <PasswordForm
         hasPassword={hasPassword}
         turnstileSiteKey={turnstileSiteKey}
+        returnTo={returnTo}
       />
-      <PhoneForm
-        phone={phone}
-        landline={landline}
-        emailPublic={emailPublic}
-        turnstileSiteKey={turnstileSiteKey}
-      />
+      {showPhones ? (
+        <PhoneForm
+          phone={phone}
+          landline={landline}
+          emailPublic={emailPublic}
+          turnstileSiteKey={turnstileSiteKey}
+        />
+      ) : null}
     </div>
   );
 }

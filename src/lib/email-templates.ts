@@ -988,7 +988,7 @@ export function buildPasswordResetEmail(input: {
             </tr>
             <tr>
               <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
-                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia.</p>
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">Nido · apoyo psicológico y organización de la consulta. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia.</p>
               </td>
             </tr>
           </table>
@@ -1005,7 +1005,7 @@ ${url}
 
 Si tú no pediste este cambio, ignora este correo: tu contraseña actual sigue funcionando.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
@@ -1071,7 +1071,7 @@ function securityEmailHtml(input: {
             </tr>
             <tr>
               <td style="padding:18px 28px 26px;border-top:1px solid #e7decf;">
-                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">${input.footer ?? "Nido · apoyo psicológico voluntario, gratis y a distancia. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia."}</p>
+                <p style="margin:0;font-size:12px;color:#6e655b;line-height:1.6;">${input.footer ?? "Nido · apoyo psicológico y organización de la consulta. No es un servicio de emergencia: si hay riesgo inmediato, contacta a los servicios locales de emergencia."}</p>
               </td>
             </tr>
           </table>
@@ -1119,7 +1119,7 @@ Después te pediremos confirmar esa dirección nueva; hasta completarlo, tu corr
 
 Si no pediste este cambio, ignora este correo: tu correo actual sigue siendo el de tu cuenta.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
@@ -1157,7 +1157,7 @@ ${url}
 
 Si no fuiste tú, ignora este correo: sin tu confirmación, el cambio no se aplica.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
@@ -1201,7 +1201,7 @@ Como aviso de seguridad, también te escribimos aquí: tu correo actual sigue si
 
 Si no pediste este cambio, no hagas clic en el enlace nuevo, cambia tu contraseña desde tu panel y escríbenos por la página de contacto.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
@@ -1210,19 +1210,24 @@ Nido · apoyo psicológico voluntario, gratis y a distancia.`;
 export function buildPasswordChangedEmail(input: {
   dashboardUrl: string;
   name?: string | null;
+  otherSessionsRevoked?: boolean;
 }): BuiltEmail {
   const name = input.name?.trim();
   const greeting = name ? `Hola ${escapeHtml(name)},` : "Hola,";
 
   const subject = "Tu contraseña de Nido cambió";
   const preheader = "Confirmamos el cambio de contraseña de tu cuenta.";
+  const sessionNotice =
+    input.otherSessionsRevoked === false
+      ? "No pudimos confirmar el cierre de las otras sesiones. Si necesitas ayuda con un acceso no autorizado, contacta al equipo desde tu cuenta."
+      : "Por seguridad, cerramos las demás sesiones abiertas: si estabas dentro en otro dispositivo, tendrás que volver a entrar con la contraseña nueva.";
 
   const html = securityEmailHtml({
     subject,
     preheader,
     greeting,
     paragraphs: [
-      "Tu contraseña de la cuenta de Nido cambió correctamente. Por seguridad, cerramos las demás sesiones abiertas: si estabas dentro en otro dispositivo, tendrás que volver a entrar con la contraseña nueva.",
+      `Tu contraseña de la cuenta de Nido cambió correctamente. ${sessionNotice}`,
     ],
     cta: { label: "Ir a mi cuenta", url: input.dashboardUrl },
     footnote:
@@ -1231,11 +1236,11 @@ export function buildPasswordChangedEmail(input: {
 
   const text = `${name ? `Hola ${name},` : "Hola,"}
 
-Tu contraseña de la cuenta de Nido cambió correctamente. Por seguridad, cerramos las demás sesiones abiertas: si estabas dentro en otro dispositivo, tendrás que volver a entrar con la contraseña nueva.
+Tu contraseña de la cuenta de Nido cambió correctamente. ${sessionNotice}
 
 Si no hiciste este cambio, restablece tu contraseña de inmediato desde la página de acceso y escríbenos por la página de contacto.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }
@@ -1431,7 +1436,7 @@ Los teléfonos que dejes se muestran públicos en tu ficha, como botones de What
 
 Si no hiciste este cambio, escríbenos cuanto antes por la página de contacto y cambia tu contraseña desde tu panel.
 
-Nido · apoyo psicológico voluntario, gratis y a distancia.`;
+Nido · apoyo psicológico y organización de la consulta.`;
 
   return { subject, html, text, headers: { ...HIGH_PRIORITY_HEADERS } };
 }

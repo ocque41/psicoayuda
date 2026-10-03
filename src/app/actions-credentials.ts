@@ -72,8 +72,17 @@ async function securityGate(
   return null;
 }
 
-function dashboardUrl() {
-  return `${SITE_URL.replace(/\/+$/, "")}/pro/dashboard`;
+function credentialDestination(
+  formData?: FormData,
+): "/mi/ajustes" | "/pro/dashboard" {
+  // An exact allowlist avoids protocol-relative URLs, external origins, encoded
+  // separators and arbitrary private routes supplied through a hidden input.
+  return formData?.get("credentialReturnTo") === "/mi/ajustes"
+    ? "/mi/ajustes"
+    : "/pro/dashboard";
+}
+function dashboardUrl(formData?: FormData) {
+  return `${SITE_URL.replace(/\/+$/, "")}${credentialDestination(formData)}`;
 }
 
 /**
@@ -87,7 +96,7 @@ export async function changeMyEmail(
   formData: FormData,
 ): Promise<CredentialFormState> {
   const session = await getServerSession();
-  if (!session?.user?.id || !session.user.email) redirect("/pro");
+  if (!session?.user?.id || !session.user.email) redirect("/entrar");
 
   const parsed = emailChangeSchema.safeParse(formEntries(formData));
   if (!parsed.success) {
@@ -139,7 +148,7 @@ export async function changeMyEmail(
     await auth.api.changeEmail({
       body: {
         newEmail,
-        callbackURL: "/pro/dashboard",
+        callbackURL: credentialDestination(formData),
       },
       headers: await headers(),
     });
@@ -165,7 +174,7 @@ export async function changeMyEmail(
     const aviso = buildEmailChangeNoticeEmail({
       newEmail,
       name: session.user.name,
-      dashboardUrl: dashboardUrl(),
+      dashboardUrl: dashboardUrl(formData),
     });
     await sendEmail({
       to: session.user.email,
@@ -189,7 +198,7 @@ export async function changeMyPassword(
   formData: FormData,
 ): Promise<CredentialFormState> {
   const session = await getServerSession();
-  if (!session?.user?.id || !session.user.email) redirect("/pro");
+  if (!session?.user?.id || !session.user.email) redirect("/entrar");
 
   const parsed = passwordChangeSchema.safeParse(formEntries(formData));
   if (!parsed.success) {
@@ -226,9 +235,11 @@ export async function changeMyPassword(
 
   // Cierra cualquier otra sesión abierta manteniendo viva la actual: si alguien
   // más estaba dentro, deja de estarlo en cuanto cambia la contraseña.
+  let otherSessionsRevoked = true;
   try {
     await auth.api.revokeOtherSessions({ headers: await headers() });
   } catch (error) {
+    otherSessionsRevoked = false;
     console.error("revoke other sessions after password change failed", {
       userId: session.user.id,
       error,
@@ -242,10 +253,11 @@ export async function changeMyPassword(
   });
 
   const confirmacion = buildPasswordChangedEmail({
-    dashboardUrl: dashboardUrl(),
+    dashboardUrl: dashboardUrl(formData),
     name: session.user.name,
+    otherSessionsRevoked,
   });
-  await sendEmail({
+  const notice = await sendEmail({
     to: session.user.email,
     subject: confirmacion.subject,
     html: confirmacion.html,
@@ -254,8 +266,15 @@ export async function changeMyPassword(
 
   return {
     status: "success",
-    message:
-      "Listo: tu contraseña cambió y cerramos las demás sesiones abiertas. Te enviamos un aviso por correo.",
+    message: [
+      "Tu contraseña cambió.",
+      otherSessionsRevoked
+        ? "Cerramos las demás sesiones abiertas."
+        : "No pudimos confirmar el cierre de las otras sesiones. Contacta al equipo si necesitas ayuda con un acceso no autorizado.",
+      notice.ok
+        ? "Te enviamos un aviso por correo."
+        : "No pudimos entregar el aviso por correo.",
+    ].join(" "),
   };
 }
 

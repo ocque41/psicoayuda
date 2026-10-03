@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   account,
@@ -8,6 +8,8 @@ import {
   auditLogs,
   contactMessages,
   conversations,
+  patientAccounts,
+  patientConversationLinks,
   professionals,
   responseSamples,
   seekerSessions,
@@ -17,6 +19,15 @@ import {
 import { releaseProfessionalAssignments } from "@/lib/assignment";
 import { purgeConversationMessagesDetailed } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
+import {
+  patientAccountDeleteStatements,
+  patientLinksForProfessionalDeleteStatements,
+  preparePatientAccountPurge,
+} from "@/lib/patient/purge";
+import {
+  practiceDeleteStatements,
+  preparePracticePurge,
+} from "@/lib/practice/purge";
 
 /**
  * Borra la cuenta y los datos operativos del usuario `userId`. Antes de borrar
@@ -31,83 +42,176 @@ import { newId, nowIso } from "@/lib/ids";
  *
  */
 export async function purgeAccount(userId: string): Promise<void> {
-  const professional = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, userId),
-    columns: { id: true },
-  });
-
-  // Nunca dejamos a una persona sin acompañante visible: una baja profesional
-  // devuelve sus solicitudes a la cola antes de eliminar el perfil.
-  if (professional) {
-    await releaseProfessionalAssignments(professional.id);
-
-    // Los chats se borran de verdad: el espejo D1 se elimina en el batch de
-    // abajo, pero el CONTENIDO vive en el Durable Object de cada conversación.
-    // Sin esta purga quedaban transcripciones huérfanas para siempre (no había
-    // fila D1 que reintentara). Si alguna purga falla en producción, se audita
-    // con el id para poder reintentarla manualmente; el resto del borrado sigue.
-    const conversationsToPurge = await db
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(eq(conversations.professionalId, professional.id));
-    for (const conversation of conversationsToPurge) {
-      const purge = await purgeConversationMessagesDetailed(conversation.id);
-      if (purge === "failed") {
-        await db.insert(auditLogs).values({
-          id: newId("log"),
-          actorEmail: null,
-          action: "account_purge_conversation_failed",
-          entityType: "conversation",
-          entityId: conversation.id,
-          metadata: JSON.stringify({ professionalId: professional.id }),
-          createdAt: nowIso(),
-        });
+  let patientClaimed = false;
+  try {
+    const patientAccount = await db.query.patientAccounts.findFirst({
+      where: eq(patientAccounts.userId, userId),
+      columns: { userId: true, deletionState: true },
+    });
+    if (patientAccount) {
+      const links = db
+        .select({ id: patientConversationLinks.conversationId })
+        .from(patientConversationLinks)
+        .where(eq(patientConversationLinks.userId, userId));
+      const claimed = await db.batch([
+        db
+          .update(patientAccounts)
+          .set({ deletionState: "deleting" })
+          .where(
+            and(
+              eq(patientAccounts.userId, userId),
+              eq(patientAccounts.deletionState, "active"),
+            ),
+          )
+          .returning({ userId: patientAccounts.userId }),
+        db
+          .update(seekerSessions)
+          .set({ revokedAt: new Date() })
+          .where(inArray(seekerSessions.conversationId, links)),
+      ]);
+      if (!claimed[0].length)
+        throw new Error(
+          "La baja de esta cuenta está en proceso. Reintenta más tarde.",
+        );
+      patientClaimed = true;
+      try {
+        await preparePatientAccountPurge(userId);
+      } catch (error) {
+        await db
+          .update(patientAccounts)
+          .set({ deletionState: "active" })
+          .where(eq(patientAccounts.userId, userId));
+        throw error;
       }
     }
-  }
+    const professional = await db.query.professionals.findFirst({
+      where: eq(professionals.userId, userId),
+      columns: { id: true, status: true },
+    });
 
-  const professionalDeletes = professional
-    ? [
-        db
-          .delete(responseSamples)
-          .where(eq(responseSamples.professionalId, professional.id)),
-        db
-          .delete(seekerSessions)
-          .where(
-            inArray(
-              seekerSessions.conversationId,
-              db
-                .select({ id: conversations.id })
-                .from(conversations)
-                .where(eq(conversations.professionalId, professional.id)),
-            ),
+    // Nunca dejamos a una persona sin acompañante visible: una baja profesional
+    // devuelve sus solicitudes a la cola antes de eliminar el perfil.
+    if (professional) {
+      // Bloquea nuevas operaciones mientras se cancelan proveedores; no pierde
+      // una decisión de suspensión del equipo si hay que reintentar la baja.
+      const claimed = await db
+        .update(professionals)
+        .set({ status: "deleting" })
+        .where(
+          and(
+            eq(professionals.id, professional.id),
+            eq(professionals.status, professional.status),
           ),
-        db
-          .delete(conversations)
-          .where(eq(conversations.professionalId, professional.id)),
-        db
-          .delete(assignments)
-          .where(eq(assignments.professionalId, professional.id)),
-        // Conservamos los mensajes enviados al equipo, pero desligados del
-        // perfil borrado. No confiamos solo en ON DELETE SET NULL porque D1
-        // puede ejecutar con las claves foráneas desactivadas.
-        db
-          .update(contactMessages)
-          .set({ professionalId: null, updatedAt: nowIso() })
-          .where(eq(contactMessages.professionalId, professional.id)),
-        db.delete(professionals).where(eq(professionals.id, professional.id)),
-      ]
-    : [];
+        )
+        .returning({ id: professionals.id });
+      if (!claimed.length)
+        throw new Error("El perfil cambió. Vuelve a intentar la eliminación.");
+      try {
+        await preparePracticePurge(professional.id);
+      } catch (error) {
+        await db
+          .update(professionals)
+          .set({ status: professional.status })
+          .where(
+            and(
+              eq(professionals.id, professional.id),
+              eq(professionals.status, "deleting"),
+            ),
+          );
+        throw error;
+      }
+      await releaseProfessionalAssignments(professional.id);
 
-  // `session`/`account` (hijos de user) van primero y `user` al final: el batch
-  // queda no vacío por sus extremos fijos y el orden es FK-safe (todo hijo antes
-  // que su padre). `professionalDeletes` ya va ordenado hijos→padre.
-  await db.batch([
-    db.delete(session).where(eq(session.userId, userId)),
-    db.delete(account).where(eq(account.userId, userId)),
-    ...professionalDeletes,
-    db.delete(user).where(eq(user.id, userId)),
-  ]);
+      // Los chats se borran de verdad: el espejo D1 se elimina en el batch de
+      // abajo, pero el CONTENIDO vive en el Durable Object de cada conversación.
+      // Si algún DO falla, conservamos TODAS las referencias D1 y el perfil en
+      // deleting. La persona mantiene su sesión para reintentar; los chats ya
+      // purgados se pueden vaciar otra vez de forma idempotente.
+      const conversationsToPurge = await db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.professionalId, professional.id));
+      let messagesPurgeFailed = false;
+      for (const conversation of conversationsToPurge) {
+        const purge = await purgeConversationMessagesDetailed(conversation.id);
+        if (purge === "failed") {
+          messagesPurgeFailed = true;
+          await db.insert(auditLogs).values({
+            id: newId("log"),
+            actorEmail: null,
+            action: "account_purge_conversation_failed",
+            entityType: "conversation",
+            entityId: conversation.id,
+            metadata: JSON.stringify({ professionalId: professional.id }),
+            createdAt: nowIso(),
+          });
+        }
+      }
+      if (messagesPurgeFailed)
+        throw new Error(
+          "No pudimos completar el borrado de los chats. Conservamos la cuenta para que puedas reintentar la eliminación.",
+        );
+    }
+
+    const professionalDeletes = professional
+      ? [
+          ...patientLinksForProfessionalDeleteStatements(professional.id),
+          ...practiceDeleteStatements(professional.id),
+          db
+            .delete(responseSamples)
+            .where(eq(responseSamples.professionalId, professional.id)),
+          db
+            .delete(seekerSessions)
+            .where(
+              inArray(
+                seekerSessions.conversationId,
+                db
+                  .select({ id: conversations.id })
+                  .from(conversations)
+                  .where(eq(conversations.professionalId, professional.id)),
+              ),
+            ),
+          db
+            .delete(conversations)
+            .where(eq(conversations.professionalId, professional.id)),
+          db
+            .delete(assignments)
+            .where(eq(assignments.professionalId, professional.id)),
+          // Conservamos los mensajes enviados al equipo, pero desligados del
+          // perfil borrado. No confiamos solo en ON DELETE SET NULL porque D1
+          // puede ejecutar con las claves foráneas desactivadas.
+          db
+            .update(contactMessages)
+            .set({ professionalId: null, updatedAt: nowIso() })
+            .where(eq(contactMessages.professionalId, professional.id)),
+          db.delete(professionals).where(eq(professionals.id, professional.id)),
+        ]
+      : [];
+
+    // `session`/`account` (hijos de user) van primero y `user` al final: el batch
+    // queda no vacío por sus extremos fijos y el orden es FK-safe (todo hijo antes
+    // que su padre). `professionalDeletes` ya va ordenado hijos→padre.
+    await db.batch([
+      db.delete(session).where(eq(session.userId, userId)),
+      db.delete(account).where(eq(account.userId, userId)),
+      ...professionalDeletes,
+      ...patientAccountDeleteStatements(userId),
+      db.delete(user).where(eq(user.id, userId)),
+    ]);
+  } catch (error) {
+    if (patientClaimed)
+      await db
+        .update(patientAccounts)
+        .set({ deletionState: "active" })
+        .where(
+          and(
+            eq(patientAccounts.userId, userId),
+            eq(patientAccounts.deletionState, "deleting"),
+          ),
+        )
+        .catch(() => undefined);
+    throw error;
+  }
 }
 
 /**
@@ -154,6 +258,13 @@ export async function reclamarUsuarioHuerfano(
     columns: { id: true },
   });
   if (perfil) return false;
+  if (
+    await db.query.patientAccounts.findFirst({
+      where: eq(patientAccounts.userId, fila.id),
+      columns: { userId: true },
+    })
+  )
+    return false;
 
   await db.batch([
     db.delete(user).where(eq(user.id, fila.id)),

@@ -11,8 +11,10 @@ describe("acciones visibles de cuenta", () => {
 
     expect(action).toContain("await purgeAccount(userId)");
     expect(action).toContain("revalidateAccountViews()");
-    expect(action).toContain('redirect("/pro?cuenta=borrada")');
-    expect(action).toContain("Sigue activa");
+    expect(action).toContain('redirect("/entrar?cuenta=borrada")');
+    expect(action).toContain(
+      "Conservamos la cuenta para que puedas reintentarlo",
+    );
     expect(page).toContain("Tu cuenta se borró correctamente.");
   });
 

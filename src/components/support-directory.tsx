@@ -88,7 +88,7 @@ export function SupportDirectory({
   const [onlyAvailable, setOnlyAvailable] = useState(
     initialFilters?.onlyAvailable ?? false,
   );
-  const [paidOnly, setPaidOnly] = useState(initialFilters?.paid ?? false);
+  const [paidOnly, setPaidOnly] = useState(false);
   const searchId = useId();
   const typeId = useId();
   const topicId = useId();
@@ -411,24 +411,9 @@ export function SupportDirectory({
             <legend style={{ fontWeight: 600, padding: 0, marginBottom: 6 }}>
               Servicios
             </legend>
-            <div className="checks" style={{ margin: 0 }}>
-              <label title="Profesionales que además ofrecen servicios pagos por temas ajenos a la emergencia. La ayuda por el terremoto sigue siendo gratis.">
-                <input
-                  type="checkbox"
-                  checked={paidOnly}
-                  onChange={(event) => setPaidOnly(event.target.checked)}
-                />
-                <span>Solo con servicios pagos</span>
-              </label>
-            </div>
+            <div className="checks" style={{ margin: 0 }}></div>
           </fieldset>
         </div>
-
-        <p className="hint" style={{ margin: "10px 0 0" }}>
-          La ayuda por el terremoto es gratis en todos los perfiles. Algunos
-          profesionales ofrecen, además, servicios pagos por otros temas; puedes
-          filtrarlos o hablar con ellos y decidir.
-        </p>
 
         {hasActiveFilters ? (
           <p style={{ margin: "var(--space-3) 0 0" }}>
@@ -496,7 +481,7 @@ export function SupportDirectory({
 
       {matchedPros.length ? (
         <>
-          {matchedOrgs.length ? <h3>Personas voluntarias</h3> : null}
+          {matchedOrgs.length ? <h3>Profesionales</h3> : null}
           <div
             className="grid grid-2 support-stagger"
             key={`pros-${resultKey}`}

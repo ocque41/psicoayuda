@@ -8,7 +8,7 @@ import { trackConversion } from "@/components/click-tracker";
 import { buildProfessionalNewUserCallbackUrl } from "@/lib/contact-messages";
 
 const authClient = createAuthClient();
-const CALLBACK_URL = "/pro/onboarding";
+const CALLBACK_URL = "/empezar";
 
 type Mode = "signin" | "signup";
 
@@ -213,7 +213,8 @@ export function AuthPanel({
       // Alta exitosa: registra la conversión con el UTM de entrada (atribuye la
       // campaña al registro de un profesional). Solo en signup; "entrar" no es
       // conversión nueva.
-      if (mode === "signup") trackConversion("signup");
+      if (mode === "signup" && callbackURL.startsWith("/pro/"))
+        trackConversion("signup");
       // Pide al navegador guardar/actualizar la contraseña. En Chrome/Android
       // (la mayoría aquí) el guardado solo es fiable con la Credential
       // Management API: el login va por fetch y la heurística del formulario
@@ -233,6 +234,7 @@ export function AuthPanel({
       } catch {
         // best-effort: si el navegador lo bloquea, el login sigue igual
       }
+      window.dispatchEvent(new Event("nido:session-changed"));
       router.push(callbackURL);
       router.refresh();
     } catch {

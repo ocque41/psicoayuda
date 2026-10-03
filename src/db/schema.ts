@@ -8,6 +8,15 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
+export { practiceNotes } from "./notes-schema";
+export {
+  accountOnboardingDrafts,
+  accountRolePreferences,
+  patientAccounts,
+  patientConversationLinks,
+  patientSessionRequests,
+} from "./patient-schema";
+
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -710,3 +719,269 @@ export const stripeEvents = sqliteTable("stripe_events", {
   type: text("type").notNull(),
   processedAt: text("processed_at").notNull(),
 });
+
+// CRM: datos operativos. No guarda notas clínicas ni transcripciones legibles.
+export const practiceSettings = sqliteTable("practice_settings", {
+  professionalId: text("professional_id")
+    .primaryKey()
+    .references(() => professionals.id, { onDelete: "cascade" }),
+  timeZone: text("time_zone").notNull().default("America/Caracas"),
+  workStart: integer("work_start").notNull().default(9),
+  workEnd: integer("work_end").notNull().default(18),
+  updatedAt: text("updated_at").notNull(),
+});
+export const practicePatients = sqliteTable(
+  "practice_patients",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .unique()
+      .references(() => conversations.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    country: text("country").notNull(),
+    timeZone: text("time_zone").notNull().default("America/Caracas"),
+    program: text("program").notNull().default("general"),
+    status: text("status").notNull().default("new"),
+    consentAt: text("consent_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("practice_patients_pro_status_idx").on(t.professionalId, t.status),
+    index("practice_patients_pro_updated_idx").on(
+      t.professionalId,
+      t.updatedAt,
+      t.id,
+    ),
+  ],
+);
+export const practiceServices = sqliteTable(
+  "practice_services",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    sessionsCount: integer("sessions_count").notNull().default(1),
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").notNull(),
+    interval: text("interval").notNull().default("one_time"),
+    validityDays: integer("validity_days").notNull().default(30),
+    cancellationHours: integer("cancellation_hours").notNull().default(24),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("practice_services_pro_idx").on(t.professionalId)],
+);
+export const practiceAppointments = sqliteTable(
+  "practice_appointments",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => practicePatients.id, { onDelete: "cascade" }),
+    serviceId: text("service_id").references(() => practiceServices.id, {
+      onDelete: "set null",
+    }),
+    startsAt: text("starts_at").notNull(),
+    endsAt: text("ends_at").notNull(),
+    timeZone: text("time_zone").notNull(),
+    status: text("status").notNull().default("scheduled"),
+    modality: text("modality").notNull().default("online"),
+    priceCents: integer("price_cents").notNull().default(0),
+    currency: text("currency").notNull().default("usd"),
+    cancellationHours: integer("cancellation_hours").notNull().default(24),
+    dailyRoom: text("daily_room"),
+    careCycleId: text("care_cycle_id").references(() => careCycles.id, {
+      onDelete: "set null",
+    }),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("practice_appointments_pro_date_idx").on(
+      t.professionalId,
+      t.startsAt,
+    ),
+    index("practice_appointments_patient_idx").on(t.patientId),
+    index("practice_appointments_patient_date_idx").on(
+      t.patientId,
+      t.startsAt,
+      t.id,
+    ),
+    index("practice_appointments_cycle_idx").on(t.careCycleId, t.status),
+  ],
+);
+export const practiceReceipts = sqliteTable(
+  "practice_receipts",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => practicePatients.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    method: text("method").notNull(),
+    reference: text("reference").notNull().unique(),
+    receivedAt: text("received_at").notNull(),
+  },
+  (t) => [
+    index("practice_receipts_patient_idx").on(t.patientId),
+    index("practice_receipts_pro_date_idx").on(t.professionalId, t.receivedAt),
+    index("practice_receipts_patient_date_idx").on(
+      t.patientId,
+      t.receivedAt,
+      t.id,
+    ),
+  ],
+);
+export const professionalMemberships = sqliteTable("professional_memberships", {
+  professionalId: text("professional_id")
+    .primaryKey()
+    .references(() => professionals.id, { onDelete: "cascade" }),
+  trialStartedAt: text("trial_started_at").notNull(),
+  trialEndsAt: text("trial_ends_at").notNull(),
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  checkoutId: text("checkout_id"),
+  status: text("status").notNull().default("trialing"),
+  plan: text("plan"),
+  updatedAt: text("updated_at").notNull(),
+});
+export const practiceCredentials = sqliteTable(
+  "practice_credentials",
+  {
+    id: text("id").primaryKey(),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    patientCountry: text("patient_country").notNull(),
+    registryReference: text("registry_reference").notNull(),
+    reviewedBy: text("reviewed_by").notNull(),
+    reviewedAt: text("reviewed_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("practice_credentials_pro_country_idx").on(
+      t.professionalId,
+      t.patientCountry,
+    ),
+  ],
+);
+export const supportReplies = sqliteTable(
+  "support_replies",
+  {
+    id: text("id").primaryKey(),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contactMessages.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    authorEmail: text("author_email").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("support_replies_contact_idx").on(t.contactId)],
+);
+export const callConsents = sqliteTable(
+  "call_consents",
+  {
+    id: text("id").primaryKey(),
+    appointmentId: text("appointment_id")
+      .notNull()
+      .references(() => practiceAppointments.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    recording: integer("recording", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    transcription: integer("transcription", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    policyVersion: text("policy_version").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("call_consents_appointment_role_idx").on(
+      t.appointmentId,
+      t.role,
+    ),
+  ],
+);
+export const practiceCallRooms = sqliteTable(
+  "practice_call_rooms",
+  {
+    name: text("name").primaryKey(),
+    appointmentId: text("appointment_id").references(
+      () => practiceAppointments.id,
+      { onDelete: "set null" },
+    ),
+    professionalId: text("professional_id").references(() => professionals.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: text("expires_at").notNull(),
+    purgedAt: text("purged_at"),
+  },
+  (t) => [
+    index("practice_call_rooms_retention_idx").on(t.purgedAt, t.expiresAt),
+  ],
+);
+// Acuerdos de acompañamiento: la mensualidad del paciente pertenece al profesional.
+export const carePlans = sqliteTable(
+  "care_plans",
+  {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => practicePatients.id, { onDelete: "cascade" }),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    serviceId: text("service_id").references(() => practiceServices.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    sessionsCount: integer("sessions_count").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").notNull(),
+    interval: text("interval").notNull(),
+    validityDays: integer("validity_days").notNull(),
+    status: text("status").notNull().default("proposed"),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    stripeCustomerId: text("stripe_customer_id"),
+    checkoutId: text("checkout_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("care_plans_patient_idx").on(t.patientId),
+    index("care_plans_patient_created_idx").on(t.patientId, t.createdAt, t.id),
+  ],
+);
+export const careCycles = sqliteTable(
+  "care_cycles",
+  {
+    id: text("id").primaryKey(),
+    carePlanId: text("care_plan_id")
+      .notNull()
+      .references(() => carePlans.id, { onDelete: "cascade" }),
+    externalReference: text("external_reference").notNull().unique(),
+    startsAt: text("starts_at").notNull(),
+    endsAt: text("ends_at").notNull(),
+    sessionsCount: integer("sessions_count").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    status: text("status").notNull().default("paid"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("care_cycles_plan_idx").on(t.carePlanId)],
+);

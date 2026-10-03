@@ -3,13 +3,21 @@
 import {
   type ChangeEvent,
   useActionState,
+  useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { saveProfessionalOnboarding } from "@/app/actions";
-import { countries, needCategories, needLabels } from "@/lib/constants";
+import styles from "@/components/onboarding/onboarding.module.css";
+import { useDraftSave } from "@/components/onboarding/use-draft-save";
+import { WizardFrame } from "@/components/onboarding/wizard-frame";
+import { needCategories, needLabels } from "@/lib/constants";
+import { COUNTRY_OPTIONS } from "@/lib/geography";
+import type { SafeDraft } from "@/lib/onboarding/drafts";
+import { timeZoneOptions } from "@/lib/onboarding/locale";
 
 // Redimensiona la foto elegida a un avatar pequeño (máx 256px) y la comprime a
 // JPEG antes de subirla: así no pesa ni recarga la web ni la base de datos.
@@ -114,906 +122,1024 @@ export type ExistingProfessional = {
   landline: string | null;
   contactEmail: string | null;
   contactNotes: string | null;
+  registrationType?: string | null;
+  registrationDetail?: string | null;
+  hasRegistrationProof?: boolean;
+  timezone?: string | null;
+};
+
+type ProfessionalAnswers = {
+  fullName: string;
+  displayName: string;
+  country: string;
+  city: string;
+  timezone: string;
+  photo: string;
+  nonClinicalHelper: boolean;
+  credentialPath: string;
+  university: string;
+  fpvNumber: string;
+  cedula: string;
+  supervisionInfo: string;
+  licenseNumber: string;
+  licenseCountry: string;
+  registrationType: string;
+  registrationDetail: string;
+  registrationProofDoc: string;
+  supportAreas: string[];
+  maxActiveRequests: string;
+  remoteAvailable: boolean;
+  inPersonAvailable: boolean;
+  acceptingRequests: boolean;
+  crisisExperience: boolean;
+  offersPaidServices: boolean;
+  shortBio: string;
+  emailPublic: boolean;
+  phone: string;
+  landline: string;
+  contactEmail: string;
+  contactNotes: string;
+  conductFreeService: boolean;
+  conductNoClientCapture: boolean;
+  conductConfidentiality: boolean;
+  conductNoEmergencyGuarantee: boolean;
+  conductCompetence: boolean;
+};
+type Question = {
+  field: keyof ProfessionalAnswers | "review";
+  title: string;
+  description?: string;
+};
+
+function questionsFor(answers: ProfessionalAnswers): Question[] {
+  const steps: Question[] = [
+    {
+      field: "fullName",
+      title: "¿Cuál es tu nombre completo?",
+      description:
+        "Lo usamos para revisar tu perfil. Luego eliges cómo quieres aparecer en el catálogo.",
+    },
+    {
+      field: "displayName",
+      title: "¿Cómo quieres presentarte?",
+      description:
+        "Este será tu nombre público. Puedes dejarlo vacío para usar tu nombre completo.",
+    },
+    {
+      field: "country",
+      title: "¿En qué país te encuentras?",
+      description:
+        "Tu ubicación y los países donde puedes atender se revisan por separado.",
+    },
+    {
+      field: "city",
+      title: "¿En qué ciudad estás?",
+      description:
+        "Nos ayuda a mostrar tu ubicación, especialmente si atiendes presencialmente.",
+    },
+    {
+      field: "timezone",
+      title: "¿Qué zona horaria usa tu consulta?",
+      description:
+        "Tu calendario y tus horarios se organizan con esta zona. Puedes ajustarla después.",
+    },
+    {
+      field: "photo",
+      title: "Una cara cercana, si te apetece",
+      description:
+        "Tu foto es opcional. La optimizamos antes de enviarla para mantener tu perfil ligero.",
+    },
+    {
+      field: "nonClinicalHelper",
+      title: "¿Cuál es tu rol de acompañamiento?",
+      description:
+        "Distinguir el acompañamiento clínico del apoyo voluntario ayuda a que cada persona elija con claridad.",
+    },
+  ];
+  if (!answers.nonClinicalHelper) {
+    steps.push({
+      field: "university",
+      title: "¿Dónde obtuviste tu título?",
+      description:
+        "La institución que emitió tu título profesional. El equipo revisa la información que compartes.",
+    });
+    steps.push({
+      field: "credentialPath",
+      title: "¿Cómo acreditas tu práctica?",
+      description:
+        "Elige la vía que corresponda a tu situación. Una persona revisará su validez y alcance; el registro no autoriza a ejercer en otros países.",
+    });
+    if (answers.credentialPath === "fpv") {
+      steps.push({
+        field: "fpvNumber",
+        title: "Tu número de Psicólogo Federado",
+        description:
+          "Indica tu número FPV para cotejarlo con el registro correspondiente.",
+      });
+      steps.push({
+        field: "cedula",
+        title: "¿Quieres que cotejemos tu FPV ahora?",
+        description:
+          "Tu cédula es opcional y se utiliza solo para la consulta al registro oficial. No la guardamos.",
+      });
+    } else if (answers.credentialPath === "supervision") {
+      steps.push({
+        field: "supervisionInfo",
+        title: "¿Quién supervisa tu trabajo?",
+        description:
+          "Indica la persona y la institución. El equipo comprobará el alcance de esta supervisión antes de habilitar atención clínica.",
+      });
+    } else if (answers.credentialPath === "document") {
+      steps.push({
+        field: "registrationType",
+        title: "¿Dónde está registrado tu ejercicio?",
+        description:
+          "Selecciona el organismo correspondiente. Puedes indicar cualquier jurisdicción en el siguiente paso.",
+      });
+      steps.push({
+        field: "registrationDetail",
+        title: "La referencia de tu registro",
+        description:
+          "Indica número o jurisdicción para que el equipo pueda cotejarlo.",
+      });
+      steps.push({
+        field: "registrationProofDoc",
+        title: "Tu comprobante, en privado",
+        description:
+          "Sube una imagen legible o PDF, hasta 1 MB. Solo lo consulta el equipo autorizado para revisar credenciales.",
+      });
+    } else {
+      steps.push({
+        field: "licenseNumber",
+        title: "¿Cuál es tu número de licencia?",
+        description:
+          "Usamos este dato para cotejar tu registro, sin publicarlo en tu ficha.",
+      });
+      steps.push({
+        field: "licenseCountry",
+        title: "¿Qué país emitió tu licencia?",
+        description:
+          "El equipo revisará las condiciones de ejercicio para cada país de atención.",
+      });
+    }
+  }
+  steps.push(
+    {
+      field: "supportAreas",
+      title: "¿En qué áreas acompañas?",
+      description:
+        "Selecciona las áreas que corresponden a tu formación y experiencia.",
+    },
+    {
+      field: "maxActiveRequests",
+      title: "¿Cuántas solicitudes puedes acompañar?",
+      description:
+        "Este es el cupo del programa gratuito, separado de los pacientes que organizas en tu consulta. Puedes liberar contactos que no continúen.",
+    },
+    {
+      field: "remoteAvailable",
+      title: "¿Cómo prefieres acompañar?",
+      description:
+        "Marca las modalidades que ofreces. El profesional y la persona confirman la ubicación y las condiciones de cada atención.",
+    },
+    {
+      field: "acceptingRequests",
+      title: "¿Quieres recibir solicitudes?",
+      description:
+        "Puedes activar o pausar esta opción después. Las solicitudes se habilitan cuando el equipo apruebe tu perfil.",
+    },
+    {
+      field: "crisisExperience",
+      title: "¿Tienes experiencia en situaciones de crisis?",
+      description:
+        "Es una declaración de experiencia que el equipo puede revisar; no implica disponibilidad para emergencias.",
+    },
+    {
+      field: "offersPaidServices",
+      title: "¿Ofreces servicios de tu consulta?",
+      description:
+        "Tú acuerdas las condiciones con cada paciente. La Ayuda Terremoto conserva su programa gratuito y nunca se condiciona a contratar.",
+    },
+    {
+      field: "shortBio",
+      title: "¿Cómo te gustaría presentar tu forma de acompañar?",
+      description:
+        "Unas líneas claras y cercanas para tu ficha. Evita datos o relatos de pacientes.",
+    },
+    {
+      field: "emailPublic",
+      title: "¿Quieres mostrar tu correo en tu perfil?",
+      description:
+        "Tú eliges si tu correo de cuenta aparece como vía de contacto público.",
+    },
+    {
+      field: "phone",
+      title: "¿Usas WhatsApp para coordinar?",
+      description:
+        "Opcional si ya elegiste publicar tu correo. Incluye el prefijo internacional para que puedan contactarte desde cualquier país.",
+    },
+    {
+      field: "landline",
+      title: "¿Prefieres también un teléfono de contacto?",
+      description:
+        "Opcional. Será una vía de contacto pública si lo añades; incluye el prefijo internacional.",
+    },
+    {
+      field: "contactEmail",
+      title: "¿A qué correo debe escribirte el equipo?",
+      description:
+        "Este correo de coordinación se mantiene privado. Puede ser el mismo de tu cuenta.",
+    },
+    {
+      field: "contactNotes",
+      title: "¿Algo más para coordinar contigo?",
+      description:
+        "Opcional y privado. Indica solo preferencias de coordinación, sin datos de pacientes ni información clínica.",
+    },
+    {
+      field: "conductFreeService",
+      title: "Cuidamos el programa gratuito",
+      description:
+        "La ayuda por el terremoto no puede convertirse en una condición de pago.",
+    },
+    {
+      field: "conductNoClientCapture",
+      title: "Cada decisión se toma con libertad",
+      description: "La ayuda gratuita no depende de contratar tu consulta.",
+    },
+    {
+      field: "conductConfidentiality",
+      title: "La confianza empieza por la privacidad",
+      description:
+        "La información que recibes exige un tratamiento confidencial.",
+    },
+    {
+      field: "conductNoEmergencyGuarantee",
+      title: "Aclaramos nuestros límites",
+      description:
+        "Nido no es un servicio de emergencias ni garantiza respuesta inmediata.",
+    },
+    {
+      field: "conductCompetence",
+      title: "Tu práctica, dentro de tu competencia",
+      description:
+        "El alcance profesional y los países de atención se revisan por separado.",
+    },
+    {
+      field: "review",
+      title: "Revisa tu perfil antes de enviarlo",
+      description:
+        "El equipo revisará tu incorporación. Podrás consultar el estado y actualizar la información desde tu cuenta.",
+    },
+  );
+  return steps;
+}
+
+const checkboxLabels: Partial<Record<keyof ProfessionalAnswers, string>> = {
+  acceptingRequests:
+    "Quiero recibir solicitudes cuando mi perfil esté aprobado.",
+  crisisExperience:
+    "Tengo formación y experiencia acompañando situaciones de crisis.",
+  offersPaidServices:
+    "Ofrezco consultas y servicios de mi práctica profesional.",
+  emailPublic: "Quiero mostrar el correo de mi cuenta como contacto público.",
+  conductFreeService:
+    "Acepto que la Ayuda Terremoto en Nido es gratuita y no cobraré por ella.",
+  conductNoClientCapture:
+    "Acepto no presionar para contratar servicios ni condicionar la ayuda gratuita a una contratación.",
+  conductConfidentiality:
+    "Acepto mantener la confidencialidad de la información recibida.",
+  conductNoEmergencyGuarantee:
+    "Entiendo que Nido no garantiza respuesta de emergencia.",
+  conductCompetence:
+    "Acepto trabajar solo dentro de mi competencia y del alcance de ejercicio revisado.",
 };
 
 export function ProfessionalOnboardingForm({
   email,
   name,
   existing,
+  draft = {},
 }: {
   email: string;
   name?: string | null;
   existing?: ExistingProfessional | null;
+  draft?: SafeDraft;
 }) {
   const editing = Boolean(existing);
-  const [state, action, pending] = useActionState(
-    saveProfessionalOnboarding,
-    null,
-  );
-  // Al terminar la action, React 19 resetea los campos no controlados a su
-  // defaultValue. Cuando la action devuelve error, nos re-emite lo enviado en
-  // `values`; lo usamos como fuente de los defaultValue/defaultChecked para
-  // que ese reset REPUEBLE el formulario en vez de vaciarlo. Sin esto, un alta
-  // nueva perdía todo lo tecleado al primer error de validación.
-  const submitted = state?.values;
-  const areaChecked = (value: string) =>
-    submitted
-      ? submitted.supportAreas.includes(value)
-      : (existing?.supportAreas.includes(value) ?? false);
-  const conductChecked = (key: string) =>
-    submitted ? submitted[key] === "on" : editing;
   const formId = useId();
-  const errorRef = useRef<HTMLParagraphElement>(null);
-  const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
-  const [photoError, setPhotoError] = useState("");
-  const [phone, setPhone] = useState(existing?.phone ?? "");
-  const [landline, setLandline] = useState(existing?.landline ?? "");
-  const [emailPublic, setEmailPublic] = useState(existing?.emailPublic ?? true);
-  // Credencial flexible: auxiliar no clínico exime de todo; si no, basta una vía.
-  const [nonClinical, setNonClinical] = useState(
-    existing?.nonClinicalHelper ?? false,
-  );
-  // País controlado: la cédula es obligatoria solo si ejerce en Venezuela (para
-  // verificar el FPV). Fuera de Venezuela no aplica, así que la etiqueta cambia.
-  const [country, setCountry] = useState(
-    submitted?.country ?? existing?.country ?? "Venezuela",
-  );
-  // El tipo de comprobante NO se precarga a propósito: el adjunto ya fue
-  // revisado por el equipo y precargarlo obligaría a re-subir el documento
-  // cada vez que se edita cualquier otra cosa.
-  const [registrationType, setRegistrationType] = useState("");
-  const [proofDoc, setProofDoc] = useState<string | null>(null);
-  const [proofName, setProofName] = useState("");
-  const [proofError, setProofError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
-  const [borradorRestaurado, setBorradorRestaurado] = useState(false);
-  // Borrador local contra pérdidas: si el envío explota (p. ej. un deploy en
-  // medio rota las server actions y el POST devuelve 404 "Failed to find
-  // Server Action" — pasó con una voluntaria real) o se recarga la página, lo
-  // escrito se restaura en vez de perderse. Solo aplica al alta: al editar, la
-  // fuente de verdad es el servidor. Los adjuntos no se guardan (pesados).
-  const claveBorrador = `nido-borrador-perfil:${email}`;
-  const ids = {
-    fullName: `${formId}-full-name`,
-    displayName: `${formId}-display-name`,
-    displayNameHint: `${formId}-display-name-hint`,
-    country: `${formId}-country`,
-    city: `${formId}-city`,
-    licenseNumber: `${formId}-license-number`,
-    licenseHint: `${formId}-license-hint`,
-    licenseCountry: `${formId}-license-country`,
-    university: `${formId}-university`,
-    universityHint: `${formId}-university-hint`,
-    fpvNumber: `${formId}-fpv-number`,
-    fpvHint: `${formId}-fpv-hint`,
-    cedula: `${formId}-cedula`,
-    cedulaHint: `${formId}-cedula-hint`,
-    supervisionInfo: `${formId}-supervision-info`,
-    supervisionHint: `${formId}-supervision-hint`,
-    registrationType: `${formId}-registration-type`,
-    registrationHint: `${formId}-registration-hint`,
-    registrationDetail: `${formId}-registration-detail`,
-    registrationProof: `${formId}-registration-proof`,
-    registrationProofHint: `${formId}-registration-proof-hint`,
-    phone: `${formId}-phone`,
-    phoneHint: `${formId}-phone-hint`,
-    landline: `${formId}-landline`,
-    landlineHint: `${formId}-landline-hint`,
-    contactEmail: `${formId}-contact-email`,
-    contactEmailHint: `${formId}-contact-email-hint`,
-    maxActiveRequests: `${formId}-max-active-requests`,
-    maxHint: `${formId}-max-hint`,
-    contactNotes: `${formId}-contact-notes`,
-    shortBio: `${formId}-short-bio`,
-    shortBioHint: `${formId}-short-bio-hint`,
-    photo: `${formId}-photo`,
-    photoHint: `${formId}-photo-hint`,
-  };
-
+  const [answers, setAnswers] = useState<ProfessionalAnswers>(() => ({
+    fullName: existing?.fullName ?? String(draft.fullName ?? name ?? ""),
+    displayName: existing?.displayName ?? String(draft.displayName ?? ""),
+    country: existing?.country ?? String(draft.country ?? "Venezuela"),
+    city: existing?.city ?? String(draft.city ?? ""),
+    timezone: existing?.timezone ?? String(draft.timezone ?? "America/Caracas"),
+    photo: existing?.photo ?? "",
+    nonClinicalHelper:
+      existing?.nonClinicalHelper ?? Boolean(draft.nonClinicalHelper),
+    credentialPath: existing?.fpvNumber
+      ? "fpv"
+      : existing?.supervisionInfo
+        ? "supervision"
+        : existing?.registrationType
+          ? "document"
+          : "license",
+    university: existing?.university ?? "",
+    fpvNumber: existing?.fpvNumber ?? "",
+    cedula: "",
+    supervisionInfo: existing?.supervisionInfo ?? "",
+    licenseNumber: existing?.licenseNumber ?? "",
+    licenseCountry: existing?.licenseCountry ?? "Venezuela",
+    registrationType: existing?.registrationType ?? "",
+    registrationDetail: existing?.registrationDetail ?? "",
+    registrationProofDoc: "",
+    supportAreas:
+      existing?.supportAreas ??
+      (Array.isArray(draft.supportAreas) ? draft.supportAreas : []),
+    maxActiveRequests: String(
+      existing?.maxActiveRequests ?? draft.maxActiveRequests ?? 3,
+    ),
+    remoteAvailable:
+      existing?.remoteAvailable ?? draft.remoteAvailable !== false,
+    inPersonAvailable:
+      existing?.inPersonAvailable ?? Boolean(draft.inPersonAvailable),
+    acceptingRequests:
+      existing?.acceptingRequests ?? draft.acceptingRequests !== false,
+    crisisExperience:
+      existing?.crisisExperience ?? Boolean(draft.crisisExperience),
+    offersPaidServices:
+      existing?.offersPaidServices ?? Boolean(draft.offersPaidServices),
+    shortBio: existing?.shortBio ?? "",
+    emailPublic: existing?.emailPublic ?? draft.emailPublic !== false,
+    phone: existing?.phone ?? "",
+    landline: existing?.landline ?? "",
+    contactEmail: existing?.contactEmail ?? email,
+    contactNotes: existing?.contactNotes ?? "",
+    conductFreeService: editing,
+    conductNoClientCapture: editing,
+    conductConfidentiality: editing,
+    conductNoEmergencyGuarantee: editing,
+    conductCompetence: editing,
+  }));
+  const [step, setStep] = useState(
+    editing ? 0 : Math.min(6, Number(draft.step) || 0),
+  );
+  const [clientError, setClientError] = useState("");
+  const [serverErrorVisible, setServerErrorVisible] = useState(false);
+  const [filePending, setFilePending] = useState(false);
+  const [proofName, setProofName] = useState("");
+  const questions = questionsFor(answers);
+  const activeStep = Math.min(step, questions.length - 1);
+  const question = questions[activeStep];
+  const safeDraft = useMemo(
+    () => ({
+      fullName: answers.fullName,
+      displayName: answers.displayName,
+      country: answers.country,
+      city: answers.city,
+      timezone: answers.timezone,
+      nonClinicalHelper: answers.nonClinicalHelper,
+      supportAreas: answers.supportAreas,
+      maxActiveRequests: answers.maxActiveRequests,
+      remoteAvailable: answers.remoteAvailable,
+      inPersonAvailable: answers.inPersonAvailable,
+      acceptingRequests: answers.acceptingRequests,
+      crisisExperience: answers.crisisExperience,
+      offersPaidServices: answers.offersPaidServices,
+      emailPublic: answers.emailPublic,
+      step: activeStep,
+    }),
+    [
+      answers.fullName,
+      answers.displayName,
+      answers.country,
+      answers.city,
+      answers.timezone,
+      answers.nonClinicalHelper,
+      answers.supportAreas,
+      answers.maxActiveRequests,
+      answers.remoteAvailable,
+      answers.inPersonAvailable,
+      answers.acceptingRequests,
+      answers.crisisExperience,
+      answers.offersPaidServices,
+      answers.emailPublic,
+      activeStep,
+    ],
+  );
+  const { status, flush } = useDraftSave("pro", safeDraft);
+  const safeAction = useCallback(
+    async (previous: unknown, data: FormData) => {
+      await flush();
+      try {
+        return await saveProfessionalOnboarding(previous, data);
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "digest" in error &&
+          String(error.digest).startsWith("NEXT_REDIRECT")
+        )
+          throw error;
+        return {
+          ok: false as const,
+          message:
+            "No pudimos confirmar el guardado. Conserva esta ventana abierta y vuelve a intentar.",
+        };
+      }
+    },
+    [flush],
+  );
+  const [state, action, pending] = useActionState(safeAction, null);
+  const zones = useMemo(
+    () =>
+      timeZoneOptions(
+        existing?.timezone ?? String(draft.timezone ?? "America/Caracas"),
+      ),
+    [existing?.timezone, draft.timezone],
+  );
+  const countries = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...COUNTRY_OPTIONS.map((option) => option.name),
+          answers.country,
+          answers.licenseCountry,
+        ]),
+      ].filter(Boolean),
+    [answers.country, answers.licenseCountry],
+  );
   useEffect(() => {
-    if (state && !state.ok) {
-      errorRef.current?.focus();
+    // Retiramos borradores antiguos que almacenaban contacto y credenciales en el navegador.
+    try {
+      localStorage.removeItem(`nido-borrador-perfil:${email}`);
+    } catch {
+      /* El flujo funciona también si el almacenamiento está bloqueado. */
     }
-  }, [state]);
-
-  // Restauración única al montar. Escribe en el DOM (campos no controlados)
-  // tras la hidratación para no provocar desajustes SSR/cliente.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: debe correr solo una vez
+  }, [email]);
   useEffect(() => {
-    if (editing) {
-      // Perfil ya guardado en el servidor: cualquier borrador viejo sobra.
-      localStorage.removeItem(claveBorrador);
+    if (existing?.timezone || draft.timezone) return;
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (zones.includes(zone))
+      setAnswers((current) => ({ ...current, timezone: zone }));
+  }, [existing?.timezone, draft.timezone, zones]);
+  const handledResponse = useRef<typeof state>(null);
+  useEffect(() => {
+    if (handledResponse.current === state) return;
+    handledResponse.current = state;
+    setServerErrorVisible(Boolean(state?.message));
+    if (!state || !("field" in state) || !state.field) return;
+    const index = questionsFor(answers).findIndex(
+      (item) => item.field === state.field,
+    );
+    if (index >= 0) setStep(index);
+  }, [state, answers]);
+  function update(
+    key: keyof ProfessionalAnswers,
+    value: string | boolean | string[],
+  ) {
+    setClientError("");
+    setServerErrorVisible(false);
+    setAnswers((current) => ({ ...current, [key]: value }));
+  }
+  function next() {
+    if (!formRef.current?.reportValidity()) return;
+    if (question.field === "supportAreas" && !answers.supportAreas.length) {
+      setClientError("Elige al menos un área de acompañamiento.");
       return;
     }
-    try {
-      const crudo = localStorage.getItem(claveBorrador);
-      if (!crudo) return;
-      const { t, datos } = JSON.parse(crudo) as {
-        t: number;
-        datos: Record<string, string | boolean | string[]>;
-      };
-      if (!datos || Date.now() - t > 7 * 24 * 3_600_000) {
-        localStorage.removeItem(claveBorrador);
-        return;
-      }
-      const form = formRef.current;
-      if (!form) return;
-      let restauroAlgo = false;
-      for (const el of Array.from(form.elements)) {
-        const campo = el as HTMLInputElement;
-        if (!campo.name || campo.type === "file" || campo.type === "hidden") {
-          continue;
-        }
-        const valor = datos[campo.name];
-        if (valor === undefined) continue;
-        if (campo.type === "checkbox") {
-          const marcado = Array.isArray(valor)
-            ? valor.includes(campo.value)
-            : Boolean(valor);
-          if (campo.checked !== marcado) {
-            campo.checked = marcado;
-            restauroAlgo = true;
-          }
-        } else if (typeof valor === "string" && campo.value !== valor) {
-          campo.value = valor;
-          restauroAlgo = true;
-        }
-      }
-      // Los campos controlados van por estado de React, no por el DOM.
-      if (typeof datos.phone === "string") setPhone(datos.phone);
-      if (typeof datos.landline === "string") setLandline(datos.landline);
-      if (typeof datos.emailPublic === "boolean") {
-        setEmailPublic(datos.emailPublic);
-      }
-      if (typeof datos.nonClinicalHelper === "boolean") {
-        setNonClinical(datos.nonClinicalHelper);
-      }
-      if (typeof datos.registrationType === "string") {
-        setRegistrationType(datos.registrationType);
-      }
-      if (restauroAlgo) setBorradorRestaurado(true);
-    } catch {
-      // Borrador corrupto: mejor descartarlo que romper el formulario.
-      localStorage.removeItem(claveBorrador);
+    if (
+      question.field === "remoteAvailable" &&
+      !answers.remoteAvailable &&
+      !answers.inPersonAvailable
+    ) {
+      setClientError("Elige al menos una modalidad para tu perfil.");
+      return;
     }
-  }, []);
-
-  function guardarBorrador() {
-    if (editing) return;
-    const form = formRef.current;
-    if (!form) return;
-    const datos: Record<string, string | boolean | string[]> = {};
-    for (const el of Array.from(form.elements)) {
-      const campo = el as HTMLInputElement;
-      if (!campo.name || campo.type === "file" || campo.type === "hidden") {
-        continue;
-      }
-      if (campo.type === "checkbox") {
-        if (campo.name === "supportAreas") {
-          const lista = (datos.supportAreas as string[]) ?? [];
-          if (campo.checked) lista.push(campo.value);
-          datos.supportAreas = lista;
-        } else {
-          datos[campo.name] = campo.checked;
-        }
-      } else {
-        datos[campo.name] = campo.value;
-      }
-    }
-    try {
-      localStorage.setItem(
-        claveBorrador,
-        JSON.stringify({ t: Date.now(), datos }),
+    if (
+      question.field === "registrationProofDoc" &&
+      !answers.registrationProofDoc &&
+      !existing?.hasRegistrationProof
+    ) {
+      setClientError(
+        "Carga un comprobante para que el equipo pueda revisarlo.",
       );
-    } catch {
-      // localStorage lleno o bloqueado: el borrador es best-effort.
+      return;
     }
+    if (
+      question.field === "landline" &&
+      !answers.emailPublic &&
+      !answers.phone.trim() &&
+      !answers.landline.trim()
+    ) {
+      setClientError(
+        "Elige al menos una vía de contacto: correo, WhatsApp o teléfono.",
+      );
+      return;
+    }
+    setClientError("");
+    setStep(Math.min(questions.length - 1, activeStep + 1));
   }
-
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setPhotoError("");
-    if (!file.type.startsWith("image/")) {
-      setPhotoError("Elige un archivo de imagen.");
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+      file.size > 12_000_000
+    ) {
+      setClientError("Elige una imagen JPG, PNG o WebP de hasta 12 MB.");
       return;
     }
+    setFilePending(true);
     try {
-      setPhoto(await resizeImageToDataUrl(file));
+      update("photo", await resizeImageToDataUrl(file));
     } catch {
-      setPhotoError("No se pudo procesar la imagen. Prueba con otra.");
+      setClientError("No se pudo procesar la imagen. Prueba con otra.");
+    } finally {
+      setFilePending(false);
     }
   }
-
   async function handleProofChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setProofError("");
     const isPdf = file.type === "application/pdf";
-    const isImage = file.type.startsWith("image/");
-    if (!isPdf && !isImage) {
-      setProofError("Sube una imagen (JPG, PNG o WebP) o un PDF.");
+    if (
+      (!isPdf &&
+        !["image/jpeg", "image/png", "image/webp"].includes(file.type)) ||
+      file.size > 12_000_000
+    ) {
+      setClientError(
+        "Elige una imagen JPG, PNG o WebP, o un PDF. El archivo original puede tener hasta 12 MB.",
+      );
       return;
     }
+    setFilePending(true);
     try {
       const dataUrl = isPdf
         ? await readFileAsDataUrl(file)
         : await resizeDocumentToDataUrl(file);
       if (dataUrl.length > DOC_MAX_BYTES) {
-        setProofError(
-          "El documento es demasiado grande (máx ~1 MB). Sube un archivo más liviano.",
+        setClientError(
+          "El comprobante supera 1 MB. Elige una versión más ligera.",
         );
         return;
       }
-      setProofDoc(dataUrl);
+      update("registrationProofDoc", dataUrl);
       setProofName(file.name);
     } catch {
-      setProofError(
+      setClientError(
         "No se pudo procesar el documento. Prueba con otro archivo.",
       );
+    } finally {
+      setFilePending(false);
     }
   }
-
+  const field = question.field;
+  const requiredText = [
+    "fullName",
+    "university",
+    "fpvNumber",
+    "licenseNumber",
+    "supervisionInfo",
+  ].includes(field);
+  const textFields = [
+    "fullName",
+    "displayName",
+    "city",
+    "university",
+    "fpvNumber",
+    "cedula",
+    "licenseNumber",
+    "registrationDetail",
+    "supervisionInfo",
+    "phone",
+    "landline",
+    "contactEmail",
+  ];
+  const checkboxText = field !== "review" ? checkboxLabels[field] : undefined;
   return (
     <form
       action={action}
-      className="card"
-      aria-busy={pending}
       ref={formRef}
-      onInput={guardarBorrador}
-      onChange={guardarBorrador}
+      onSubmit={(event) => {
+        if (field !== "review") {
+          event.preventDefault();
+          next();
+        }
+      }}
     >
-      <p className="muted">Tu cuenta: {email}</p>
-
-      {borradorRestaurado ? (
-        <p className="status-message" role="status">
-          Recuperamos lo que habías escrito ✓ Revisa y continúa donde ibas.
-        </p>
-      ) : null}
-
-      <fieldset className="card">
-        <legend>1 de 5 · Quién eres</legend>
-        <div className="grid grid-2">
-          <div className="field">
-            <label htmlFor={ids.fullName}>Nombre completo *</label>
-            <input
-              id={ids.fullName}
-              name="fullName"
-              defaultValue={
-                submitted?.fullName ?? existing?.fullName ?? name ?? ""
-              }
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor={ids.displayName}>Nombre público</label>
-            <p className="hint" id={ids.displayNameHint}>
-              El nombre con el que te verán las personas. Puede ser solo tu
-              nombre de pila.
-            </p>
-            <input
-              id={ids.displayName}
-              name="displayName"
-              defaultValue={
-                submitted?.displayName ?? existing?.displayName ?? ""
-              }
-              aria-describedby={ids.displayNameHint}
-            />
-          </div>
-        </div>
-        <div className="grid grid-2">
-          <div className="field">
-            <label htmlFor={ids.country}>País</label>
-            <select
-              id={ids.country}
-              name="country"
-              autoComplete="country-name"
-              value={country}
-              onChange={(event) => setCountry(event.target.value)}
-            >
-              {countries.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor={ids.city}>Ciudad</label>
-            <input
-              id={ids.city}
-              name="city"
-              defaultValue={submitted?.city ?? existing?.city ?? ""}
-            />
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor={ids.photo}>Foto (opcional)</label>
-          <p className="hint" id={ids.photoHint}>
-            Una foto cercana ayuda a generar confianza. Se reduce
-            automáticamente para que no pese.
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {photo ? (
-              // biome-ignore lint/performance/noImgElement: vista previa de un data URL en cliente; next/image no aplica
-              <img
-                src={photo}
-                alt="Vista previa de tu foto"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  flex: "none",
-                }}
-              />
-            ) : null}
-            <input
-              id={ids.photo}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handlePhotoChange}
-              aria-describedby={ids.photoHint}
-            />
-            {photo ? (
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() => {
-                  setPhoto(null);
-                  setPhotoError("");
-                }}
-              >
-                Quitar
-              </button>
-            ) : null}
-          </div>
-          {photoError ? (
-            <p className="form-error" role="alert">
-              {photoError}
-            </p>
-          ) : null}
-          <input type="hidden" name="photo" value={photo ?? ""} />
-        </div>
-      </fieldset>
-
-      <fieldset className="card">
-        <legend>2 de 5 · Tu credencial profesional</legend>
-        <p className="field-help">
-          La revisa una persona del equipo para confirmar que puedes acompañar.
-          Nunca se muestra públicamente. Con acreditar <strong>una</strong> vía
-          basta.
-        </p>
-
-        <div className="checks" style={{ margin: "0 0 14px" }}>
-          <label>
-            <input
-              name="nonClinicalHelper"
-              type="checkbox"
-              checked={nonClinical}
-              onChange={(event) => setNonClinical(event.target.checked)}
-            />
-            Soy <strong>auxiliar no clínico</strong> (estudiante o voluntario/a
-            sin credencial para ejercer). No hará falta número ni verificación,
-            pero tu ficha mostrará la etiqueta “Auxiliar no Clínico”.
-          </label>
-        </div>
-
-        {nonClinical ? (
-          <p className="field-help" style={{ margin: 0 }}>
-            Como auxiliar no clínico no necesitas credencial. Tu ficha mostrará
-            la etiqueta <strong>“Auxiliar no Clínico”</strong> para que quien
-            busca ayuda sepa que acompañas sin ser profesional con licencia.
-          </p>
-        ) : (
-          <>
-            <p className="field-help" style={{ margin: "0 0 10px" }}>
-              <strong>Acredítate con una de estas tres vías</strong> (con una
-              basta; las demás son opcionales):
-            </p>
-
-            <div className="field">
-              <label htmlFor={ids.fpvNumber}>1. Número FPV</label>
-              <p className="hint" id={ids.fpvHint}>
-                Tu número de Psicólogo Federado. Si además añades tu cédula
-                abajo, verificamos tu registro al instante en la Federación de
-                Psicólogos de Venezuela y tu perfil queda marcado como
-                verificado.
-              </p>
-              <input
-                id={ids.fpvNumber}
-                name="fpvNumber"
-                defaultValue={submitted?.fpvNumber ?? existing?.fpvNumber ?? ""}
-                aria-describedby={ids.fpvHint}
-              />
-              <label
-                htmlFor={ids.cedula}
-                style={{ marginTop: "10px", display: "block" }}
-              >
-                Cédula{" "}
-                <span className="muted">
-                  {country === "Venezuela"
-                    ? "(obligatoria para verificar tu FPV)"
-                    : "(opcional, para verificar)"}
-                </span>
-              </label>
-              <p className="hint" id={ids.cedulaHint}>
-                {country === "Venezuela"
-                  ? "Obligatoria para quienes ejercen en Venezuela: nos permite confirmar tu Nº FPV con la Federación. No la guardamos ni se muestra en tu perfil."
-                  : "Solo se usa para confirmar tu Nº FPV con la Federación en este momento. No la guardamos ni se muestra en tu perfil."}
-              </p>
-              <input
-                id={ids.cedula}
-                name="cedula"
-                inputMode="numeric"
-                autoComplete="off"
-                aria-describedby={ids.cedulaHint}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor={ids.supervisionInfo}>
-                2. Trabajo bajo supervisión
-              </label>
-              <p className="hint" id={ids.supervisionHint}>
-                ¿Quién te supervisa y en qué institución? (p. ej. prácticas,
-                Ministerio de Educación, o trabajo clínico/educativo
-                supervisado).
-              </p>
-              <input
-                id={ids.supervisionInfo}
-                name="supervisionInfo"
-                defaultValue={
-                  submitted?.supervisionInfo ?? existing?.supervisionInfo ?? ""
-                }
-                aria-describedby={ids.supervisionHint}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor={ids.registrationType}>
-                3. Comprobante de registro
-              </label>
-              <p className="hint" id={ids.registrationHint}>
-                Elige dónde estás registrado/a y sube el comprobante (imagen o
-                PDF).
-              </p>
-              <select
-                id={ids.registrationType}
-                name="registrationType"
-                value={registrationType}
-                onChange={(event) => setRegistrationType(event.target.value)}
-                aria-describedby={ids.registrationHint}
-              >
-                <option value="">— Selecciona (opcional) —</option>
-                <option value="ministerio_educacion">
-                  Registro en el Ministerio de Educación
-                </option>
-                <option value="colegio_psicologos">
-                  Colegio de Psicólogos de tu jurisdicción
-                </option>
-                <option value="inprepsi">Membresía en INPREPSI</option>
-              </select>
-            </div>
-
-            {registrationType ? (
-              <>
-                <div className="field">
-                  <label htmlFor={ids.registrationDetail}>
-                    Jurisdicción o número de registro (opcional)
-                  </label>
-                  <input
-                    id={ids.registrationDetail}
-                    name="registrationDetail"
-                    defaultValue={submitted?.registrationDetail ?? ""}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={ids.registrationProof}>
-                    Comprobante (imagen o PDF) *
-                  </label>
-                  <p className="hint" id={ids.registrationProofHint}>
-                    Foto legible o PDF del carnet/constancia. Máx ~1 MB.
-                  </p>
-                  <input
-                    id={ids.registrationProof}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,application/pdf"
-                    onChange={handleProofChange}
-                    required={!proofDoc}
-                    aria-describedby={ids.registrationProofHint}
-                  />
-                  {proofDoc ? (
-                    <p className="hint" role="status">
-                      Documento cargado ✓ {proofName}
-                    </p>
-                  ) : null}
-                  {proofError ? (
-                    <p className="form-error" role="alert">
-                      {proofError}
-                    </p>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-
-            <input
-              type="hidden"
-              name="registrationProofDoc"
-              value={proofDoc ?? ""}
-            />
-
-            <div className="grid grid-2">
-              <div className="field">
-                <label htmlFor={ids.licenseNumber}>
-                  Credencial o licencia (opcional)
-                </label>
-                <p className="hint" id={ids.licenseHint}>
-                  Si tienes otro número de colegiatura o licencia, indícalo.
-                </p>
+      {Object.entries(answers).flatMap(([key, value]) =>
+        key === "credentialPath"
+          ? []
+          : Array.isArray(value)
+            ? value.map((item) => (
                 <input
-                  id={ids.licenseNumber}
-                  name="licenseNumber"
-                  defaultValue={
-                    submitted?.licenseNumber ?? existing?.licenseNumber ?? ""
-                  }
-                  aria-describedby={ids.licenseHint}
+                  key={`${key}-${item}`}
+                  type="hidden"
+                  name={key}
+                  value={item}
                 />
-              </div>
-              <div className="field">
-                <label htmlFor={ids.licenseCountry}>
-                  País de la credencial
-                </label>
-                <select
-                  id={ids.licenseCountry}
-                  name="licenseCountry"
-                  defaultValue={
-                    submitted?.licenseCountry ??
-                    existing?.licenseCountry ??
-                    "Venezuela"
+              ))
+            : [
+                <input
+                  key={key}
+                  type="hidden"
+                  name={key}
+                  value={
+                    typeof value === "boolean" ? (value ? "on" : "") : value
                   }
-                >
-                  {countries.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor={ids.university}>
-                Universidad donde obtuviste tu título *
+                />,
+              ],
+      )}
+      <WizardFrame
+        name={editing ? "Tu perfil profesional" : "Tu nueva consulta"}
+        title={question.title}
+        description={question.description}
+        step={activeStep}
+        total={questions.length}
+        pending={pending || filePending}
+        saveStatus={
+          editing
+            ? "Los cambios se confirman al terminar."
+            : `${status} Credenciales y adjuntos se envían al terminar.`
+        }
+        onBack={() => {
+          setClientError("");
+          setStep(Math.max(0, activeStep - 1));
+        }}
+        onNext={next}
+        complete={field === "review"}
+        onExit={flush}
+      >
+        <div className={styles.field}>
+          {textFields.includes(field) ? (
+            <>
+              <label htmlFor={`${formId}-${field}`}>
+                {field === "contactEmail"
+                  ? "Correo privado de coordinación"
+                  : field === "cedula"
+                    ? "Cédula · opcional"
+                    : field === "phone"
+                      ? "WhatsApp · opcional"
+                      : field === "landline"
+                        ? "Teléfono · opcional"
+                        : question.title}
               </label>
-              <p className="hint" id={ids.universityHint}>
-                La institución que emitió tu título profesional.
-              </p>
               <input
-                id={ids.university}
-                name="university"
-                defaultValue={
-                  submitted?.university ?? existing?.university ?? ""
+                id={`${formId}-${field}`}
+                value={String(answers[field as keyof ProfessionalAnswers])}
+                onChange={(event) =>
+                  update(field as keyof ProfessionalAnswers, event.target.value)
+                }
+                required={requiredText}
+                minLength={requiredText ? 2 : undefined}
+                maxLength={
+                  field === "supervisionInfo"
+                    ? 300
+                    : field === "fullName"
+                      ? 120
+                      : 160
+                }
+                type={
+                  field === "contactEmail"
+                    ? "email"
+                    : ["phone", "landline"].includes(field)
+                      ? "tel"
+                      : "text"
+                }
+                autoComplete={
+                  field === "fullName"
+                    ? "name"
+                    : field === "city"
+                      ? "address-level2"
+                      : ["phone", "landline"].includes(field)
+                        ? "tel"
+                        : field === "contactEmail"
+                          ? "email"
+                          : "off"
+                }
+                inputMode={field === "cedula" ? "numeric" : undefined}
+              />
+            </>
+          ) : null}
+          {field === "country" || field === "licenseCountry" ? (
+            <>
+              <label htmlFor={`${formId}-${field}`}>País</label>
+              <select
+                id={`${formId}-${field}`}
+                value={answers[field]}
+                onChange={(event) => update(field, event.target.value)}
+                autoComplete="country-name"
+              >
+                {countries.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
+          {field === "timezone" ? (
+            <>
+              <label htmlFor={`${formId}-timezone`}>Zona horaria</label>
+              <select
+                id={`${formId}-timezone`}
+                value={answers.timezone}
+                onChange={(event) => update("timezone", event.target.value)}
+              >
+                {zones.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone.replaceAll("_", " ")}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
+          {field === "photo" ? (
+            <>
+              {answers.photo ? (
+                <>
+                  {/* biome-ignore lint/performance/noImgElement: vista previa local de data URL sin descarga de red */}
+                  <img
+                    className={styles.photo}
+                    src={answers.photo}
+                    alt="Vista previa de tu foto"
+                  />
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={() => update("photo", "")}
+                  >
+                    Quitar foto
+                  </button>
+                </>
+              ) : null}
+              <label htmlFor={`${formId}-photo`}>
+                Elige una foto · opcional
+              </label>
+              <input
+                id={`${formId}-photo`}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handlePhotoChange}
+                disabled={filePending}
+              />
+            </>
+          ) : null}
+          {field === "nonClinicalHelper" ? (
+            <div className={styles.checks}>
+              <label>
+                <input
+                  type="radio"
+                  checked={!answers.nonClinicalHelper}
+                  onChange={() => update("nonClinicalHelper", false)}
+                />
+                Profesional clínico · revisaré mi credencial
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={answers.nonClinicalHelper}
+                  onChange={() => update("nonClinicalHelper", true)}
+                />
+                Auxiliar no clínico · apoyo voluntario dentro de mi competencia
+              </label>
+            </div>
+          ) : null}
+          {field === "credentialPath" ? (
+            <div className={styles.checks}>
+              {[
+                ["license", "Licencia o colegiatura profesional"],
+                ["fpv", "Registro FPV de Venezuela"],
+                ["document", "Comprobante de registro"],
+                ["supervision", "Trabajo bajo supervisión"],
+              ].map(([value, label]) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    checked={answers.credentialPath === value}
+                    onChange={() => update("credentialPath", value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          ) : null}
+          {field === "registrationType" ? (
+            <>
+              <label htmlFor={`${formId}-registration`}>
+                Organismo de registro
+              </label>
+              <select
+                id={`${formId}-registration`}
+                value={answers.registrationType}
+                onChange={(event) =>
+                  update("registrationType", event.target.value)
                 }
                 required
-                aria-describedby={ids.universityHint}
-              />
-            </div>
-          </>
-        )}
-      </fieldset>
-
-      <fieldset className="card">
-        <legend>3 de 5 · Cómo y a quién quieres acompañar</legend>
-        <p className="field-help">
-          Tú defines tus límites. Todo esto lo puedes cambiar más adelante.
-        </p>
-
-        <fieldset
-          style={{
-            border: 0,
-            margin: 0,
-            padding: 0,
-            minInlineSize: "auto",
-          }}
-        >
-          <legend style={{ fontWeight: 600, margin: "0 0 6px", padding: 0 }}>
-            Áreas de especialización *
-          </legend>
-          <p className="hint" style={{ margin: "0 0 8px" }}>
-            Marca aquello en lo que tienes más experiencia.
-          </p>
-          <div className="checks">
-            {needCategories.map((value) => (
-              <label key={value}>
-                <input
-                  name="supportAreas"
-                  type="checkbox"
-                  value={value}
-                  defaultChecked={areaChecked(value)}
-                />
-                {needLabels[value]}
+              >
+                <option value="">Selecciona tu registro</option>
+                <option value="colegio_psicologos">
+                  Colegio u organismo profesional de mi jurisdicción
+                </option>
+                <option value="ministerio_educacion">
+                  Ministerio de Educación
+                </option>
+                <option value="inprepsi">INPREPSI</option>
+              </select>
+            </>
+          ) : null}
+          {field === "registrationProofDoc" ? (
+            <>
+              {existing?.hasRegistrationProof &&
+              !answers.registrationProofDoc ? (
+                <p className="status-message">
+                  Ya recibimos tu comprobante. Puedes conservarlo o sustituirlo.
+                </p>
+              ) : null}
+              <label htmlFor={`${formId}-proof`}>
+                Comprobante de tu registro
               </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div className="field">
-          <label htmlFor={ids.maxActiveRequests}>
-            ¿A cuántas personas quieres acompañar a la vez?
-          </label>
-          <p className="hint" id={ids.maxHint}>
-            Tú decides tu límite. Empieza con lo que te resulte sostenible.
-          </p>
-          <input
-            id={ids.maxActiveRequests}
-            name="maxActiveRequests"
-            type="number"
-            inputMode="numeric"
-            min="1"
-            max="10"
-            step="1"
-            required
-            defaultValue={
-              submitted?.maxActiveRequests ?? existing?.maxActiveRequests ?? 3
-            }
-            aria-describedby={ids.maxHint}
-          />
+              <input
+                id={`${formId}-proof`}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,application/pdf"
+                onChange={handleProofChange}
+                disabled={filePending}
+                required={
+                  !answers.registrationProofDoc &&
+                  !existing?.hasRegistrationProof
+                }
+              />
+              {proofName ? (
+                <p role="status">Documento preparado: {proofName}</p>
+              ) : null}
+            </>
+          ) : null}
+          {field === "supportAreas" ? (
+            <div className={styles.checks}>
+              {needCategories.map((area) => (
+                <label key={area}>
+                  <input
+                    type="checkbox"
+                    checked={answers.supportAreas.includes(area)}
+                    onChange={(event) =>
+                      update(
+                        "supportAreas",
+                        event.target.checked
+                          ? [...answers.supportAreas, area]
+                          : answers.supportAreas.filter(
+                              (value) => value !== area,
+                            ),
+                      )
+                    }
+                  />
+                  {needLabels[area]}
+                </label>
+              ))}
+            </div>
+          ) : null}
+          {field === "maxActiveRequests" ? (
+            <>
+              <label htmlFor={`${formId}-max`}>
+                Solicitudes del programa gratuito
+              </label>
+              <input
+                id={`${formId}-max`}
+                type="number"
+                min={1}
+                max={10}
+                step={1}
+                inputMode="numeric"
+                required
+                value={answers.maxActiveRequests}
+                onChange={(event) =>
+                  update("maxActiveRequests", event.target.value)
+                }
+              />
+            </>
+          ) : null}
+          {field === "remoteAvailable" ? (
+            <div className={styles.checks}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={answers.remoteAvailable}
+                  onChange={(event) =>
+                    update("remoteAvailable", event.target.checked)
+                  }
+                />
+                Atención en remoto
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={answers.inPersonAvailable}
+                  onChange={(event) =>
+                    update("inPersonAvailable", event.target.checked)
+                  }
+                />
+                Atención presencial en mi ciudad
+              </label>
+            </div>
+          ) : null}
+          {field === "shortBio" || field === "contactNotes" ? (
+            <>
+              <label htmlFor={`${formId}-${field}`}>
+                {field === "shortBio"
+                  ? "Tu presentación pública"
+                  : "Preferencias privadas de coordinación"}
+              </label>
+              <textarea
+                id={`${formId}-${field}`}
+                value={answers[field]}
+                onChange={(event) => update(field, event.target.value)}
+                maxLength={field === "shortBio" ? 600 : 500}
+                rows={4}
+              />
+            </>
+          ) : null}
+          {checkboxText ? (
+            <div className={styles.checks}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(answers[field as keyof ProfessionalAnswers])}
+                  onChange={(event) =>
+                    update(
+                      field as keyof ProfessionalAnswers,
+                      event.target.checked,
+                    )
+                  }
+                  required={field.startsWith("conduct")}
+                />
+                {checkboxText}
+              </label>
+              {field === "emailPublic" ? (
+                <p className="hint">Correo de tu cuenta: {email}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {field === "review" ? (
+            <dl className={styles.review}>
+              <div>
+                <dt>Nombre público</dt>
+                <dd>{answers.displayName || answers.fullName}</dd>
+              </div>
+              <div>
+                <dt>Ubicación</dt>
+                <dd>
+                  {[answers.city, answers.country].filter(Boolean).join(", ")}
+                </dd>
+              </div>
+              <div>
+                <dt>Calendario</dt>
+                <dd>{answers.timezone.replaceAll("_", " ")}</dd>
+              </div>
+              <div>
+                <dt>Modalidad</dt>
+                <dd>
+                  {[
+                    answers.remoteAvailable ? "Remoto" : "",
+                    answers.inPersonAvailable ? "Presencial" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" y ")}
+                </dd>
+              </div>
+              <div>
+                <dt>Perfil</dt>
+                <dd>
+                  {answers.nonClinicalHelper
+                    ? "Auxiliar no clínico"
+                    : "Profesional clínico · revisión del equipo"}
+                </dd>
+              </div>
+              <div>
+                <dt>Áreas</dt>
+                <dd>
+                  {answers.supportAreas
+                    .map(
+                      (value) => needLabels[value as keyof typeof needLabels],
+                    )
+                    .join(", ")}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
         </div>
-
-        <div className="checks">
-          <label>
-            <input
-              name="remoteAvailable"
-              type="checkbox"
-              defaultChecked={
-                submitted
-                  ? submitted.remoteAvailable === "on"
-                  : (existing?.remoteAvailable ?? true)
-              }
-            />
-            Estoy disponible para acompañar en remoto.
-          </label>
-          <label>
-            <input
-              name="inPersonAvailable"
-              type="checkbox"
-              defaultChecked={
-                submitted
-                  ? submitted.inPersonAvailable === "on"
-                  : (existing?.inPersonAvailable ?? false)
-              }
-            />
-            También puedo atender presencial en mi ciudad (para quien esté en
-            Venezuela).
-          </label>
-          <label>
-            <input
-              name="acceptingRequests"
-              type="checkbox"
-              defaultChecked={
-                submitted
-                  ? submitted.acceptingRequests === "on"
-                  : (existing?.acceptingRequests ?? true)
-              }
-            />
-            Quiero recibir solicitudes desde ya.
-          </label>
-          <label>
-            <input
-              name="crisisExperience"
-              type="checkbox"
-              defaultChecked={
-                submitted
-                  ? submitted.crisisExperience === "on"
-                  : (existing?.crisisExperience ?? false)
-              }
-            />
-            Tengo experiencia acompañando situaciones de crisis.
-          </label>
-          <label>
-            <input
-              name="offersPaidServices"
-              type="checkbox"
-              defaultChecked={
-                submitted
-                  ? submitted.offersPaidServices === "on"
-                  : (existing?.offersPaidServices ?? false)
-              }
-            />
-            Además de la ayuda gratuita por el terremoto, ofrezco servicios
-            pagos por otros temas (podré compartir links de pago después de
-            conversar).
-          </label>
-        </div>
-        <p className="hint" style={{ margin: "8px 0 0" }}>
-          La ayuda por la emergencia del terremoto siempre es gratis en Nido.
-          Esta casilla solo habilita, si tú quieres, cobrar por acompañamiento
-          ajeno a la emergencia.
-        </p>
-      </fieldset>
-
-      <fieldset className="card">
-        <legend>4 de 5 · Tu presentación y cómo te coordinamos</legend>
-        <div className="field">
-          <label htmlFor={ids.shortBio}>Bio breve</label>
-          <p className="hint" id={ids.shortBioHint}>
-            Unas líneas cálidas sobre cómo acompañas. Ayuda a que la persona se
-            sienta en confianza.
-          </p>
-          <textarea
-            id={ids.shortBio}
-            name="shortBio"
-            rows={4}
-            maxLength={600}
-            defaultValue={submitted?.shortBio ?? existing?.shortBio ?? ""}
-            aria-describedby={ids.shortBioHint}
-          />
-        </div>
-        <p className="field-help" style={{ margin: "0 0 8px" }}>
-          <strong>¿Cómo quieres que te contacten?</strong> Elige al menos una
-          vía. Cada una aparece en tu ficha como botón para contactarte al
-          instante.
-        </p>
-        <div className="checks" style={{ margin: "0 0 10px" }}>
-          <label>
-            <input
-              name="emailPublic"
-              type="checkbox"
-              checked={emailPublic}
-              onChange={(event) => setEmailPublic(event.target.checked)}
-            />
-            Mostrar mi correo <strong>{email}</strong> para que me escriban.
-          </label>
-        </div>
-        <div className="grid grid-2">
-          <div className="field">
-            <label htmlFor={ids.phone}>WhatsApp</label>
-            <p className="hint" id={ids.phoneHint}>
-              Aparece como botón de WhatsApp y llamada. Si estás fuera de
-              Venezuela, incluye el código de país (ej. +57…).
-            </p>
-            <input
-              id={ids.phone}
-              name="phone"
-              type="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              required={!emailPublic && !landline.trim()}
-              aria-describedby={ids.phoneHint}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor={ids.landline}>Teléfono fijo</label>
-            <p className="hint" id={ids.landlineHint}>
-              Aparece como botón de llamada. Útil si prefieres que te llamen a
-              un número fijo.
-            </p>
-            <input
-              id={ids.landline}
-              name="landline"
-              type="tel"
-              autoComplete="tel"
-              value={landline}
-              onChange={(event) => setLandline(event.target.value)}
-              required={!emailPublic && !phone.trim()}
-              aria-describedby={ids.landlineHint}
-            />
-          </div>
-        </div>
-        <div className="grid grid-2">
-          <div className="field">
-            <label htmlFor={ids.contactEmail}>Correo para coordinación</label>
-            <p className="hint" id={ids.contactEmailHint}>
-              Lo usa el equipo para coordinar contigo. No se comparte con las
-              personas.
-            </p>
-            <input
-              id={ids.contactEmail}
-              name="contactEmail"
-              type="email"
-              defaultValue={
-                submitted?.contactEmail ?? existing?.contactEmail ?? email
-              }
-              aria-describedby={ids.contactEmailHint}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor={ids.contactNotes}>Notas para coordinación</label>
-            <textarea
-              id={ids.contactNotes}
-              name="contactNotes"
-              rows={3}
-              defaultValue={
-                submitted?.contactNotes ?? existing?.contactNotes ?? ""
-              }
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      <fieldset className="card">
-        <legend>5 de 5 · Nuestro acuerdo compartido *</legend>
-        <p className="field-help">
-          Esto cuida tanto a quien pide ayuda como a ti.
-        </p>
-        {editing ? (
-          <p className="hint" style={{ margin: "0 0 10px" }}>
-            Ya los aceptaste al darte de alta; quedan marcados.
+        {clientError || (serverErrorVisible && state?.message) ? (
+          <p className="form-error" role="alert">
+            {clientError || (serverErrorVisible && state?.message)}
           </p>
         ) : null}
-        <div className="checks">
-          <label>
-            <input
-              name="conductFreeService"
-              type="checkbox"
-              defaultChecked={conductChecked("conductFreeService")}
-              required
-            />
-            Acepto que la ayuda por el terremoto en Nido es gratuita y que no
-            cobraré por ella.
-          </label>
-          <label>
-            <input
-              name="conductNoClientCapture"
-              type="checkbox"
-              defaultChecked={conductChecked("conductNoClientCapture")}
-              required
-            />
-            Acepto no presionar a nadie para contratar servicios pagos ni
-            condicionar la ayuda gratuita a una contratación.
-          </label>
-          <label>
-            <input
-              name="conductConfidentiality"
-              type="checkbox"
-              defaultChecked={conductChecked("conductConfidentiality")}
-              required
-            />
-            Acepto mantener confidencialidad sobre la información recibida.
-          </label>
-          <label>
-            <input
-              name="conductNoEmergencyGuarantee"
-              type="checkbox"
-              defaultChecked={conductChecked("conductNoEmergencyGuarantee")}
-              required
-            />
-            Entiendo que Nido no garantiza respuesta de emergencia.
-          </label>
-          <label>
-            <input
-              name="conductCompetence"
-              type="checkbox"
-              defaultChecked={conductChecked("conductCompetence")}
-              required
-            />
-            Acepto trabajar solo dentro de mi competencia profesional.
-          </label>
-        </div>
-      </fieldset>
-
-      {state && !state.ok ? (
-        <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>
-          {state.message}
-        </p>
-      ) : null}
-      <button
-        className="button human block"
-        disabled={pending}
-        aria-busy={pending}
-        type="submit"
-      >
-        {pending
-          ? editing
-            ? "Guardando tus cambios…"
-            : "Enviando tu perfil…"
-          : editing
-            ? "Guardar cambios"
-            : "Quiero empezar a ayudar"}
-      </button>
+        {filePending ? (
+          <p className="hint" role="status">
+            Preparando el archivo…
+          </p>
+        ) : null}
+      </WizardFrame>
     </form>
   );
 }

@@ -200,6 +200,9 @@ hechos. Sin ellos la app puede renderizar pero el chat o el login fallan.
 2. **Configura los secretos del Worker** con `wrangler secret put`:
    - `BETTER_AUTH_SECRET` — obligatorio (firma de sesiones/tokens). La app falla
      en cerrado en producción si falta.
+   - `NIDO_NOTES_ENCRYPTION_KEY` — clave dedicada de 32 bytes en hexadecimal
+     para notas privadas. Guardar una copia recuperable; no rotar sin migrar
+     el cifrado de las notas existentes.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — login de profesionales.
    - `ADMIN_EMAILS` — acceso a `/admin`.
    - `RESEND_API_KEY` + `CONTACT_FROM_EMAIL` — **necesarios para el chat**: el
@@ -382,3 +385,9 @@ Al contribuir (ver **[CONTRIBUTING.md](CONTRIBUTING.md)**), aceptas que tu contr
 ---
 
 > _"No tienes que pasar por esto solo/a."_ — Gracias por ayudar a que Nido exista. 🕊️
+
+## Evolución de la consulta profesional
+
+El diseño, flujos, arquitectura, investigación y guía de operación del CRM están en [docs/producto/README.md](docs/producto/README.md). Las integraciones de facturación y captura tienen activación independiente; consulta esa guía antes de desplegar o habilitarlas.
+
+La entrada `/empezar` distingue pacientes y profesionales con un recorrido de una pregunta por pantalla. El espacio `/mi` reúne calendario, chats vinculados de forma verificable, pagos y solicitudes de sesión. El CRM profesional incorpora notas privadas cifradas, agenda, servicios y soporte. La [verificación](docs/producto/07-verificacion.md), el [registro de publicación y reversión](docs/producto/08-publicacion.md) y las [mediciones de rendimiento](docs/producto/14-rendimiento.md) distinguen las comprobaciones realizadas de las condiciones pendientes de proveedores.

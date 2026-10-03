@@ -163,6 +163,8 @@ export async function getPayablePackage(
         eq(professionals.status, "approved"),
         eq(professionals.offersPaidServices, true),
         eq(professionals.stripeChargesEnabled, true),
+        eq(professionals.stripePayoutsEnabled, true),
+        eq(professionals.nonClinicalHelper, false),
       ),
     )
     .limit(1);

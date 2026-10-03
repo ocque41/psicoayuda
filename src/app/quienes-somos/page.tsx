@@ -1,216 +1,69 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CrisisResources } from "@/components/crisis-resources";
-import { getPrivacyContactEmail } from "@/lib/contact";
-import { SITE_NAME } from "@/lib/site";
-
 export const metadata: Metadata = {
   title: "Quiénes somos",
   description:
-    "Nido es una iniciativa sin fines de lucro que conecta gratis a personas en Venezuela con psicólogas y psicólogos voluntarios verificados. Conoce nuestra misión.",
+    "Nido conecta a personas con profesionales de psicología y ayuda a organizar el acompañamiento. Conoce nuestra misión.",
   alternates: { canonical: "/quienes-somos" },
-  openGraph: {
-    title: "Quiénes somos | Nido",
-    description:
-      "Nido es una iniciativa sin fines de lucro que conecta gratis a personas en Venezuela con psicólogas y psicólogos voluntarios verificados. Conoce nuestra misión.",
-    url: "/quienes-somos",
-  },
 };
-
 export default function Page() {
-  const contactEmail = getPrivacyContactEmail();
-
   return (
     <section className="section">
       <div className="container">
-        <h1>Quiénes somos</h1>
+        <h1>Un lugar para empezar</h1>
         <p className="lead">
-          {SITE_NAME} es una iniciativa sin fines de lucro que nace de una idea
-          sencilla: en Venezuela hay muchísimas personas que necesitan ser
-          escuchadas y muchísimos profesionales de la psicología dispuestos a
-          tender la mano. Nosotros solo construimos el puente entre unas y
-          otros, gratis y a distancia.
+          Nido nace para acercar a quienes necesitan apoyo y a profesionales que
+          pueden acompañarlos. Queremos que dar el primer paso sea sencillo,
+          humano y discreto.
         </p>
-
-        <CrisisResources variant="callout" />
-
         <h2>Nuestra misión</h2>
         <p>
-          Creemos que pedir apoyo emocional no debería costar dinero, ni exigir
-          trámites, ni dar miedo. Existimos para que cualquier persona en
-          Venezuela —sin importar su edad, dónde viva o por lo que esté pasando—
-          pueda dar el primer paso y encontrar a alguien preparado que la
-          acompañe.
+          Ayudarte a encontrar a alguien afín a lo que necesitas y darle a tu
+          profesional un espacio para cuidar la continuidad: conversaciones,
+          agenda y seguimiento por paciente.
         </p>
-        <p>
-          No damos terapia dentro de esta página y no somos un servicio de
-          emergencias. Lo que hacemos es <strong>conectar</strong>: recibimos tu
-          solicitud, la cuidamos con discreción y la ponemos en manos de una
-          psicóloga o un psicólogo voluntario verificado, que se comunicará
-          contigo por fuera de esta plataforma. Ese acompañamiento es a
-          distancia, para que llegue a cualquier estado del país e incluso a
-          personas venezolanas en el exterior.
-        </p>
-
-        <h2>De dónde venimos</h2>
-        <p>
-          {SITE_NAME} nace de dos amigos venezolanos que comparten una misma
-          impotencia: ver lo que atraviesa el país sin poder cambiarlo de un día
-          para otro. Con el tiempo llegamos a una convicción: buena parte de ese
-          dolor también es salud mental desatendida. El trauma que nadie
-          acompaña se vuelve resentimiento, y ese resentimiento, multiplicado,
-          nos hace más daño como sociedad.
-        </p>
-        <p>
-          Por eso abrimos esta puerta: para que quienes cargan ese peso tengan
-          dónde poner lo que sienten y empezar a sanar. Cuidar las emociones no
-          lo resuelve todo, pero es una manera concreta de empezar a
-          reconstruir, primero por dentro.
-        </p>
-
-        <h2>Quién coordina y cómo nos gobernamos</h2>
-        <p>
-          Detrás de {SITE_NAME} hay un pequeño equipo de coordinación que cuida
-          el día a día del proyecto. Lo describimos por sus funciones, no por
-          nombres propios, porque lo que importa es el cuidado con el que se
-          hace cada cosa:
-        </p>
-        <div className="grid grid-2">
+        <div className="grid grid-3">
           <article className="card">
-            <h3>Coordinación general</h3>
-            <p className="muted">
-              Mantiene viva la misión, define las reglas de cuidado y responde
-              por las decisiones del proyecto.
+            <h2>Elegir con claridad</h2>
+            <p>
+              Perfiles revisados, áreas de apoyo e idiomas para tomar una
+              decisión informada. La compatibilidad se confirma al hablar con el
+              profesional.
             </p>
           </article>
           <article className="card">
-            <h3>Verificación de profesionales</h3>
-            <p className="muted">
-              Revisa de forma manual las credenciales de cada psicóloga o
-              psicólogo antes de que pueda recibir solicitudes. Nadie acompaña
-              sin pasar por aquí.
+            <h2>Acompañar con cuidado</h2>
+            <p>
+              El equipo revisa credenciales y atiende las dudas de los
+              profesionales. Cada profesional ofrece atención dentro de sus
+              competencias y condiciones de ejercicio.
             </p>
           </article>
           <article className="card">
-            <h3>Atención a las solicitudes</h3>
-            <p className="muted">
-              Recibe los mensajes de quienes piden apoyo con discreción y los
-              orienta hacia la persona voluntaria adecuada.
-            </p>
-          </article>
-          <article className="card">
-            <h3>Privacidad y seguridad</h3>
-            <p className="muted">
-              Vela por que se pida la mínima información posible y por que los
-              datos se traten con cuidado. Puedes escribirnos a{" "}
-              <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+            <h2>Respetar tu ritmo</h2>
+            <p>
+              Comparte lo que necesites para empezar. Tú eliges con quién hablar
+              y acuerdas los próximos pasos.
             </p>
           </article>
         </div>
-        <p className="hint">
-          Texto pendiente de revisión por un profesional del derecho en
-          Venezuela. La estructura de gobernanza y las responsabilidades aquí
-          descritas se publicarán de forma más detallada conforme el proyecto
-          crezca.
-        </p>
-
-        <h2>Por qué la emergencia es gratis y voluntaria</h2>
+        <h2>Ayuda Terremoto</h2>
         <p>
-          {SITE_NAME} no cobra por la ayuda del terremoto, no vende publicidad y
-          no tiene ánimo de lucro. El acompañamiento lo brindan profesionales
-          que donan su tiempo de forma voluntaria, dentro de sus áreas de
-          competencia y de su disponibilidad. A las personas que piden apoyo por
-          la emergencia no se les solicita ningún dato de pago, jamás.
+          Conservamos un programa separado de acompañamiento voluntario gratuito
+          para las personas afectadas por el terremoto, según disponibilidad.
         </p>
-        <ul className="reassurance">
-          <li>
-            Para pedir apoyo no necesitas crear una cuenta ni dar tu identidad
-            completa.
-          </li>
-          <li>
-            Nadie te pedirá dinero por la ayuda de la emergencia. Si alguien lo
-            hace en nuestro nombre, no somos nosotros. Si decides contratar un
-            servicio pago por otros temas, se acuerda contigo y se paga con la
-            pasarela segura de Stripe.
-          </li>
-          <li>
-            Los profesionales entran con Google solo para verificar su identidad
-            y pasan una revisión manual.
-          </li>
-        </ul>
-
-        <h2>Nuestros límites son una elección ética</h2>
+        <Link href="/ayuda">Conocer Ayuda Terremoto</Link>
+        <h2>Habla con nosotros</h2>
         <p>
-          Hay cosas que {SITE_NAME} decide, a propósito, no hacer. No son
-          carencias: son la forma en que protegemos a las personas que confían
-          en nosotros. Preferimos hacer pocas cosas y hacerlas con cuidado.
+          Si necesitas orientación sobre la plataforma, puedes contactar al
+          equipo.
         </p>
-        <div className="grid grid-2">
-          <article className="card">
-            <h3>La emergencia es gratis, siempre</h3>
-            <p className="muted">
-              El apoyo por el terremoto es gratuito porque el cuidado no debería
-              depender de cuánto dinero tengas. Los servicios pagos por otros
-              temas son opcionales y siempre se acuerdan contigo.
-            </p>
-          </article>
-          <article className="card">
-            <h3>No reemplazamos la terapia ni las emergencias</h3>
-            <p className="muted">
-              Hay un chat privado para que la persona y un voluntario se
-              conozcan y hablen; no hay videollamadas, ni terapia continua, ni
-              un robot que responda. El acompañamiento real lo da una persona.
-            </p>
-          </article>
-          <article className="card">
-            <h3>No somos una emergencia</h3>
-            <p className="muted">
-              No respondemos al instante y no sustituimos a los servicios de
-              urgencia. Si hay peligro inmediato, busca ayuda ahora mismo.
-            </p>
-          </article>
-          <article className="card">
-            <h3>Sin reseñas, sin rankings, sin vitrina</h3>
-            <p className="muted">
-              Nadie compite por estrellas. Queremos que profesionales y personas
-              se encuentren sin presión ni exposición.
-            </p>
-          </article>
-        </div>
-        <p className="notice">
-          {SITE_NAME} es un punto de partida, no un sustituto de la atención
-          médica, psicológica o psiquiátrica formal ni de los servicios de
-          emergencia. Cuando una situación lo requiera, te orientaremos hacia el
-          recurso adecuado. Las pautas sobre confidencialidad, atención a
-          personas menores de edad y deber de actuar ante un riesgo grave se
-          aplican con prudencia y siempre buscando proteger a la persona.
-        </p>
-        <p className="muted">
-          Puedes conocer más en <Link href="/como-funciona">cómo funciona</Link>
-          , <Link href="/seguridad">seguridad</Link>,{" "}
-          <Link href="/privacidad">privacidad</Link> y{" "}
-          <Link href="/transparencia">transparencia</Link>, donde publicaremos
-          aquí nuestras cifras agregadas y anonimizadas a medida que el proyecto
-          avance.
-        </p>
-
-        <h2>Da el primer paso</h2>
-        <p className="lead">
-          No importa si vienes a buscar apoyo o a ofrecerlo: en {SITE_NAME} hay
-          un lugar para ti.
-        </p>
-        <p>
-          <Link className="button" href="/ayuda">
-            Quiero pedir apoyo
-          </Link>{" "}
-          <Link className="button human" href="/pro">
-            Soy psicólogo/a y quiero ayudar
-          </Link>
-        </p>
-        <p className="hint">
-          Si en este momento tu vida o la de otra persona corre peligro, ve a{" "}
-          <Link href="/emergencia">emergencia</Link> o consulta los{" "}
-          <Link href="/recursos">recursos de apoyo</Link>.
+        <Link className="button human" href="/contacto">
+          Contactar al equipo
+        </Link>
+        <p className="safety-note">
+          Nido no atiende emergencias en tiempo real.{" "}
+          <Link href="/emergencia">Recursos para ayuda inmediata</Link>
         </p>
       </div>
     </section>

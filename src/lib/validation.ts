@@ -375,10 +375,15 @@ export const professionalSchema = z
     // Verificación: al menos UNA vía de credencial, salvo auxiliar no clínico.
     (data) =>
       data.nonClinicalHelper ||
-      Boolean(data.fpvNumber || data.supervisionInfo || data.registrationType),
+      Boolean(
+        data.fpvNumber ||
+          data.supervisionInfo ||
+          data.registrationType ||
+          (data.licenseNumber && data.licenseCountry),
+      ),
     {
       message:
-        'Acredita tu perfil: indica tu número FPV, tu supervisión, o sube un comprobante de registro. Si no tienes credencial para ejercer, marca "Auxiliar no Clínico".',
+        'Acredita tu perfil: indica tu licencia y país, número FPV, supervisión o comprobante de registro. Si no tienes credencial para ejercer, marca "Auxiliar no Clínico".',
       path: ["fpvNumber"],
     },
   )

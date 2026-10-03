@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Space_Grotesk } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
-import Script from "next/script";
 import type { ReactNode } from "react";
 import { ClickTracker } from "@/components/click-tracker";
 import { LastActionTracker } from "@/components/last-action-tracker";
@@ -98,10 +97,7 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  // Token del beacon de Cloudflare Web Analytics (cuenta visitas, sin cookies).
-  // Se saca del panel de Cloudflare y se pone en la var CF_BEACON_TOKEN (no es
-  // secreto). Si no está, no se carga nada: la web funciona igual.
-  const cfBeaconToken = process.env.CF_BEACON_TOKEN?.trim();
+  // Sin beacon de terceros global: el mismo layout envuelve las consultas privadas.
   return (
     <html lang="es" className={`${hanken.variable} ${spaceGrotesk.variable}`}>
       <body>
@@ -168,22 +164,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               formulario y los dos correos públicos del equipo.
             </p>
             <p className="footer-note">
-              Nido es un proyecto sin fines de lucro y de código abierto. La
-              atención la brindan personas voluntarias verificadas. No atiende
-              emergencias en tiempo real.
+              Nido conecta a personas con profesionales de psicología. Ayuda
+              Terremoto tiene su propio programa de acompañamiento voluntario
+              gratuito. No atendemos emergencias en tiempo real.
             </p>
           </div>
         </footer>
         <SiteJsonLd />
         <LastActionTracker />
         <ClickTracker />
-        {cfBeaconToken ? (
-          <Script
-            src="https://static.cloudflareinsights.com/beacon.min.js"
-            data-cf-beacon={JSON.stringify({ token: cfBeaconToken })}
-            strategy="afterInteractive"
-          />
-        ) : null}
       </body>
     </html>
   );

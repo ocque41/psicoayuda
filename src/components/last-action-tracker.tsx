@@ -14,6 +14,23 @@ export type LastAction = { label?: string; href?: string; page?: string };
 export function LastActionTracker() {
   useEffect(() => {
     function onPointerDown(event: Event) {
+      if (
+        [
+          "/admin",
+          "/pro/",
+          "/c/",
+          "/sesion/",
+          "/acompanamiento/",
+          "/orientacion",
+          "/mi",
+          "/paciente",
+          "/empezar",
+          "/entrar",
+        ].some((prefix) => location.pathname.startsWith(prefix))
+      ) {
+        sessionStorage.removeItem(KEY);
+        return;
+      }
       const target = event.target as Element | null;
       const el = target?.closest("a, button, [role='button']");
       if (!el) return;

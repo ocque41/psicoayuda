@@ -32,8 +32,9 @@ export function ContactMessageForm({
       <div className="contact-form-success" role="status">
         <h3>Recibimos tu mensaje</h3>
         <p>
-          Quedó guardado en la bandeja del equipo. Te responderemos al correo
-          indicado en cuanto podamos.
+          {audience === "professional"
+            ? "Quedó guardado en la bandeja del equipo. Podrás ver la respuesta en Soporte de tu consulta."
+            : "Quedó guardado en la bandeja del equipo. Te responderemos al correo indicado en cuanto podamos."}
         </p>
       </div>
     );

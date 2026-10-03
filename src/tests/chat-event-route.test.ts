@@ -10,8 +10,8 @@ import {
 } from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
-  notifyProfessionalNewMessage: vi.fn(async () => undefined),
-  notifySeekerNewMessage: vi.fn(async () => undefined),
+  notifyProfessionalNewMessage: vi.fn(async (_input: unknown) => undefined),
+  notifySeekerNewMessage: vi.fn(async (_input: unknown) => undefined),
 }));
 
 vi.mock("@/lib/notifications", () => mocks);

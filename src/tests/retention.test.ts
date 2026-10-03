@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
   accessRequests,
+  accountOnboardingDrafts,
   assignments,
   auditLogs,
   conversations,
@@ -53,6 +54,9 @@ const id = {
 };
 
 async function cleanup() {
+  await db
+    .delete(accountOnboardingDrafts)
+    .where(eq(accountOnboardingDrafts.userId, id.user));
   await db.delete(seekerSessions).where(like(seekerSessions.sid, `${P}-%`));
   await db.delete(assignments).where(like(assignments.id, `${P}-%`));
   await db.delete(conversations).where(like(conversations.id, `${P}-%`));
@@ -73,6 +77,24 @@ describe("runRetention (solicitudes 90/180 y chats eternos)", () => {
       name: "Pro Retención",
       email: `${id.user}@test.local`,
     });
+    await db.insert(accountOnboardingDrafts).values([
+      {
+        userId: id.user,
+        role: "patient",
+        answersJson: "{}",
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(8),
+        expiresAt: daysAgo(1),
+      },
+      {
+        userId: id.user,
+        role: "professional",
+        answersJson: "{}",
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        expiresAt: new Date(NOW + DAY).toISOString(),
+      },
+    ]);
     await db.insert(professionals).values({
       id: id.pro,
       userId: id.user,
@@ -289,6 +311,14 @@ describe("runRetention (solicitudes 90/180 y chats eternos)", () => {
       where: eq(helpRequests.id, id.recentChat),
     });
     expect(active?.status).toBe("new");
+  });
+
+  it("purga físicamente los borradores vencidos y conserva los vigentes", async () => {
+    const drafts = await db
+      .select()
+      .from(accountOnboardingDrafts)
+      .where(eq(accountOnboardingDrafts.userId, id.user));
+    expect(drafts.map((draft) => draft.role)).toEqual(["professional"]);
   });
 
   it("el cierre de la solicitud NO cierra el chat (es eterno)", async () => {

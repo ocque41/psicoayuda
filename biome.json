@@ -11,6 +11,7 @@
       "!.claude",
       "!_references",
       "!drizzle",
+      "!src/worker-bindings.d.ts",
       "!google-cloud-sdk"
     ]
   },

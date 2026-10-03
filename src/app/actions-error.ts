@@ -28,6 +28,15 @@ function clamp(value: unknown, max: number): string {
  * rate-limit en KV/D1 aquí.
  */
 export async function reportClientError(report: ClientErrorReport) {
+  // Un fallo privado puede contener identificadores o texto de consulta. No
+  // remitirlo al correo/GitHub aunque otro cliente omita la protección de UI.
+  if (
+    typeof report.path === "string" &&
+    /^\/(mi|paciente|pro|admin|c|sesion|acompanamiento|orientacion|empezar)(\/|\?|$)/.test(
+      report.path,
+    )
+  )
+    return;
   const session = await getServerSession().catch(() => null);
   const authenticated = Boolean(session?.user?.id);
   const userLabel = session?.user?.email

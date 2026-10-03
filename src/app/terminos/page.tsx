@@ -5,7 +5,7 @@ import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
 export const metadata: Metadata = {
   title: "Términos de Servicio",
   description:
-    "Términos de uso de Nido, la plataforma gratuita que conecta a personas con apoyo psicológico voluntario y verificado en Venezuela.",
+    "Términos de uso de Nido, la plataforma que conecta a personas con profesionales de psicología y permite organizar el acompañamiento.",
   alternates: { canonical: "/terminos" },
 };
 
@@ -17,11 +17,12 @@ export default function TermsPage() {
     <section className="section">
       <div className="container legal">
         <h1>Términos de Servicio</h1>
-        <p className="muted">Última actualización: 29 de junio de 2026</p>
+        <p className="muted">Última actualización: 2 de octubre de 2026</p>
         <p>
-          Estos términos regulan el uso de Nido, una plataforma gratuita que
-          conecta personas que solicitan apoyo psicológico remoto con
-          profesionales voluntarios verificados.
+          Estos términos regulan el uso de Nido para encontrar profesionales de
+          psicología, contactar con ellos y organizar el acompañamiento. Ayuda
+          Terremoto es un programa separado de acompañamiento voluntario
+          gratuito.
         </p>
         <p>Al usar Nido, aceptas estos términos.</p>
 
@@ -30,9 +31,8 @@ export default function TermsPage() {
           <p>
             <strong>Nido solo conecta.</strong> No presta terapia ni atención
             psicológica y no forma parte de la relación clínica. La atención la
-            brinda, fuera de esta plataforma, la psicóloga o el psicólogo
-            voluntario, que es la única persona responsable de la atención que
-            ofrezca.
+            brinda la psicóloga o el psicólogo elegido, mediante los canales
+            acordados, que es responsable de la atención que ofrezca.
           </p>
           <p>
             Nido es una plataforma de conexión y coordinación. No es un servicio
@@ -41,8 +41,45 @@ export default function TermsPage() {
             psicoterapia formal ni atención presencial.
           </p>
           <p>
-            Nido no cobra a las personas que solicitan ayuda ni a los
-            profesionales voluntarios por participar en la plataforma.
+            El directorio permite iniciar el contacto. Las condiciones de la
+            consulta se acuerdan con el profesional antes de contratarla. El
+            software profesional tiene su propia prueba y suscripción, separada
+            del precio de las sesiones. Ayuda Terremoto no condiciona el
+            acompañamiento a ningún pago.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>Condiciones de sesiones y software</h2>
+          <p>
+            Antes de aceptar un acompañamiento, revisa el importe, moneda,
+            duración, sesiones incluidas, vigencia y condiciones de cancelación
+            acordadas con tu profesional. Si se habilita una suscripción con
+            tarjeta, se indica expresamente su renovación y cómo cancelarla.
+            Cancelar futuras renovaciones no implica el reembolso automático de
+            sesiones ya abonadas. Las ausencias y cambios de fecha no generan
+            penalizaciones automáticas en Nido.
+          </p>
+          <p>
+            Los pagos externos se coordinan directamente con el profesional.
+            Nido registra su confirmación sin custodiar ese dinero. Cuando un
+            cobro por tarjeta esté habilitado para el profesional, lo procesa
+            Stripe; la plataforma no recibe los datos de la tarjeta. Los
+            reembolsos e incidencias requieren revisión y las condiciones
+            acordadas no limitan los derechos legalmente aplicables.
+          </p>
+          <p>
+            La prueba del software profesional dura 90 días desde su activación
+            y no inicia cobros por sí sola. Contratar una suscripción requiere
+            aceptar el importe y la frecuencia. Los servicios de videollamada y
+            captura tienen sus propias condiciones de disponibilidad. Ninguna
+            suscripción garantiza un número de pacientes.
+          </p>
+          <p>
+            Cada profesional debe acreditar su habilitación y verificar las
+            condiciones para atender en el país donde se encuentre el paciente.
+            La atención a menores requiere confirmar la representación y las
+            condiciones de consentimiento aplicables.
           </p>
         </section>
 
@@ -146,11 +183,11 @@ export default function TermsPage() {
         <section className="card">
           <h2>7. Limitación de responsabilidad</h2>
           <p>
-            Nido se ofrece de buena fe como herramienta gratuita de conexión. En
-            la medida permitida por la ley, Nido no se hace responsable por
-            falta de disponibilidad, retrasos, errores, interrupciones,
-            decisiones de profesionales, resultados de conversaciones o acciones
-            tomadas fuera de la plataforma.
+            Nido se ofrece de buena fe como herramienta de conexión y
+            organización. En la medida permitida por la ley, Nido no se hace
+            responsable por falta de disponibilidad, retrasos, errores,
+            interrupciones, decisiones de profesionales, resultados de
+            conversaciones o acciones tomadas fuera de la plataforma.
           </p>
           <p>
             Nada en estos términos excluye responsabilidades que no puedan

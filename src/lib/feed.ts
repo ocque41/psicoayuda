@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/db";
 import { professionals } from "@/db/schema";
@@ -87,6 +87,7 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     supportAreas: string;
     shortBio: string | null;
     photo: string | null;
+    updatedAt: string;
     phone: string | null;
     landline: string | null;
     email: string;
@@ -110,7 +111,11 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
         languages: professionals.languages,
         supportAreas: professionals.supportAreas,
         shortBio: professionals.shortBio,
-        photo: professionals.photo,
+        // No traer blobs de fotos para construir una lista de nombres.
+        photo: sql<
+          string | null
+        >`CASE WHEN ${professionals.photo} LIKE 'data:%' THEN 'data:' ELSE ${professionals.photo} END`,
+        updatedAt: professionals.updatedAt,
         phone: professionals.phone,
         landline: professionals.landline,
         email: professionals.email,
@@ -152,7 +157,10 @@ export async function getFeedProfessionals(): Promise<FeedProfessional[]> {
     languages: parseJsonList(r.languages),
     supportAreas: parseJsonList(r.supportAreas),
     shortBio: r.shortBio,
-    photo: publicPhotoUrl(r.photo, r.id),
+    photo:
+      r.photo === "data:"
+        ? `/foto/${encodeURIComponent(r.id)}?v=${encodeURIComponent(r.updatedAt)}`
+        : publicPhotoUrl(r.photo, r.id),
     phone: r.phone,
     landline: r.landline,
     email: r.email,

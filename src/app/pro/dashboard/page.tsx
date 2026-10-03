@@ -44,6 +44,10 @@ export const metadata: Metadata = {
 
 // Mensaje humano por estado de verificación: nunca mostramos el valor crudo de DB.
 const verificationCopy: Record<string, { title: string; body: string }> = {
+  deleting: {
+    title: "La eliminación necesita completarse",
+    body: "Tu consulta está en pausa mientras se eliminan tus datos. Si el intento anterior no terminó, puedes reintentar desde «Tu cuenta» más abajo.",
+  },
   pending_verification: {
     title: "Estamos verificando tu perfil",
     body: "Una persona del equipo revisará tu credencial y te avisaremos por correo en cuanto esté aprobado. No necesitas hacer nada más.",
@@ -190,9 +194,11 @@ export default async function ProDashboardPage({
           <div className="card">
             <h2>{copy.title}</h2>
             <p>{copy.body}</p>
-            <Link className="button secondary" href="/pro/onboarding">
-              Actualizar mi información
-            </Link>
+            {professional.status !== "deleting" ? (
+              <Link className="button secondary" href="/pro/onboarding">
+                Actualizar mi información
+              </Link>
+            ) : null}
           </div>
           <h2 id="cuenta">Tu cuenta</h2>
           {credentialSection}
@@ -291,6 +297,13 @@ export default async function ProDashboardPage({
     <section className="section">
       <div className="container">
         <h1>{nombrePanel ? `Hola, ${nombrePanel}` : "Tu panel"}</h1>
+        {!professional.nonClinicalHelper ? (
+          <p>
+            <Link className="button human" href="/pro/consulta">
+              Abrir mi consulta · agenda y pacientes
+            </Link>
+          </p>
+        ) : null}
         <div className="panel-chips">
           <span
             className={`panel-chip ${professional.remoteAvailable ? "ok" : "off"}`}

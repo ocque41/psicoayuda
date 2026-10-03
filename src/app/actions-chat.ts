@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { conversations, professionals, seekerSessions } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
+import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
+import { linkPatientConversation } from "@/lib/patient/access";
 import { mintSeekerToken, SEEKER_COOKIE } from "@/lib/seeker-token";
 
 const TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72h
@@ -165,6 +167,10 @@ export async function createConversation(formData: FormData) {
     path: "/",
     maxAge: TOKEN_TTL_MS / 1000,
   });
+
+  const session = await getServerSession();
+  if (session?.user.id)
+    await linkPatientConversation(session.user.id, conversationId, token);
 
   redirect(`/c/${conversationId}`);
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import {
@@ -19,14 +20,14 @@ import {
 // El `canonical` fijo evita que los buscadores indexen las variantes con filtros.
 
 export const metadata: Metadata = {
-  title: "Psicólogas y psicólogos voluntarios en Venezuela",
+  title: "Psicólogas y psicólogos en Venezuela",
   description:
-    "Psicólogas y psicólogos voluntarios verificados en Venezuela. Busca por cómo te sientes, especialidad o nombre y elige con quién hablar. Gratis y a distancia.",
+    "Encuentra profesionales de psicología con perfiles revisados. Busca por lo que necesitas, especialidad o nombre y elige con quién hablar.",
   alternates: { canonical: "/profesionales" },
   openGraph: {
-    title: "Psicólogas y psicólogos voluntarios en Venezuela | Nido",
+    title: "Psicólogas y psicólogos en Venezuela | Nido",
     description:
-      "Psicólogas y psicólogos voluntarios verificados en Venezuela. Busca por cómo te sientes, especialidad o nombre y elige con quién hablar. Gratis y a distancia.",
+      "Encuentra profesionales de psicología con perfiles revisados. Busca por lo que necesitas, especialidad o nombre y elige con quién hablar.",
     url: "/profesionales",
   },
 };
@@ -65,27 +66,25 @@ export default async function ProfesionalesPage({
   return (
     <section className="section">
       <div className="container">
-        <Breadcrumbs
-          trail={[{ name: "Psicólogos voluntarios", path: "/profesionales" }]}
-        />
+        <Breadcrumbs trail={[{ name: "Psicólogos", path: "/profesionales" }]} />
         <DirectoryJsonLd />
         <DirectoryItemListJsonLd path="/profesionales" names={itemNames} />
-        <h1>
-          Psicólogas y psicólogos voluntarios en Venezuela, listos para
-          acompañarte
-        </h1>
+        <h1>Psicólogas y psicólogos en Venezuela, listos para acompañarte</h1>
         <ul className="trust-strip" aria-label="Garantías">
-          <li>Gratis</li>
+          <li>A tu ritmo</li>
           <li>Confidencial</li>
           <li>Sin crear cuenta</li>
-          <li>Verificados</li>
+          <li>Perfiles revisados</li>
         </ul>
         <p className="lead">
-          Psicólogas y psicólogos voluntarios —y también auxiliares no clínicos
-          y organizaciones aliadas— que dan su tiempo para acompañarte, a
-          distancia. Busca por cómo te sientes, por especialidad o servicio, o
-          por nombre; filtra por tipo de apoyo y elige a quien sientas más afín.
-          Y si prefieres no elegir, deja tu mensaje y le llega a todo el equipo.
+          Busca por lo que necesitas, por especialidad o por nombre. Conoce los
+          perfiles, elige con quién hablar y acuerda con esa persona cómo
+          comenzar.
+        </p>
+        <p>
+          <Link className="button secondary" href="/orientacion">
+            No sé a quién elegir
+          </Link>
         </p>
         <EmergencyNotice />
 

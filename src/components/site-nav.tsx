@@ -1,134 +1,212 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
-type SessionUser = { id: string; email: string };
+type SessionUser = { id: string };
 
-/**
- * Navegación de dos modos. Por defecto (carga / sin sesión) muestra el menú
- * público — lo que ve la gente al entrar y lo que indexan los buscadores. Si
- * hay sesión (solo los profesionales inician sesión) cambia al menú profesional.
- *
- * No usa el SDK de Better Auth en el cliente: ese paquete (~10 KB gzip) viajaba
- * en TODAS las páginas y además pedía `/api/auth/get-session` en cada visita,
- * también para quien no tiene sesión. Aquí comprobamos primero si existe la
- * cookie de sesión y solo entonces consultamos el endpoint (mismo JSON), con
- * `fetch` propio. El coste para el visitante anónimo es cero.
- */
+/** Public pages do not load the auth SDK. Protected/account routes resolve the
+ * session once per area; HttpOnly cookies are deliberately never inspected. */
 export function SiteNav() {
+  const pathname = usePathname();
+  const professionalArea =
+    pathname === "/pro" ||
+    pathname.startsWith("/pro/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
+  const patientArea = pathname === "/mi" || pathname.startsWith("/mi/");
+  const accountArea =
+    pathname === "/entrar" ||
+    pathname === "/empezar" ||
+    pathname.startsWith("/empezar/");
+  const needsSession =
+    professionalArea ||
+    patientArea ||
+    accountArea ||
+    pathname.startsWith("/c/") ||
+    pathname.startsWith("/sesion/") ||
+    pathname.startsWith("/acompanamiento/");
   const [session, setSession] = useState<SessionUser | null>(null);
-  const [resolved, setResolved] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [error, setError] = useState("");
+  const sessionVersion = useRef(0);
+  const menuButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    let active = true;
-    // La cookie de sesión de Better Auth se llama `better-auth.session_token`
-    // (con prefijo `__Secure-` en producción). Si no existe, no hay sesión que
-    // resolver: nada de peticiones extra para el visitante anónimo.
-    if (!document.cookie.includes("better-auth")) {
-      setResolved(true);
-      return;
-    }
-    fetch("/api/auth/get-session", { headers: { accept: "application/json" } })
-      .then((res) =>
-        res.ok
-          ? (res.json() as Promise<{ user?: SessionUser }>)
-          : { user: undefined },
-      )
-      .then((data) => {
-        if (!active) return;
-        setSession(data?.user ?? null);
-        setResolved(true);
-      })
-      .catch(() => {
-        if (active) setResolved(true);
-      });
-    return () => {
-      active = false;
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
     };
-  }, []);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
 
-  const isPro = resolved && Boolean(session);
-
-  // Solo con sesión preguntamos al servidor si esta cuenta es admin. La lista de
-  // ADMIN_EMAILS nunca sale al cliente; el endpoint solo devuelve el booleano.
   useEffect(() => {
-    if (!isPro) {
-      setIsAdmin(false);
-      return;
+    const abort = new AbortController();
+    async function resolve() {
+      const version = ++sessionVersion.current;
+      try {
+        const response = await fetch("/api/auth/get-session", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+          signal: abort.signal,
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { user?: SessionUser } | null;
+        if (!abort.signal.aborted && version === sessionVersion.current) {
+          setSession(data?.user ?? null);
+          try {
+            if (data?.user)
+              localStorage.setItem("nido:account:present:v1", "1");
+            else localStorage.removeItem("nido:account:present:v1");
+          } catch {
+            /* Storage is optional; authorization remains on the server. */
+          }
+        }
+      } catch {
+        /* Navigation remains usable if the connection drops. */
+      }
     }
-    let active = true;
-    fetch("/api/admin/status", { headers: { accept: "application/json" } })
-      .then((res) =>
-        res.ok
-          ? (res.json() as Promise<{ isAdmin?: boolean }>)
+    let accountHint = false;
+    try {
+      accountHint = localStorage.getItem("nido:account:present:v1") === "1";
+    } catch {}
+    if (needsSession || accountHint) void resolve();
+    const sessionChanged = () => void resolve();
+    window.addEventListener("nido:session-changed", sessionChanged);
+    return () => {
+      abort.abort();
+      window.removeEventListener("nido:session-changed", sessionChanged);
+    };
+  }, [needsSession]);
+
+  const checkAdmin = Boolean(session) && professionalArea;
+  useEffect(() => {
+    if (!checkAdmin) return;
+    const abort = new AbortController();
+    void fetch("/api/admin/status", {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: abort.signal,
+    })
+      .then((response) =>
+        response.ok
+          ? (response.json() as Promise<{ isAdmin?: boolean }>)
           : { isAdmin: false },
       )
       .then((data) => {
-        if (active) setIsAdmin(Boolean(data.isAdmin));
+        if (!abort.signal.aborted) setIsAdmin(Boolean(data.isAdmin));
       })
-      .catch(() => {
-        if (active) setIsAdmin(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isPro]);
+      .catch(() => {});
+    return () => abort.abort();
+  }, [checkAdmin]);
 
-  if (isPro) {
-    return (
-      <div className="nav-links">
-        <Link href="/pro/dashboard">Perfil</Link>
-        <Link href="/pro/dashboard#chats">Chats</Link>
-        <Link href="/pro/dashboard#contacto">Contacto</Link>
-        {isAdmin ? (
-          <Link
-            href="/admin"
-            style={{
-              background: "var(--accent)",
-              color: "#fff",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Panel admin
+  async function signOut() {
+    setSigningOut(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/sign-out", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error("sign-out");
+      try {
+        localStorage.removeItem("nido:account:present:v1");
+      } catch {}
+      window.location.assign("/");
+    } catch {
+      setError(
+        "No se pudo cerrar la sesión. Revisa tu conexión y vuelve a intentarlo.",
+      );
+      setSigningOut(false);
+    }
+  }
+  const workspaceHref = patientArea
+    ? "/mi"
+    : professionalArea
+      ? "/pro/consulta"
+      : "/empezar";
+  return (
+    <div className="site-navigation">
+      <button
+        type="button"
+        className="site-nav-toggle"
+        ref={menuButton}
+        aria-label={menuOpen ? "Cerrar navegación" : "Abrir navegación"}
+        aria-expanded={menuOpen}
+        aria-controls="site-nav-links"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <span className="site-nav-toggle-icon" aria-hidden="true">
+          <span />
+          <span />
+        </span>
+        <span>Menú</span>
+      </button>
+      <div
+        className={`nav-links${menuOpen ? " is-open" : ""}`}
+        id="site-nav-links"
+      >
+        <Link href="/profesionales" onClick={() => setMenuOpen(false)}>
+          Buscar psicólogo
+        </Link>
+        <Link href="/orientacion" onClick={() => setMenuOpen(false)}>
+          Ayúdame a elegir
+        </Link>
+        {!session ? (
+          <Link href="/para-psicologos" onClick={() => setMenuOpen(false)}>
+            Soy profesional
           </Link>
         ) : null}
-        <button
-          type="button"
-          onClick={() => {
-            fetch("/api/auth/sign-out", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: "{}",
-            }).finally(() => {
-              window.location.href = "/";
-            });
-          }}
-          style={{
-            background: "none",
-            border: "none",
-            padding: "10px 8px",
-            font: "inherit",
-            color: "var(--accent)",
-            cursor: "pointer",
-          }}
-        >
-          Cerrar sesión
-        </button>
+        {session ? (
+          <Link
+            className="site-account-link"
+            href={workspaceHref}
+            onClick={() => setMenuOpen(false)}
+          >
+            {professionalArea ? "Mi consulta" : "Mi espacio"}
+            <span aria-hidden="true">↗</span>
+          </Link>
+        ) : (
+          <Link
+            className="site-account-link"
+            href="/entrar"
+            onClick={() => setMenuOpen(false)}
+          >
+            Ingresar<span aria-hidden="true">↗</span>
+          </Link>
+        )}
+        {isAdmin && checkAdmin ? (
+          <Link
+            href="/admin"
+            className="site-admin-link"
+            onClick={() => setMenuOpen(false)}
+          >
+            Administración
+          </Link>
+        ) : null}
+        {session ? (
+          <button
+            type="button"
+            className="site-signout"
+            onClick={signOut}
+            disabled={signingOut}
+          >
+            {signingOut ? "Cerrando…" : "Cerrar sesión"}
+          </button>
+        ) : null}
+        {error ? (
+          <p className="site-nav-error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
-    );
-  }
-
-  return (
-    <div className="nav-links">
-      <Link href="/ayuda">Pedir ayuda</Link>
-      <Link href="/pro?modo=registro">Soy profesional</Link>
-      <Link href="/recursos">Recursos</Link>
-      <Link href="/pro">Ingresar</Link>
     </div>
   );
 }

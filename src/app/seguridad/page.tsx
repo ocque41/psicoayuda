@@ -15,11 +15,11 @@ export default function Page() {
       <div className="container">
         <h1>Cómo verificamos y cuidamos</h1>
         <p className="lead">
-          Nido conecta a personas en Venezuela con psicólogas y psicólogos
-          voluntarios, de forma gratuita y a distancia. Para que confíes en
-          quien te acompaña, cada profesional pasa una verificación hecha por
-          personas, una a una. Aquí te contamos cómo cuidamos a quien pide ayuda
-          y a quien la ofrece.
+          Nido conecta a personas con profesionales de psicología. Ayuda
+          Terremoto conserva su programa de acompañamiento voluntario gratuito.
+          Para que confíes en quien te acompaña, cada profesional pasa una
+          verificación hecha por personas, una a una. Aquí te contamos cómo
+          cuidamos a quien pide ayuda y a quien la ofrece.
         </p>
 
         <ul className="trust-strip" aria-label="Nuestros cuidados">

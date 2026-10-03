@@ -7,6 +7,7 @@ import {
   auditLogs,
   conversations,
   helpRequests,
+  practiceSettings,
   professionals,
   seekerSessions,
 } from "@/db/schema";
@@ -14,6 +15,7 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { needLabels, urgencyLabels } from "@/lib/constants";
 import { newId, nowIso } from "@/lib/ids";
 import { notifyProfessionalNewOffer } from "@/lib/notifications";
+import { insideWorkHours } from "@/lib/practice/domain";
 import { mintSeekerToken } from "@/lib/seeker-token";
 
 const TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72h
@@ -38,13 +40,37 @@ export async function offerRequestToProfessionals(
     .from(professionals)
     .where(
       and(
+        inArray(professionals.id, professionalIds),
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
         eq(professionals.remoteAvailable, true),
         sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
       ),
     );
-  const eligibleIds = new Set(eligible.map((p) => p.id));
+  const schedules =
+    process.env.NIDO_PRACTICE_ENABLED === "true"
+      ? await db
+          .select()
+          .from(practiceSettings)
+          .where(inArray(practiceSettings.professionalId, professionalIds))
+      : [];
+  const byProfessional = new Map(schedules.map((s) => [s.professionalId, s]));
+  const eligibleIds = new Set(
+    eligible
+      .filter((p) => {
+        const schedule = byProfessional.get(p.id);
+        return (
+          !schedule ||
+          insideWorkHours(
+            Date.now(),
+            schedule.timeZone,
+            schedule.workStart,
+            schedule.workEnd,
+          )
+        );
+      })
+      .map((p) => p.id),
+  );
   const targets = professionalIds.filter((id) => eligibleIds.has(id));
   if (targets.length === 0) return 0;
 

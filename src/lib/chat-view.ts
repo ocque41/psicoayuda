@@ -105,16 +105,14 @@ export async function loadChatView(
   const seekerRaw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (seekerRaw) {
     const payload = verifySeekerToken(seekerRaw, getAuthSecret(), Date.now());
-    if (
-      payload &&
-      payload.conversationId === conversationId &&
-      payload.sid === conversation.seekerSid
-    ) {
+    if (payload && payload.conversationId === conversationId) {
       const sessionRow = await db.query.seekerSessions.findFirst({
         where: eq(seekerSessions.sid, payload.sid),
       });
       isSeeker =
         !!sessionRow &&
+        sessionRow.conversationId === conversationId &&
+        sessionRow.role === "seeker" &&
         !sessionRow.revokedAt &&
         sessionRow.expiresAt.getTime() > Date.now();
     }

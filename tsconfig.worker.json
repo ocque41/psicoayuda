@@ -10,6 +10,7 @@
   },
   "include": [
     "src/cloudflare-env.d.ts",
+    "src/worker-bindings.d.ts",
     "custom-worker.ts",
     "src/server/**/*.ts",
     "src/shared/**/*.ts",

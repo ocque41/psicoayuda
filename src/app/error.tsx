@@ -1,16 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { reportClientError } from "@/app/actions-error";
 import { readLastAction } from "@/components/last-action-tracker";
 
 export default function ErrorBoundary({
   error,
+  reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname();
+  const privatePage =
+    pathname === "/orientacion" ||
+    pathname === "/pro" ||
+    /^\/(mi|paciente|empezar|entrar|pro|admin|c|sesion|acompanamiento)(\/|$)/.test(
+      pathname || "",
+    );
   useEffect(() => {
     // Auto-recuperación de "chunk viejo": tras un deploy, un tab abierto con el
     // bundle anterior puede pedir al navegar (clic en un Link) un chunk que ese
@@ -36,6 +45,9 @@ export default function ErrorBoundary({
       }
     }
 
+    // No transmite rutas, búsquedas o errores de espacios sensibles a terceros.
+    if (privatePage) return;
+
     // Deduplica por sesión: si el usuario reintenta o un bug se repite, no
     // inundamos el buzón de los admins con el mismo error en la misma ruta.
     const key = `nido:err:${error.digest ?? error.message}:${location.pathname}`;
@@ -53,22 +65,29 @@ export default function ErrorBoundary({
       userAgent: navigator.userAgent,
       lastAction: readLastAction(),
     }).catch(() => {});
-  }, [error]);
+  }, [error, privatePage]);
 
   return (
     <section className="section">
       <div className="container">
         <h1>Algo salió mal</h1>
         <p className="lead">
-          Tuvimos un problema técnico y ya avisamos al equipo. No es culpa tuya
-          y sigues a un paso de recibir apoyo.
+          No pudimos cargar esta pantalla. Puedes reintentarlo; si acababas de
+          guardar un cambio, comprueba su resultado antes de repetirlo.
         </p>
         <p>
-          <Link className="button human" href="/ayuda">
-            Pedir ayuda psicológica gratis
-          </Link>{" "}
-          <Link className="button secondary" href="/">
-            Volver al inicio
+          <button className="button human" type="button" onClick={reset}>
+            Volver a cargar
+          </button>{" "}
+          <Link
+            className="button secondary"
+            href={
+              pathname?.startsWith("/pro/") ? "/pro/consulta" : "/profesionales"
+            }
+          >
+            {pathname?.startsWith("/pro/")
+              ? "Volver a mi consulta"
+              : "Buscar profesional"}
           </Link>
         </p>
         <p className="muted">

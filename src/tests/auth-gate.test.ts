@@ -123,6 +123,7 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
           revoked_at: null,
           expires_at: now + 1000,
           status: "open",
+          deleted_at: null,
           anonymized_at: null,
         },
         now,
@@ -137,6 +138,7 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
           revoked_at: now - 1,
           expires_at: now + 1000,
           status: "open",
+          deleted_at: null,
           anonymized_at: null,
         },
         now,
@@ -151,6 +153,7 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
           revoked_at: null,
           expires_at: now,
           status: "open",
+          deleted_at: null,
           anonymized_at: null,
         },
         now,
@@ -165,6 +168,7 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
           revoked_at: null,
           expires_at: now + 1000,
           status: "closed",
+          deleted_at: null,
           anonymized_at: null,
         },
         now,
@@ -176,6 +180,7 @@ describe("seekerSessionAllows (kill-switch de WebSocket)", () => {
           revoked_at: null,
           expires_at: now + 1000,
           status: "closed",
+          deleted_at: null,
           anonymized_at: now - 1,
         },
         now,
@@ -188,6 +193,7 @@ describe("seekerCanSend (lectura vs escritura)", () => {
   const base = {
     revoked_at: null,
     expires_at: Date.now() + 1000,
+    deleted_at: null,
     anonymized_at: null,
   };
   it("escribir solo con conversación abierta", () => {
@@ -210,6 +216,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "open",
         professional_status: "approved",
+        deleted_at: null,
         anonymized_at: null,
       }),
     ).toBe(true);
@@ -220,6 +227,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "closed",
         professional_status: "approved",
+        deleted_at: null,
         anonymized_at: null,
       }),
     ).toBe(true);
@@ -227,6 +235,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "closed",
         professional_status: "approved",
+        deleted_at: null,
         anonymized_at: 1,
       }),
     ).toBe(false);
@@ -237,6 +246,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
       professionalConnectionAllows({
         conversation_status: "open",
         professional_status: "suspended",
+        deleted_at: null,
         anonymized_at: null,
       }),
     ).toBe(false);
@@ -250,6 +260,7 @@ describe("professionalCanSend (lectura vs escritura)", () => {
       professionalCanSend({
         conversation_status: "open",
         professional_status: "approved",
+        deleted_at: null,
         anonymized_at: null,
       }),
     ).toBe(true);
@@ -257,6 +268,7 @@ describe("professionalCanSend (lectura vs escritura)", () => {
       professionalCanSend({
         conversation_status: "closed",
         professional_status: "approved",
+        deleted_at: null,
         anonymized_at: null,
       }),
     ).toBe(false);

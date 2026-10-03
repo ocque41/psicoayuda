@@ -95,16 +95,14 @@ async function resolveActor(
   const raw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (raw) {
     const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
-    if (
-      payload &&
-      payload.conversationId === conversation.id &&
-      payload.sid === conversation.seekerSid
-    ) {
+    if (payload && payload.conversationId === conversation.id) {
       const sessionRow = await db.query.seekerSessions.findFirst({
         where: eq(seekerSessions.sid, payload.sid),
       });
       const valid =
         !!sessionRow &&
+        sessionRow.conversationId === conversation.id &&
+        sessionRow.role === "seeker" &&
         !sessionRow.revokedAt &&
         sessionRow.expiresAt.getTime() > Date.now();
       if (valid) seekerSid = payload.sid;
@@ -207,6 +205,8 @@ export async function renewSeekerChatToken(
   if (
     !session ||
     session.revokedAt ||
+    session.role !== "seeker" ||
+    session.expiresAt.getTime() <= Date.now() ||
     session.conversationId !== conversationId
   ) {
     return { ok: false };

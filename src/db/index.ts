@@ -30,7 +30,9 @@ async function getD1Database() {
     return undefined;
   }
 
-  return (await getCloudflareContext({ async: true })).env.DB;
+  const database = (await getCloudflareContext({ async: true })).env.DB;
+  if (!database) throw new Error("Falta el binding D1 de la aplicación.");
+  return database;
 }
 
 async function getLocalClient() {

@@ -69,6 +69,17 @@ describe("correos de credenciales", () => {
     expect(correo.text).toContain("Si no hiciste este cambio");
   });
 
+  it("una revocación no confirmada no afirma que las sesiones se cerraron", () => {
+    const correo = buildPasswordChangedEmail({
+      dashboardUrl: "https://saludmental-venezuela.com/mi/ajustes",
+      otherSessionsRevoked: false,
+    });
+    expect(correo.html).toContain("No pudimos confirmar el cierre");
+    expect(correo.text).toContain("No pudimos confirmar el cierre");
+    expect(correo.text).not.toContain("cerramos las demás sesiones");
+    expect(correo.text).not.toContain("voluntario, gratis");
+  });
+
   it("teléfonos: lista los nuevos números", () => {
     const correo = buildPhoneChangedEmail({
       dashboardUrl: "https://saludmental-venezuela.com/pro/dashboard",

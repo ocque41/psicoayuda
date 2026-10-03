@@ -8,11 +8,11 @@ import { formatEuros, sessionPackageSchema } from "@/lib/payments/packages";
 
 describe("configuración de pagos", () => {
   afterEach(() => {
-    delete process.env.NIDO_PLATFORM_FEE_CENTS;
+    Reflect.deleteProperty(process.env, "NIDO_PLATFORM_FEE_CENTS");
   });
 
-  it("la comisión por defecto es 5 € (500 céntimos)", () => {
-    expect(getPlatformFeeCents()).toBe(500);
+  it("no cobra comisión por defecto: el ingreso principal es el software", () => {
+    expect(getPlatformFeeCents()).toBe(0);
   });
 
   it("permite ajustar la comisión por entorno", () => {
@@ -22,7 +22,7 @@ describe("configuración de pagos", () => {
 
   it("ignora valores inválidos y vuelve al default", () => {
     process.env.NIDO_PLATFORM_FEE_CENTS = "no-es-un-numero";
-    expect(getPlatformFeeCents()).toBe(500);
+    expect(getPlatformFeeCents()).toBe(0);
   });
 
   it("países soportados por Stripe Connect (español → ISO)", () => {

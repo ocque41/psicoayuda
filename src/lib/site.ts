@@ -30,14 +30,14 @@ export const SITE_LANG = "es";
  * "ayuda psicológica venezuela" sin perder calidez.
  */
 export const SITE_TITLE_DEFAULT =
-  "Ayuda psicológica gratis en Venezuela | Salud mental | Nido";
+  "Ayuda psicológica en Venezuela | Encuentra tu psicólogo | Nido";
 
 /** Plantilla de título para páginas internas. */
 export const SITE_TITLE_TEMPLATE = "%s | Nido";
 
 /** Descripción por defecto (~155 caracteres para no truncar en Google). */
 export const SITE_DESCRIPTION =
-  "Ayuda psicológica gratis y a distancia en Venezuela, también tras los terremotos. Psicólogos voluntarios verificados, confidencial y sin crear cuenta.";
+  "Encuentra apoyo psicológico en Venezuela. Explora perfiles revisados, elige con quién hablar y empieza a tu ritmo, sin crear cuenta para contactar.";
 
 /**
  * Palabras clave objetivo. Google ya no usa la meta keywords para ranking,
@@ -99,43 +99,28 @@ export function absoluteUrl(path = "/"): string {
  */
 export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   {
-    question: "¿Es normal sentirme mal después del terremoto?",
+    question: "¿Nido atiende emergencias?",
     answer:
-      "Sí. Tras un terremoto es muy común sentir miedo, ansiedad, tristeza, insomnio, irritabilidad o revivir lo ocurrido una y otra vez. Son reacciones normales ante una situación que no fue normal, y para la mayoría de las personas mejoran con apoyo y tiempo. Si te cuesta sobrellevarlo, hablar con un profesional voluntario puede ayudar; puedes escribirnos gratis y sin crear cuenta.",
+      "No contamos con atención de emergencias en tiempo real. Si hay peligro inmediato, busca ayuda presencial o los servicios de emergencia de tu ubicación. La página de emergencia reúne recursos de apoyo.",
   },
   {
-    question: "¿La ayuda psicológica es realmente gratis?",
+    question: "¿Cómo encuentro un profesional?",
     answer:
-      "Sí: la ayuda por el terremoto es gratis, siempre. Nido es un proyecto sin fines de lucro y las personas voluntarias donan su tiempo. Además, algunos profesionales ofrecen servicios pagos por otros temas (fuera de la emergencia): si eso pasa, te lo dicen con claridad y tú decides, sin ninguna presión. Por la ayuda de la emergencia nunca se te pide pago.",
+      "Explora el directorio por áreas de apoyo e idiomas. Si necesitas orientación para elegir, responde unas preguntas breves y revisa los perfiles sugeridos.",
   },
   {
-    question: "¿Cómo puedo hablar con un psicólogo gratis en Venezuela?",
+    question: "¿Necesito crear una cuenta para contactar?",
     answer:
-      "Tienes dos formas, ambas gratis y sin crear cuenta: cuentas en un formulario breve cómo estás y una persona voluntaria verificada te escribe a tu correo para acompañarte a distancia; o entras al directorio de psicólogas y psicólogos voluntarios y eliges tú con quién hablar. Todo ocurre en línea, así que funciona desde cualquier estado de Venezuela.",
+      "No. Puedes iniciar el contacto desde el perfil del profesional. Guarda tu enlace de acceso para volver a la conversación.",
   },
   {
-    question: "¿Necesito crear una cuenta o dar mi identidad?",
+    question: "¿Cómo funciona Ayuda Terremoto?",
     answer:
-      "No. Para pedir apoyo no necesitas crear una cuenta ni dar tu nombre, cédula o ubicación exacta. Solo pedimos un correo de contacto para que una persona voluntaria pueda escribirte.",
+      "Es un programa separado de acompañamiento voluntario gratuito para personas afectadas por el terremoto, según disponibilidad. Puedes solicitarlo desde Ayuda Terremoto.",
   },
   {
-    question: "¿Atienden en toda Venezuela?",
+    question: "¿Qué hace el orientador?",
     answer:
-      "Sí. La atención es a distancia (en línea), así que llega a cualquier estado de Venezuela —Caracas, Maracaibo, Valencia, Barquisimeto, Maracay y el resto del país— e incluso a personas venezolanas en el exterior. Solo necesitas conexión a internet o un correo electrónico.",
-  },
-  {
-    question: "¿Es confidencial?",
-    answer:
-      "Sí. Tu mensaje solo lo ven el equipo de coordinación y, si corresponde, la persona voluntaria que te acompañe. No vendemos datos, no hacemos publicidad y pedimos la mínima información necesaria.",
-  },
-  {
-    question: "¿Quiénes son los psicólogos voluntarios?",
-    answer:
-      "Son profesionales de la psicología que se registran, aceptan un código de conducta y pasan una verificación de credenciales antes de poder recibir solicitudes. Acompañan gratis la emergencia; algunos ofrecen también servicios pagos por otros temas, siempre avisándote antes y sin condicionar la ayuda gratuita.",
-  },
-  {
-    question: "¿Esto reemplaza una terapia o una emergencia?",
-    answer:
-      "No. Nido es apoyo emocional de acompañamiento, no un servicio de emergencias ni un sustituto de la atención médica o psicoterapia formal. Si estás en peligro inmediato, llama a los servicios de emergencia locales o busca ayuda presencial ahora mismo.",
+      "Ayuda a explorar perfiles según tus preferencias. No diagnostica ni sustituye una valoración profesional. Si hay peligro inmediato, busca ayuda presencial o los servicios de emergencia de tu ubicación.",
   },
 ];

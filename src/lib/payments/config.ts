@@ -7,10 +7,9 @@ import "server-only";
 
 export const PACKAGE_CURRENCY = "eur" as const;
 
-// La comisión de Nido es un importe FIJO por transacción (no un porcentaje), por
-// decisión de producto: 5 € por paquete. Configurable por var de entorno para no
-// requerir despliegue si cambia.
-const DEFAULT_PLATFORM_FEE_CENTS = 500;
+// El modelo principal cobra el software al profesional. Sin comisión de Nido
+// por defecto; una comisión existente solo se aplica si se configura explícitamente.
+const DEFAULT_PLATFORM_FEE_CENTS = 0;
 
 export function getPlatformFeeCents(): number {
   const raw = process.env.NIDO_PLATFORM_FEE_CENTS;
@@ -45,10 +44,8 @@ export function webhookConfigured(): boolean {
   return paymentsConfigured() && getStripeWebhookSecret() !== null;
 }
 
-// La cuenta de la plataforma es de EE. UU.; los destinatarios de Stripe Connect
-// deben estar en un país soportado (Venezuela NO lo está, ni como comercio ni
-// como destinatario). Mapa nombre en español (src/lib/constants.ts `countries`)
-// → código ISO-3166 alfa-2 que espera Stripe.
+// Mapa de países: identifica códigos, NO garantiza un corredor Connect.
+// El flujo real debe confirmarse con Stripe para el país de la plataforma.
 export const STRIPE_COUNTRY_CODES: Readonly<Record<string, string>> = {
   Albania: "AL",
   Alemania: "DE",
@@ -152,7 +149,50 @@ export const STRIPE_COUNTRY_CODES: Readonly<Record<string, string>> = {
 };
 
 export function isStripeSupportedCountry(country: string | null): boolean {
-  return country !== null && country in STRIPE_COUNTRY_CODES;
+  if (!country || !(country in STRIPE_COUNTRY_CODES)) return false;
+  const configured = process.env.NIDO_CONNECT_COUNTRIES?.split(",")
+    .map((v) => v.trim().toUpperCase())
+    .filter(Boolean);
+  // Corredores conservadores del autoservicio publicado; nunca presume Venezuela.
+  const allowed = configured?.length
+    ? configured
+    : [
+        "ES",
+        "US",
+        "GB",
+        "CA",
+        "CH",
+        "DE",
+        "FR",
+        "IT",
+        "PT",
+        "NL",
+        "BE",
+        "AT",
+        "IE",
+        "FI",
+        "SE",
+        "DK",
+        "PL",
+        "CZ",
+        "EE",
+        "LV",
+        "LT",
+        "LU",
+        "MT",
+        "CY",
+        "GR",
+        "HR",
+        "HU",
+        "RO",
+        "BG",
+        "SI",
+        "SK",
+        "IS",
+        "LI",
+        "NO",
+      ];
+  return allowed.includes(STRIPE_COUNTRY_CODES[country]);
 }
 
 export function stripeCountryCode(country: string | null): string | null {

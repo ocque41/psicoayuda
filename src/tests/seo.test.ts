@@ -1,8 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
+import { GuideJsonLd } from "@/components/structured-data";
 import {
   absoluteUrl,
   HOME_FAQ,
@@ -57,6 +60,9 @@ describe("SEO — robots.txt", () => {
       "/api/",
       "/pro/dashboard",
       "/pro/onboarding",
+      "/mi",
+      "/empezar",
+      "/entrar",
       "/ayuda/gracias",
     ]) {
       expect(disallow).toContain(path);
@@ -134,6 +140,21 @@ describe("SEO — contenido y datos estructurados de la portada", () => {
   const home = read("src/app/page.tsx");
   const structured = read("src/components/structured-data.tsx");
 
+  it("serializa nombres públicos sin permitir cerrar el script JSON-LD", () => {
+    const name = '</script><script>alert("perfil")</script>';
+    const html = renderToStaticMarkup(
+      createElement(GuideJsonLd, {
+        path: "/recursos",
+        name,
+        description: "Ejemplo ficticio",
+      }),
+    );
+    expect(html.match(/<script/g)).toHaveLength(1);
+    const json = html.match(/>(.*)<\/script>/)?.[1];
+    expect(json).toBeTruthy();
+    expect(JSON.parse(json || "{}").name).toBe(name);
+  });
+
   it("optimiza el H1 con la consulta objetivo", () => {
     const h1 = home.match(/<h1>([\s\S]*?)<\/h1>/);
     expect(h1).not.toBeNull();
@@ -148,7 +169,7 @@ describe("SEO — contenido y datos estructurados de la portada", () => {
   });
 
   it("declara los tipos de schema.org esperados (YMYL)", () => {
-    expect(structured).toContain('"@type": "NGO"');
+    expect(structured).toContain('"@type": "Organization"');
     expect(structured).toContain('"@type": "WebSite"');
     expect(structured).toContain('"@type": "Service"');
     expect(structured).toContain('"@type": "FAQPage"');

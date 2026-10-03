@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -48,6 +49,7 @@ import {
   reopenConversation,
 } from "./actions";
 import styles from "./chat.module.css";
+import { nextHistorySyncCursor } from "./chat-history";
 import { E2eeRestorePanel } from "./e2ee-restore-panel";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
@@ -56,6 +58,34 @@ type ConnStatus = "connecting" | "online" | "offline" | "error";
 // cerrar, pero con caducidad para que no quede indefinidamente en un dispositivo
 // compartido (la sala ya está gateada por cookie, pero esto acota el residuo).
 const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const FOLLOW_BOTTOM_DISTANCE = 96;
+
+type ReadingAnchor = { seq: string; offset: number };
+type DecryptionContext = {
+  identity: ConversationIdentity | null;
+  conversationId: string;
+  slot: string;
+  role: SenderRole;
+};
+
+function readingAnchor(el: HTMLElement): ReadingAnchor | null {
+  const rows = el.querySelectorAll<HTMLElement>("[data-message-seq]");
+  const top = el.getBoundingClientRect().top;
+  // Las filas están ordenadas: localizar la primera visible evita medir todo
+  // el historial en cada scroll, incluso después de cargar varias páginas.
+  let low = 0;
+  let high = rows.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (rows[middle].getBoundingClientRect().bottom <= top) low = middle + 1;
+    else high = middle;
+  }
+  const row = rows[low];
+  const seq = row?.dataset.messageSeq;
+  return row && seq
+    ? { seq, offset: row.getBoundingClientRect().top - top }
+    : null;
+}
 
 type Pending = { clientMsgId: string; content: string; envelope: string };
 
@@ -174,6 +204,7 @@ export function ChatRoom({
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
   const router = useRouter();
 
   // ---- E2EE: identidad local, clave de la contraparte y estado de los sobres.
@@ -193,6 +224,9 @@ export function ChatRoom({
 
   const wsRef = useRef<WebSocket | null>(null);
   const lastSeqRef = useRef(0);
+  const pendingSyncCursorRef = useRef<number | null>(null);
+  const lastReadSentRef = useRef(0);
+  const acknowledgeVisibleRef = useRef<() => void>(() => {});
   const pendingRef = useRef<Pending[]>([]);
   const proReadyRef = useRef(false);
   const seekerReadyRef = useRef(false);
@@ -200,13 +234,18 @@ export function ChatRoom({
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const identityRef = useRef<ConversationIdentity | null>(null);
   const historyStatsSetRef = useRef(false);
   const decryptingRef = useRef(new Set<string>());
+  const decryptionContextRef = useRef<DecryptionContext | null>(null);
   const migrateTriedRef = useRef(new Set<string>());
-  const keepScrollRef = useRef(false);
-  const prevScrollHeightRef = useRef(0);
+  const followingBottomRef = useRef(true);
+  const forceBottomRef = useRef(false);
+  const readingAnchorRef = useRef<ReadingAnchor | null>(null);
+  const pageScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const observedSeqRef = useRef(0);
 
   const slot = role === "professional" ? PRO_SLOT : seekerSlot(conversationId);
 
@@ -217,6 +256,21 @@ export function ChatRoom({
   useEffect(() => {
     identityRef.current = identity;
   }, [identity]);
+
+  useLayoutEffect(() => {
+    const context = { identity, conversationId, slot, role };
+    decryptionContextRef.current = context;
+    decryptingRef.current = new Set();
+    // Una clave/contexto distinto no hereda plaintext de la época anterior.
+    setDecrypted((previous) =>
+      Object.keys(previous).length > 0 ? {} : previous,
+    );
+    return () => {
+      if (decryptionContextRef.current === context) {
+        decryptionContextRef.current = null;
+      }
+    };
+  }, [identity, conversationId, slot, role]);
 
   // Borrador del compositor: sobrevive a cerrar la pestaña, en este dispositivo.
   // El historial ya vive en el servidor; esto solo cuida lo aún no enviado.
@@ -364,6 +418,17 @@ export function ChatRoom({
     return false;
   }, []);
 
+  const requestSync = useCallback(() => {
+    const previous = pendingSyncCursorRef.current;
+    const cursor = previous ?? lastSeqRef.current;
+    // Mantener la página pendiente también al reconectar: la foto reciente
+    // puede haber adelantado lastSeq sin que el tramo intermedio haya llegado.
+    pendingSyncCursorRef.current = cursor;
+    if (!sendRaw({ type: "sync", sinceSeq: cursor })) {
+      pendingSyncCursorRef.current = previous;
+    }
+  }, [sendRaw]);
+
   // Publica la clave pública E2EE de este dispositivo (idempotente) para que la
   // contraparte pueda cifrar. Se repite en cada reconexión.
   const publishKey = useCallback(() => {
@@ -385,6 +450,49 @@ export function ChatRoom({
 
   const e2eeReady = identity !== null && peerKey !== null;
 
+  const acknowledgeVisibleMessages = useCallback(() => {
+    const el = listRef.current;
+    if (
+      !el ||
+      !identity ||
+      restoreNeeded ||
+      backupCode !== null ||
+      document.visibilityState !== "visible" ||
+      document.querySelector("dialog[open]") ||
+      !followingBottomRef.current ||
+      el.scrollHeight - el.clientHeight - el.scrollTop > FOLLOW_BOTTOM_DISTANCE
+    ) {
+      return;
+    }
+    for (let index = confirmed.length - 1; index >= 0; index -= 1) {
+      const message = confirmed[index];
+      if (message.seq <= lastReadSentRef.current) return;
+      if (message.senderRole === role) continue;
+      if (
+        isEnvelope(message.content) &&
+        typeof decrypted[message.serverId] !== "string"
+      ) {
+        continue;
+      }
+      if (sendRaw({ type: "read", upToSeq: message.seq })) {
+        lastReadSentRef.current = message.seq;
+      }
+      return;
+    }
+  }, [
+    confirmed,
+    decrypted,
+    identity,
+    restoreNeeded,
+    backupCode,
+    role,
+    sendRaw,
+  ]);
+
+  useLayoutEffect(() => {
+    acknowledgeVisibleRef.current = acknowledgeVisibleMessages;
+  }, [acknowledgeVisibleMessages]);
+
   const handleFrame = useCallback(
     (raw: unknown) => {
       if (typeof raw !== "string") return;
@@ -397,6 +505,16 @@ export function ChatRoom({
 
       switch (frame.type) {
         case "history": {
+          if (frame.mode === "page" && listRef.current) {
+            // Tomar la posición al recibir la página, no al pedirla: la persona
+            // puede seguir desplazándose mientras espera la red.
+            const el = listRef.current;
+            pageScrollRef.current = {
+              height: el.scrollHeight,
+              top: el.scrollTop,
+            };
+            readingAnchorRef.current = readingAnchor(el);
+          }
           setConfirmed((prev) => mergeBySeq(prev, frame.messages));
           for (const m of frame.messages) {
             if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
@@ -414,9 +532,14 @@ export function ChatRoom({
             setLoadingOlder(false);
           } else if (frame.mode !== "sync") {
             setHasOlder(frame.hasMore);
-          } else if (frame.hasMore && frame.messages.length > 0) {
-            // Se quedaron mensajes nuevos fuera del sync: pide el resto.
-            sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+          } else {
+            const cursor = nextHistorySyncCursor(frame);
+            pendingSyncCursorRef.current = cursor;
+            if (cursor !== null) {
+              // El history inicial puede haber adelantado el máximo global:
+              // continuar desde esta página evita dejar un hueco en el medio.
+              requestSync();
+            }
           }
           break;
         }
@@ -426,8 +549,6 @@ export function ChatRoom({
           if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
           if (m.senderRole !== role) {
             setOtherTyping(false);
-            // Acuse de lectura para la otra parte.
-            sendRaw({ type: "read", upToSeq: m.seq });
           }
           break;
         }
@@ -464,7 +585,13 @@ export function ChatRoom({
           if (frame.from !== role) setOtherTyping(frame.isTyping);
           break;
         case "presence":
-          if (frame.role !== role) setOtherOnline(frame.online);
+          if (frame.role !== role) {
+            if (frame.online) {
+              lastReadSentRef.current = 0;
+              requestAnimationFrame(() => acknowledgeVisibleRef.current());
+            }
+            setOtherOnline(frame.online);
+          }
           break;
         case "read":
           setOtherReadSeq((prev) => Math.max(prev, frame.upToSeq));
@@ -474,39 +601,60 @@ export function ChatRoom({
           break;
       }
     },
-    [role, sendRaw],
+    [role, requestSync],
   );
 
   // Descifra los sobres que van llegando (historial, sync, mensajes nuevos).
   useEffect(() => {
     if (!identity) return;
+    const context = decryptionContextRef.current;
+    if (
+      !context ||
+      context.identity !== identity ||
+      context.conversationId !== conversationId ||
+      context.role !== role ||
+      context.slot !== slot
+    ) {
+      return;
+    }
+    const inFlight = decryptingRef.current;
     const missing = confirmed.filter(
       (m) =>
         isEnvelope(m.content) &&
         !(m.serverId in decrypted) &&
-        !decryptingRef.current.has(m.serverId),
+        !inFlight.has(m.serverId),
     );
     if (missing.length === 0) return;
-    let cancelled = false;
+    // Reservar todo el lote antes del primer await evita volver a descifrar
+    // mensajes en paralelo al llegar otra página o mensaje.
+    for (const message of missing) inFlight.add(message.serverId);
     void (async () => {
-      const updates: Record<string, string | null> = {};
-      for (const m of missing) {
-        decryptingRef.current.add(m.serverId);
-        updates[m.serverId] = await openEnvelope({
-          identity,
-          conversationId,
-          senderRole: m.senderRole,
-          content: m.content,
-        });
-      }
-      if (!cancelled) {
-        setDecrypted((prev) => ({ ...prev, ...updates }));
+      try {
+        const updates: Record<string, string | null> = {};
+        for (const message of missing) {
+          if (decryptionContextRef.current !== context) return;
+          try {
+            updates[message.serverId] = await openEnvelope({
+              identity,
+              conversationId,
+              senderRole: message.senderRole,
+              content: message.content,
+            });
+          } catch {
+            updates[message.serverId] = null;
+          }
+        }
+        if (decryptionContextRef.current === context) {
+          setDecrypted((previous) => ({ ...previous, ...updates }));
+        }
+      } finally {
+        // Limpiar el set capturado, nunca el lock de una nueva identidad.
+        for (const message of missing) inFlight.delete(message.serverId);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [confirmed, identity, conversationId, decrypted]);
+    // Cambiar confirmed/decrypted no invalida resultados de la misma época.
+    // El contexto se invalida al cambiar clave/sala/rol o desmontar la sala.
+  }, [confirmed, identity, conversationId, decrypted, role, slot]);
 
   // Re-cifra el historial legado (texto plano) con la clave de la conversación.
   // Lotes pequeños (tope del frame) con pausa para no chocar con el anti-flood.
@@ -590,11 +738,13 @@ export function ChatRoom({
       ws.onopen = () => {
         if (cancelled) return;
         attempts = 0;
+        lastReadSentRef.current = 0;
+        requestAnimationFrame(() => acknowledgeVisibleRef.current());
         setConn("online");
         // Publica la clave pública E2EE de este dispositivo (idempotente) y
         // recupera lo que se haya perdido; reenvía pendientes (dedup por id).
         publishKey();
-        sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+        requestSync();
         for (const p of pendingRef.current) {
           ws.send(
             JSON.stringify({
@@ -609,7 +759,7 @@ export function ChatRoom({
         // cualquier mensaje que se haya perdido.
         if (heartbeat) clearInterval(heartbeat);
         heartbeat = setInterval(() => {
-          sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+          requestSync();
         }, 30000);
       };
 
@@ -626,6 +776,8 @@ export function ChatRoom({
       ws.onclose = () => {
         if (cancelled) return;
         if (heartbeat) clearInterval(heartbeat);
+        // Una página sin respuesta puede volver a solicitarse al reconectar.
+        setLoadingOlder(false);
         setConn("offline");
         const base = Math.min(15000, 500 * 2 ** attempts);
         const delay = base / 2 + Math.random() * (base / 2);
@@ -646,45 +798,129 @@ export function ChatRoom({
         // noop
       }
     };
-  }, [conversationId, role, writeAsPersona, sendRaw, handleFrame, publishKey]);
+  }, [
+    conversationId,
+    role,
+    writeAsPersona,
+    handleFrame,
+    publishKey,
+    requestSync,
+  ]);
 
-  // Auto-scroll al final cuando llegan o salen mensajes; al paginar hacia atrás
-  // se conserva la posición para que el salto no maree.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll al cambiar mensajes
-  useEffect(() => {
+  // Seguir el final solo cuando ya se estaba allí o se acaba de enviar.
+  // El ancla conserva el mensaje leído al descifrar/prepender historial;
+  // «está escribiendo» y los reintentos nunca fuerzan un salto.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cambios de altura al descifrar o mostrar escritura deben conservar el ancla
+  useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    if (keepScrollRef.current) {
-      el.scrollTop = el.scrollHeight - prevScrollHeightRef.current;
-      keepScrollRef.current = false;
-      prevScrollHeightRef.current = 0;
-      return;
+    const newestSeq = confirmed[confirmed.length - 1]?.seq ?? 0;
+    const addedByOther =
+      newestSeq > observedSeqRef.current
+        ? confirmed.filter(
+            (message) =>
+              message.seq > observedSeqRef.current &&
+              message.senderRole !== role,
+          ).length
+        : 0;
+    observedSeqRef.current = Math.max(observedSeqRef.current, newestSeq);
+    const pageScroll = pageScrollRef.current;
+    pageScrollRef.current = null;
+
+    if (forceBottomRef.current || (followingBottomRef.current && !pageScroll)) {
+      el.scrollTop = el.scrollHeight;
+      followingBottomRef.current = true;
+      forceBottomRef.current = false;
+      readingAnchorRef.current = null;
+      setNewMessageCount(0);
+    } else {
+      const anchor = readingAnchorRef.current;
+      const row = anchor
+        ? el.querySelector<HTMLElement>(`[data-message-seq="${anchor.seq}"]`)
+        : null;
+      if (anchor && row) {
+        el.scrollTop +=
+          row.getBoundingClientRect().top -
+          el.getBoundingClientRect().top -
+          anchor.offset;
+      } else if (pageScroll) {
+        el.scrollTop = pageScroll.top + el.scrollHeight - pageScroll.height;
+      }
+      followingBottomRef.current =
+        el.scrollHeight - el.clientHeight - el.scrollTop <=
+        FOLLOW_BOTTOM_DISTANCE;
+      readingAnchorRef.current = readingAnchor(el);
+      if (followingBottomRef.current) {
+        setNewMessageCount(0);
+      } else if (addedByOther > 0) {
+        setNewMessageCount((count) => count + addedByOther);
+      }
     }
+  }, [
+    confirmed,
+    pending,
+    otherTyping,
+    decrypted,
+    restoreNeeded,
+    hasOlder,
+    migrating,
+    role,
+  ]);
+
+  // Confirmar lectura tras el commit y el descifrado. Recibir bytes por WS no
+  // implica que el mensaje ya esté visible (pestaña oculta, modal o historial).
+  useEffect(() => {
+    const frame = requestAnimationFrame(acknowledgeVisibleMessages);
+    return () => cancelAnimationFrame(frame);
+  }, [acknowledgeVisibleMessages]);
+
+  function onHistoryScroll() {
+    const el = listRef.current;
+    if (!el) return;
+    followingBottomRef.current =
+      el.scrollHeight - el.clientHeight - el.scrollTop <=
+      FOLLOW_BOTTOM_DISTANCE;
+    readingAnchorRef.current = followingBottomRef.current
+      ? null
+      : readingAnchor(el);
+    if (followingBottomRef.current) {
+      setNewMessageCount(0);
+      acknowledgeVisibleMessages();
+    }
+  }
+
+  function jumpToLatest() {
+    const el = listRef.current;
+    if (!el) return;
+    // Salto explícito e inmediato: tampoco introduce movimiento forzado con
+    // movimiento reducido. El foco vuelve al historial que se acaba de abrir.
     el.scrollTop = el.scrollHeight;
-  }, [confirmed, pending, otherTyping]);
+    followingBottomRef.current = true;
+    readingAnchorRef.current = null;
+    setNewMessageCount(0);
+    el.focus({ preventScroll: true });
+    acknowledgeVisibleMessages();
+  }
 
   // Al volver a la pestaña, pedir de inmediato lo que se haya perdido mientras
   // estuvo en segundo plano (en vez de esperar al próximo latido).
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState === "visible") {
-        sendRaw({ type: "sync", sinceSeq: lastSeqRef.current });
+        requestSync();
+        acknowledgeVisibleMessages();
       }
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [sendRaw]);
+  }, [requestSync, acknowledgeVisibleMessages]);
 
   const loadOlder = useCallback(() => {
-    const el = listRef.current;
     const oldest = confirmed[0]?.seq;
     if (!oldest || loadingOlder) return;
-    keepScrollRef.current = true;
-    prevScrollHeightRef.current = el?.scrollHeight ?? 0;
     setLoadingOlder(true);
     if (!sendRaw({ type: "history-page", beforeSeq: oldest })) {
       setLoadingOlder(false);
-      keepScrollRef.current = false;
     }
   }, [confirmed, loadingOlder, sendRaw]);
 
@@ -708,6 +944,8 @@ export function ChatRoom({
     const content = draft.trim();
     if (!content || content.length > MAX_MESSAGE_LENGTH) return;
     if (!identity || !peerKey) return;
+    const context = decryptionContextRef.current;
+    if (!context || context.identity !== identity) return;
     setSendError("");
     let envelope: string;
     try {
@@ -719,13 +957,18 @@ export function ChatRoom({
         plaintext: content,
       });
     } catch {
-      setSendError("No pudimos cifrar el mensaje en este dispositivo.");
+      if (decryptionContextRef.current === context) {
+        setSendError("No pudimos cifrar el mensaje en este dispositivo.");
+      }
       return;
     }
+    // No encolar ni enviar un sobre creado para una clave/sala/rol anterior.
+    if (decryptionContextRef.current !== context) return;
     const clientMsgId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    forceBottomRef.current = true;
     setPending((prev) => [...prev, { clientMsgId, content, envelope }]);
     setDraft("");
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -872,91 +1115,116 @@ export function ChatRoom({
           </div>
         ) : (
           <>
-            <div className={styles.messages} ref={listRef}>
-              {hasOlder ? (
-                <button
-                  type="button"
-                  className={styles.loadOlder}
-                  onClick={loadOlder}
-                  disabled={loadingOlder}
-                  aria-busy={loadingOlder}
-                >
-                  {loadingOlder ? "Cargando…" : "Cargar mensajes anteriores"}
-                </button>
-              ) : null}
+            <div className={styles.messageArea}>
+              <section
+                className={styles.messages}
+                ref={listRef}
+                onScroll={onHistoryScroll}
+                aria-label="Historial de mensajes"
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: el historial desplazable necesita foco para leerlo con teclado
+                tabIndex={0}
+              >
+                {hasOlder ? (
+                  <button
+                    type="button"
+                    className={styles.loadOlder}
+                    onClick={loadOlder}
+                    disabled={loadingOlder}
+                    aria-busy={loadingOlder}
+                  >
+                    {loadingOlder ? "Cargando…" : "Cargar mensajes anteriores"}
+                  </button>
+                ) : null}
 
-              {migrating ? (
-                <p className={styles.migrating}>
-                  Cifrando el historial anterior…
-                </p>
-              ) : null}
+                {migrating ? (
+                  <p className={styles.migrating}>
+                    Cifrando el historial anterior…
+                  </p>
+                ) : null}
 
-              {confirmed.length === 0 && pending.length === 0 ? (
-                <p className={styles.empty}>
-                  {role === "professional"
-                    ? "Aquí verás los mensajes de la persona. Escribe para romper el hielo."
-                    : "Este es un espacio privado. Escribe cuando te sientas listo/a."}
-                </p>
-              ) : null}
+                {confirmed.length === 0 && pending.length === 0 ? (
+                  <p className={styles.empty}>
+                    {role === "professional"
+                      ? "Aquí verás los mensajes de la persona. Escribe para romper el hielo."
+                      : "Este es un espacio privado. Escribe cuando te sientas listo/a."}
+                  </p>
+                ) : null}
 
-              {confirmed.map((m) => {
-                const mine = m.senderRole === role;
-                return (
+                {confirmed.map((m) => {
+                  const mine = m.senderRole === role;
+                  return (
+                    <div
+                      key={m.serverId}
+                      data-message-seq={m.seq}
+                      className={`${styles.row} ${mine ? styles.mine : styles.theirs}`}
+                    >
+                      <div>
+                        <div
+                          className={`${styles.bubble} ${
+                            mine ? styles.bubbleMine : styles.bubbleTheirs
+                          }`}
+                        >
+                          {messageText(m)}
+                        </div>
+                        <div
+                          className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
+                        >
+                          <span>{formatTime(m.serverTs)}</span>
+                          {mine && m.seq === lastReadMineSeq ? (
+                            <span>Leído</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {pending.map((p) => (
                   <div
-                    key={m.serverId}
-                    className={`${styles.row} ${mine ? styles.mine : styles.theirs}`}
+                    key={p.clientMsgId}
+                    className={`${styles.row} ${styles.mine} ${styles.pending}`}
                   >
                     <div>
-                      <div
-                        className={`${styles.bubble} ${
-                          mine ? styles.bubbleMine : styles.bubbleTheirs
-                        }`}
-                      >
-                        {messageText(m)}
+                      <div className={`${styles.bubble} ${styles.bubbleMine}`}>
+                        {p.content}
                       </div>
-                      <div
-                        className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
-                      >
-                        <span>{formatTime(m.serverTs)}</span>
-                        {mine && m.seq === lastReadMineSeq ? (
-                          <span>Leído</span>
-                        ) : null}
+                      <div className={styles.meta}>
+                        <span>
+                          {conn === "online"
+                            ? "Enviando…"
+                            : "Sin conexión · se enviará al reconectar"}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.retry}
+                          onClick={() => retry(p.clientMsgId)}
+                        >
+                          Reintentar
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                ))}
 
-              {pending.map((p) => (
-                <div
-                  key={p.clientMsgId}
-                  className={`${styles.row} ${styles.mine} ${styles.pending}`}
-                >
-                  <div>
-                    <div className={`${styles.bubble} ${styles.bubbleMine}`}>
-                      {p.content}
-                    </div>
-                    <div className={styles.meta}>
-                      <span>
-                        {conn === "online"
-                          ? "Enviando…"
-                          : "Sin conexión · se enviará al reconectar"}
-                      </span>
-                      <button
-                        type="button"
-                        className={styles.retry}
-                        onClick={() => retry(p.clientMsgId)}
-                      >
-                        Reintentar
-                      </button>
-                    </div>
+                {otherTyping ? (
+                  <div className={styles.typing}>
+                    {otherName} está escribiendo…
                   </div>
-                </div>
-              ))}
-
-              {otherTyping ? (
-                <div className={styles.typing}>
-                  {otherName} está escribiendo…
+                ) : null}
+              </section>
+              {newMessageCount > 0 ? (
+                <div className={styles.newMessages}>
+                  <span className={styles.newMessageAnnouncement} role="status">
+                    {newMessageCount === 1
+                      ? "Tienes un mensaje nuevo."
+                      : `Tienes ${newMessageCount} mensajes nuevos.`}
+                  </span>
+                  <button type="button" onClick={jumpToLatest}>
+                    {newMessageCount === 1
+                      ? "Nuevo mensaje"
+                      : `${newMessageCount} mensajes nuevos`}
+                    <span aria-hidden="true"> ↓</span>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -993,6 +1261,7 @@ export function ChatRoom({
                   </details>
                 ) : null}
                 <textarea
+                  ref={composerRef}
                   className={styles.textarea}
                   value={draft}
                   onChange={(e) => onDraftChange(e.target.value)}
@@ -1078,6 +1347,7 @@ export function ChatRoom({
         <E2eeBackupModal
           code={backupCode}
           onClose={() => setBackupCode(null)}
+          returnFocusRef={composerRef}
         />
       ) : null}
     </>

@@ -4,6 +4,7 @@ import { and, eq, isNotNull, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   accessRequests,
+  accountOnboardingDrafts,
   auditLogs,
   conversations,
   helpRequests,
@@ -247,6 +248,12 @@ export async function runRetention(now: number = Date.now()) {
     .where(
       lt(accessRequests.createdAt, new Date(now - ACCESS_REQUESTS_TTL_MS)),
     );
+
+  // Los borradores de preferencias caducan físicamente, además de ocultarse
+  // al leerlos. Nunca contienen credenciales ni narrativas clínicas.
+  await db
+    .delete(accountOnboardingDrafts)
+    .where(lte(accountOnboardingDrafts.expiresAt, new Date(now).toISOString()));
 
   // 6) Purga DEFINITIVA de la papelera vencida: el borrado con deshacer dura 7
   // días; al vencer, el contenido (cifrado de extremo a extremo) se borra del

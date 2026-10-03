@@ -60,6 +60,23 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
+  const trackingPage = typeof body.page === "string" ? body.page : "";
+  if (
+    [
+      "/admin",
+      "/pro/",
+      "/c/",
+      "/sesion/",
+      "/acompanamiento/",
+      "/orientacion",
+      "/mi",
+      "/paciente",
+      "/empezar",
+      "/entrar",
+    ].some((prefix) => trackingPage.startsWith(prefix))
+  )
+    return new NextResponse(null, { status: 204 });
+
   const type = clean(body.type, MAX.type);
   if (!type) return new NextResponse(null, { status: 204 });
 

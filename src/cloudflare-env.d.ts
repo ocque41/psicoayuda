@@ -1,7 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 declare global {
-  interface CloudflareEnv {
+  interface CloudflareEnv extends Partial<WorkerBindings> {
     DB?: D1Database;
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_URL?: string;
@@ -23,6 +23,16 @@ declare global {
     STRIPE_SECRET_KEY?: string;
     STRIPE_WEBHOOK_SECRET?: string;
     NIDO_PLATFORM_FEE_CENTS?: string;
+    NIDO_PRACTICE_ENABLED?: string;
+    SUPPORT_EMAILS?: string;
+    CREDENTIAL_REVIEWER_EMAILS?: string;
+    NIDO_MEMBERSHIP_BILLING_ENABLED?: string;
+    NIDO_CARE_BILLING_ENABLED?: string;
+    NIDO_CONNECT_COUNTRIES?: string;
+    DAILY_API_KEY?: string;
+    NIDO_CALL_CAPTURE_ENABLED?: string;
+    NIDO_CALL_CAPTURE_POLICY_URL?: string;
+    NIDO_NOTES_ENCRYPTION_KEY?: string;
   }
 }
 

@@ -65,6 +65,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+const professionalStateLabels: Record<string, string> = {
+  pending_verification: "Pendiente de revisión",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  suspended: "Suspendido",
+  deleting: "Eliminación pendiente",
+};
+
 // Cap the help-request page so its cost stays flat as historical rows grow.
 const REQUESTS_PAGE_SIZE = 25;
 const requestStatusOptions = [
@@ -432,7 +440,10 @@ export default async function AdminPage({
                     <span className="muted">{professional.licenseCountry}</span>
                   </td>
                   <td data-label="Correo">{professional.email}</td>
-                  <td data-label="Estado">{professional.status}</td>
+                  <td data-label="Estado">
+                    {professionalStateLabels[professional.status] ||
+                      "Pendiente de revisión"}
+                  </td>
                   <td data-label="Tipo">
                     <form action={adminSetProfessionalKind}>
                       <input
@@ -529,13 +540,26 @@ export default async function AdminPage({
                         type="hidden"
                         value={professional.id}
                       />
-                      <select name="status" defaultValue={professional.status}>
+                      <select
+                        name="status"
+                        defaultValue={professional.status}
+                        disabled={professional.status === "deleting"}
+                      >
+                        {professional.status === "deleting" ? (
+                          <option value="deleting">
+                            Eliminación pendiente
+                          </option>
+                        ) : null}
                         <option value="pending_verification">Pendiente</option>
                         <option value="approved">Aprobar</option>
                         <option value="rejected">Rechazar</option>
                         <option value="suspended">Suspender</option>
                       </select>{" "}
-                      <button className="button secondary" type="submit">
+                      <button
+                        className="button secondary"
+                        type="submit"
+                        disabled={professional.status === "deleting"}
+                      >
                         Guardar
                       </button>
                     </form>

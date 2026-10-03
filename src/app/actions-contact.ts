@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { auditLogs, contactMessages, professionals } from "@/db/schema";
@@ -134,10 +134,7 @@ export async function createProfessionalContactMessage(
     }
 
     const professional = await db.query.professionals.findFirst({
-      where: and(
-        eq(professionals.userId, session.user.id),
-        eq(professionals.status, "approved"),
-      ),
+      where: eq(professionals.userId, session.user.id),
     });
     if (!professional) {
       return {

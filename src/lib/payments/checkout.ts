@@ -4,7 +4,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { conversations, payments } from "@/db/schema";
 import { newId, nowIso } from "@/lib/ids";
-import { getPlatformFeeCents, PACKAGE_CURRENCY } from "@/lib/payments/config";
+import {
+  getPlatformFeeCents,
+  isStripeSupportedCountry,
+  PACKAGE_CURRENCY,
+} from "@/lib/payments/config";
 import { getPayablePackage } from "@/lib/payments/packages";
 import { getStripe } from "@/lib/payments/stripe";
 
@@ -41,7 +45,10 @@ export async function createPackageCheckout(input: {
     };
   }
   const { pkg, professional } = payable;
-  if (!professional.stripeAccountId) {
+  if (
+    !professional.stripeAccountId ||
+    !isStripeSupportedCountry(professional.country)
+  ) {
     return {
       ok: false,
       message: "El profesional aún no tiene sus cobros activos.",
@@ -64,9 +71,20 @@ export async function createPackageCheckout(input: {
         eq(conversations.id, input.conversationId),
         eq(conversations.professionalId, professional.id),
       ),
-      columns: { id: true },
+      columns: { id: true, helpRequestId: true },
     });
-    conversationId = conversation?.id ?? null;
+    if (!conversation)
+      return {
+        ok: false,
+        message: "La conversación no corresponde a este profesional.",
+      };
+    if (conversation.helpRequestId)
+      return {
+        ok: false,
+        message:
+          "La ayuda por el terremoto no permite cobros. Acuerda cualquier consulta independiente por separado.",
+      };
+    conversationId = conversation.id;
   }
 
   const paymentId = newId("pay");

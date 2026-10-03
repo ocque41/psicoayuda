@@ -10,7 +10,7 @@ import { absoluteUrl } from "@/lib/site";
 export default function sitemap(): MetadataRoute.Sitemap {
   // Fecha de última actualización relevante del sitio (guías, buscador, etc.).
   // Actualízala cuando cambie contenido: es señal de frescura para Google.
-  const lastModified = new Date("2026-07-01");
+  const lastModified = new Date("2026-10-02");
 
   const routes: Array<{
     path: string;
@@ -18,6 +18,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
   }> = [
     { path: "/", priority: 1, changeFrequency: "weekly" },
+    { path: "/orientacion", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/para-psicologos", priority: 0.8, changeFrequency: "monthly" },
     { path: "/ayuda", priority: 0.9, changeFrequency: "monthly" },
     { path: "/profesionales", priority: 0.9, changeFrequency: "daily" },
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },

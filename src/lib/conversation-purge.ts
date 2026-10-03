@@ -1,12 +1,15 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   assignments,
   auditLogs,
   conversations,
   helpRequests,
+  patientConversationLinks,
+  patientSessionRequests,
+  practicePatients,
   professionals,
   responseSamples,
   seekerSessions,
@@ -114,31 +117,59 @@ export async function finalizeConversationPurge(
         }
       }
     }
-  } else if (!conversation.quotaReleasedAt) {
-    // Chat directo que aún ocupaba cupo: se libera al borrarlo de verdad.
-    await db
+  }
+
+  // Hijos primero, en la misma transacción que el padre: el proxy local puede
+  // ejecutar con foreign_keys=OFF y un fallo no debe dejar limpieza parcial.
+  const [, , , , , , , deleted] = await db.batch([
+    // CAS contra el estado actual. changes() solo puede liberar el cupo cuando
+    // esta transacción lo reclama; reintentos y llamadas simultáneas no restan.
+    db
+      .update(conversations)
+      .set({ quotaReleasedAt: new Date(timestamp), updatedAt: timestamp })
+      .where(
+        and(
+          eq(conversations.id, conversation.id),
+          eq(conversations.professionalId, conversation.professionalId),
+          isNull(conversations.helpRequestId),
+          isNull(conversations.quotaReleasedAt),
+          conversation.helpRequestId === null ? undefined : sql`0 = 1`,
+        ),
+      ),
+    db
       .update(professionals)
       .set({
         currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
         updatedAt: timestamp,
       })
-      .where(eq(professionals.id, conversation.professionalId));
-  }
-
-  const deleted = await db
-    .delete(conversations)
-    .where(eq(conversations.id, conversation.id))
-    .returning({ id: conversations.id });
-  if (deleted.length === 0) return "gone";
-
-  await db.batch([
+      .where(
+        and(
+          eq(professionals.id, conversation.professionalId),
+          sql`changes() = 1`,
+        ),
+      ),
+    db
+      .delete(patientSessionRequests)
+      .where(eq(patientSessionRequests.conversationId, conversation.id)),
+    db
+      .delete(patientConversationLinks)
+      .where(eq(patientConversationLinks.conversationId, conversation.id)),
     db
       .delete(seekerSessions)
       .where(eq(seekerSessions.conversationId, conversation.id)),
     db
       .delete(responseSamples)
       .where(eq(responseSamples.conversationId, conversation.id)),
+    db
+      .update(practicePatients)
+      .set({ conversationId: null })
+      .where(eq(practicePatients.conversationId, conversation.id)),
+    db
+      .delete(conversations)
+      .where(eq(conversations.id, conversation.id))
+      .returning({ id: conversations.id }),
   ]);
+  if (deleted.length === 0) return "gone";
 
   await db.insert(auditLogs).values({
     id: newId("log"),

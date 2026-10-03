@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,11 +8,12 @@ import {
   type ExistingProfessional,
   ProfessionalOnboardingForm,
 } from "@/components/professional-onboarding-form";
-import { RegistroPasos } from "@/components/registro-pasos";
 import { db } from "@/db";
-import { professionals } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
+import { practiceSettings, professionals } from "@/db/schema";
+import { requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
+import { readOnboardingDraft } from "@/lib/onboarding/drafts";
+import { requirePracticeStaff } from "@/lib/practice/staff";
 
 export const metadata: Metadata = {
   title: "Tu información profesional",
@@ -38,13 +39,35 @@ export default async function ProOnboardingPage({
   if (!session?.user?.email) redirect("/pro");
   // Los admins no son profesionales: no pasan por el onboarding. Como el callback
   // de login apunta aquí, este es el chokepoint que los desvía a su panel.
-  if (isAdminEmail(session.user.email)) redirect("/admin");
+  if (await requireAdmin()) redirect("/admin");
+  if (
+    (await requirePracticeStaff("support")) ||
+    (await requirePracticeStaff("credentials"))
+  )
+    redirect("/admin/operaciones");
 
   // Si ya hay perfil, el formulario se PRECARGA con sus datos: editar nunca
   // debe partir de un formulario en blanco (machacaba el perfil con vacíos).
   const profile = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
+    columns: { registrationProofDoc: false },
+    extras: {
+      hasProof:
+        sql<boolean>`coalesce(length(${professionals.registrationProofDoc}), 0) > 0`
+          .mapWith(Boolean)
+          .as("has_proof"),
+    },
   });
+  const [draft, settings] = await Promise.all([
+    readOnboardingDraft(session.user.id, "pro"),
+    profile
+      ? db
+          .select({ timeZone: practiceSettings.timeZone })
+          .from(practiceSettings)
+          .where(eq(practiceSettings.professionalId, profile.id))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
   const { conversion } = await searchParams;
 
   const existing: ExistingProfessional | null = profile
@@ -73,6 +96,10 @@ export default async function ProOnboardingPage({
         landline: profile.landline,
         contactEmail: profile.contactEmail,
         contactNotes: profile.contactNotes,
+        registrationType: profile.registrationType,
+        registrationDetail: profile.registrationDetail,
+        hasRegistrationProof: profile.hasProof,
+        timezone: settings[0]?.timeZone ?? null,
       }
     : null;
 
@@ -93,10 +120,12 @@ export default async function ProOnboardingPage({
                 ← Volver a tu panel
               </Link>
             </p>
-            <h1>Edita tu información</h1>
+            <h1>Tu perfil, a tu ritmo</h1>
             <p className="muted">
               Tus datos actuales ya están cargados: cambia lo que necesites y
-              guarda. Tus casos, chats y estado no se tocan.
+              guarda al terminar. Si cambias una credencial, el equipo revisará
+              de nuevo tu perfil y los países de atención. Las conversaciones y
+              el historial se conservan.
             </p>
           </>
         ) : (
@@ -106,13 +135,12 @@ export default async function ProOnboardingPage({
                 ← Volver al inicio
               </Link>
             </p>
-            <RegistroPasos actual={2} />
-            <h1>Ya casi: completa tu perfil</h1>
+            <h1>Prepara tu consulta en Nido</h1>
             <p className="muted">
-              Son 5 secciones cortas (unos 4 minutos). Al guardar, tu ficha
-              aparece en el directorio y ya puedes recibir solicitudes. Si
-              añades tu credencial, el equipo la revisa y suma el sello de
-              verificación a tu ficha.
+              Una pregunta a la vez. Guardamos tu progreso básico en tu cuenta
+              durante siete días. Los documentos y datos de credenciales se
+              envían al terminar; después, una persona del equipo revisa tu
+              incorporación.
             </p>
           </>
         )}
@@ -120,6 +148,7 @@ export default async function ProOnboardingPage({
           email={session.user.email}
           name={session.user.name}
           existing={existing}
+          draft={draft}
         />
         <AccountActions />
       </div>

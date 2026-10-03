@@ -1,7 +1,7 @@
 {
   "name": "nido",
   "version": "0.7.2",
-  "description": "Nido — Spanish-first app that connects people who need psychological support with verified volunteer professionals.",
+  "description": "Nido — Plataforma en español para encontrar apoyo psicológico y organizar la consulta profesional.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -41,7 +41,8 @@
     "test": "vitest run",
     "test:workers": "vitest run --config vitest.workers.config.mts",
     "test:chat-e2e": "node test/run-chat-e2e.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:isolated": "node scripts/test-isolated.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

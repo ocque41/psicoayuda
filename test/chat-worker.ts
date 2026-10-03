@@ -17,6 +17,10 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/internal/chat-event") {
+      if (request.method !== "POST")
+        return new Response("Método no permitido", { status: 405 });
+      if (request.headers.get("x-nido-internal") !== env.INTERNAL_NOTIFY_SECRET)
+        return new Response("Sin autorización", { status: 401 });
       recorded.push(await request.json());
       return Response.json({ ok: true });
     }

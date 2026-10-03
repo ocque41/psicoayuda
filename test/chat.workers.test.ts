@@ -1,6 +1,6 @@
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { getServerByName } from "partyserver";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   mintProfessionalToken,
   mintSeekerToken,
@@ -139,6 +139,44 @@ async function readMeta(
   });
 }
 
+type InternalChatEvent = {
+  kind: string;
+  conversationId: string;
+  lastMessageAt?: number;
+  lastMessageRole?: string;
+  responseDeltaMs?: number;
+};
+async function internalCalls(conversationId: string) {
+  const response = await SELF.fetch("https://internal.test/__nido-calls");
+  const calls = await response.json<InternalChatEvent[]>();
+  return calls.filter((call) => call.conversationId === conversationId);
+}
+
+// El fetch global del DO no se dirige a SELF automáticamente. La URL ficticia
+// nunca debe salir a DNS/red: este interceptor recorre el handler de prueba real
+// y permite comprobar la entrega, no solo la intención guardada en meta.
+beforeAll(() => {
+  vi.stubGlobal(
+    "fetch",
+    async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
+      if (
+        url.origin === "https://internal.test" &&
+        url.pathname === "/api/internal/chat-event"
+      )
+        return SELF.fetch(request);
+      throw new Error(
+        `Salida de red inesperada en la prueba: ${url.origin}${url.pathname}`,
+      );
+    },
+  );
+});
+afterAll(() => vi.unstubAllGlobals());
+
 describe("chat Durable Object (runtime de Workers)", () => {
   it("rechaza conexiones sin token o de otra sala (403)", async () => {
     expect((await connect("conv_auth", null)).status).toBe(403);
@@ -221,6 +259,29 @@ describe("chat Durable Object (runtime de Workers)", () => {
     expect(msg2.message.senderRole).toBe("professional");
     expect(msg2.message.seq).toBe(2);
 
+    await expect
+      .poll(() => internalCalls(conv))
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "message-meta",
+            conversationId: conv,
+            lastMessageRole: "seeker",
+            lastMessageAt: expect.any(Number),
+          }),
+          expect.objectContaining({
+            kind: "message-meta",
+            conversationId: conv,
+            lastMessageRole: "professional",
+            lastMessageAt: expect.any(Number),
+          }),
+          expect.objectContaining({
+            kind: "response-sample",
+            conversationId: conv,
+            responseDeltaMs: expect.any(Number),
+          }),
+        ]),
+      );
     seeker.close();
     pro.close();
   });
@@ -298,7 +359,54 @@ describe("chat Durable Object (runtime de Workers)", () => {
     await settle();
     expect(await readMeta(conv, "first_pro_reply_at")).not.toBeNull();
 
+    await expect
+      .poll(() => internalCalls(conv))
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "notify-message",
+            conversationId: conv,
+          }),
+          expect.objectContaining({
+            kind: "response-sample",
+            conversationId: conv,
+            responseDeltaMs: expect.any(Number),
+          }),
+          expect.objectContaining({
+            kind: "message-meta",
+            conversationId: conv,
+            lastMessageRole: "professional",
+          }),
+        ]),
+      );
     seeker.close();
+    pro.close();
+  });
+
+  it("entrega el aviso al paciente desconectado sin enviar contenido del mensaje", async () => {
+    const conv = "conv_notify_seeker";
+    const pro = await open(conv, proCookie(conv));
+    await pro.waitFor("history");
+    pro.send({
+      type: "send",
+      clientMsgId: "offline_seeker_1",
+      content: "Mensaje ficticio que debe permanecer en el DO",
+    });
+    await pro.waitFor("ack");
+    await expect
+      .poll(() => internalCalls(conv))
+      .toEqual(
+        expect.arrayContaining([
+          { kind: "notify-seeker", conversationId: conv },
+          expect.objectContaining({
+            kind: "message-meta",
+            conversationId: conv,
+            lastMessageRole: "professional",
+          }),
+        ]),
+      );
+    const callbacks = await internalCalls(conv);
+    expect(JSON.stringify(callbacks)).not.toContain("Mensaje ficticio");
     pro.close();
   });
 

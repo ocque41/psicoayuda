@@ -13,7 +13,7 @@ import {
 import { getAuthSecret } from "@/lib/auth-secret";
 
 const mocks = vi.hoisted(() => ({
-  notifySeekerAccessLinks: vi.fn(async () => undefined),
+  notifySeekerAccessLinks: vi.fn(async (_input: unknown) => undefined),
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),

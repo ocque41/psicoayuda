@@ -49,8 +49,8 @@ function CategoryBlock({ category }: { category: EmergencyCategory }) {
 
 /**
  * Recurso PRIORITARIO (la categoría con `priority`) en una caja roja destacada, para que
- * salte a la vista arriba del todo. El halo titilante vive en CSS
- * (`.emergency-priority`) y se detiene bajo `prefers-reduced-motion`. Si no hay
+ * salte a la vista arriba del todo. El halo estático vive en CSS
+ * (`.emergency-priority`). Si no hay
  * categoría prioritaria, no renderiza nada.
  */
 export function EmergencyPriorityBar() {

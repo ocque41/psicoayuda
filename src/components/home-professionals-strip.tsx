@@ -17,7 +17,7 @@ export function HomeProfessionalsStrip({
 }) {
   return (
     <ul
-      aria-label="Psicólogas y psicólogos voluntarios"
+      aria-label="Psicólogas y psicólogos"
       className="professionals-carousel"
       // tabIndex=0: Firefox y Safari no hacen enfocables por teclado los
       // contenedores con overflow; sin esto no se podría desplazar con teclado

@@ -59,7 +59,21 @@ function classify(
   // El panel contiene correos y datos operativos. No medimos acciones del admin:
   // además de no aportar a las conversiones públicas, guardarlas copiaría PII en
   // la tabla de analítica, cuyo contrato es explícitamente "sin PII".
-  if (location.pathname.startsWith("/admin")) return null;
+  if (
+    [
+      "/admin",
+      "/pro/",
+      "/c/",
+      "/sesion/",
+      "/acompanamiento/",
+      "/orientacion",
+      "/mi",
+      "/paciente",
+      "/empezar",
+      "/entrar",
+    ].some((prefix) => location.pathname.startsWith(prefix))
+  )
+    return null;
 
   const trackable = el.closest<HTMLElement>(
     "a, button, [role='button'], [data-track]",

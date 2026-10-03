@@ -133,7 +133,9 @@ export default {
     const path =
       controller.cron === "0 3 * * *"
         ? "/api/internal/retention"
-        : "/api/internal/click-report";
+        : controller.cron === "*/5 * * * *"
+          ? "/api/internal/practice"
+          : "/api/internal/click-report";
     const task = handler
       .fetch(
         new Request(`${base}${path}`, {
@@ -143,8 +145,10 @@ export default {
         env,
         ctx,
       )
-      .then(() => undefined)
-      .catch(() => undefined);
+      .then((response: Response) => {
+        if (!response.ok)
+          throw new Error(`Internal scheduled job failed (${response.status})`);
+      });
     ctx.waitUntil(task);
     await task;
   },

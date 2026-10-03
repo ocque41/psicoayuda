@@ -1,357 +1,261 @@
 import Link from "next/link";
-import {
-  EmergencyPriorityBar,
-  EmergencyResourcesDirectory,
-} from "@/components/emergency-resources";
 import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
-import { PartnersCarousel } from "@/components/partners-carousel";
 import { HomeJsonLd } from "@/components/structured-data";
+import { WorkspaceIcon } from "@/components/workspace/icon";
+import { ProductPreview } from "@/components/workspace/product-preview";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { HOME_FAQ } from "@/lib/site";
 
-// La portada muestra a las personas voluntarias verificadas (lista pública, sin
-// datos confidenciales). ISR: la copia se cachea en KV 5 min y el orden rota en
-// cada regeneración; cuando cambia el directorio, `revalidateTag`/`revalidatePath`
-// de las server actions la refresca al instante (el TTL es solo el máximo de
-// antigüedad y mantiene bajas las escrituras de KV en el plan gratuito).
 export const revalidate = 300;
-
 export default async function HomePage() {
   const professionals = await getCachedFeedProfessionals();
-  // Carrusel de la portada: mismo desplazamiento manual que el de aliados;
-  // mostramos hasta 9 para no alargar la sección. El resto en /profesionales.
-  const featured = professionals.slice(0, 9);
+  const localCatalogFirst = process.env.NIDO_LOCAL_CATALOG_FIRST === "true";
+  const principles = (
+    <section
+      className="marketing-principles"
+      aria-label="Un acompañamiento a tu medida"
+    >
+      <div className="container">
+        <span>Personas primero.</span>
+        <p>Tú eliges con quién hablar.</p>
+        <p>Tu historia tiene su propio ritmo.</p>
+        <p>Un próximo paso a la vez.</p>
+      </div>
+    </section>
+  );
   return (
-    <>
-      <section className="hero">
-        <div className="container">
-          <EmergencyPriorityBar />
-          <p className="eyebrow">Tras los terremotos del 24 de junio de 2026</p>
-          <h1>
-            Ayuda psicológica gratis en Venezuela, también tras los terremotos
-          </h1>
-          <ul className="trust-strip" aria-label="Garantías">
-            <li>Gratis en la emergencia</li>
-            <li>Confidencial</li>
-            <li>Sin crear cuenta</li>
-            <li>Voluntarios verificados</li>
-          </ul>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Quiero que me acompañen
-            </Link>{" "}
-            <Link className="button secondary" href="/psicologos">
-              Soy profesional voluntario/a
-            </Link>
-          </p>
-          <p className="safety-note">
-            Nido no es un servicio de emergencias. Si tú o alguien corre peligro
-            inmediato o necesita atención médica urgente, llama al{" "}
-            <strong>911</strong> (línea única nacional de emergencias) o busca
-            ayuda presencial ahora mismo.{" "}
-            <Link href="/emergencia">Más líneas de ayuda y qué hacer →</Link>
-          </p>
+    <div className="nido-marketing">
+      <section className="marketing-hero">
+        <div className="container marketing-hero-grid">
+          <div className="marketing-hero-copy">
+            <p className="eyebrow">
+              <span className="marketing-live-dot" aria-hidden="true" />
+              Un lugar para empezar
+            </p>
+            <h1>
+              Ayuda psicológica en Venezuela.
+              <br />
+              <span>A tu ritmo.</span>
+            </h1>
+            <p className="lead">
+              No tienes que tener todas las respuestas para dar el primer paso.
+              Encuentra a alguien que pueda escucharte y acompañarte.
+            </p>
+            <div className="marketing-hero-actions">
+              <Link className="button" href="/profesionales">
+                Encontrar mi psicólogo<span aria-hidden="true">↗</span>
+              </Link>
+              <Link className="marketing-text-link" href="/orientacion">
+                Ayúdame a elegir<span aria-hidden="true">→</span>
+              </Link>
+            </div>
+            <div className="marketing-trust">
+              <span>
+                <WorkspaceIcon name="profile" />
+                Perfiles revisados
+              </span>
+              <span>
+                <WorkspaceIcon name="message" />
+                Conversaciones privadas
+              </span>
+            </div>
+            <p className="marketing-hero-context">
+              En Venezuela y donde te encuentres, según la disponibilidad y el
+              ámbito de cada profesional.
+            </p>
+          </div>
+          <ProductPreview />
         </div>
       </section>
-
-      <section className="section" id="voluntarios">
+      {!localCatalogFirst ? principles : null}
+      <section className="section marketing-professionals">
         <div className="container">
-          <h2 style={{ fontSize: "clamp(2.1rem, 4.5vw, 3rem)" }}>
-            Psicólogas y psicólogos voluntarios disponibles
-          </h2>
-          <p className="lead">
-            Estas personas profesionales, verificadas, donan su tiempo para
-            acompañarte gratis y a distancia. Elige con quién hablar o deja tu
-            solicitud y te conectamos con alguien afín.
-          </p>
-          {featured.length > 0 ? (
-            <>
-              <HomeProfessionalsStrip professionals={featured} />
-              <p>
-                <Link className="button secondary" href="/profesionales">
-                  Ver y buscar todas las personas voluntarias
-                </Link>
-              </p>
-            </>
+          <div className="marketing-section-heading">
+            <div>
+              <p className="eyebrow">Conoce a tu próximo acompañante</p>
+              <h2>
+                Una conexión
+                <br />
+                que empieza contigo.
+              </h2>
+            </div>
+            <p>
+              Explora sus áreas de apoyo, idiomas y formas de contacto. El
+              próximo paso lo decides tú.
+            </p>
+          </div>
+          {professionals.length ? (
+            <HomeProfessionalsStrip professionals={professionals.slice(0, 9)} />
           ) : (
-            <div className="card">
+            <div className="workspace-empty">
+              <WorkspaceIcon name="people" />
+              <h3>Estamos preparando los perfiles disponibles</h3>
               <p>
-                Estamos sumando psicólogas y psicólogos voluntarios verificados.
-                Mientras tanto, deja tu solicitud y una persona del equipo te
-                escribirá a tu correo para acompañarte.
+                El equipo puede ayudarte a encontrar orientación mientras
+                ampliamos el catálogo.
               </p>
-              <p className="join-actions">
-                <Link className="button human" href="/ayuda">
-                  Pedir apoyo ahora
-                </Link>
-                <Link className="button secondary" href="/pro">
-                  Soy psicólogo/a: quiero ayudar
-                </Link>
-              </p>
+              <Link className="button secondary" href="/contacto">
+                Hablar con el equipo
+              </Link>
             </div>
           )}
+          <p>
+            <Link className="marketing-text-link" href="/profesionales">
+              Explorar todos los perfiles<span aria-hidden="true">↗</span>
+            </Link>
+          </p>
         </div>
       </section>
-
-      <section className="section">
+      {localCatalogFirst ? principles : null}
+      <section className="section marketing-how">
         <div className="container">
-          <h2>No tienes que pasar por esto solo/a</h2>
-          <p className="lead">
-            Sabemos que estos momentos son de lo peor y que muy pocas cosas las
-            ves claras. Pero al menos no pases por esto solo/a: no te lo
-            mereces. Aquí hay gente dispuesta a ayudarte en lo que haga falta.
-          </p>
-          <div className="grid grid-2">
-            <article className="card">
-              <h3>Gratis en la emergencia, siempre</h3>
-              <p>
-                La ayuda por el terremoto no tiene costo. Nunca se te pide un
-                pago ni datos de tarjeta por ella. Si más adelante acuerdas
-                servicios pagos con un profesional, el pago se hace con la
-                pasarela segura de Stripe.
-              </p>
-            </article>
-            <article className="card">
-              <h3>Confidencial</h3>
-              <p>
-                Solo el equipo y quien te acompañe ven tu mensaje. No vendemos
-                datos ni hacemos publicidad.
-              </p>
-            </article>
-            <article className="card">
-              <h3>A distancia, desde donde estés</h3>
-              <p>
-                Con internet o un correo basta. Funciona en toda Venezuela y
-                también si estás fuera del país.
-              </p>
-            </article>
-            <article className="card">
-              <h3>Sin crear cuenta</h3>
-              <p>
-                Pides apoyo sin dar tu nombre, cédula ni ubicación. Un correo
-                basta para que te escriban.
-              </p>
-            </article>
+          <div className="marketing-section-heading">
+            <div>
+              <p className="eyebrow">Sin prisa, sin complicaciones</p>
+              <h2>Empieza con algo pequeño.</h2>
+            </div>
+            <p>
+              No hace falta saber cómo funciona todo. Te acompañamos desde el
+              primer paso.
+            </p>
           </div>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Quiero que me acompañen
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      <PartnersCarousel />
-
-      <section className="section">
-        <div className="container">
-          <EmergencyResourcesDirectory />
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          <h2>Lo que sientes después del terremoto tiene sentido</h2>
-          <p className="lead">
-            Después de los sismos que sacudieron Yaracuy, La Guaira, Caracas y
-            el centro-norte del país, sentir miedo, angustia, insomnio o no
-            poder dejar de revivir lo ocurrido es una reacción normal ante algo
-            que no fue normal. En Nido te conectamos, sin coste y sin crear
-            cuenta, con psicólogas y psicólogos voluntarios verificados que
-            acompañan a distancia a quienes atraviesan este momento.
-          </p>
-          <p>
-            No hay una forma “correcta” de reaccionar ante una catástrofe. En
-            los días y semanas posteriores es común sentir algunas de estas
-            cosas. No estás solo/a y, en la mayoría de los casos, mejoran con
-            apoyo y tiempo:
-          </p>
-          <ul className="reactions">
-            <li>Miedo, sobresalto o estar en alerta todo el tiempo.</li>
-            <li>Dificultad para dormir, pesadillas o revivir lo ocurrido.</li>
-            <li>Tristeza, llanto o sensación de vacío.</li>
-            <li>Ansiedad, palpitaciones o sensación de falta de aire.</li>
-            <li>Irritabilidad, culpa o sentir que “deberías estar mejor”.</li>
-            <li>
-              Preocupación constante por tus seres queridos o por el futuro.
-            </li>
-          </ul>
-          <p>
-            Hablar con alguien que escucha sin juzgar ayuda. Si quieres, una
-            persona voluntaria puede acompañarte de forma gratuita y
-            confidencial.
-          </p>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Pedir apoyo ahora
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          <h2>
-            No te quedes solo/a: encuentra a un profesional que te acompañe
-          </h2>
-          <p>
-            Cuidar tu salud mental después de una catástrofe no es un lujo ni
-            una debilidad: es parte de reconstruir. El miedo, el duelo y el
-            agotamiento, cuando nadie los atiende, se quedan dentro y también
-            frenan a las familias y a las comunidades. Un país vuelve a
-            levantarse cuando su gente puede volver a dormir, a trabajar y a
-            cuidar de los suyos.
-          </p>
-          <p>
-            Pedir ayuda a tiempo cambia las cosas: hablar con una persona
-            profesional que escucha sin juzgar alivia, ordena lo que sientes y
-            te devuelve fuerzas. No tienes que poder con todo tú solo/a.
-          </p>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Encontrar a un profesional
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          <h2>Cómo pedir apoyo psicológico en 3 pasos</h2>
-          <ol className="steps">
-            <li>
-              <strong>Cuéntanos cómo estás.</strong> Completa un formulario
-              breve en menos de un minuto. No necesitas cuenta, nombre ni
-              ubicación exacta.
-            </li>
-            <li>
-              <strong>Una persona voluntaria te lee.</strong> Un psicólogo o
-              psicóloga voluntaria verificada revisa tu solicitud.
-            </li>
-            <li>
-              <strong>Te escriben a tu correo.</strong> Te acompañan a
-              distancia, de forma gratuita y confidencial.
-            </li>
-          </ol>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container grid grid-2">
-          <article className="card">
-            <h2>Si necesitas apoyo</h2>
-            <p>
-              Cuéntanos cómo estás en menos de un minuto. No necesitas cuenta ni
-              dar tu ubicación. Una persona voluntaria revisará tu mensaje y te
-              escribirá a tu correo.
-            </p>
-            <p>
-              <Link className="button human" href="/ayuda">
-                Pedir apoyo ahora
-              </Link>
-            </p>
-          </article>
-          <article className="card">
-            <h2>Si quieres ayudar</h2>
-            <p>
-              Atiendes en remoto, gratis, con el número de personas que tú
-              decidas. Tú pones los límites; nosotros coordinamos y verificamos.
-            </p>
-            <p>
-              <Link className="button secondary" href="/pro">
-                Quiero ayudar
-              </Link>
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          <div className="join-cta">
-            <p className="eyebrow">Súmate al equipo</p>
-            <h2>¿Eres psicólogo/a profesional o una fundación?</h2>
-            <p>
-              Cuantas más personas voluntarias y organizaciones se sumen, a más
-              gente podemos acompañar tras el terremoto. Si eres psicóloga o
-              psicólogo, regístrate gratis: tú defines tu disponibilidad y
-              nosotros verificamos y coordinamos por ti. Si representas a una
-              fundación u organización de salud mental, aliémonos para llegar a
-              más personas.
-            </p>
-            <p className="join-actions">
-              <Link className="button human" href="/pro">
-                Soy psicólogo/a: quiero ayudar
-              </Link>
-              <Link className="button secondary" href="/alianzas">
-                Represento una fundación
-              </Link>
-            </p>
+          <div className="marketing-steps">
+            <article>
+              <div className="marketing-step-symbol">
+                <WorkspaceIcon name="people" />
+                <span>01</span>
+              </div>
+              <h3>Encuentra a alguien afín</h3>
+              <p>
+                Busca por área de apoyo o deja que unas preguntas breves te
+                orienten.
+              </p>
+              <Link href="/orientacion">Explorar lo que necesito →</Link>
+            </article>
+            <article>
+              <div className="marketing-step-symbol">
+                <WorkspaceIcon name="message" />
+                <span>02</span>
+              </div>
+              <h3>Comienza una conversación</h3>
+              <p>
+                Pregunta cómo empezar. Tú decides qué compartir y con quién
+                continuar.
+              </p>
+              <Link href="/profesionales">Conocer profesionales →</Link>
+            </article>
+            <article>
+              <div className="marketing-step-symbol">
+                <WorkspaceIcon name="calendar" />
+                <span>03</span>
+              </div>
+              <h3>Haz espacio para ti</h3>
+              <p>
+                Organiza tus encuentros, mensajes y próximos pasos en tu espacio
+                personal.
+              </p>
+              <Link href="/entrar?modo=registro">Crear mi espacio →</Link>
+            </article>
           </div>
         </div>
       </section>
-
       <section className="section">
-        <div className="container">
-          <h2>Apoyo para las zonas afectadas y para toda Venezuela</h2>
-          <p>
-            Como la atención es en línea, la ayuda llega a las zonas más
-            golpeadas por los sismos —Yaracuy (San Felipe), Yumare, La Guaira y
-            Caracas— y también al resto del país: Maracaibo, Valencia,
-            Barquisimeto, Maracay, Ciudad Guayana y más. Acompañamos a familias
-            desplazadas, a personas en refugios con acceso a un teléfono y a
-            venezolanos en el exterior preocupados por los suyos. Solo necesitas
-            un correo electrónico para empezar.
-          </p>
+        <div className="container marketing-professional-cta">
+          <div>
+            <p className="eyebrow">Nido para psicólogos</p>
+            <h2>
+              Tu atención merece
+              <br />
+              un espacio propio.
+            </h2>
+            <p>
+              Agenda, pacientes, notas y seguimiento. Más claridad para tu
+              consulta, más tiempo para acompañar.
+            </p>
+            <Link className="button" href="/para-psicologos">
+              Conocer Nido para profesionales<span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+          <div className="marketing-cta-art" aria-hidden="true">
+            <div />
+            <WorkspaceIcon name="leaf" />
+            <span>
+              Una consulta.
+              <br />
+              Todo conectado.
+            </span>
+          </div>
         </div>
       </section>
-
-      <section className="section">
-        <div className="container">
-          <h2>Guías para acompañarte</h2>
-          <p>
-            Lecturas breves y cálidas, escritas con cuidado, para distintos
-            momentos. No reemplazan hablar con una persona, pero pueden ayudarte
-            mientras das el paso.
-          </p>
-          <ul className="reactions">
-            <li>
-              <Link href="/recursos/psicologo-online-gratis-venezuela">
-                Psicólogo online gratis en Venezuela: cómo empezar
-              </Link>
-            </li>
-            <li>
-              <Link href="/recursos/ansiedad-despues-del-terremoto">
-                Ansiedad y miedo después del terremoto: qué hacer
-              </Link>
-            </li>
-            <li>
-              <Link href="/recursos/acompanar-a-alguien-en-crisis">
-                Cómo acompañar a alguien que está pasando por un mal momento
-              </Link>
-            </li>
-            <li>
-              <Link href="/recursos">Ver todos los recursos de apoyo</Link>
-            </li>
-          </ul>
+      <section className="section marketing-help">
+        <div className="container marketing-help-grid">
+          <article>
+            <p className="eyebrow">Ayuda Terremoto</p>
+            <h2>
+              Cuando hace falta
+              <br />
+              estar cerca.
+            </h2>
+            <p>
+              El acompañamiento voluntario para personas afectadas por el
+              terremoto tiene su propio recorrido. Se mantiene gratuito, según
+              disponibilidad.
+            </p>
+            <Link className="marketing-text-link" href="/ayuda">
+              Solicitar ayuda por el terremoto<span aria-hidden="true">→</span>
+            </Link>
+          </article>
+          <article>
+            <p className="eyebrow">Para el próximo paso</p>
+            <h2>
+              Un poco de claridad
+              <br />
+              también ayuda.
+            </h2>
+            <p>
+              Lecturas breves para orientarte y preparar una conversación con un
+              profesional.
+            </p>
+            <Link className="marketing-text-link" href="/recursos">
+              Explorar recursos<span aria-hidden="true">→</span>
+            </Link>
+          </article>
         </div>
       </section>
-
-      <section className="section">
-        <div className="container">
-          <h2>Preguntas frecuentes sobre la ayuda psicológica gratuita</h2>
-          <div className="faq">
+      <section className="section marketing-faq">
+        <div className="container marketing-faq-layout">
+          <div>
+            <p className="eyebrow">Te lo ponemos sencillo</p>
+            <h2>
+              Las preguntas
+              <br />
+              son un buen inicio.
+            </h2>
+            <p>Si falta una respuesta, nuestro equipo puede orientarte.</p>
+            <Link href="/contacto">Hablar con Nido →</Link>
+          </div>
+          <div>
             {HOME_FAQ.map((item) => (
-              <article className="card" key={item.question}>
-                <h3>{item.question}</h3>
+              <details key={item.question}>
+                <summary>
+                  {item.question}
+                  <span aria-hidden="true">+</span>
+                </summary>
                 <p>{item.answer}</p>
-              </article>
+              </details>
             ))}
           </div>
         </div>
       </section>
-
+      <aside className="container marketing-safety">
+        <WorkspaceIcon name="help" />
+        <p>
+          Si hay peligro inmediato, busca ayuda presencial o contacta los
+          servicios de emergencia de tu ubicación.{" "}
+          <Link href="/emergencia">Recursos de ayuda inmediata →</Link>
+        </p>
+      </aside>
       <HomeJsonLd />
-    </>
+    </div>
   );
 }

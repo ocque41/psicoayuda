@@ -48,7 +48,7 @@ export async function deleteMyAccount(
     console.error("self account deletion failed", { userId, error });
     return {
       error:
-        "No pudimos borrar tu cuenta. Sigue activa; inténtalo de nuevo en un momento.",
+        "La eliminación no se completó. Conservamos la cuenta para que puedas reintentarlo.",
     };
   }
 
@@ -62,7 +62,7 @@ export async function deleteMyAccount(
     // best-effort
   }
 
-  redirect("/pro?cuenta=borrada");
+  redirect("/entrar?cuenta=borrada");
 }
 
 /**

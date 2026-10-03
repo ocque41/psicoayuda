@@ -16,8 +16,10 @@ import { mintSeekerToken } from "@/lib/seeker-token";
 const mocks = vi.hoisted(() => ({
   getCookie: vi.fn(),
   setCookie: vi.fn(),
-  getServerSession: vi.fn(async () => null),
-  notifyConversationReopened: vi.fn(async () => undefined),
+  getServerSession: vi.fn(
+    async (): Promise<{ user: { id: string; email: string } } | null> => null,
+  ),
+  notifyConversationReopened: vi.fn(async (_input: unknown) => undefined),
   disconnectConversationSockets: vi.fn(async () => true),
 }));
 

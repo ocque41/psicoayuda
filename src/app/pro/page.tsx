@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthPanel } from "@/components/auth-panel";
 import { RegistroPasos } from "@/components/registro-pasos";
-import { isAdminEmail } from "@/lib/admin";
+import { requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = {
-  title: "Voluntariado de psicólogos y fundaciones en Venezuela",
+  title: "Tu consulta profesional en Nido",
   description:
-    "¿Eres psicóloga, psicólogo o fundación de salud mental? Únete como voluntario/a y ofrece apoyo gratuito y a distancia en Venezuela. Tú defines tu cupo.",
+    "Crea tu perfil profesional, organiza tu consulta y conecta con personas que buscan apoyo psicológico en Venezuela.",
   alternates: { canonical: "/pro" },
   openGraph: {
-    title: "Psicólogos voluntarios y fundaciones: ayuda gratis | Nido",
+    title: "Nido para profesionales",
     description:
-      "Súmate como psicólogo, psicóloga o fundación voluntaria y ofrece apoyo gratuito y a distancia a personas en Venezuela tras el terremoto.",
+      "Crea tu perfil profesional, organiza pacientes y agenda, y conecta con personas que buscan apoyo psicológico.",
     url: "/pro",
   },
 };
@@ -24,7 +24,7 @@ export default async function ProPage({
   searchParams: Promise<{ cuenta?: string; modo?: string }>;
 }) {
   const session = await getServerSession();
-  const isAdmin = isAdminEmail(session?.user?.email);
+  const isAdmin = Boolean(await requireAdmin());
   const { cuenta, modo } = await searchParams;
   const defaultMode = modo === "registro" ? "signup" : "signin";
   const googleEnabled = Boolean(
@@ -35,12 +35,11 @@ export default async function ProPage({
   return (
     <section className="section pro-join">
       <div className="container">
-        <h1>Este es tu lugar para ayudar</h1>
+        <h1>Tu espacio para acompañar</h1>
         <p className="lead">
-          Si eres psicóloga o psicólogo, aquí puedes acompañar a quien más lo
-          necesita tras el terremoto: en remoto, en la medida de tu tiempo, sin
-          coste para nadie. Y si representas a una fundación u organización de
-          salud mental, también queremos sumarte. Gracias por estar aquí.
+          Crea tu perfil, organiza tu consulta y conecta con personas que buscan
+          apoyo. El equipo revisa tus credenciales antes de habilitar tu perfil.
+          La ayuda voluntaria por el terremoto conserva su propio programa.
         </p>
         {cuenta === "borrada" ? (
           <p className="status-message" role="status">
@@ -50,7 +49,7 @@ export default async function ProPage({
         <ul className="trust-strip" aria-label="Lo que te ofrecemos">
           <li>Tú defines tu cupo</li>
           <li>Verificamos y coordinamos por ti</li>
-          <li>100% remoto y voluntario</li>
+          <li>Tu consulta, a tu ritmo</li>
         </ul>
         {session?.user ? (
           isAdmin ? (
@@ -73,12 +72,13 @@ export default async function ProPage({
           <div className="signin">
             <RegistroPasos actual={1} />
             <AuthPanel
+              callbackURL="/empezar"
               defaultMode={defaultMode}
               googleEnabled={googleEnabled}
             />
             <p className="muted auth-foot">
-              Entras solo para crear tu perfil profesional; no publicamos nada
-              en tu nombre. Completar tu perfil toma unos 4 minutos.
+              Al entrar eliges tu espacio. Para crear tu consulta, selecciona
+              «Soy profesional» y completa el perfil paso a paso.
             </p>
           </div>
         )}

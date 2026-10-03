@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   publishProIdentityKey,
   saveRecoveryKeystore,
@@ -28,6 +28,7 @@ export function E2eeProSetupBanner() {
   const [code, setCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const backupTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +104,7 @@ export function E2eeProSetupBanner() {
       </p>
       {!busy && !code ? (
         <button
+          ref={backupTriggerRef}
           type="button"
           className="button secondary"
           onClick={() => void showOrCreateBackup()}
@@ -116,7 +118,11 @@ export function E2eeProSetupBanner() {
         </p>
       ) : null}
       {code ? (
-        <E2eeBackupModal code={code} onClose={() => setCode(null)} />
+        <E2eeBackupModal
+          code={code}
+          onClose={() => setCode(null)}
+          returnFocusRef={backupTriggerRef}
+        />
       ) : null}
     </div>
   );

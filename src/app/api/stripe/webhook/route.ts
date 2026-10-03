@@ -5,6 +5,8 @@ import {
 } from "@/lib/payments/config";
 import { getStripe } from "@/lib/payments/stripe";
 import { handleStripeEvent } from "@/lib/payments/webhook";
+import { handleMembershipEvent } from "@/lib/practice/billing";
+import { handleCareEvent } from "@/lib/practice/care";
 
 // Webhook de Stripe para los pagos de Nido. Lee el cuerpo CRUDO (request.text())
 // porque la firma `Stripe-Signature` se calcula sobre los bytes exactos; usa
@@ -40,7 +42,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    await handleStripeEvent(event);
+    if (
+      !(await handleMembershipEvent(event)) &&
+      !(await handleCareEvent(event))
+    )
+      await handleStripeEvent(event);
   } catch (error) {
     // Devolvemos 500 para que Stripe reintente: la marca de idempotencia se
     // revierte dentro del handler si el proceso falla.

@@ -20,13 +20,15 @@ function JsonLd({ data }: { data: Json }) {
     <script
       type="application/ld+json"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requiere serialización directa
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(data).replace(/</g, "\\u003c"),
+      }}
     />
   );
 }
 
 const organizationNode: Json = {
-  "@type": "NGO",
+  "@type": "Organization",
   "@id": `${SITE_URL}/#organization`,
   name: SITE_NAME,
   alternateName: "PsicoAyuda",
@@ -137,9 +139,9 @@ export function DirectoryJsonLd() {
         "@type": "CollectionPage",
         "@id": `${SITE_URL}/profesionales#webpage`,
         url: absoluteUrl("/profesionales"),
-        name: "Psicólogas y psicólogos voluntarios en Venezuela",
+        name: "Psicólogas y psicólogos en Venezuela",
         description:
-          "Directorio de psicólogas y psicólogos voluntarios verificados que ofrecen apoyo psicológico gratuito y a distancia en Venezuela.",
+          "Directorio de profesionales de psicología con perfiles revisados para encontrar apoyo en Venezuela.",
         inLanguage: "es",
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: { "@id": `${SITE_URL}/#organization` },
@@ -237,7 +239,7 @@ export function HomeJsonLd() {
   const serviceNode: Json = {
     "@type": "Service",
     "@id": `${SITE_URL}/#service`,
-    name: "Apoyo psicológico voluntario gratuito",
+    name: "Ayuda Terremoto · Acompañamiento voluntario gratuito",
     serviceType: "Apoyo psicológico y emocional a distancia",
     url: SITE_URL,
     provider: { "@id": `${SITE_URL}/#organization` },
@@ -256,7 +258,7 @@ export function HomeJsonLd() {
     audience: {
       "@type": "Audience",
       audienceType:
-        "Personas que buscan apoyo emocional o psicológico en Venezuela",
+        "Personas afectadas por el terremoto que solicitan acompañamiento voluntario",
     },
   };
 

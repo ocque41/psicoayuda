@@ -2,8 +2,7 @@ import { ImageResponse } from "next/og";
 import { NIDO_LOGO_DATA_URL } from "./_og-assets";
 
 // Metadatos de la imagen (Open Graph / redes sociales)
-export const alt =
-  "Nido — Ayuda psicológica gratis, confidencial y a distancia en Venezuela";
+export const alt = "Nido — Encuentra apoyo psicológico en Venezuela";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -34,7 +33,7 @@ export default async function OpengraphImage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <span style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.1 }}>
-          Ayuda psicológica gratis en Venezuela
+          Apoyo psicológico en Venezuela
         </span>
         <span style={{ fontSize: 34, color: "#6e655b", lineHeight: 1.3 }}>
           Conecta a distancia con psicólogos voluntarios verificados. Sin coste

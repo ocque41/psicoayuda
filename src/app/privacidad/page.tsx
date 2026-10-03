@@ -16,13 +16,14 @@ export default function PrivacyPage() {
     <section className="section">
       <div className="container legal">
         <h1>Política de Privacidad</h1>
-        <p className="muted">Última actualización: 12 de julio de 2026</p>
+        <p className="muted">Última actualización: 2 de octubre de 2026</p>
         <p>
-          Nido es una plataforma gratuita para conectar personas que necesitan
-          apoyo psicológico remoto con profesionales voluntarios verificados.
-          Nido no es un servicio de emergencias, no reemplaza atención médica,
-          no garantiza disponibilidad inmediata y no ofrece diagnóstico ni
-          tratamiento médico por sí mismo.
+          Nido conecta a personas que buscan apoyo psicológico con profesionales
+          y ofrece herramientas para organizar su consulta. Ayuda Terremoto
+          mantiene su programa separado de acompañamiento gratuito. Nido no es
+          un servicio de emergencias, no reemplaza atención médica, no garantiza
+          disponibilidad inmediata y no ofrece diagnóstico ni tratamiento médico
+          por sí mismo.
         </p>
 
         <section className="card">
@@ -161,6 +162,58 @@ export default function PrivacyPage() {
           <p>
             La ubicación solo se usa para orientar la solicitud y mejorar la
             conexión con profesionales disponibles. No pedimos dirección exacta.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>Cuenta personal, consulta, notas y llamadas</h2>
+          <p>
+            Si creas una cuenta de paciente, guardamos tu nombre o alias, país,
+            zona horaria, preferencias y los vínculos que hayas confirmado con
+            tus conversaciones. Un correo sin verificar no da acceso a un chat.
+            Tu panel muestra tus sesiones, solicitudes y pagos registrados;
+            puedes descargar esos datos desde Preferencias.
+          </p>
+          <p>
+            El profesional puede guardar notas privadas de su consulta. Se
+            almacenan cifradas y su lectura en la aplicación se limita a ese
+            profesional. Este cifrado protege el almacenamiento y es distinto
+            del cifrado de extremo a extremo del chat. Soporte no puede leerlas
+            desde su panel. Su conservación y las solicitudes sobre esos
+            registros se coordinan con el profesional y el canal de privacidad.
+          </p>
+          <p>
+            El profesional puede registrar una ficha mínima con tu conocimiento:
+            nombre o alias, correo, país, zona horaria, estado del
+            acompañamiento, sesiones y registros de pagos acordados. Estas
+            fichas se guardan en la plataforma y no tienen el cifrado de extremo
+            a extremo de los mensajes del chat. El acceso operativo se limita al
+            profesional de la consulta; el equipo de soporte no recibe acceso a
+            sus fichas clínicas desde su panel.
+          </p>
+          <p>
+            El orientador procesa el texto en tu navegador para sugerir áreas y
+            perfiles. No guarda ese relato ni lo envía a un proveedor de IA.
+            Puedes usar el directorio sin utilizar el orientador.
+          </p>
+          <p>
+            Cuando se habiliten las llamadas integradas, el proveedor Daily
+            procesa el audio y vídeo para realizar el encuentro. Las llamadas no
+            tienen la misma protección de extremo a extremo que el chat. La
+            grabación y la transcripción están desactivadas inicialmente: cada
+            una requiere el permiso opcional y separado de ambas partes para esa
+            sesión, con información sobre su finalidad y proveedores antes de
+            activarla. Puedes continuar sin aceptar ninguna captura.
+          </p>
+          <p>
+            Si cambias una preferencia durante una llamada, se cierra la sala
+            para aplicar el cambio. Los archivos disponibles tienen un acceso
+            privado y temporal. Se ocultan a los 30 días después del cierre de
+            la ventana de la sesión y se programa su eliminación en el
+            proveedor; una incidencia de borrado requiere seguimiento del
+            equipo. No se utilizan para entrenar modelos ni se incorporan
+            automáticamente a tu historia clínica. Puedes solicitar su
+            eliminación antes de ese plazo.
           </p>
         </section>
 
