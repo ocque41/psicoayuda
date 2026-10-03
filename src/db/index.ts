@@ -36,15 +36,19 @@ async function getD1Database() {
 }
 
 async function getLocalClient() {
-  localClientPromise ??= import("node:module").then(({ createRequire }) => {
-    const require = createRequire(import.meta.url);
-    const dependency = "@libsql/client";
-    const { createClient } = require(dependency) as {
-      createClient(input: { url: string }): LibsqlClient;
-    };
+  // Next/Webpack sustituye node:module por un shim sin createRequire. La rama
+  // local necesita el módulo nativo de Node; D1 no ejecuta esta importación.
+  localClientPromise ??= import(/* webpackIgnore: true */ "node:module").then(
+    ({ createRequire }) => {
+      const require = createRequire(import.meta.url);
+      const dependency = "@libsql/client";
+      const { createClient } = require(dependency) as {
+        createClient(input: { url: string }): LibsqlClient;
+      };
 
-    return createClient({ url: databaseUrl });
-  });
+      return createClient({ url: databaseUrl });
+    },
+  );
   return localClientPromise;
 }
 

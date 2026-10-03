@@ -31,6 +31,7 @@ import {
   serviceSchema,
   settingsSchema,
 } from "@/lib/practice/domain";
+import { receiptReceivedAt } from "@/lib/practice/receipts";
 
 export type PracticeFormState = { ok: boolean; message: string } | null;
 function invalid(
@@ -299,21 +300,83 @@ export async function saveReceipt(
     return invalid(
       "Indica importe, moneda, método y referencia del pago externo.",
     );
+  const settings = await db.query.practiceSettings.findFirst({
+    where: eq(practiceSettings.professionalId, pro.id),
+  });
+  const receiptZone = settings?.timeZone || "America/Caracas";
+  if (form.get("receivedTimeZone") !== receiptZone)
+    return invalid(
+      "La zona horaria de tu consulta cambió. Actualiza la página y revisa la fecha del pago antes de guardarlo.",
+    );
+  const receivedAt = receiptReceivedAt(
+    String(form.get("receivedAt") || ""),
+    receiptZone,
+    Date.now(),
+  );
+  if (!receivedAt.ok) return invalid(receivedAt.message);
   const id = newId("receipt");
   try {
-    await db.batch([
-      db.insert(practiceReceipts).values({
-        id,
-        professionalId: pro.id,
-        patientId: patient.id,
-        amountCents: moneyCents(parsed.data.amount),
-        currency: parsed.data.currency,
-        method: parsed.data.method,
-        reference: `${pro.id}:${parsed.data.reference}`,
-        receivedAt: nowIso(),
-      }),
-      audit(pro, "external_receipt_confirmed", id),
+    const [saved] = await db.batch([
+      db
+        .insert(practiceReceipts)
+        .select(
+          db
+            .select({
+              id: sql<string>`${id}`.as("id"),
+              professionalId: professionals.id,
+              patientId: practicePatients.id,
+              amountCents: sql<number>`${moneyCents(parsed.data.amount)}`.as(
+                "amount_cents",
+              ),
+              currency: sql<string>`${parsed.data.currency}`.as("currency"),
+              method: sql<string>`${parsed.data.method}`.as("method"),
+              reference:
+                sql<string>`${`${pro.id}:${parsed.data.reference}`}`.as(
+                  "reference",
+                ),
+              receivedAt: sql<string>`${receivedAt.iso}`.as("received_at"),
+            })
+            .from(practicePatients)
+            .innerJoin(
+              professionals,
+              eq(professionals.id, practicePatients.professionalId),
+            )
+            .where(
+              and(
+                eq(practicePatients.id, patient.id),
+                eq(practicePatients.professionalId, pro.id),
+                eq(practicePatients.program, "general"),
+                eq(professionals.status, "approved"),
+                eq(professionals.nonClinicalHelper, false),
+              ),
+            ),
+        )
+        .returning({ id: practiceReceipts.id }),
+      db.insert(auditLogs).select(
+        db
+          .select({
+            id: sql<string>`${newId("log")}`.as("id"),
+            actorEmail: sql<string>`${pro.email}`.as("actor_email"),
+            action: sql<string>`'external_receipt_confirmed'`.as("action"),
+            entityType: sql<string>`'practice'`.as("entity_type"),
+            entityId: practiceReceipts.id,
+            metadata: sql<null>`NULL`.as("metadata"),
+            createdAt: sql<string>`${nowIso()}`.as("created_at"),
+          })
+          .from(practiceReceipts)
+          .where(
+            and(
+              eq(practiceReceipts.id, id),
+              eq(practiceReceipts.professionalId, pro.id),
+              eq(practiceReceipts.patientId, patient.id),
+            ),
+          ),
+      ),
     ]);
+    if (!saved.length)
+      return invalid(
+        "El paciente o tu consulta ya no permite registrar este cobro. Actualiza la página antes de continuar.",
+      );
   } catch {
     return invalid(
       "No pudimos guardar el cobro. Revisa si esa referencia ya existe.",

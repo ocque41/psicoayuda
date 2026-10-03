@@ -1,14 +1,20 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import Link from "next/link";
 import { PracticeForm } from "@/components/practice/forms";
 import { PracticePagination } from "@/components/practice/pagination";
 import { db } from "@/db";
-import { patientAccounts, patientSessionRequests } from "@/db/patient-schema";
-import { conversations, practicePatients, practiceServices } from "@/db/schema";
+import { practiceServices } from "@/db/schema";
+import {
+  professionalPatientRequests,
+  requestFilters,
+  requestPageHref,
+  requestStatusText,
+} from "@/lib/patient/professional-requests";
 import { requestKindLabels } from "@/lib/patient/requests";
-import { dateLabel } from "@/lib/practice/domain";
-import { pageNumber } from "@/lib/practice/queries";
+import { RequestContext } from "./patient-parts";
 import { reviewPatientSessionRequest } from "./professional-request-actions";
+import styles from "./requests.module.css";
+
 export async function ProfessionalPatientRequests({
   professionalId,
   timezone,
@@ -18,68 +24,29 @@ export async function ProfessionalPatientRequests({
   timezone: string;
   parameters: Record<string, string | undefined>;
 }) {
-  const scope = and(
-    eq(conversations.professionalId, professionalId),
-    eq(patientSessionRequests.status, "pending"),
+  const results = await professionalPatientRequests(
+    professionalId,
+    timezone,
+    parameters,
   );
-  const [total] = await db
-    .select({ value: count() })
-    .from(patientSessionRequests)
-    .innerJoin(
-      conversations,
-      eq(conversations.id, patientSessionRequests.conversationId),
-    )
-    .innerJoin(
-      patientAccounts,
-      eq(patientAccounts.userId, patientSessionRequests.userId),
-    )
-    .where(scope);
-  const pages = Math.max(1, Math.ceil(total.value / 20));
-  const page = Math.min(pageNumber(parameters.solicitudes), pages);
-  const requests = await db
-    .select({
-      id: patientSessionRequests.id,
-      kind: patientSessionRequests.kind,
-      preferredStartsAt: patientSessionRequests.preferredStartsAt,
-      conversationId: patientSessionRequests.conversationId,
-      displayName: patientAccounts.displayName,
-      patientId: practicePatients.id,
-    })
-    .from(patientSessionRequests)
-    .innerJoin(
-      conversations,
-      eq(conversations.id, patientSessionRequests.conversationId),
-    )
-    .innerJoin(
-      patientAccounts,
-      eq(patientAccounts.userId, patientSessionRequests.userId),
-    )
-    .leftJoin(
-      practicePatients,
-      eq(practicePatients.conversationId, conversations.id),
-    )
-    .where(scope)
-    .orderBy(
-      asc(patientSessionRequests.createdAt),
-      asc(patientSessionRequests.id),
-    )
-    .limit(20)
-    .offset((page - 1) * 20);
-  if (!requests.length) return null;
-  const services = await db
-    .select({
-      id: practiceServices.id,
-      title: practiceServices.title,
-      duration: practiceServices.durationMinutes,
-    })
-    .from(practiceServices)
-    .where(
-      and(
-        eq(practiceServices.professionalId, professionalId),
-        eq(practiceServices.active, true),
-      ),
-    )
-    .limit(50);
+  const services = results.rows.some(
+    (r) => r.status === "pending" && r.kind === "new",
+  )
+    ? await db
+        .select({
+          id: practiceServices.id,
+          title: practiceServices.title,
+          duration: practiceServices.durationMinutes,
+        })
+        .from(practiceServices)
+        .where(
+          and(
+            eq(practiceServices.professionalId, professionalId),
+            eq(practiceServices.active, true),
+          ),
+        )
+        .limit(50)
+    : [];
   return (
     <section
       className="workspace-card"
@@ -87,24 +54,91 @@ export async function ProfessionalPatientRequests({
       aria-labelledby="patient-requests-title"
     >
       <p className="kicker">Desde el espacio del paciente</p>
-      <h2 id="patient-requests-title">Solicitudes de sesiones</h2>
+      <h2 id="patient-requests-title">Solicitudes e historial</h2>
       <p className="hint">
-        Confirma el horario para guardarlo en ambos calendarios. Acuerda las
-        condiciones por chat antes de aceptar una nueva sesión.
+        Revisa las pendientes o consulta decisiones anteriores. Solo confirmar
+        guarda el cambio en el calendario; revisar o rechazar permite continuar
+        por chat.
       </p>
+      <form
+        method="get"
+        action="/pro/consulta#solicitudes"
+        className={styles.filters}
+      >
+        {Object.entries(parameters)
+          .filter(
+            ([key, value]) =>
+              value &&
+              ![
+                "solicitudes",
+                "solicitudes_estado",
+                "solicitudes_desde",
+                "solicitudes_hasta",
+              ].includes(key),
+          )
+          .map(([key, value]) => (
+            <input key={key} type="hidden" name={key} value={value} />
+          ))}
+        <label>
+          Estado
+          <select
+            name="solicitudes_estado"
+            defaultValue={results.filters.state}
+          >
+            {requestFilters.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Enviadas desde
+          <input
+            type="date"
+            name="solicitudes_desde"
+            defaultValue={results.filters.from}
+          />
+        </label>
+        <label>
+          Enviadas hasta
+          <input
+            type="date"
+            name="solicitudes_hasta"
+            defaultValue={results.filters.until}
+          />
+        </label>
+        <button type="submit" className="button secondary">
+          Aplicar filtros
+        </button>
+      </form>
+      <p className="hint">
+        Fechas de envío en tu zona: {timezone.replaceAll("_", " ")}. Las
+        pendientes aparecen de más antigua a más reciente.
+      </p>
+      {results.filters.error ? (
+        <p role="status">{results.filters.error}</p>
+      ) : null}
       <div className="workspace-stack">
-        {requests.map((r) => (
-          <article className="paper" key={r.id}>
-            <span className="workspace-tag">{requestKindLabels[r.kind]}</span>
+        {results.rows.map((r) => (
+          <article className={styles.card} key={r.id}>
+            <div className={styles.header}>
+              <span className="workspace-tag">{requestStatusText(r)}</span>
+              <span className="workspace-tag">
+                {requestKindLabels[r.kind] || "Solicitud de sesión"}
+              </span>
+            </div>
             <h3>{r.displayName}</h3>
-            <p>
-              {r.preferredStartsAt
-                ? dateLabel(r.preferredStartsAt, timezone)
-                : "Solicita cancelar la sesión"}
-            </p>
+            <RequestContext
+              request={r}
+              timezone={timezone}
+              otherTimezone={r.timezone}
+              audience="professional"
+            />
             <div className="panel-nav">
               <Link
                 className="button secondary"
+                prefetch={false}
                 href={`/c/${r.conversationId}`}
               >
                 Abrir chat
@@ -112,66 +146,85 @@ export async function ProfessionalPatientRequests({
               {r.patientId ? (
                 <Link
                   className="button secondary"
+                  prefetch={false}
                   href={`/pro/pacientes/${r.patientId}`}
                 >
                   Ver ficha
                 </Link>
               ) : null}
             </div>
-            <PracticeForm
-              action={reviewPatientSessionRequest}
-              submit="Guardar revisión"
-            >
-              <input type="hidden" name="requestId" value={r.id} />
-              <label>
-                Resultado
-                <select name="status">
-                  <option value="confirmed">
-                    Confirmar y actualizar el calendario
-                  </option>
-                  <option value="reviewed">
-                    Revisada · continuar por chat
-                  </option>
-                  <option value="declined">
-                    Horario o cambio no disponible
-                  </option>
-                </select>
-              </label>
-              {r.kind === "new" ? (
-                <>
+            {r.status === "pending" ? (
+              <details className={styles.decision}>
+                <summary>Revisar y responder</summary>
+                <PracticeForm
+                  action={reviewPatientSessionRequest}
+                  submit="Guardar decisión"
+                >
+                  <input type="hidden" name="requestId" value={r.id} />
                   <label>
-                    Servicio
-                    <select name="serviceId">
-                      <option value="">Selecciona un servicio</option>
-                      {services.map((service) => (
-                        <option key={service.id} value={service.id}>
-                          {service.title} · {service.duration} minutos
-                        </option>
-                      ))}
+                    Resultado
+                    <select name="status" defaultValue="" required>
+                      <option value="" disabled>
+                        Elige una decisión
+                      </option>
+                      <option value="confirmed">
+                        {r.kind === "cancel"
+                          ? "Confirmar cancelación y actualizar calendario"
+                          : "Confirmar y actualizar el calendario"}
+                      </option>
+                      <option value="reviewed">
+                        Revisada · continuar por chat
+                      </option>
+                      <option value="declined">
+                        Horario o cambio no disponible
+                      </option>
                     </select>
                   </label>
-                  <label className="practice-check">
-                    <input type="checkbox" name="conditionsConfirmed" />
-                    La persona y yo hemos acordado duración, modalidad y
-                    condiciones de esta sesión.
-                  </label>
-                </>
-              ) : null}
-            </PracticeForm>
+                  {r.kind === "new" ? (
+                    <>
+                      <label>
+                        Servicio
+                        <select name="serviceId">
+                          <option value="">
+                            Selecciona un servicio para confirmar
+                          </option>
+                          {services.map((service) => (
+                            <option key={service.id} value={service.id}>
+                              {service.title} · {service.duration} minutos
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {!services.length ? (
+                        <p className="hint">
+                          Crea un servicio activo antes de confirmar una nueva
+                          sesión. Puedes continuar la coordinación por chat.
+                        </p>
+                      ) : null}
+                      <label className="practice-check">
+                        <input type="checkbox" name="conditionsConfirmed" />
+                        La persona y yo hemos acordado duración, modalidad y
+                        condiciones de esta sesión.
+                      </label>
+                    </>
+                  ) : null}
+                </PracticeForm>
+              </details>
+            ) : null}
           </article>
         ))}
+        {!results.rows.length ? (
+          <div className="workspace-empty">
+            <p>
+              No hay solicitudes con estos filtros. Elige otro estado o ajusta
+              las fechas para consultar el historial.
+            </p>
+          </div>
+        ) : null}
       </div>
       <PracticePagination
-        total={total.value}
-        page={page}
-        pages={pages}
-        href={(number) => {
-          const query = new URLSearchParams();
-          for (const [key, value] of Object.entries(parameters))
-            if (value) query.set(key, value);
-          query.set("solicitudes", String(number));
-          return `/pro/consulta?${query}#solicitudes`;
-        }}
+        {...results}
+        href={(number) => requestPageHref(parameters, number)}
       />
     </section>
   );

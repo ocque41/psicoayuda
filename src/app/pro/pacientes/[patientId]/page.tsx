@@ -1,4 +1,13 @@
-import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gt,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -46,6 +55,8 @@ import {
   paymentMethodLabels,
 } from "@/lib/practice/domain";
 import { PRACTICE_PAGE_SIZE, pageNumber } from "@/lib/practice/queries";
+import { receiptRecordedAt } from "@/lib/practice/receipt-history";
+import { receiptDateLabel, receiptLocalInput } from "@/lib/practice/receipts";
 export const metadata: Metadata = {
   title: "Ficha de paciente",
   robots: { index: false, follow: false },
@@ -119,7 +130,10 @@ export default async function PatientPage({
       .limit(PRACTICE_PAGE_SIZE)
       .offset((page.sesiones - 1) * PRACTICE_PAGE_SIZE),
     db
-      .select()
+      .select({
+        ...getTableColumns(practiceReceipts),
+        recordedAt: receiptRecordedAt,
+      })
       .from(practiceReceipts)
       .where(
         and(
@@ -385,6 +399,22 @@ export default async function PatientPage({
                     <input name="amount" inputMode="decimal" required />
                   </label>
                   <CurrencySelect />
+                  <input type="hidden" name="receivedTimeZone" value={zone} />
+                  <label>
+                    Fecha y hora en que recibiste el pago
+                    <input
+                      type="datetime-local"
+                      name="receivedAt"
+                      defaultValue={receiptLocalInput(Date.now(), zone)}
+                      aria-describedby="receipt-zone"
+                      required
+                    />
+                    <small id="receipt-zone" className="hint">
+                      Zona de tu consulta: {zone}. Puedes registrar un pago de
+                      otro día. Esta fecha se usa en el historial y las
+                      métricas.
+                    </small>
+                  </label>
                   <label>
                     Método
                     <select name="method">
@@ -423,10 +453,25 @@ export default async function PatientPage({
               <article className="card" key={r.id}>
                 <strong>{moneyLabel(r.amountCents, r.currency)}</strong>
                 <p>
-                  {paymentMethodLabels[r.method]} ·{" "}
-                  {dateLabel(r.receivedAt, zone)}
+                  {paymentMethodLabels[r.method]} · recibido el{" "}
+                  <time dateTime={r.receivedAt}>
+                    {receiptDateLabel(r.receivedAt, zone)}
+                  </time>
                 </p>
-                <small>Confirmado por el profesional</small>
+                <small>
+                  Registro manual del profesional ·{" "}
+                  {r.recordedAt ? (
+                    <>
+                      guardado en Nido el{" "}
+                      <time dateTime={r.recordedAt}>
+                        {receiptDateLabel(r.recordedAt, zone)}
+                      </time>
+                    </>
+                  ) : (
+                    "fecha de registro no disponible"
+                  )}
+                  {" · "}Nido no ha procesado ni verificado este pago.
+                </small>
               </article>
             ))}
             <PracticePagination

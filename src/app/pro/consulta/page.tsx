@@ -41,6 +41,9 @@ export default async function PracticePage({
     pagina?: string;
     chats?: string;
     solicitudes?: string;
+    solicitudes_estado?: string;
+    solicitudes_desde?: string;
+    solicitudes_hasta?: string;
   }>;
 }) {
   const pro = await requirePracticeProfessional();
@@ -153,6 +156,12 @@ export default async function PracticePage({
     query.set("pagina", String(key === "pagina" ? page : patients.page));
     query.set("chats", String(key === "chats" ? page : chats.page));
     if (params.solicitudes) query.set("solicitudes", params.solicitudes);
+    for (const key of [
+      "solicitudes_estado",
+      "solicitudes_desde",
+      "solicitudes_hasta",
+    ] as const)
+      if (params[key]) query.set(key, params[key]);
     return `/pro/consulta?${query}#${key === "pagina" ? "pacientes" : "chats"}`;
   }
   return (

@@ -61,6 +61,7 @@ import {
   CALL_POLICY_VERSION,
   joinCall,
 } from "@/lib/practice/calls";
+import { receiptRecordedAt } from "@/lib/practice/receipt-history";
 
 const P = "test-practice";
 const now = () => new Date().toISOString();
@@ -177,6 +178,93 @@ describe("CRM con aislamiento y datos persistidos", () => {
     expect(
       await ownedPatient(`${P}-patient-other`, `${P}-pro`),
     ).toBeUndefined());
+  it("guarda la fecha real del pago y audita la fecha de registro sin duplicar", async () => {
+    const patientId = `${P}-receipt-patient`;
+    await db.insert(practicePatients).values({
+      id: patientId,
+      professionalId: `${P}-pro`,
+      name: "Paciente de recibos ficticio",
+      country: "Venezuela",
+      timeZone: "America/Caracas",
+      program: "general",
+      consentAt: now(),
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    const data = {
+      patientId,
+      amount: "19,99",
+      currency: "eur",
+      method: "bizum",
+      reference: `${P}-receipt-example`,
+      receivedAt: "2026-01-31T23:45",
+      receivedTimeZone: "UTC",
+      // Una zona enviada por el navegador no cambia la zona de la consulta.
+      timeZone: "America/Caracas",
+    };
+    const before = Date.now();
+    expect((await saveReceipt(null, form(data)))?.ok).toBe(true);
+    const receipt = await db.query.practiceReceipts.findFirst({
+      where: eq(practiceReceipts.patientId, patientId),
+    });
+    expect(receipt?.amountCents).toBe(1999);
+    expect(receipt?.receivedAt).toBe("2026-01-31T23:45:00.000Z");
+    const logs = await db.query.auditLogs.findMany({
+      where: eq(auditLogs.entityId, receipt?.id || "missing"),
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.action).toBe("external_receipt_confirmed");
+    const [history] = await db
+      .select({
+        receivedAt: practiceReceipts.receivedAt,
+        recordedAt: receiptRecordedAt,
+      })
+      .from(practiceReceipts)
+      .where(eq(practiceReceipts.id, receipt?.id || "missing"));
+    expect(history?.recordedAt).toBe(logs[0]?.createdAt);
+    expect(history?.receivedAt).not.toBe(history?.recordedAt);
+    expect(Date.parse(logs[0]?.createdAt || "")).toBeGreaterThanOrEqual(before);
+    expect((await saveReceipt(null, form(data)))?.ok).toBe(false);
+    expect(
+      await db.query.practiceReceipts.findMany({
+        where: eq(practiceReceipts.patientId, patientId),
+      }),
+    ).toHaveLength(1);
+    expect(
+      await db.query.auditLogs.findMany({
+        where: eq(auditLogs.entityId, receipt?.id || "missing"),
+      }),
+    ).toHaveLength(1);
+    for (const receivedAt of ["", "9999-01-01T10:00", "2026-02-30T10:00"])
+      expect(
+        (
+          await saveReceipt(
+            null,
+            form({
+              ...data,
+              reference: `${P}-invalid-${receivedAt}`,
+              receivedAt,
+            }),
+          )
+        )?.ok,
+      ).toBe(false);
+    expect(
+      (
+        await saveReceipt(
+          null,
+          form({ ...data, patientId: `${P}-patient-other` }),
+        )
+      )?.ok,
+    ).toBe(false);
+    expect(
+      (
+        await saveReceipt(
+          null,
+          form({ ...data, receivedTimeZone: "America/Caracas" }),
+        )
+      )?.ok,
+    ).toBe(false);
+  });
   it("impide vincular el chat de otro profesional", async () => {
     await db.insert(conversations).values({
       id: `${P}-chat-other`,
@@ -198,6 +286,56 @@ describe("CRM con aislamiento y datos persistidos", () => {
       }),
     );
     expect(result?.ok).toBe(false);
+  });
+  it("no guarda cobros ni auditoría si la baja comienza durante el formulario", async () => {
+    const original = db.batch.bind(db);
+    const lookup = vi
+      .spyOn(db, "batch")
+      .mockImplementationOnce(async (...args) => {
+        await db
+          .update(professionals)
+          .set({ status: "deleting" })
+          .where(eq(professionals.id, `${P}-pro`));
+        return original(...args);
+      });
+    const reference = `${P}-receipt-deleting`;
+    const before = await db.query.auditLogs.findMany({
+      where: eq(auditLogs.action, "external_receipt_confirmed"),
+    });
+    try {
+      expect(
+        (
+          await saveReceipt(
+            null,
+            form({
+              patientId: `${P}-receipt-patient`,
+              amount: "20",
+              currency: "usd",
+              method: "zelle",
+              reference,
+              receivedAt: "2026-01-01T12:00",
+              receivedTimeZone: "UTC",
+            }),
+          )
+        )?.ok,
+      ).toBe(false);
+      expect(
+        await db.query.practiceReceipts.findFirst({
+          where: eq(practiceReceipts.reference, `${P}-pro:${reference}`),
+        }),
+      ).toBeUndefined();
+      expect(
+        await db.query.auditLogs.findMany({
+          where: eq(auditLogs.action, "external_receipt_confirmed"),
+        }),
+      ).toHaveLength(before.length);
+    } finally {
+      lookup.mockRestore();
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, `${P}-pro`));
+    }
   });
   it("programa ayuda terremoto a cero y bloquea cobros externos", async () => {
     const result = await scheduleAppointment(

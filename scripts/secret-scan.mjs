@@ -36,20 +36,48 @@ const patterns = [
   },
 ];
 
-function trackedFiles() {
-  return execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
+function projectFiles() {
+  const files = execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    { encoding: "utf8" },
+  )
     .split("\0")
     .filter(Boolean)
     .filter((file) => !allowedFiles.has(file));
+  return [...new Set(files)];
 }
 
 function valueFor(match, pattern) {
   return pattern.capture ? match[pattern.capture] : match[0];
 }
 
+function primitiveTypeAnnotation(file, text, match, pattern) {
+  if (!file.endsWith(".d.ts") || !pattern.capture) return false;
+  // Una anotación simple de tipo no contiene un valor. No permitir literales
+  // entre comillas, asignaciones con = ni tipos compuestos con valores literales.
+  if (
+    !/^[A-Z][A-Z0-9_]*[ \t]*:[ \t]*(?:string|number|boolean|bigint|symbol|undefined|null);?$/.test(
+      match[0],
+    )
+  ) {
+    return false;
+  }
+  const tail = text.slice(match.index + match[0].length);
+  const suffix = tail.split(/\r?\n/, 1)[0];
+  if (!/^[ \t]*(?:;[ \t]*)?(?:\/\/.*)?$/.test(suffix)) return false;
+  if (match[0].endsWith(";") || /^[ \t]*;/.test(suffix)) return true;
+  // Sin punto y coma, una unión/array/condicional puede continuar en otra línea.
+  // Tampoco es una anotación primitiva simple y conserva la detección normal.
+  const continuation = tail
+    .slice(suffix.length)
+    .replace(/^(?:\s+|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/, "");
+  return !/^(?:[|&[]|extends\b)/.test(continuation);
+}
+
 const findings = [];
 
-for (const file of trackedFiles()) {
+for (const file of projectFiles()) {
   const text = readFileSync(file, "utf8");
 
   for (const pattern of patterns) {
@@ -59,6 +87,7 @@ for (const file of trackedFiles()) {
       // `${{ secrets.* }}` es una REFERENCIA de GitHub Actions, no un secreto
       // literal en el repo: el valor real vive en GitHub Secrets. No lo marcamos.
       if (
+        primitiveTypeAnnotation(file, text, match, pattern) ||
         allowedValues.has(value) ||
         value.endsWith("=") ||
         value.startsWith("${{")
@@ -81,4 +110,4 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log("No tracked secrets found.");
+console.log("No secrets found in tracked or untracked project files.");

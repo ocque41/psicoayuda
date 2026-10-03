@@ -1,0 +1,104 @@
+.card {
+  border: 1px solid var(--line);
+  border-radius: 1.3rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: var(--surface-raised, #fffdf7);
+  min-width: 0;
+}
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+.card h3 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+.context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1.2rem;
+  margin: 0;
+}
+.context > div {
+  min-width: 0;
+}
+.context dt {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.context dd {
+  margin: 0;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+.time {
+  display: block;
+}
+.time + .time {
+  margin-top: 0.45rem;
+}
+.zone {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.next {
+  border-left: 3px solid var(--green);
+  border-radius: 0 0.75rem 0.75rem 0;
+  padding: 0.85rem 1rem;
+  background: var(--surface-muted, #f3f1e8);
+  margin: 1.1rem 0;
+  font-size: 0.9rem;
+}
+.next strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.next p {
+  margin: 0;
+}
+.filters {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.5fr) repeat(2, minmax(9rem, 1fr)) auto;
+  align-items: end;
+  gap: 0.8rem;
+  margin: 1.4rem 0;
+}
+.filters label {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.84rem;
+}
+.filters select,
+.filters input {
+  width: 100%;
+  min-width: 0;
+}
+.decision {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+.decision summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green);
+  padding: 0.35rem 0;
+}
+@media (max-width: 900px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 540px) {
+  .context,
+  .filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
