@@ -1,5 +1,11 @@
 import { localToUtc } from "@/lib/practice/domain";
 
+export const receiptStatusLabels: Record<string, string> = {
+  recorded: "Registrado",
+  corrected: "Corregido",
+  voided: "Anulado",
+};
+
 export function receiptReceivedAt(
   value: string,
   timeZone: string,

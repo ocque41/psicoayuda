@@ -1,11 +1,22 @@
 "use client";
-import { type ReactNode, useActionState, useCallback } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import type { PracticeFormState } from "@/app/pro/consulta/actions";
 import { TIME_ZONES } from "@/lib/geography";
 export function PracticeForm({
   action,
   children,
   submit = "Guardar",
+  resetOnSuccess = false,
 }: {
   action: (
     state: PracticeFormState,
@@ -13,14 +24,25 @@ export function PracticeForm({
   ) => Promise<PracticeFormState>;
   children?: ReactNode;
   submit?: string;
+  /** Las formas de creación pueden volver a sus defaults tras éxito confirmado. */
+  resetOnSuccess?: boolean;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  const noticeId = useId();
+  const submissionLocked = useRef(false);
+  const handledSubmission = useRef(0);
+  const [locked, setLocked] = useState(false);
   const safeAction = useCallback(
     async (
-      previous: PracticeFormState,
+      previous: { feedback: PracticeFormState; submission: number },
       data: FormData,
-    ): Promise<PracticeFormState> => {
+    ): Promise<{ feedback: PracticeFormState; submission: number }> => {
       try {
-        return await action(previous, data);
+        return {
+          feedback: await action(previous.feedback, data),
+          submission: previous.submission + 1,
+        };
       } catch (error) {
         const digest =
           error && typeof error === "object" && "digest" in error
@@ -33,24 +55,83 @@ export function PracticeForm({
         )
           throw error;
         return {
-          ok: false,
-          message:
-            "No pudimos confirmar el resultado. Actualiza la página para comprobarlo antes de repetir la operación. Si sigue fallando, contacta a soporte.",
+          feedback: {
+            ok: false,
+            message:
+              "No pudimos confirmar el resultado. Conservamos los datos. Comprueba el historial antes de repetir la operación. Si sigue fallando, contacta a soporte.",
+          },
+          submission: previous.submission + 1,
         };
+      } finally {
+        submissionLocked.current = false;
+        setLocked(false);
       }
     },
     [action],
   );
-  const [state, formAction, pending] = useActionState(safeAction, null);
+  const [result, formAction, pending] = useActionState(safeAction, {
+    feedback: null,
+    submission: 0,
+  });
+  const busy = locked || pending;
+  const state = result.feedback;
+  const showNotice = state && !busy;
+
+  useEffect(() => {
+    if (busy || result.submission <= handledSubmission.current) return;
+    handledSubmission.current = result.submission;
+    if (result.feedback?.ok && resetOnSuccess && formRef.current)
+      HTMLFormElement.prototype.reset.call(formRef.current);
+    if (result.feedback && !result.feedback.ok)
+      noticeRef.current?.focus({ preventScroll: false });
+  }, [busy, result, resetOnSuccess]);
+
+  function submitForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submissionLocked.current || busy) return;
+    // Capturar antes de bloquear: controles disabled no entran en FormData.
+    const data = new FormData(
+      event.currentTarget,
+      (event.nativeEvent as SubmitEvent).submitter,
+    );
+    submissionLocked.current = true;
+    setLocked(true);
+    startTransition(() => formAction(data));
+  }
   return (
-    <form action={formAction} className="practice-form" aria-busy={pending}>
-      {children}
-      <button className="button human" type="submit" disabled={pending}>
-        {pending ? "Guardando…" : submit}
-      </button>
-      {state ? (
+    <form
+      ref={formRef}
+      onSubmit={submitForm}
+      method="post"
+      className="practice-form"
+      aria-busy={busy}
+      aria-describedby={showNotice ? noticeId : undefined}
+    >
+      <fieldset
+        disabled={busy}
+        aria-label="Datos del formulario"
+        style={{
+          margin: 0,
+          padding: 0,
+          border: 0,
+          minWidth: 0,
+          display: "grid",
+          gap: "inherit",
+        }}
+      >
+        {children}
+        <button className="button human" type="submit" disabled={busy}>
+          {busy ? "Guardando…" : submit}
+        </button>
+      </fieldset>
+      {showNotice ? (
         <p
+          key={result.submission}
+          ref={noticeRef}
+          id={noticeId}
+          tabIndex={-1}
           role={state.ok ? "status" : "alert"}
+          aria-atomic="true"
           className={state.ok ? "hint" : "form-error"}
         >
           {state.message}

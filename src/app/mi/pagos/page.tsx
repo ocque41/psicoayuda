@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PracticePagination } from "@/components/practice/pagination";
+import { receiptStatusLabels } from "@/components/practice/receipt-history";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { requirePatientAccount } from "@/lib/patient/access";
 import {
@@ -13,6 +14,7 @@ import {
   moneyLabel,
   paymentMethodLabels,
 } from "@/lib/practice/domain";
+import { receiptDateLabel } from "@/lib/practice/receipts";
 import styles from "../mi.module.css";
 import creditStyles from "./credits.module.css";
 
@@ -245,15 +247,26 @@ export default async function PatientPayments({
                   <th>Profesional</th>
                   <th>Método</th>
                   <th>Importe</th>
+                  <th>Registro</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.rows.map((r) => (
                   <tr key={r.id}>
-                    <td>{dateLabel(r.receivedAt, account.timezone)}</td>
+                    <td>{receiptDateLabel(r.receivedAt, account.timezone)}</td>
                     <td>{r.name}</td>
                     <td>{paymentMethodLabels[r.method] || "Externo"}</td>
                     <td>{moneyLabel(r.amountCents, r.currency)}</td>
+                    <td>
+                      <span className="workspace-tag">
+                        {receiptStatusLabels[r.status]}
+                      </span>
+                      <p>
+                        <Link href={`/mi/pagos/${r.id}`} prefetch={false}>
+                          Ver historial
+                        </Link>
+                      </p>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -68,7 +68,11 @@ export default async function ServicesPage() {
           </section>
           <section className="card">
             <h2>Crear servicio</h2>
-            <PracticeForm action={saveService} submit="Crear servicio">
+            <PracticeForm
+              action={saveService}
+              submit="Crear servicio"
+              resetOnSuccess
+            >
               <label>
                 Nombre
                 <input

@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { PracticeCalendar } from "@/components/practice/calendar";
-import { PracticePagination } from "@/components/practice/pagination";
+import {
+  CalendarPagination,
+  PracticeCalendar,
+} from "@/components/practice/calendar";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { requirePatientAccount } from "@/lib/patient/access";
 import {
@@ -8,6 +10,7 @@ import {
   patientRequestCounts,
   patientRequests,
 } from "@/lib/patient/queries";
+import { calendarMonth } from "@/lib/practice/calendar";
 import { dateLabel, localToUtc } from "@/lib/practice/domain";
 import { pageNumber } from "@/lib/practice/queries";
 import { AppointmentList, RequestList } from "../patient-parts";
@@ -25,26 +28,24 @@ export default async function PatientCalendar({
 }: {
   searchParams: Promise<{
     mes?: string;
+    dia?: string;
+    vista?: string;
     pagina?: string;
     solicitudes?: string;
   }>;
 }) {
   const { account } = await requirePatientAccount(),
     params = await searchParams;
-  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.mes || "")
-    ? (params.mes as string)
-    : localMonth(account.timezone);
-  const next = new Date(
-    Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 1),
-  )
-    .toISOString()
-    .slice(0, 7);
+  const month = calendarMonth(params.mes, localMonth(account.timezone));
+  const nextStart = new Date(`${month}-01T00:00:00Z`);
+  nextStart.setUTCMonth(nextStart.getUTCMonth() + 1);
+  const next = nextStart.toISOString().slice(0, 7);
   const from =
       localToUtc(`${month}-01T00:00`, account.timezone) ||
       `${month}-01T00:00:00.000Z`,
     until =
       localToUtc(`${next}-01T00:00`, account.timezone) ||
-      `${next}-01T00:00:00.000Z`;
+      nextStart.toISOString();
   const requestCounts = await patientRequestCounts(account.userId),
     requestPages = Math.max(1, Math.ceil(requestCounts.total / 20)),
     requestPage = Math.min(pageNumber(params.solicitudes), requestPages);
@@ -90,20 +91,24 @@ export default async function PatientCalendar({
           timezone={account.timezone}
           controls
         />
-        <PracticePagination
-          {...appointments}
-          href={(page) => `/mi/calendario?mes=${month}&pagina=${page}`}
+        <CalendarPagination
+          page={appointments.page}
+          pages={appointments.pages}
+          total={appointments.total}
+          month={month}
+          pageKey="pagina"
         />
       </section>
       {requests.length ? (
         <section className="workspace-card">
           <h2>Solicitudes recientes</h2>
           <RequestList rows={requests} timezone={account.timezone} />
-          <PracticePagination
+          <CalendarPagination
             page={requestPage}
             pages={requestPages}
             total={requestCounts.total}
-            href={(page) => `/mi/calendario?mes=${month}&solicitudes=${page}`}
+            month={month}
+            pageKey="solicitudes"
           />
         </section>
       ) : null}

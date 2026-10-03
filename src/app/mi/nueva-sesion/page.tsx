@@ -32,6 +32,7 @@ export default async function NewPatientSession({
             <PracticeForm
               action={requestPatientSession}
               submit="Enviar propuesta"
+              resetOnSuccess
             >
               <input type="hidden" name="kind" value="new" />
               <label>

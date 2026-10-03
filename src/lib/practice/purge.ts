@@ -10,6 +10,7 @@ import {
   practiceCredentials,
   practiceNotes,
   practicePatients,
+  practiceReceiptCorrections,
   practiceReceipts,
   practiceServices,
   practiceSettings,
@@ -97,6 +98,9 @@ export function practiceDeleteStatements(professionalId: string) {
       .where(eq(practiceAppointments.professionalId, professionalId)),
     db.delete(careCycles).where(inArray(careCycles.carePlanId, plans)),
     db.delete(carePlans).where(eq(carePlans.professionalId, professionalId)),
+    db
+      .delete(practiceReceiptCorrections)
+      .where(eq(practiceReceiptCorrections.professionalId, professionalId)),
     db
       .delete(practiceReceipts)
       .where(eq(practiceReceipts.professionalId, professionalId)),

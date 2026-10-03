@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import Link from "next/link";
+import { CalendarPagination } from "@/components/practice/calendar";
 import { PracticeForm } from "@/components/practice/forms";
-import { PracticePagination } from "@/components/practice/pagination";
 import { db } from "@/db";
 import { practiceServices } from "@/db/schema";
 import {
   professionalPatientRequests,
   requestFilters,
-  requestPageHref,
   requestStatusText,
 } from "@/lib/patient/professional-requests";
 import { requestKindLabels } from "@/lib/patient/requests";
@@ -19,10 +18,12 @@ export async function ProfessionalPatientRequests({
   professionalId,
   timezone,
   parameters,
+  month,
 }: {
   professionalId: string;
   timezone: string;
   parameters: Record<string, string | undefined>;
+  month: string;
 }) {
   const results = await professionalPatientRequests(
     professionalId,
@@ -222,9 +223,13 @@ export async function ProfessionalPatientRequests({
           </div>
         ) : null}
       </div>
-      <PracticePagination
-        {...results}
-        href={(number) => requestPageHref(parameters, number)}
+      <CalendarPagination
+        page={results.page}
+        pages={results.pages}
+        total={results.total}
+        month={month}
+        pageKey="solicitudes"
+        anchor="solicitudes"
       />
     </section>
   );

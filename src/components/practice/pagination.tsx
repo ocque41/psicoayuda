@@ -4,11 +4,13 @@ export function PracticePagination({
   pages,
   total,
   href,
+  prefetch,
 }: {
   page: number;
   pages: number;
   total: number;
   href: (page: number) => string;
+  prefetch?: boolean;
 }) {
   return (
     <nav className="practice-pagination" aria-label="Páginas de resultados">
@@ -20,6 +22,7 @@ export function PracticePagination({
           <Link
             className="button secondary"
             href={href(page - 1)}
+            prefetch={prefetch}
             scroll={false}
           >
             ← Anterior
@@ -29,6 +32,7 @@ export function PracticePagination({
           <Link
             className="button secondary"
             href={href(page + 1)}
+            prefetch={prefetch}
             scroll={false}
           >
             Siguiente →

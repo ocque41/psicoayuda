@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, type SQL, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   patientConversationLinks,
@@ -11,9 +11,31 @@ import {
   payments,
   practiceAppointments,
   practicePatients,
+  practiceReceiptCorrections,
   practiceReceipts,
 } from "@/db/schema";
+import { effectiveReceiptFields } from "@/lib/practice/receipt-queries";
 import { patientAccountForUser } from "./accounts";
+
+/** El vínculo y la cuenta se vuelven a comprobar en cada lote financiero. */
+function financialReceiptScope(userId: string) {
+  return sql`EXISTS (
+    SELECT 1 FROM practice_patients AS patient
+    JOIN conversations AS conversation ON conversation.id = patient.conversation_id AND conversation.professional_id = patient.professional_id
+    JOIN patient_conversation_links AS link ON link.conversation_id = conversation.id
+    JOIN patient_accounts AS account ON account.user_id = link.user_id AND account.deletion_state = 'active'
+    WHERE patient.id = practice_receipts.patient_id AND patient.professional_id = practice_receipts.professional_id
+      AND patient.program = 'general' AND link.user_id = ${userId}
+      AND link.verified_by IN ('verified_email', 'seeker_session') AND length(link.verified_at) > 0
+      AND conversation.deleted_at IS NULL AND conversation.anonymized_at IS NULL
+  )`;
+}
+function publicReceiptReference(reference: SQL<string>) {
+  return sql<string>`CASE
+    WHEN substr(${reference}, 1, length(${practiceReceipts.professionalId}) + 1) = ${practiceReceipts.professionalId} || ':'
+    THEN substr(${reference}, length(${practiceReceipts.professionalId}) + 2)
+    ELSE ${reference} END`;
+}
 /** JSON por lotes: sin cargar todos los historiales en memoria del Worker. */
 export async function* patientExportChunks(
   userId: string,
@@ -25,6 +47,7 @@ export async function* patientExportChunks(
     isNull(conversations.anonymizedAt),
     isNull(conversations.deletedAt),
   );
+  const receiptScope = financialReceiptScope(userId);
   const sets = [
     {
       key: "conversations",
@@ -92,19 +115,70 @@ export async function* patientExportChunks(
             receivedAt: practiceReceipts.receivedAt,
           })
           .from(practiceReceipts)
+          .where(receiptScope)
+          .orderBy(practiceReceipts.id)
+          .limit(250)
+          .offset(offset),
+    },
+    {
+      key: "receiptCorrections",
+      query: (offset: number) =>
+        db
+          .select({
+            id: practiceReceiptCorrections.id,
+            receiptId: practiceReceiptCorrections.receiptId,
+            revision: practiceReceiptCorrections.revision,
+            kind: practiceReceiptCorrections.kind,
+            amountCents: practiceReceiptCorrections.amountCents,
+            currency: practiceReceiptCorrections.currency,
+            method: practiceReceiptCorrections.method,
+            reference: publicReceiptReference(
+              sql<string>`${practiceReceiptCorrections.reference}`,
+            ),
+            receivedAt: practiceReceiptCorrections.receivedAt,
+            reason: practiceReceiptCorrections.reason,
+            createdAt: practiceReceiptCorrections.createdAt,
+          })
+          .from(practiceReceiptCorrections)
           .innerJoin(
-            practicePatients,
-            eq(practicePatients.id, practiceReceipts.patientId),
+            practiceReceipts,
+            and(
+              eq(practiceReceipts.id, practiceReceiptCorrections.receiptId),
+              eq(
+                practiceReceipts.professionalId,
+                practiceReceiptCorrections.professionalId,
+              ),
+              eq(
+                practiceReceipts.patientId,
+                practiceReceiptCorrections.patientId,
+              ),
+            ),
           )
-          .innerJoin(
-            conversations,
-            eq(conversations.id, practicePatients.conversationId),
+          .where(receiptScope)
+          .orderBy(
+            practiceReceiptCorrections.receiptId,
+            practiceReceiptCorrections.revision,
           )
-          .innerJoin(
-            patientConversationLinks,
-            eq(patientConversationLinks.conversationId, conversations.id),
-          )
-          .where(scoped)
+          .limit(250)
+          .offset(offset),
+    },
+    {
+      key: "effectiveExternalReceipts",
+      query: (offset: number) =>
+        db
+          .select({
+            id: practiceReceipts.id,
+            amountCents: effectiveReceiptFields.amountCents,
+            currency: effectiveReceiptFields.currency,
+            method: effectiveReceiptFields.method,
+            reference: publicReceiptReference(effectiveReceiptFields.reference),
+            receivedAt: effectiveReceiptFields.receivedAt,
+            revision: effectiveReceiptFields.revision,
+            status: effectiveReceiptFields.status,
+            recordedAt: effectiveReceiptFields.recordedAt,
+          })
+          .from(practiceReceipts)
+          .where(receiptScope)
           .orderBy(practiceReceipts.id)
           .limit(250)
           .offset(offset),

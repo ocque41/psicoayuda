@@ -6,19 +6,21 @@ import {
   createPatient,
   releaseConversationQuota,
 } from "@/app/pro/consulta/actions";
-import { PracticeCalendar } from "@/components/practice/calendar";
+import {
+  CalendarPagination,
+  PracticeCalendar,
+} from "@/components/practice/calendar";
 import { PracticeForm, TimeZoneSelect } from "@/components/practice/forms";
 import { InboxNotifier } from "@/components/practice/inbox-notifier";
 import { PracticeNav } from "@/components/practice/nav";
-import { PracticePagination } from "@/components/practice/pagination";
 import { db } from "@/db";
 import {
   practiceAppointments,
   practicePatients,
-  practiceReceipts,
   practiceSettings,
 } from "@/db/schema";
 import { requirePracticeProfessional } from "@/lib/practice/access";
+import { calendarMonth } from "@/lib/practice/calendar";
 import {
   appointmentStateLabels,
   dateLabel,
@@ -27,6 +29,8 @@ import {
   patientStateLabels,
 } from "@/lib/practice/domain";
 import { chatList, inboxSummary, patientList } from "@/lib/practice/queries";
+import { receiptPeriod } from "@/lib/practice/receipt-export";
+import { receiptTotals } from "@/lib/practice/receipt-queries";
 export const metadata: Metadata = {
   title: "Tu consulta",
   robots: { index: false, follow: false },
@@ -38,6 +42,8 @@ export default async function PracticePage({
     estado?: string;
     q?: string;
     mes?: string;
+    dia?: string;
+    vista?: string;
     pagina?: string;
     chats?: string;
     solicitudes?: string;
@@ -56,9 +62,7 @@ export default async function PracticePage({
     year: "numeric",
     month: "2-digit",
   }).format(new Date());
-  const month = /^20\d{2}-(0[1-9]|1[0-2])$/.test(params.mes || "")
-    ? params.mes || currentMonth
-    : currentMonth;
+  const month = calendarMonth(params.mes, currentMonth);
   const monthStart = Date.parse(`${month}-01T00:00:00Z`);
   const monthEndDate = new Date(monthStart);
   monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
@@ -69,14 +73,7 @@ export default async function PracticePage({
     new Date(monthStart - 86400000).toISOString();
   const rangeEnd =
     localToUtc(`${nextMonth}-01T00:00`, timeZone) || monthEndDate.toISOString();
-  const currentStart =
-    localToUtc(`${currentMonth}-01T00:00`, timeZone) ||
-    `${currentMonth}-01T00:00:00.000Z`;
-  const currentEnd = new Date(`${currentMonth}-01T00:00:00Z`);
-  currentEnd.setUTCMonth(currentEnd.getUTCMonth() + 1);
-  const receiptEnd =
-    localToUtc(`${currentEnd.toISOString().slice(0, 7)}-01T00:00`, timeZone) ||
-    currentEnd.toISOString();
+  const currentPeriod = receiptPeriod(currentMonth, timeZone);
   const [patients, appointments, totals, chats, inbox, active, upcoming] =
     await Promise.all([
       patientList(pro.id, params),
@@ -106,20 +103,15 @@ export default async function PracticePage({
         )
         .orderBy(asc(practiceAppointments.startsAt))
         .limit(201),
-      db
-        .select({
-          amount: sql<number>`sum(${practiceReceipts.amountCents})`,
-          currency: practiceReceipts.currency,
-        })
-        .from(practiceReceipts)
-        .where(
-          and(
-            eq(practiceReceipts.professionalId, pro.id),
-            gte(practiceReceipts.receivedAt, currentStart),
-            lt(practiceReceipts.receivedAt, receiptEnd),
-          ),
-        )
-        .groupBy(practiceReceipts.currency),
+      receiptTotals(pro.id, {
+        startsAt: currentPeriod.startsAt,
+        endsAt: currentPeriod.endsAt,
+      }).then((rows) =>
+        rows.map((row) => ({
+          amount: row.amountCents,
+          currency: row.currency,
+        })),
+      ),
       chatList(pro.id, params.chats),
       inboxSummary(pro.id),
       db
@@ -148,22 +140,6 @@ export default async function PracticePage({
           ),
         ),
     ]);
-  function pageHref(key: "pagina" | "chats", page: number) {
-    const query = new URLSearchParams();
-    if (patients.term) query.set("q", patients.term);
-    if (patients.state) query.set("estado", patients.state);
-    query.set("mes", month);
-    query.set("pagina", String(key === "pagina" ? page : patients.page));
-    query.set("chats", String(key === "chats" ? page : chats.page));
-    if (params.solicitudes) query.set("solicitudes", params.solicitudes);
-    for (const key of [
-      "solicitudes_estado",
-      "solicitudes_desde",
-      "solicitudes_hasta",
-    ] as const)
-      if (params[key]) query.set(key, params[key]);
-    return `/pro/consulta?${query}#${key === "pagina" ? "pacientes" : "chats"}`;
-  }
   return (
     <section className="section">
       <div className="container practice-shell">
@@ -173,12 +149,12 @@ export default async function PracticePage({
           Hola, {pro.displayName || pro.fullName.split(" ")[0]}. Este es tu
           espacio para acompañar y organizar el próximo paso.
         </p>
+        <p>
+          <Link href="/demo/consulta">
+            Conocer mi consulta con el pajarito →
+          </Link>
+        </p>
         <PracticeNav />
-        <ProfessionalPatientRequests
-          professionalId={pro.id}
-          timezone={timeZone}
-          parameters={params}
-        />
         <PracticeCalendar
           month={month}
           timeZone={timeZone}
@@ -223,6 +199,12 @@ export default async function PracticePage({
             <small>Confirmados por ti · por moneda</small>
           </article>
         </div>
+        <ProfessionalPatientRequests
+          professionalId={pro.id}
+          timezone={timeZone}
+          parameters={params}
+          month={month}
+        />
         <div className="practice-columns">
           <section>
             <h2>Agenda</h2>
@@ -311,13 +293,21 @@ export default async function PracticePage({
                 <p className="hint">No hay fichas con estos filtros.</p>
               ) : null}
             </div>
-            <PracticePagination
-              {...patients}
-              href={(page) => pageHref("pagina", page)}
+            <CalendarPagination
+              page={patients.page}
+              pages={patients.pages}
+              total={patients.total}
+              month={month}
+              pageKey="pagina"
+              anchor="pacientes"
             />
             <details className="card">
               <summary>Crear ficha de paciente</summary>
-              <PracticeForm action={createPatient} submit="Crear ficha">
+              <PracticeForm
+                action={createPatient}
+                submit="Crear ficha"
+                resetOnSuccess
+              >
                 <label>
                   Nombre o alias
                   <input
@@ -383,6 +373,7 @@ export default async function PracticePage({
                     <PracticeForm
                       action={createPatient}
                       submit="Crear ficha vinculada"
+                      resetOnSuccess
                     >
                       <input type="hidden" name="conversationId" value={c.id} />
                       <input
@@ -442,9 +433,13 @@ export default async function PracticePage({
               contigo.
             </p>
           ) : null}
-          <PracticePagination
-            {...chats}
-            href={(page) => pageHref("chats", page)}
+          <CalendarPagination
+            page={chats.page}
+            pages={chats.pages}
+            total={chats.total}
+            month={month}
+            pageKey="chats"
+            anchor="chats"
           />
         </section>
       </div>

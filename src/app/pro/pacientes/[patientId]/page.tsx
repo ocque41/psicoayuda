@@ -32,6 +32,7 @@ import {
 import { PracticeNav } from "@/components/practice/nav";
 import { PracticePagination } from "@/components/practice/pagination";
 import { PatientNotes } from "@/components/practice/patient-notes";
+import { receiptStatusLabels } from "@/components/practice/receipt-history";
 import { db } from "@/db";
 import {
   careCycles,
@@ -55,7 +56,7 @@ import {
   paymentMethodLabels,
 } from "@/lib/practice/domain";
 import { PRACTICE_PAGE_SIZE, pageNumber } from "@/lib/practice/queries";
-import { receiptRecordedAt } from "@/lib/practice/receipt-history";
+import { effectiveReceiptFields } from "@/lib/practice/receipt-queries";
 import { receiptDateLabel, receiptLocalInput } from "@/lib/practice/receipts";
 export const metadata: Metadata = {
   title: "Ficha de paciente",
@@ -132,7 +133,7 @@ export default async function PatientPage({
     db
       .select({
         ...getTableColumns(practiceReceipts),
-        recordedAt: receiptRecordedAt,
+        ...effectiveReceiptFields,
       })
       .from(practiceReceipts)
       .where(
@@ -141,7 +142,10 @@ export default async function PatientPage({
           eq(practiceReceipts.professionalId, pro.id),
         ),
       )
-      .orderBy(desc(practiceReceipts.receivedAt), desc(practiceReceipts.id))
+      .orderBy(
+        desc(effectiveReceiptFields.receivedAt),
+        desc(practiceReceipts.id),
+      )
       .limit(PRACTICE_PAGE_SIZE)
       .offset((page.cobros - 1) * PRACTICE_PAGE_SIZE),
     db
@@ -329,7 +333,11 @@ export default async function PatientPage({
             />
             <h3>Programar sesión</h3>
             {services.length ? (
-              <PracticeForm action={scheduleAppointment} submit="Programar">
+              <PracticeForm
+                action={scheduleAppointment}
+                submit="Programar"
+                resetOnSuccess
+              >
                 <input type="hidden" name="patientId" value={patient.id} />
                 <label>
                   Servicio
@@ -392,6 +400,7 @@ export default async function PatientPage({
                 <PracticeForm
                   action={saveReceipt}
                   submit="Confirmar pago externo"
+                  resetOnSuccess
                 >
                   <input type="hidden" name="patientId" value={patient.id} />
                   <label>
@@ -451,6 +460,9 @@ export default async function PatientPage({
             )}
             {receipts.map((r) => (
               <article className="card" key={r.id}>
+                <span className="workspace-tag">
+                  {receiptStatusLabels[r.status]}
+                </span>
                 <strong>{moneyLabel(r.amountCents, r.currency)}</strong>
                 <p>
                   {paymentMethodLabels[r.method]} · recibido el{" "}
@@ -472,6 +484,15 @@ export default async function PatientPage({
                   )}
                   {" · "}Nido no ha procesado ni verificado este pago.
                 </small>
+                <p>
+                  <Link
+                    className="button secondary"
+                    href={`/pro/pacientes/${patient.id}/cobros/${r.id}`}
+                    prefetch={false}
+                  >
+                    Ver registro y corregir
+                  </Link>
+                </p>
               </article>
             ))}
             <PracticePagination
@@ -487,6 +508,7 @@ export default async function PatientPage({
                   <PracticeForm
                     action={proposeCare}
                     submit="Proponer acompañamiento"
+                    resetOnSuccess
                   >
                     <input type="hidden" name="patientId" value={patient.id} />
                     <label>

@@ -59,6 +59,7 @@ export function AppointmentList({
                   <PracticeForm
                     action={requestPatientSession}
                     submit="Enviar solicitud"
+                    resetOnSuccess
                   >
                     <input
                       type="hidden"

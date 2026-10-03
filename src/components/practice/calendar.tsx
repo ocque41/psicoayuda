@@ -12,6 +12,15 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { WorkspaceIcon } from "@/components/workspace/icon";
+import {
+  type CalendarPageKey,
+  type CalendarView,
+  calendarDay,
+  calendarHref,
+  calendarView,
+  shiftCalendarMonth,
+} from "@/lib/practice/calendar";
+import { PracticePagination } from "./pagination";
 
 export type CalendarEvent = {
   id: string;
@@ -40,18 +49,41 @@ const weekdays = [
   "Domingo",
 ];
 
-function validDay(value: string | null, month: string) {
-  if (
-    !value ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
-    !value.startsWith(`${month}-`)
-  )
-    return null;
-  const date = new Date(`${value}T12:00:00Z`);
-  return Number.isFinite(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value
-    ? value
-    : null;
+/** Los enlaces siguen el contexto actual, también tras cambios locales de History. */
+export function CalendarPagination({
+  page,
+  pages,
+  total,
+  month,
+  pageKey,
+  anchor = "",
+}: {
+  page: number;
+  pages: number;
+  total: number;
+  month: string;
+  pageKey: CalendarPageKey;
+  anchor?: string;
+}) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  return (
+    <PracticePagination
+      page={page}
+      pages={pages}
+      total={total}
+      prefetch={false}
+      href={(number) =>
+        calendarHref(
+          pathname,
+          params.toString(),
+          month,
+          { [pageKey]: number },
+          anchor,
+        )
+      }
+    />
+  );
 }
 
 export function PracticeCalendar({
@@ -70,26 +102,20 @@ export function PracticeCalendar({
   const router = useRouter();
   const headingId = useId();
   const agendaId = useId();
-  const [selection, setSelection] = useState<{
-    month: string;
-    day: string | null;
-  }>({ month, day: validDay(params.get("dia"), month) });
-  const [view, setView] = useState<"calendar" | "list">("calendar");
-  const [focusedDay, setFocusedDay] = useState(1);
+  const selected = calendarDay(params.get("dia"), month);
+  const view = calendarView(params.get("vista"));
+  const [focusedDay, setFocusedDay] = useState(
+    selected ? Number(selected.slice(-2)) : 1,
+  );
   const dateButtons = useRef(new Map<number, HTMLButtonElement>());
   const restoreFocus = useRef<{ month: string; day: number } | null>(null);
   const transition = useRef<ViewTransition | null>(null);
-  const [year, number] = month.split("-").map(Number);
-  const first = new Date(Date.UTC(year, number - 1, 1));
-  const days = new Date(Date.UTC(year, number, 0)).getUTCDate();
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const final = new Date(first);
+  final.setUTCMonth(final.getUTCMonth() + 1);
+  final.setUTCDate(0);
+  const days = final.getUTCDate();
   const offset = (first.getUTCDay() + 6) % 7;
-  const queryDay = validDay(params.get("dia"), month);
-  const selected =
-    selection.month === month
-      ? selection.day
-      : queryDay?.startsWith(`${month}-`) && Number(queryDay.slice(-2)) <= days
-        ? queryDay
-        : null;
   const heading = new Intl.DateTimeFormat("es", {
     timeZone: "UTC",
     month: "long",
@@ -148,11 +174,10 @@ export function PracticeCalendar({
   useEffect(() => () => transition.current?.skipTransition(), []);
 
   function monthHref(target: string, day?: string) {
-    const query = new URLSearchParams(params.toString());
-    query.set("mes", target);
-    if (day) query.set("dia", day);
-    else query.delete("dia");
-    return `${pathname}?${query}#calendario`;
+    return calendarHref(pathname, params.toString(), month, {
+      mes: target,
+      dia: day ?? null,
+    });
   }
   function morph(update: () => void) {
     transition.current?.skipTransition();
@@ -168,7 +193,26 @@ export function PracticeCalendar({
     } else update();
   }
   function select(day: string | null) {
-    morph(() => setSelection({ month, day }));
+    updateContext({ dia: day });
+  }
+  function updateContext(changes: {
+    dia?: string | null;
+    vista?: CalendarView;
+  }) {
+    // Next.js integra History con useSearchParams sin consultar el mes al servidor.
+    const href = calendarHref(
+      pathname,
+      window.location.search,
+      month,
+      { mes: month, ...changes },
+      window.location.hash.slice(1),
+    );
+    if (
+      `${window.location.pathname}${window.location.search}${window.location.hash}` ===
+      href
+    )
+      return;
+    morph(() => window.history.pushState(null, "", href));
   }
   function focusDate(day: number) {
     if (day >= 1 && day <= days) {
@@ -176,8 +220,10 @@ export function PracticeCalendar({
       dateButtons.current.get(day)?.focus();
       return;
     }
-    const target = new Date(Date.UTC(year, number - 1, day));
+    const target = new Date(first);
+    target.setUTCDate(day);
     const targetMonth = target.toISOString().slice(0, 7);
+    if (!shiftCalendarMonth(month, day < 1 ? -1 : 1)) return;
     restoreFocus.current = { month: targetMonth, day: target.getUTCDate() };
     router.push(monthHref(targetMonth), { scroll: false });
   }
@@ -196,19 +242,16 @@ export function PracticeCalendar({
       focusDate(day + moves[event.key]);
     } else if (event.key === "PageUp" || event.key === "PageDown") {
       event.preventDefault();
-      const target = new Date(
-        Date.UTC(year, number - 1 + (event.key === "PageUp" ? -1 : 1), 1),
-      );
-      restoreFocus.current = { month: target.toISOString().slice(0, 7), day };
-      router.push(monthHref(target.toISOString().slice(0, 7)), {
+      const target = shiftCalendarMonth(month, event.key === "PageUp" ? -1 : 1);
+      if (!target) return;
+      restoreFocus.current = { month: target, day };
+      router.push(monthHref(target), {
         scroll: false,
       });
     }
   }
-  const previous = new Date(Date.UTC(year, number - 2, 1))
-    .toISOString()
-    .slice(0, 7);
-  const next = new Date(Date.UTC(year, number, 1)).toISOString().slice(0, 7);
+  const previous = shiftCalendarMonth(month, -1);
+  const next = shiftCalendarMonth(month, 1);
   const visible = selected ? grouped.get(selected) || [] : ordered;
   const selectedLabel = selected
     ? longDateFormat.format(new Date(`${selected}T12:00:00Z`))
@@ -217,7 +260,7 @@ export function PracticeCalendar({
 
   return (
     <section
-      className={`card calendar-card calendar-view-${view}`}
+      className={`card calendar-card calendar-view-${view === "mes" ? "calendar" : "list"}`}
       id="calendario"
       aria-labelledby={headingId}
     >
@@ -245,28 +288,35 @@ export function PracticeCalendar({
               <Link
                 className="calendar-today"
                 href={monthHref(today.slice(0, 7), today)}
+                prefetch={false}
                 scroll={false}
               >
                 Hoy
               </Link>
             )
           ) : null}
-          <Link
-            className="calendar-arrow"
-            href={monthHref(previous)}
-            scroll={false}
-            aria-label="Mes anterior"
-          >
-            ←
-          </Link>
-          <Link
-            className="calendar-arrow"
-            href={monthHref(next)}
-            scroll={false}
-            aria-label="Mes siguiente"
-          >
-            →
-          </Link>
+          {previous ? (
+            <Link
+              className="calendar-arrow"
+              href={monthHref(previous)}
+              prefetch={false}
+              scroll={false}
+              aria-label="Mes anterior"
+            >
+              ←
+            </Link>
+          ) : null}
+          {next ? (
+            <Link
+              className="calendar-arrow"
+              href={monthHref(next)}
+              prefetch={false}
+              scroll={false}
+              aria-label="Mes siguiente"
+            >
+              →
+            </Link>
+          ) : null}
         </div>
       </header>
       <div className="calendar-subheading">
@@ -279,16 +329,16 @@ export function PracticeCalendar({
         >
           <button
             type="button"
-            aria-pressed={view === "calendar"}
-            onClick={() => morph(() => setView("calendar"))}
+            aria-pressed={view === "mes"}
+            onClick={() => updateContext({ vista: "mes" })}
           >
             <WorkspaceIcon name="calendar" />
             Mes
           </button>
           <button
             type="button"
-            aria-pressed={view === "list"}
-            onClick={() => morph(() => setView("list"))}
+            aria-pressed={view === "agenda"}
+            onClick={() => updateContext({ vista: "agenda" })}
           >
             <WorkspaceIcon name="people" />
             Agenda
@@ -296,7 +346,7 @@ export function PracticeCalendar({
         </fieldset>
       </div>
       <div className="calendar-layout">
-        {view === "calendar" ? (
+        {view === "mes" ? (
           <div className="calendar-month">
             <p className="visually-hidden" id={`${headingId}-help`}>
               Usa las flechas para moverte por las fechas. Inicio y Fin recorren
@@ -325,17 +375,17 @@ export function PracticeCalendar({
                 </tr>
               </thead>
               <tbody>
-                {Array.from(
-                  { length: weekCount },
-                  (_, week) =>
-                    new Date(Date.UTC(year, number - 1, week * 7 - offset + 1)),
-                ).map((weekStart) => (
+                {Array.from({ length: weekCount }, (_, week) => {
+                  const date = new Date(first);
+                  date.setUTCDate(week * 7 - offset + 1);
+                  return date;
+                }).map((weekStart) => (
                   <tr key={weekStart.toISOString()}>
                     {weekdays.map((weekday, column) => {
                       const cellDate = new Date(weekStart);
                       cellDate.setUTCDate(cellDate.getUTCDate() + column);
                       const dayNumber =
-                        cellDate.getUTCMonth() === number - 1
+                        cellDate.getUTCMonth() === first.getUTCMonth()
                           ? cellDate.getUTCDate()
                           : 0;
                       if (dayNumber < 1 || dayNumber > days)

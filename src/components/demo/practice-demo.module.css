@@ -1,0 +1,481 @@
+.demo {
+  padding-bottom: 5rem;
+}
+.intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+  scroll-margin-top: 6rem;
+}
+.intro > div:first-child {
+  flex: 1 1 32rem;
+}
+.intro h1 {
+  font-size: clamp(2.3rem, 5vw, 4rem);
+  letter-spacing: -0.055em;
+  margin-bottom: 1rem;
+}
+.guideStart {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+.demoBadge {
+  display: inline-flex;
+  padding: 0.5rem 0.85rem;
+  border-radius: 2rem;
+  background: var(--sage-light, #e9f0e6);
+  font-size: 0.8rem;
+  color: var(--green-dark, #365a43);
+}
+.layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+.sidebar {
+  position: sticky;
+  top: 6rem;
+}
+.sidebarTitle {
+  font-weight: 650;
+  padding: 0 0.7rem;
+}
+.sidebarTitle span {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.menu {
+  display: grid;
+  gap: 0.35rem;
+}
+.menu a {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  text-decoration: none;
+  color: var(--muted);
+  transition:
+    background 180ms,
+    color 180ms;
+}
+.menu a:hover,
+.menu a[aria-current] {
+  background: var(--sage-light, #e6f0e9);
+  color: var(--green-dark, #365a43);
+}
+.menu svg {
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
+}
+.localHint {
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 1.5rem 0.8rem;
+}
+.back {
+  display: inline-block;
+  margin: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+.panels {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.panel {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: 1.8rem;
+  background: var(--paper, #fffdf8);
+  scroll-margin: 6rem 0 16rem;
+  overflow-wrap: anywhere;
+}
+.panel h2 {
+  letter-spacing: -0.035em;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  margin-top: 0.5rem;
+}
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.panelHead h2 {
+  margin-bottom: 0.5rem;
+}
+.calendarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.calendarHeader h3 {
+  text-transform: capitalize;
+  margin: 0;
+  font-size: 1.25rem;
+}
+.calendarHeader button {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+.calendar {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.5rem 0;
+}
+.calendar button {
+  display: grid;
+  place-content: center;
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 180ms;
+}
+.calendar button:hover {
+  background: var(--sage-light, #e6f0e9);
+}
+.calendar button[aria-pressed="true"] {
+  background: #3e5e48;
+  color: #fffdf8;
+}
+.calendar i {
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  position: absolute;
+  left: calc(50% - 2px);
+  bottom: 7px;
+}
+.dayList {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  margin-top: 1.5rem;
+}
+.session {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+.session > div {
+  flex: 1;
+  min-width: 8rem;
+}
+.session p {
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.sessionTime {
+  color: #365a43;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+.empty {
+  color: var(--muted);
+  padding: 0.5rem 0;
+}
+.patientCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+}
+.patientCard {
+  padding: 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 1.3rem;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition:
+    background 180ms,
+    border-color 180ms;
+}
+.patientCard[aria-pressed="true"] {
+  background: var(--sage-light, #e6f0e9);
+  border-color: #50765a;
+}
+.patientCard > span:not(.avatar) {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e3ecdf;
+  font-size: 0.8rem;
+  color: #365a43;
+  flex-shrink: 0;
+}
+.sand {
+  background: #f0e5d0;
+  color: #6a5534;
+}
+.rose {
+  background: #efdfd6;
+  color: #6d4d43;
+}
+.sage {
+  background: #e3ecdf;
+}
+.openPatient {
+  color: #365a43;
+  font-weight: 600;
+}
+.patientContext {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.patientContext > div {
+  flex: 1;
+  min-width: 12rem;
+}
+.patientContext p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.3rem 0;
+}
+.chat {
+  padding: 0.5rem 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.bubble {
+  max-width: 85%;
+  border-radius: 1.2rem 1.2rem 1.2rem 0.3rem;
+  background: #f2eee4;
+  padding: 1rem 1.2rem;
+  align-self: flex-start;
+}
+.bubble small {
+  color: #5f5d50;
+  font-size: 0.75rem;
+}
+.bubble p {
+  margin: 0.35rem 0 0;
+}
+.outgoing {
+  align-self: flex-end;
+  border-radius: 1.2rem 1.2rem 0.3rem 1.2rem;
+  background: #e4eddf;
+}
+.composer {
+  display: flex;
+  gap: 0.75rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.composer label {
+  flex: 1 1 16rem;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.composer input {
+  width: 100%;
+}
+.totals {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1.5rem 0;
+}
+.totals > div {
+  border: 1px solid var(--line);
+  border-radius: 1.3rem;
+  padding: 1.25rem;
+  background: #e6efdf;
+  flex: 1 1 10rem;
+}
+.totals span {
+  display: block;
+  font-size: 0.8rem;
+  color: #506449;
+}
+.totals strong {
+  display: block;
+  font-size: 1.7rem;
+  margin-top: 0.4rem;
+}
+.receipts {
+  display: grid;
+  gap: 0.5rem;
+}
+.receipts article {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.receipts article:last-child {
+  border: 0;
+}
+.receipts p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.notice {
+  background: #e6efdf;
+  color: #365a43;
+  padding: 1rem;
+  border-radius: 1rem;
+  font-size: 0.9rem;
+}
+.finish {
+  background: #eaf0e2;
+}
+.finishActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.dialog {
+  width: min(520px, calc(100% - 2rem));
+  max-height: calc(100svh - 2rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--paper, #fffdf8);
+  color: var(--ink);
+  padding: 1.5rem;
+}
+.dialog::backdrop {
+  background: #22352875;
+  backdrop-filter: blur(4px);
+}
+.dialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.dialogHeader h2 {
+  font-size: 1.6rem;
+  margin: 0.5rem 0;
+}
+.dialogHeader > button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 1.6rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .sidebar {
+    position: static;
+  }
+  .sidebarTitle,
+  .localHint {
+    display: none;
+  }
+  .menu {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .menu a {
+    padding: 0.65rem 0.5rem;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+  }
+  .back {
+    margin: 1rem 0.5rem;
+  }
+  .patientCards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .patientCard {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.4rem 1rem;
+  }
+  .patientCard .avatar {
+    grid-row: 1 / 4;
+  }
+  .calendar {
+    gap: 0.15rem;
+  }
+  .calendar button {
+    border-radius: 0.7rem;
+  }
+  .panel {
+    scroll-margin-top: 5rem;
+  }
+  .guideStart {
+    width: 100%;
+  }
+  .demo {
+    padding-bottom: 8rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu a,
+  .calendar button,
+  .patientCard {
+    transition: none;
+  }
+}

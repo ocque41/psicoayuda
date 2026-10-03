@@ -27,6 +27,7 @@ const professionalLinks: NavItem[] = [
   },
   { href: "/pro/servicios", label: "Servicios", icon: "leaf" },
   { href: "/pro/dashboard#chats", label: "Mensajes", icon: "message" },
+  { href: "/pro/cobros", label: "Cobros", icon: "payment" },
   { href: "/pro/ajustes", label: "Horario", icon: "settings" },
   { href: "/pro/soporte", label: "Soporte", icon: "help" },
   { href: "/pro/plan", label: "Mi plan", icon: "payment" },
@@ -61,6 +62,7 @@ export function WorkspaceNav({
             const active =
               !item.href.includes("#") &&
               (pathname === item.href ||
+                (item.href !== "/mi" && pathname.startsWith(`${item.href}/`)) ||
                 Boolean(item.match && pathname.startsWith(item.match)));
             return (
               <Link

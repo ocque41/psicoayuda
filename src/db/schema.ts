@@ -859,6 +859,55 @@ export const practiceReceipts = sqliteTable(
     ),
   ],
 );
+// Cada fila conserva el snapshot efectivo completo; el original no se reescribe.
+export const practiceReceiptCorrections = sqliteTable(
+  "practice_receipt_corrections",
+  {
+    id: text("id").primaryKey(),
+    receiptId: text("receipt_id")
+      .notNull()
+      .references(() => practiceReceipts.id, { onDelete: "cascade" }),
+    professionalId: text("professional_id")
+      .notNull()
+      .references(() => professionals.id, { onDelete: "cascade" }),
+    patientId: text("patient_id")
+      .notNull()
+      .references(() => practicePatients.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    expectedRevision: integer("expected_revision").notNull(),
+    kind: text("kind", { enum: ["corrected", "voided"] }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    method: text("method").notNull(),
+    reference: text("reference").notNull(),
+    receivedAt: text("received_at").notNull(),
+    reason: text("reason").notNull(),
+    authorUserId: text("author_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    submissionId: text("submission_id").notNull(),
+    // Payload normalizado del envío, para comprobar reintentos sin reinterpretar
+    // una referencia omitida ni la zona horaria si después cambia la consulta.
+    submissionPayload: text("submission_payload").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("practice_receipt_corrections_revision_idx").on(
+      t.receiptId,
+      t.revision,
+    ),
+    uniqueIndex("practice_receipt_corrections_submission_idx").on(
+      t.submissionId,
+    ),
+    index("practice_receipt_corrections_pro_reference_idx").on(
+      t.professionalId,
+      t.reference,
+      t.receiptId,
+      t.revision,
+    ),
+    index("practice_receipt_corrections_patient_idx").on(t.patientId),
+  ],
+);
 export const professionalMemberships = sqliteTable("professional_memberships", {
   professionalId: text("professional_id")
     .primaryKey()

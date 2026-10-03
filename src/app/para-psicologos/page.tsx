@@ -39,6 +39,12 @@ export default function ProfessionalLanding() {
                 Entrar a mi consulta<span aria-hidden="true">→</span>
               </Link>
             </div>
+            <p>
+              <Link className="marketing-text-link" href="/demo/consulta">
+                Explorar mi consulta con el pajarito
+                <span aria-hidden="true">→</span>
+              </Link>
+            </p>
             <div className="marketing-trust">
               <span>
                 <WorkspaceIcon name="calendar" />

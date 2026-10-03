@@ -1,6 +1,6 @@
 import { eq, like } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { RequestContext, RequestList } from "@/app/mi/patient-parts";
 import { ProfessionalPatientRequests } from "@/app/mi/professional-requests";
 import { db } from "@/db";
@@ -24,6 +24,17 @@ import {
   requestStatusText,
 } from "@/lib/patient/professional-requests";
 import { patientRequestCounts, patientRequests } from "@/lib/patient/queries";
+
+vi.mock("next/navigation", async () => ({
+  ...(await vi.importActual<typeof import("next/navigation")>(
+    "next/navigation",
+  )),
+  usePathname: () => "/pro/consulta",
+  useSearchParams: () =>
+    new URLSearchParams(
+      "mes=2026-10&dia=2026-10-06&vista=agenda&solicitudes_estado=reviewed",
+    ),
+}));
 
 const P = "test-request-context";
 const timestamp = "2026-10-01T12:00:00.000Z";
@@ -453,12 +464,15 @@ describe("contexto e historial privado de solicitudes", () => {
         professionalId: id("pro"),
         timezone: "Europe/Madrid",
         parameters: { solicitudes_estado: "reviewed" },
+        month: "2026-10",
       }),
     );
     expect(historyHtml).toContain("solicitudes_estado");
     expect(historyHtml).toContain("Enviadas desde");
     expect(historyHtml).not.toContain("Guardar decisión");
     expect(historyHtml).toContain("Siguiente →");
+    expect(historyHtml).toContain("dia=2026-10-06");
+    expect(historyHtml).toContain("vista=agenda");
     const untouched = await db.query.practiceAppointments.findFirst({
       where: eq(practiceAppointments.id, id("appointment-own")),
     });

@@ -34,17 +34,18 @@ try {
     "0027_practice_crm.sql",
     "0030_practice_notes.sql",
     "0032_support_continuity.sql",
+    "0033_receipt_corrections.sql",
   ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),
       "utf8",
     );
     for (const statement of migration.split("--> statement-breakpoint")) {
-      if (statement.trim().startsWith("CREATE TRIGGER"))
-        await client.execute(statement);
+      const sql = statement.trim().replace(/^(?:--[^\n]*\n\s*)+/, "");
+      if (sql.startsWith("CREATE TRIGGER")) await client.execute(statement);
     }
   }
-  run(["test", ...process.argv.slice(2)]);
+  run(["exec", "vitest", "run", ...process.argv.slice(2)]);
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

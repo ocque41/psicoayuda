@@ -19,6 +19,7 @@ import {
 } from "@/db/schema";
 import { nowIso } from "@/lib/ids";
 import { pageNumber } from "@/lib/practice/queries";
+import { effectiveReceiptFields } from "@/lib/practice/receipt-queries";
 import { cycleCredits } from "./credits";
 export const PATIENT_PAGE_SIZE = 20;
 function ownership(userId: string) {
@@ -254,10 +255,12 @@ export async function patientPayments(
     db
       .select({
         id: practiceReceipts.id,
-        amountCents: practiceReceipts.amountCents,
-        currency: practiceReceipts.currency,
-        method: practiceReceipts.method,
-        receivedAt: practiceReceipts.receivedAt,
+        amountCents: effectiveReceiptFields.amountCents,
+        currency: effectiveReceiptFields.currency,
+        method: effectiveReceiptFields.method,
+        receivedAt: effectiveReceiptFields.receivedAt,
+        status: effectiveReceiptFields.status,
+        revision: effectiveReceiptFields.revision,
         name: sql<string>`coalesce(${professionals.displayName}, ${professionals.fullName})`,
       })
       .from(practiceReceipts)
@@ -272,7 +275,10 @@ export async function patientPayments(
         eq(professionals.id, practiceReceipts.professionalId),
       )
       .where(financialOwnership)
-      .orderBy(desc(practiceReceipts.receivedAt), desc(practiceReceipts.id))
+      .orderBy(
+        desc(effectiveReceiptFields.receivedAt),
+        desc(practiceReceipts.id),
+      )
       .limit(PATIENT_PAGE_SIZE)
       .offset((receiptsPagination.page - 1) * PATIENT_PAGE_SIZE),
     db

@@ -1,0 +1,152 @@
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.heading time {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.amount {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: -0.04em;
+  margin: 1rem 0;
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.total {
+  flex: 1 1 12rem;
+  padding: 1.25rem;
+  background: var(--sage-light, #e6f0e9);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+}
+.total span,
+.total strong {
+  display: block;
+}
+.total strong {
+  font-size: 1.6rem;
+  margin-top: 0.4rem;
+}
+.history {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.event {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  background: var(--paper, #fffdf8);
+  overflow-wrap: anywhere;
+}
+.event > strong {
+  display: block;
+  margin-top: 1rem;
+  font-size: 1.25rem;
+}
+.event p {
+  margin-bottom: 0;
+}
+.original {
+  background: var(--sage-light, #e6f0e9);
+}
+.edit {
+  margin-top: 1.5rem;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.fields label {
+  min-width: 0;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.preview,
+.voidNotice {
+  background: var(--sage-light, #e6f0e9);
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  padding: 1.25rem;
+}
+.preview {
+  display: grid;
+  gap: 0.5rem;
+}
+.preview strong {
+  font-size: 1.4rem;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin: 1.5rem 0;
+}
+.filters label {
+  flex: 1 1 10rem;
+}
+.list {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+}
+.row p {
+  margin: 0.5rem 0;
+}
+.row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.event,
+.row,
+.preview {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+@media (max-width: 600px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .row > .actions {
+    width: 100%;
+  }
+  .row > .actions a {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .event,
+  .row,
+  .preview {
+    transition: none;
+  }
+}
