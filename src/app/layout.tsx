@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppFrame } from "@/components/app-frame";
 import { ClickTracker } from "@/components/click-tracker";
+import { EarthquakeHelpBanner } from "@/components/earthquake-help-banner";
 import { LastActionTracker } from "@/components/last-action-tracker";
 import { SiteNav } from "@/components/site-nav";
 import { SiteJsonLd } from "@/components/structured-data";
@@ -105,6 +106,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AppFrame
           publicHeader={
             <header className="topbar">
+              <EarthquakeHelpBanner />
               <nav className="container nav" aria-label="Principal">
                 <Link className="brand" href="/" aria-label="Nido, inicio">
                   <svg

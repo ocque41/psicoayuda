@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppFrame, frameArea } from "@/components/app-frame";
+import { EarthquakeHelpBanner } from "@/components/earthquake-help-banner";
 import { SiteNav } from "@/components/site-nav";
 
 const navigation = vi.hoisted(() => ({ pathname: "/" }));
@@ -17,6 +18,7 @@ function renderFrame(pathname: string) {
     <AppFrame
       publicHeader={
         <header data-public-header>
+          <EarthquakeHelpBanner />
           <SiteNav />
         </header>
       }
