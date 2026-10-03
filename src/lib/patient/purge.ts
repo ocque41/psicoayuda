@@ -9,6 +9,10 @@ import {
   patientSessionRequests,
 } from "@/db/patient-schema";
 import {
+  appointmentReminderDeliveries,
+  appointmentReminderPreferences,
+} from "@/db/reminder-schema";
+import {
   carePlans,
   conversations,
   practiceAppointments,
@@ -89,6 +93,22 @@ export function patientAccountDeleteStatements(userId: string) {
     .from(patientConversationLinks)
     .where(eq(patientConversationLinks.userId, userId));
   return [
+    db
+      .delete(appointmentReminderDeliveries)
+      .where(
+        and(
+          eq(appointmentReminderDeliveries.userId, userId),
+          eq(appointmentReminderDeliveries.role, "patient"),
+        ),
+      ),
+    db
+      .delete(appointmentReminderPreferences)
+      .where(
+        and(
+          eq(appointmentReminderPreferences.userId, userId),
+          eq(appointmentReminderPreferences.role, "patient"),
+        ),
+      ),
     db
       .update(seekerSessions)
       .set({ revokedAt: new Date() })

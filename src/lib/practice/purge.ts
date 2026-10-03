@@ -2,6 +2,10 @@ import "server-only";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  appointmentReminderDeliveries,
+  appointmentReminderPreferences,
+} from "@/db/reminder-schema";
+import {
   callConsents,
   careCycles,
   carePlans,
@@ -15,6 +19,7 @@ import {
   practiceServices,
   practiceSettings,
   professionalMemberships,
+  professionals,
 } from "@/db/schema";
 import { getStripe } from "@/lib/payments/stripe";
 import { purgeRoomAssets } from "@/lib/practice/media";
@@ -84,6 +89,25 @@ export function practiceDeleteStatements(professionalId: string) {
     .from(carePlans)
     .where(eq(carePlans.professionalId, professionalId));
   return [
+    db
+      .delete(appointmentReminderDeliveries)
+      .where(
+        inArray(appointmentReminderDeliveries.appointmentId, appointments),
+      ),
+    db
+      .delete(appointmentReminderPreferences)
+      .where(
+        and(
+          eq(appointmentReminderPreferences.role, "professional"),
+          inArray(
+            appointmentReminderPreferences.userId,
+            db
+              .select({ userId: professionals.userId })
+              .from(professionals)
+              .where(eq(professionals.id, professionalId)),
+          ),
+        ),
+      ),
     db
       .delete(practiceNotes)
       .where(eq(practiceNotes.professionalId, professionalId)),

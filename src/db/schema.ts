@@ -8,6 +8,11 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
+export {
+  googleCalendarConnections,
+  googleCalendarEventLinks,
+  googleCalendarOAuthStates,
+} from "./calendar-schema";
 export { practiceNotes } from "./notes-schema";
 export {
   accountOnboardingDrafts,
@@ -16,6 +21,10 @@ export {
   patientConversationLinks,
   patientSessionRequests,
 } from "./patient-schema";
+export {
+  appointmentReminderDeliveries,
+  appointmentReminderPreferences,
+} from "./reminder-schema";
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -825,12 +834,21 @@ export const practiceAppointments = sqliteTable(
       t.startsAt,
     ),
     index("practice_appointments_patient_idx").on(t.patientId),
+    index("practice_appointments_calendar_pro_id_idx").on(
+      t.professionalId,
+      t.id,
+    ),
     index("practice_appointments_patient_date_idx").on(
       t.patientId,
       t.startsAt,
       t.id,
     ),
     index("practice_appointments_cycle_idx").on(t.careCycleId, t.status),
+    index("practice_appointments_reminder_scan_idx").on(
+      t.status,
+      t.startsAt,
+      t.id,
+    ),
   ],
 );
 export const practiceReceipts = sqliteTable(

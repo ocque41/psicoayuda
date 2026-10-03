@@ -35,6 +35,7 @@ try {
     "0030_practice_notes.sql",
     "0032_support_continuity.sql",
     "0033_receipt_corrections.sql",
+    "0036_session_notes.sql",
   ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),

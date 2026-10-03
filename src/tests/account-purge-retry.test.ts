@@ -10,6 +10,7 @@ import {
   patientAccounts,
   patientConversationLinks,
   patientSessionRequests,
+  practiceAppointments,
   practiceNotes,
   practicePatients,
   professionals,
@@ -46,6 +47,7 @@ const ids = {
   assignment: `${P}-assignment`,
   patient: `${P}-patient`,
   note: `${P}-note`,
+  appointment: `${P}-appointment`,
   request: `${P}-request`,
 };
 const timestamp = new Date().toISOString();
@@ -59,6 +61,9 @@ async function cleanup() {
     .delete(patientConversationLinks)
     .where(like(patientConversationLinks.userId, `${P}%`));
   await db.delete(practiceNotes).where(like(practiceNotes.id, `${P}%`));
+  await db
+    .delete(practiceAppointments)
+    .where(like(practiceAppointments.id, `${P}%`));
   await db.delete(practicePatients).where(like(practicePatients.id, `${P}%`));
   await db.delete(seekerSessions).where(like(seekerSessions.sid, `${P}%`));
   await db.delete(conversations).where(like(conversations.id, `${P}%`));
@@ -214,8 +219,19 @@ async function seed() {
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+  await db.insert(practiceAppointments).values({
+    id: ids.appointment,
+    professionalId: ids.pro,
+    patientId: ids.patient,
+    startsAt: "2026-10-01T14:00:00.000Z",
+    endsAt: "2026-10-01T14:50:00.000Z",
+    timeZone: "UTC",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
   await db.insert(practiceNotes).values({
     id: ids.note,
+    appointmentId: ids.appointment,
     professionalId: ids.pro,
     patientId: ids.patient,
     ciphertext: "envelope-ficticio-no-contenido-clinico",

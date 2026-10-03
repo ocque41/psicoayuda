@@ -17,6 +17,11 @@ import {
   user,
 } from "@/db/schema";
 import { releaseProfessionalAssignments } from "@/lib/assignment";
+import {
+  calendarAccountDeleteStatements,
+  calendarUnlinkProfessionalAppointments,
+  prepareCalendarAccountPurge,
+} from "@/lib/calendar/purge";
 import { purgeConversationMessagesDetailed } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
 import {
@@ -107,6 +112,8 @@ export async function purgeAccount(userId: string): Promise<void> {
       if (!claimed.length)
         throw new Error("El perfil cambió. Vuelve a intentar la eliminación.");
       try {
+        // Ambos roles ya bloquean nuevos grants antes de revocar Calendar.
+        await prepareCalendarAccountPurge(userId);
         await preparePracticePurge(professional.id);
       } catch (error) {
         await db
@@ -151,10 +158,13 @@ export async function purgeAccount(userId: string): Promise<void> {
         throw new Error(
           "No pudimos completar el borrado de los chats. Conservamos la cuenta para que puedas reintentar la eliminación.",
         );
+    } else {
+      await prepareCalendarAccountPurge(userId);
     }
 
     const professionalDeletes = professional
       ? [
+          calendarUnlinkProfessionalAppointments(professional.id),
           ...patientLinksForProfessionalDeleteStatements(professional.id),
           ...practiceDeleteStatements(professional.id),
           db
@@ -193,6 +203,7 @@ export async function purgeAccount(userId: string): Promise<void> {
     // que su padre). `professionalDeletes` ya va ordenado hijos→padre.
     await db.batch([
       db.delete(session).where(eq(session.userId, userId)),
+      ...calendarAccountDeleteStatements(userId),
       db.delete(account).where(eq(account.userId, userId)),
       ...professionalDeletes,
       ...patientAccountDeleteStatements(userId),

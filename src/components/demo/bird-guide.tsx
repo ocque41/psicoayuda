@@ -15,6 +15,8 @@ type BirdGuideProps = {
   steps: BirdGuideStep[];
   stepId?: string;
   onStepChange?: (step: BirdGuideStep, index: number) => void;
+  triggerLabel?: string;
+  guideLabel?: string;
 };
 
 /** Ilustración vectorial original: salvia, verde y el pequeño acento dorado de Nido. */
@@ -102,6 +104,8 @@ export function BirdGuide({
   steps,
   stepId: selectedStepId,
   onStepChange,
+  triggerLabel = "Conocer mi consulta",
+  guideLabel = "Tu consulta",
 }: BirdGuideProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -586,7 +590,7 @@ export function BirdGuide({
         <span className={styles.startBird}>
           <Bird />
         </span>
-        Conocer mi consulta
+        {triggerLabel}
         <Arrow />
       </button>
       {open
@@ -624,7 +628,7 @@ export function BirdGuide({
               >
                 <div className={styles.top}>
                   <span className={styles.step}>
-                    Tu consulta · {currentIndex + 1}/{steps.length}
+                    {guideLabel} · {currentIndex + 1}/{steps.length}
                   </span>
                   <button
                     type="button"

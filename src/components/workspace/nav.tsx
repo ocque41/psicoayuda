@@ -28,7 +28,7 @@ const professionalLinks: NavItem[] = [
   { href: "/pro/mensajes", label: "Mensajes", icon: "message" },
   { href: "/pro/servicios", label: "Servicios", icon: "leaf" },
   { href: "/pro/cobros", label: "Cobros", icon: "payment" },
-  { href: "/pro/ajustes", label: "Horario", icon: "settings" },
+  { href: "/pro/ajustes", label: "Preferencias", icon: "settings" },
   { href: "/pro/soporte", label: "Soporte", icon: "help" },
   { href: "/pro/plan", label: "Mi plan", icon: "payment" },
   { href: "/pro/dashboard", label: "Mi perfil", icon: "profile" },

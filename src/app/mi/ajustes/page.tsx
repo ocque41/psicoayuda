@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AccountActions } from "@/components/account-actions";
+import { CalendarConnectionPanel } from "@/components/calendar/connection-panel";
 import { CredentialSettings } from "@/components/credential-settings";
 import { PracticeForm } from "@/components/practice/forms";
+import { AppointmentRemindersPanel } from "@/components/practice/reminder-preferences-panel";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { hasCredentialPassword } from "@/lib/credentials";
 import { COUNTRY_OPTIONS, TIME_ZONES } from "@/lib/geography";
@@ -11,7 +13,7 @@ import { savePatientPreferences, sendPatientVerification } from "../actions";
 export default async function PatientSettings({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; calendario?: string }>;
 }) {
   const { account, user } = await requirePatientAccount();
   const [hasPassword, params] = await Promise.all([
@@ -161,6 +163,16 @@ export default async function PatientSettings({
           <AccountActions />
         </section>
       </div>
+      <AppointmentRemindersPanel
+        userId={account.userId}
+        audience="patient"
+        timeZone={account.timezone}
+      />
+      <CalendarConnectionPanel
+        userId={user.id}
+        audience="patient"
+        feedback={params.calendario}
+      />
     </WorkspaceShell>
   );
 }
