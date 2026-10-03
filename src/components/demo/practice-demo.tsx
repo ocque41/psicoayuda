@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { playBirdChirp } from "@/lib/practice/bird-chirp";
 import { BirdGuide, type BirdGuideStep } from "./bird-guide";
 import styles from "./practice-demo.module.css";
+import { RemindersDemo, reminderDemoSteps } from "./reminders-demo";
 
 const patients = [
   {
@@ -56,7 +58,7 @@ const steps: BirdGuideStep[] = [
     targetId: "demo-notas",
     title: "Prepara el próximo paso",
     description:
-      "Prueba a escribir y guardar una nota de ejemplo. En tu consulta, tus notas profesionales tienen su propio espacio privado.",
+      "Elige un encuentro y guarda sus notas de ejemplo. En tu consulta, cada sesión tiene sus propios apuntes privados.",
   },
   {
     id: "mensajes",
@@ -73,6 +75,13 @@ const steps: BirdGuideStep[] = [
       "Prueba a registrar un pago de ejemplo. Los importes se muestran por moneda y separados de las condiciones de cada encuentro.",
   },
   {
+    id: "recordatorios",
+    targetId: "demo-recordatorios",
+    title: "Tus avisos, a tu manera",
+    description:
+      "Prueba cómo activar, elegir y apagar los recordatorios. Te explicaré cada paso; esta demo no envía correos.",
+  },
+  {
     id: "cierre",
     targetId: "demo-cierre",
     title: "Ahora, a tu manera",
@@ -80,6 +89,9 @@ const steps: BirdGuideStep[] = [
       "Puedes seguir explorando o crear tu perfil profesional. Tu práctica real empezará con el recorrido de incorporación y revisión.",
   },
 ];
+const guideSteps = steps.flatMap((step) =>
+  step.id === "recordatorios" ? [step, ...reminderDemoSteps] : [step],
+);
 const labels: Record<string, string> = {
   inicio: "Mi consulta",
   agenda: "Agenda",
@@ -87,6 +99,7 @@ const labels: Record<string, string> = {
   notas: "Notas",
   mensajes: "Mensajes",
   cobros: "Cobros",
+  recordatorios: "Recordatorios",
   cierre: "Tu próximo paso",
 };
 
@@ -99,6 +112,7 @@ const icons: Record<string, string> = {
   mensajes:
     "M21 11a8 8 0 0 1-8 8H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4zM7 9h10m-10 4h6",
   cobros: "M3 6h18v14H3zM3 10h18m-14 6h4",
+  recordatorios: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4",
 };
 type DemoSession = { id: string; patient: string; date: string };
 type DemoReceipt = {
@@ -124,11 +138,23 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
   const [sessions, setSessions] = useState<DemoSession[]>([
     { id: "ejemplo-1", patient: "ana", date: `${initialMonth}-09T10:00` },
     { id: "ejemplo-2", patient: "luis", date: `${initialMonth}-13T16:00` },
+    { id: "ejemplo-3", patient: "ana", date: `${initialMonth}-16T10:00` },
+    { id: "ejemplo-4", patient: "carmen", date: `${initialMonth}-20T11:00` },
   ]);
   const [drafts, setDrafts] = useState<Record<string, string>>({
-    ana: "Una nota de ejemplo para preparar el próximo encuentro.",
+    "ana:ejemplo-1": "Una nota de ejemplo para preparar este encuentro.",
   });
-  const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
+  const [savedNotes, setSavedNotes] = useState<
+    Record<string, Array<{ id: string; content: string }>>
+  >({});
+  const [noteSessions, setNoteSessions] = useState<Record<string, string>>({});
+  const patientSessions = sessions
+    .filter((session) => session.patient === patientId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const noteSession =
+    patientSessions.find((session) => session.id === noteSessions[patientId]) ||
+    patientSessions.at(-1);
+  const noteKey = noteSession ? `${patientId}:${noteSession.id}` : "";
   const [messages, setMessages] = useState([
     {
       id: "chat-1",
@@ -372,9 +398,16 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
         <div className={styles.headerActions}>
           <span className={styles.demoBadge}>Demo · datos de ejemplo</span>
           <BirdGuide
-            steps={steps}
+            steps={guideSteps}
             stepId={active}
-            onStepChange={(step) => navigate(step.id, false)}
+            onStepChange={(step) =>
+              navigate(
+                step.id.startsWith("recordatorios-")
+                  ? "recordatorios"
+                  : step.id,
+                false,
+              )
+            }
           />
         </div>
       </header>
@@ -388,36 +421,38 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
             aria-label="Secciones de la demostración"
             className={styles.menu}
           >
-            {steps.slice(0, 6).map((step) => (
-              <a
-                key={step.id}
-                href={`#${step.targetId}`}
-                aria-current={active === step.id ? "page" : undefined}
-                onClick={(event) => {
-                  if (
-                    event.ctrlKey ||
-                    event.metaKey ||
-                    event.shiftKey ||
-                    event.altKey ||
-                    event.button !== 0
-                  )
-                    return;
-                  event.preventDefault();
-                  navigate(step.id);
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  aria-hidden="true"
+            {steps
+              .filter((step) => step.id !== "cierre")
+              .map((step) => (
+                <a
+                  key={step.id}
+                  href={`#${step.targetId}`}
+                  aria-current={active === step.id ? "page" : undefined}
+                  onClick={(event) => {
+                    if (
+                      event.ctrlKey ||
+                      event.metaKey ||
+                      event.shiftKey ||
+                      event.altKey ||
+                      event.button !== 0
+                    )
+                      return;
+                    event.preventDefault();
+                    navigate(step.id);
+                  }}
                 >
-                  <path d={icons[step.id]} />
-                </svg>
-                <span>{labels[step.id]}</span>
-              </a>
-            ))}
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    aria-hidden="true"
+                  >
+                    <path d={icons[step.id]} />
+                  </svg>
+                  <span>{labels[step.id]}</span>
+                </a>
+              ))}
           </nav>
           <div className={styles.sidebarFooter}>
             <p className={styles.localHint}>
@@ -589,6 +624,21 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                         <p>Sesión en línea · 50 minutos</p>
                       </div>
                       <span className="workspace-tag">Confirmada</span>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        onClick={() => {
+                          setPatientId(s.patient);
+                          setNoteSessions((previous) => ({
+                            ...previous,
+                            [s.patient]: s.id,
+                          }));
+                          setNotice(null);
+                          navigate("notas");
+                        }}
+                      >
+                        Abrir notas
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -671,7 +721,26 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               aria-labelledby="demo-notes-title"
             >
               <p className="kicker">Tu espacio para preparar</p>
-              <h2 id="demo-notes-title">Una nota para continuar.</h2>
+              <h2 id="demo-notes-title">Notas por sesión.</h2>
+              <p className="hint">
+                El pajarito te puede invitar a dejar tus apuntes al terminar un
+                encuentro: «Tu sesión terminó. ¿Quieres dejar tus notas?».
+              </p>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={async () => {
+                  const played = await playBirdChirp();
+                  setNotice({
+                    area: "notas",
+                    message: played
+                      ? "Así suena el pajarito de Nido. Solo sonará si activas el sonido."
+                      : "Este dispositivo no pudo reproducir el canto. Puedes seguir usando las notas.",
+                  });
+                }}
+              >
+                Escuchar pajarito
+              </button>
               <label className={styles.patientSwitcher}>
                 Paciente de ejemplo
                 <select
@@ -688,35 +757,73 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   ))}
                 </select>
               </label>
+              <label className={styles.patientSwitcher}>
+                Sesión de ejemplo · zona América/Caracas
+                <select
+                  value={noteSession?.id || ""}
+                  disabled={!patientSessions.length}
+                  onChange={(event) => {
+                    setNoteSessions((previous) => ({
+                      ...previous,
+                      [patientId]: event.target.value,
+                    }));
+                    setNotice(null);
+                  }}
+                >
+                  {!patientSessions.length ? (
+                    <option value="">Sin sesiones de ejemplo</option>
+                  ) : null}
+                  {patientSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.date.slice(0, 10)} · {session.date.slice(11)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <p className="hint">
-                Ficha de {patient.name} · usa texto de ejemplo para probar esta
-                demostración.
+                Ficha de {patient.name} · cada encuentro conserva sus propios
+                borradores y notas. Usa texto ficticio.
               </p>
+              {!noteSession ? (
+                <p className={styles.empty}>
+                  Programa una sesión de ejemplo en la agenda para escribir sus
+                  notas.
+                </p>
+              ) : null}
               <form
                 className="practice-form"
                 method="post"
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (!noteKey) return;
                   setSavedNotes((previous) => ({
                     ...previous,
-                    [patientId]: drafts[patientId] || "",
+                    [noteKey]: [
+                      ...(previous[noteKey] || []),
+                      {
+                        id: crypto.randomUUID(),
+                        content: drafts[noteKey] || "",
+                      },
+                    ],
                   }));
+                  setDrafts((previous) => ({ ...previous, [noteKey]: "" }));
                   setNotice({
                     area: "notas",
-                    message: "Nota de ejemplo guardada en esta demo.",
+                    message: "Nota de ejemplo guardada para esta sesión.",
                   });
                 }}
               >
                 <label>
                   Nota de ejemplo
                   <textarea
-                    value={drafts[patientId] || ""}
+                    value={drafts[noteKey] || ""}
+                    disabled={!noteSession}
                     maxLength={1500}
                     rows={5}
                     onChange={(e) => {
                       setDrafts((previous) => ({
                         ...previous,
-                        [patientId]: e.target.value,
+                        [noteKey]: e.target.value,
                       }));
                       setNotice(null);
                     }}
@@ -724,7 +831,11 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                     required
                   />
                 </label>
-                <button type="submit" className="button human">
+                <button
+                  type="submit"
+                  className="button human"
+                  disabled={!noteSession}
+                >
                   Guardar nota de ejemplo
                 </button>
               </form>
@@ -732,9 +843,20 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                 <p role="status" className={styles.notice}>
                   {notice.message}
                 </p>
-              ) : savedNotes[patientId] ? (
+              ) : null}
+              {savedNotes[noteKey]?.length ? (
+                savedNotes[noteKey].map((note, index) => (
+                  <article className="card" key={note.id}>
+                    <h3>
+                      Nota de ejemplo {index + 1} ·{" "}
+                      {noteSession?.date.slice(0, 10)}
+                    </h3>
+                    <p style={{ whiteSpace: "pre-wrap" }}>{note.content}</p>
+                  </article>
+                ))
+              ) : noteSession ? (
                 <p className="hint">
-                  Hay una nota de ejemplo guardada en esta ficha.
+                  Esta sesión todavía no tiene notas de ejemplo guardadas.
                 </p>
               ) : null}
             </section>
@@ -904,6 +1026,14 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                 pagos externos y consultar su historial; las opciones integradas
                 dependen de su configuración.
               </p>
+            </section>
+            <section
+              className={styles.panel}
+              id="demo-recordatorios"
+              hidden={active !== "recordatorios"}
+              aria-labelledby="demo-reminders-title"
+            >
+              <RemindersDemo />
             </section>
             <section
               className={`${styles.panel} ${styles.finish}`}

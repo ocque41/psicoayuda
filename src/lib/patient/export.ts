@@ -5,6 +5,7 @@ import {
   patientConversationLinks,
   patientSessionRequests,
 } from "@/db/patient-schema";
+import { appointmentReminderPreferences } from "@/db/reminder-schema";
 import {
   carePlans,
   conversations,
@@ -42,6 +43,25 @@ export async function* patientExportChunks(
 ): AsyncGenerator<string> {
   const account = await patientAccountForUser(userId);
   yield `{"version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"account":${JSON.stringify(account || null)}`;
+  const reminderPreferences =
+    account?.deletionState === "active"
+      ? await db
+          .select({
+            emailEnabled: appointmentReminderPreferences.emailEnabled,
+            offsetsJson: appointmentReminderPreferences.offsetsJson,
+            timeZone: appointmentReminderPreferences.timeZone,
+            updatedAt: appointmentReminderPreferences.updatedAt,
+          })
+          .from(appointmentReminderPreferences)
+          .where(
+            and(
+              eq(appointmentReminderPreferences.userId, userId),
+              eq(appointmentReminderPreferences.role, "patient"),
+            ),
+          )
+          .limit(1)
+      : [];
+  yield `,"reminderPreferences":${JSON.stringify(reminderPreferences[0] || null)}`;
   const scoped = and(
     eq(patientConversationLinks.userId, userId),
     isNull(conversations.anonymizedAt),

@@ -1,0 +1,18 @@
+.panel {
+  margin-block-start: 1.5rem;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.slots label {
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .slots {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}

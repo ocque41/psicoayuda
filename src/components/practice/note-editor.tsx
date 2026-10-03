@@ -8,10 +8,12 @@ import {
 
 export function NoteEditor({
   patientId,
+  appointmentId,
   note,
   enabled = true,
 }: {
   patientId: string;
+  appointmentId: string | null;
   note?: { id: string; content: string; revision: number; updatedAt: string };
   enabled?: boolean;
 }) {
@@ -67,17 +69,43 @@ export function NoteEditor({
       destination.current = next.href;
       leaveDialog.current?.showModal();
     };
+    const guardFilter = (event: SubmitEvent) => {
+      if (event.defaultPrevented || leaving.current) return;
+      const form = event.target;
+      if (
+        !(form instanceof HTMLFormElement) ||
+        !form.hasAttribute("data-note-navigation")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      const next = new URL(form.action, window.location.href);
+      const params = new URLSearchParams();
+      for (const [name, value] of new FormData(form)) {
+        if (typeof value === "string") params.append(name, value);
+      }
+      next.search = params.toString();
+      destination.current = next.href;
+      leaveDialog.current?.showModal();
+    };
     window.addEventListener("beforeunload", warn);
     document.addEventListener("click", guardLink, true);
+    document.addEventListener("submit", guardFilter, true);
     return () => {
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", guardLink, true);
+      document.removeEventListener("submit", guardFilter, true);
     };
   }, [dirty]);
   if (deleted) return <p role="status">Nota eliminada.</p>;
   async function save() {
     try {
-      const result = await savePatientNote({ patientId, ...identity, content });
+      const result = await savePatientNote({
+        patientId,
+        appointmentId,
+        ...identity,
+        content,
+      });
       setState(result);
       if (result.ok) {
         setIdentity({
@@ -162,7 +190,10 @@ export function NoteEditor({
                     identity.revision || 0,
                   );
                   setState(result);
-                  if (result.ok) setDeleted(true);
+                  if (result.ok) {
+                    setSaved(content);
+                    setDeleted(true);
+                  }
                 } catch {
                   setState({
                     ok: false,

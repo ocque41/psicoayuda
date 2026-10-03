@@ -15,6 +15,7 @@ export async function requirePracticeProfessional() {
     ),
     columns: {
       id: true,
+      userId: true,
       email: true,
       displayName: true,
       fullName: true,
@@ -25,8 +26,8 @@ export async function requirePracticeProfessional() {
       stripePayoutsEnabled: true,
     },
   });
-  if (!pro || pro.nonClinicalHelper) redirect("/pro/dashboard");
-  return pro;
+  if (!pro || pro.nonClinicalHelper || !pro.userId) redirect("/pro/dashboard");
+  return { ...pro, userId: pro.userId };
 }
 export async function ownedPatient(patientId: string, professionalId: string) {
   return db.query.practicePatients.findFirst({

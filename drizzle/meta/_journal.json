@@ -239,6 +239,27 @@
       "when": 1791054000000,
       "tag": "0033_receipt_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791067000000,
+      "tag": "0034_google_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1791067100000,
+      "tag": "0035_appointment_reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791067200000,
+      "tag": "0036_session_notes",
+      "breakpoints": true
     }
   ]
 }

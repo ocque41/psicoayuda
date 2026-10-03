@@ -72,6 +72,10 @@ export default async function PatientPage({
     cobros?: string;
     acuerdos?: string;
     notas?: string;
+    notaSesion?: string;
+    encuentro?: string;
+    anteriores?: string;
+    encuentrosPagina?: string;
   }>;
 }) {
   const pro = await requirePracticeProfessional();
@@ -255,7 +259,8 @@ export default async function PatientPage({
         <PatientNotes
           patientId={patient.id}
           professionalId={pro.id}
-          page={query.notas}
+          timeZone={zone}
+          query={query}
         />
         <div className="practice-columns">
           <section id="sesiones">
@@ -263,6 +268,14 @@ export default async function PatientPage({
             {appointments.map((a) => (
               <article className="card" key={a.id}>
                 <h3>{dateLabel(a.startsAt, zone)}</h3>
+                <p>
+                  <Link
+                    href={`/pro/pacientes/${patient.id}?notaSesion=${encodeURIComponent(a.id)}#notas`}
+                    prefetch={false}
+                  >
+                    Abrir notas
+                  </Link>
+                </p>
                 <p>
                   Para el paciente: {dateLabel(a.startsAt, patient.timeZone)}
                 </p>
