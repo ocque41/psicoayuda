@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
-import { readAdminMetrics } from "@/lib/admin-metrics";
+import { metricsFailureDetails, readAdminMetrics } from "@/lib/admin-metrics";
 
 export const dynamic = "force-dynamic";
 const PRIVATE_HEADERS = {
@@ -9,6 +9,7 @@ const PRIVATE_HEADERS = {
 };
 
 export async function GET() {
+  let stage: "identity" | "collector" = "identity";
   try {
     const admin = await requireAdmin();
     if (!admin) {
@@ -20,12 +21,16 @@ export async function GET() {
         { status: 401, headers: PRIVATE_HEADERS },
       );
     }
+    stage = "collector";
     return NextResponse.json(await readAdminMetrics(), {
       headers: PRIVATE_HEADERS,
     });
-  } catch {
+  } catch (error: unknown) {
     // Plantilla fija: nunca registrar consultas, etiquetas, identidad o errores crudos.
-    console.error("[admin_metrics] lectura no disponible");
+    console.error(
+      "[admin_metrics] lectura no disponible",
+      metricsFailureDetails(error, stage),
+    );
     return NextResponse.json(
       {
         error: "No se pudieron cargar las métricas. Inténtalo de nuevo.",

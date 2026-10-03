@@ -171,7 +171,14 @@ describe("lectura íntegra de métricas administrativas", () => {
     expect(body).toMatchObject({ code: "metrics_unavailable" });
     expect(body).not.toHaveProperty("total");
     expect(JSON.stringify(body)).not.toContain("sensitive-fixture");
-    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible");
+    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible", {
+      stage: "query",
+      kind: "query_failure",
+      field: "none",
+      group: "none",
+      errorType: "Error",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("sensitive-fixture");
   });
 
   it.each([
@@ -180,7 +187,7 @@ describe("lectura íntegra de métricas administrativas", () => {
     "nonfinite",
   ])("rechaza un agregado %s en lugar de sustituirlo por cero", async (variant) => {
     const original = db.batch.bind(db);
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(db, "batch").mockImplementation(async (...args) => {
       const rows = await original(...args);
       const invalidSummary = [
@@ -202,6 +209,57 @@ describe("lectura íntegra de métricas administrativas", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({
       code: "metrics_unavailable",
+    });
+    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible", {
+      stage: "summary",
+      kind: "invalid_count",
+      field: "total",
+      group: "none",
+      errorType: "Error",
+    });
+  });
+
+  it("marca el grupo y campo inválido sin registrar etiquetas ni su valor", async () => {
+    const original = db.batch.bind(db);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(db, "batch").mockImplementation(async (...args) => {
+      const rows = await original(...args);
+      return [
+        rows[0],
+        rows[1],
+        [{ label: "private-fixture@example.test", n: "private-value" }],
+        ...rows.slice(3),
+      ] as typeof rows;
+    });
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible", {
+      stage: "groups",
+      kind: "invalid_count",
+      field: "n",
+      group: "bySource",
+      errorType: "Error",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private-fixture");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private-value");
+    expect(await response.json()).toEqual({
+      error: "No se pudieron cargar las métricas. Inténtalo de nuevo.",
+      code: "metrics_unavailable",
+    });
+  });
+
+  it("una respuesta incompleta del batch se registra como estructura inválida", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(db, "batch").mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<typeof db.batch>>,
+    );
+    expect((await GET()).status).toBe(503);
+    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible", {
+      stage: "query",
+      kind: "invalid_shape",
+      field: "none",
+      group: "none",
+      errorType: "Error",
     });
   });
 });

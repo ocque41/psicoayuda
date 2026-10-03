@@ -96,9 +96,9 @@ describe("el endpoint de métricas respeta la identidad actual verificada", () =
   it("una caída del almacén de identidad no permite saltarse la verificación", async () => {
     session("admin");
     vi.spyOn(db.query.user, "findFirst").mockRejectedValue(
-      new Error("identity unavailable"),
+      new TypeError("private-identity@example.test SQL secret fixture"),
     );
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const batch = vi.spyOn(db, "batch");
     const response = await GET();
     expect(response.status).toBe(503);
@@ -106,5 +106,14 @@ describe("el endpoint de métricas respeta la identidad actual verificada", () =
       code: "metrics_unavailable",
     });
     expect(batch).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("[admin_metrics] lectura no disponible", {
+      stage: "identity",
+      kind: "unexpected",
+      field: "none",
+      group: "none",
+      errorType: "TypeError",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private-identity");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("SQL secret");
   });
 });
