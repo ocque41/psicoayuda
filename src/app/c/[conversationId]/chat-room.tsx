@@ -462,6 +462,11 @@ export function ChatRoom({
     [conversationId, role],
   );
 
+  useEffect(() => {
+    void readPersistence?.resume();
+    return () => readPersistence?.pause();
+  }, [readPersistence]);
+
   const acknowledgeVisibleMessages = useCallback(() => {
     const el = listRef.current;
     if (

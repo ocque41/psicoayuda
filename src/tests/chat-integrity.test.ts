@@ -480,6 +480,82 @@ describe("chat: transacciones, permisos actuales y lectura auténtica", () => {
       await db.select().from(auditLogs).where(eq(auditLogs.entityId, ids.conv)),
     ).toHaveLength(0);
   });
+  it("metadatos retrasados conservan la lectura pendiente hasta guardar su timestamp exacto", async () => {
+    await thread();
+    const now = Date.now();
+    const previous = now - 2000;
+    const visible = now - 1000;
+    await db
+      .update(conversations)
+      .set({
+        status: "open",
+        lastMessageAt: new Date(previous),
+        lastMessageRole: "seeker",
+      })
+      .where(eq(conversations.id, ids.conv));
+    expect(await markProfessionalChatRead(ids.conv, visible)).toEqual({
+      ok: false,
+      retryable: true,
+    });
+    expect((await conversation())?.proLastReadAt).toBeNull();
+
+    // El callback del DO alcanza después el mensaje ya visible y descifrado.
+    await db
+      .update(conversations)
+      .set({ lastMessageAt: new Date(visible) })
+      .where(eq(conversations.id, ids.conv));
+    expect(await markProfessionalChatRead(ids.conv, visible)).toEqual({
+      ok: true,
+    });
+    expect((await conversation())?.proLastReadAt?.getTime()).toBe(visible);
+  });
+  it("metadatos todavía nulos permiten reintentar sin cambiar la marca anterior", async () => {
+    await thread();
+    const previous = Date.now() - 2000;
+    const visible = previous + 1000;
+    await db
+      .update(conversations)
+      .set({ proLastReadAt: new Date(previous) })
+      .where(eq(conversations.id, ids.conv));
+    expect(await markProfessionalChatRead(ids.conv, visible)).toEqual({
+      ok: false,
+      retryable: true,
+    });
+    expect((await conversation())?.proLastReadAt?.getTime()).toBe(previous);
+  });
+  it("revocación entre el UPDATE y comprobar el retraso no permite reintento", async () => {
+    await thread();
+    const visible = Date.now() - 1000;
+    const original = db.all.bind(db);
+    vi.spyOn(db, "all").mockImplementationOnce((query) => {
+      const operation = (async () => {
+        const rows = await original(query);
+        await db
+          .update(professionals)
+          .set({ status: "deleting" })
+          .where(eq(professionals.id, ids.pro));
+        return rows;
+      })();
+      return operation as unknown as ReturnType<typeof db.all>;
+    });
+    expect(await markProfessionalChatRead(ids.conv, visible)).toEqual({
+      ok: false,
+    });
+    expect((await conversation())?.proLastReadAt).toBeNull();
+  });
+  it("un fallo de SQL no se presenta como retraso recuperable", async () => {
+    await thread();
+    const original = db.all.bind(db);
+    vi.spyOn(db, "all")
+      .mockImplementationOnce(original)
+      .mockRejectedValueOnce(new Error("fixture-sql-failure"));
+    expect(await markProfessionalChatRead(ids.conv, Date.now() - 1000)).toEqual(
+      {
+        ok: false,
+      },
+    );
+    expect((await conversation())?.proLastReadAt).toBeNull();
+  });
   it("abrir token no marca leído; acknowledgment monótono no consume mensajes más nuevos", async () => {
     await thread();
     const now = Date.now(),
