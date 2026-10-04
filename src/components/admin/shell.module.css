@@ -444,6 +444,14 @@
     padding: 11px 14px;
     font-size: 13px;
   }
+  .content :global(table td > form) {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .content :global(table .button),
+  .content :global(table button) {
+    white-space: normal;
+  }
 }
 @media (max-width: 420px) {
   .content :global(.admin-request-meta) {
