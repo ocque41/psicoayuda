@@ -33,7 +33,13 @@ async function browserChecks(page) {
         f.release();
         Object.assign(
           f,
-          { mode: "success", existing: true, enabled: true, calls: [] },
+          {
+            mode: "success",
+            existing: true,
+            enabled: true,
+            count: 1,
+            calls: [],
+          },
           options,
         );
         const epoch = Number(
@@ -269,6 +275,98 @@ async function browserChecks(page) {
       "beforeunload protege cambios pendientes",
     );
 
+    await reset({ count: 2 });
+    const texts = page.locator("form.note-editor textarea");
+    await texts.nth(0).fill("Primer borrador ficticio protegido");
+    await texts.nth(1).fill("Segundo borrador ficticio protegido");
+    await page.getByRole("link", { name: "Otra ficha ficticia" }).click();
+    await dialog.waitFor();
+    ok(
+      (await dialog.count()) === 1 &&
+        (await dialog.getByRole("heading").innerText()) ===
+          "Tienes 2 notas sin guardar",
+      "una decisión anuncia ambos borradores",
+    );
+    await dialog
+      .getByRole("button", { name: "Seguir editando" })
+      .press("Enter");
+    await page.waitForFunction(
+      () =>
+        document.activeElement ===
+        document.querySelector("form.note-editor textarea"),
+    );
+    ok(
+      (await texts.nth(0).inputValue()) ===
+        "Primer borrador ficticio protegido" &&
+        (await texts.nth(1).inputValue()) ===
+          "Segundo borrador ficticio protegido",
+      "cancelar salida conserva ambos borradores y foco",
+    );
+    await page.getByRole("button", { name: "Filtrar sesiones" }).click();
+    await dialog.waitFor();
+    ok(
+      (await dialog.getByRole("heading").innerText()) ===
+        "Tienes 2 notas sin guardar",
+      "filtro anuncia los dos cambios pendientes",
+    );
+    await page.keyboard.press("Escape");
+    await page
+      .locator("form.note-editor")
+      .nth(0)
+      .getByRole("button", { name: "Guardar nota" })
+      .click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelectorAll("form.note-editor")[0]
+          .getAttribute("aria-busy") === "false",
+    );
+    await page.getByRole("link", { name: "Otra ficha ficticia" }).click();
+    await dialog.waitFor();
+    ok(
+      (await dialog.getByRole("heading").innerText()) ===
+        "Tienes una nota sin guardar",
+      "guardar un borrador deja protección del otro",
+    );
+    await page.keyboard.press("Escape");
+    await page
+      .locator("form.note-editor")
+      .nth(1)
+      .getByRole("button", { name: "Guardar nota" })
+      .click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelectorAll("form.note-editor")[1]
+          .getAttribute("aria-busy") === "false",
+    );
+    ok(
+      await fixture(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return !event.defaultPrevented;
+      }),
+      "guardar ambos retira el guard pendiente",
+    );
+    await texts.nth(0).fill("Descartar primer borrador ficticio");
+    await texts.nth(1).fill("Descartar segundo borrador ficticio");
+    await page.getByRole("link", { name: "Otra ficha ficticia" }).click();
+    await dialog.getByRole("button", { name: "Salir sin guardar" }).click();
+    await page.waitForURL(/otra-ficha$/);
+    ok(
+      new URL(page.url()).pathname === "/otra-ficha",
+      "descartar ambos permite salida sin segunda confirmación nativa",
+    );
+    await texts.nth(0).fill("Nuevo borrador ficticio después de volver");
+    ok(
+      await fixture(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+      "siguiente borrador vuelve a estar protegido",
+    );
+
     await reset();
     await page.getByRole("button", { name: "Escuchar pajarito" }).click();
     await page
@@ -365,6 +463,10 @@ try {
   await command("open", url);
   await command("snapshot");
   const result = await command("run-code", browserChecks.toString());
+  assert.ok(
+    result.includes('"passed":'),
+    "La suite no entregó su resultado final",
+  );
   await writeFile(
     join(root, "output/playwright/notes-browser-proof.txt"),
     result,

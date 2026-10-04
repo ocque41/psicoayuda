@@ -7,6 +7,7 @@ type Fixture = {
   mode: "success" | "conflict" | "throw";
   existing: boolean;
   enabled: boolean;
+  count: number;
   calls: { kind: string; input: unknown }[];
   gate: Promise<void> | null;
   hold: () => void;
@@ -22,6 +23,7 @@ const fixture: Fixture = {
   mode: "success",
   existing: true,
   enabled: true,
+  count: 1,
   calls: [],
   gate: null,
   hold() {
@@ -57,21 +59,29 @@ function App() {
         endedLabel="4 de octubre, 14:00"
       />
       <section id="notas" className="card">
-        <NoteEditor
-          patientId="fixture-patient"
-          appointmentId="fixture-session"
-          enabled={fixture.enabled}
-          note={
-            fixture.existing
-              ? {
-                  id: "fixture-note",
-                  content: "Apunte ficticio inicial",
-                  revision: 1,
-                  updatedAt: "2026-10-04T12:00:00.000Z",
-                }
-              : undefined
-          }
-        />
+        {Array.from(
+          { length: fixture.count },
+          (_, index) => `fixture-note-${index}`,
+        ).map((noteId, index) => (
+          <NoteEditor
+            key={noteId}
+            patientId="fixture-patient"
+            appointmentId="fixture-session"
+            enabled={fixture.enabled}
+            note={
+              fixture.existing
+                ? {
+                    id: noteId,
+                    content: index
+                      ? "Segundo apunte ficticio inicial"
+                      : "Apunte ficticio inicial",
+                    revision: 1,
+                    updatedAt: "2026-10-04T12:00:00.000Z",
+                  }
+                : undefined
+            }
+          />
+        ))}
       </section>
       <a href="/otra-ficha">Otra ficha ficticia</a>
       <form action="/" data-note-navigation>

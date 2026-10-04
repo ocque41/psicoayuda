@@ -5,6 +5,10 @@ import {
   type NoteState,
   savePatientNote,
 } from "@/app/pro/pacientes/[patientId]/note-actions";
+import {
+  leaveWithUnsavedNotes,
+  registerNoteNavigation,
+} from "@/lib/practice/note-navigation";
 
 export function NoteEditor({
   patientId,
@@ -27,80 +31,23 @@ export function NoteEditor({
   const [state, setState] = useState<NoteState | null>(null);
   const [deleted, setDeleted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [unsavedCount, setUnsavedCount] = useState(1);
   const [pending, startTransition] = useTransition();
   const dirty = content !== saved;
   const leaveDialog = useRef<HTMLDialogElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const destination = useRef<string | null>(null);
-  const leaving = useRef(false);
   const operation = useRef(false);
   useEffect(() => {
     if (state && !state.ok && !pending && enabled) textarea.current?.focus();
   }, [state, pending, enabled]);
   useEffect(() => {
     if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      if (!leaving.current) event.preventDefault();
-    };
-    const guardLink = (event: MouseEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey ||
-        leaving.current
-      )
-        return;
-      const anchor =
-        event.target instanceof Element
-          ? event.target.closest("a[href]")
-          : null;
-      if (
-        !(anchor instanceof HTMLAnchorElement) ||
-        anchor.target === "_blank" ||
-        anchor.hasAttribute("download")
-      )
-        return;
-      const next = new URL(anchor.href, window.location.href);
-      if (
-        next.origin !== location.origin ||
-        (next.pathname === location.pathname && next.search === location.search)
-      )
-        return;
-      event.preventDefault();
-      event.stopPropagation();
-      destination.current = next.href;
+    return registerNoteNavigation((href, count) => {
+      destination.current = href;
+      setUnsavedCount(count);
       leaveDialog.current?.showModal();
-    };
-    const guardFilter = (event: SubmitEvent) => {
-      if (event.defaultPrevented || leaving.current) return;
-      const form = event.target;
-      if (
-        !(form instanceof HTMLFormElement) ||
-        !form.hasAttribute("data-note-navigation")
-      )
-        return;
-      event.preventDefault();
-      event.stopPropagation();
-      const next = new URL(form.action, window.location.href);
-      const params = new URLSearchParams();
-      for (const [name, value] of new FormData(form)) {
-        if (typeof value === "string") params.append(name, value);
-      }
-      next.search = params.toString();
-      destination.current = next.href;
-      leaveDialog.current?.showModal();
-    };
-    window.addEventListener("beforeunload", warn);
-    document.addEventListener("click", guardLink, true);
-    document.addEventListener("submit", guardFilter, true);
-    return () => {
-      window.removeEventListener("beforeunload", warn);
-      document.removeEventListener("click", guardLink, true);
-      document.removeEventListener("submit", guardFilter, true);
-    };
+    });
   }, [dirty]);
   if (deleted) return <p role="status">Nota eliminada.</p>;
   async function save() {
@@ -248,11 +195,17 @@ export function NoteEditor({
         ref={leaveDialog}
         className="leave-note-dialog card"
         aria-labelledby={`${labelId}-leave`}
+        onClose={() => textarea.current?.focus()}
       >
-        <h3 id={`${labelId}-leave`}>Tienes una nota sin guardar</h3>
+        <h3 id={`${labelId}-leave`}>
+          {unsavedCount === 1
+            ? "Tienes una nota sin guardar"
+            : `Tienes ${unsavedCount} notas sin guardar`}
+        </h3>
         <p>
-          Tu texto sigue en esta ventana. Vuelve a la nota y guárdala para
-          conservarlo.
+          {unsavedCount === 1
+            ? "Tu texto sigue en esta ventana. Vuelve a la nota y guárdala para conservarlo."
+            : "Tus borradores siguen en esta ventana. Vuelve a las notas y guarda cada una antes de salir."}
         </p>
         <div className="panel-nav">
           <button
@@ -267,8 +220,7 @@ export function NoteEditor({
             className="button secondary"
             onClick={() => {
               if (!destination.current) return;
-              leaving.current = true;
-              window.location.assign(destination.current);
+              leaveWithUnsavedNotes(destination.current);
             }}
           >
             Salir sin guardar
