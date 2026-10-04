@@ -104,7 +104,7 @@ describe("separación entre el sitio público y la consulta", () => {
       "/sesiones-publicas",
       "/acompanamiento-publico",
       "/contacto",
-      "/admin",
+      "/administrator",
     ]) {
       expect(frameArea(pathname)).toBe("public");
       const html = renderFrame(pathname);
@@ -114,6 +114,21 @@ describe("separación entre el sitio público y la consulta", () => {
       expect(html).toContain("Buscar psicólogo");
       expect(html).toContain("Ayúdame a elegir");
       expect(html).not.toContain("data-workspace-header");
+    }
+  });
+
+  it("administración usa una cabecera de trabajo sin captación pública", () => {
+    for (const pathname of ["/admin", "/admin/operaciones", "/admin/chats"]) {
+      expect(frameArea(pathname)).toBe("admin");
+      const html = renderFrame(pathname);
+      expect(html).toContain("data-workspace-header");
+      expect(html).toContain('aria-label="Nido · Administración"');
+      expect(html).toContain('href="/admin"');
+      expect(html).not.toContain("data-public-header");
+      expect(html).not.toContain("data-public-footer");
+      expect(html).not.toContain("Buscar psicólogo");
+      expect(html).not.toContain("application/ld+json");
+      expect(html).not.toContain("Ayuda Terremoto");
     }
   });
 });
