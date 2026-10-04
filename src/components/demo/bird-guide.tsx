@@ -769,8 +769,15 @@ export function BirdGuide({
       }
     };
     function schedule() {
-      if (!frame && !closed && !document.hidden)
-        frame = requestAnimationFrame(measure);
+      if (closed || document.hidden) return;
+      // La apertura/cierre del modal invalida la medida sin mantener RAF detrás.
+      if (modalOpen()) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        rest();
+        return;
+      }
+      if (!frame) frame = requestAnimationFrame(measure);
     }
     function visibilityChanged() {
       if (!motionAllowed()) rest(true);

@@ -99,7 +99,7 @@ try {
   );
   await evaluate("window.fixture.control();");
   await check(
-    "un diálogo nativo ya montado pausa gestos y timers sin perder el foco ni cerrar la guía con Escape",
+    "un modal nativo cancela RAF pendiente y evita RAF por cambios ajenos, conservando foco y reanudación",
     async () => {
       await evaluate(
         "const d=document.createElement('dialog');d.id='fixture-modal';d.innerHTML='<label>Campo modal ficticio<input id=fixture-modal-field></label>';document.body.append(d);",
@@ -108,12 +108,29 @@ try {
         "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
       );
       // El modal ya existe: abrirlo sólo cambia el atributo open.
-      await evaluate("document.getElementById('fixture-modal').showModal();");
+      const queued = await evaluate(
+        "const before={...window.fixture.frames};window.dispatchEvent(new Event('resize'));document.getElementById('fixture-modal').showModal();return before;",
+      );
       await until(
         "window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
       );
+      assert.equal(
+        await evaluate("return window.fixture.frames.executed;"),
+        queued.executed,
+      );
+      assert.ok(
+        (await evaluate("return window.fixture.frames.cancelled;")) >
+          queued.cancelled,
+      );
+      const frames = await evaluate("return {...window.fixture.frames};");
+      await evaluate("return window.fixture.mutateOutsideGuide();");
+      assert.deepEqual(
+        await evaluate("return {...window.fixture.frames};"),
+        frames,
+      );
+      assert.equal(await evaluate("return window.fixture.pendingFrames();"), 0);
       const created = await evaluate("return window.fixture.motion.created;");
-      await delay(3600);
+      await delay(1600);
       assert.equal(
         await evaluate("return window.fixture.motion.created;"),
         created,
@@ -135,7 +152,7 @@ try {
     },
   );
   await check(
-    "aria-modal pausa también al cambiar de paso sin desplazar la página ni robar foco",
+    "aria-modal evita RAF ante cambios ajenos y conserva pausa, scroll y foco al cambiar de paso",
     async () => {
       await evaluate(
         "const d=document.createElement('section');d.id='fixture-aria-modal';d.setAttribute('role','dialog');d.innerHTML='<label>Otro campo ficticio<input id=fixture-aria-field></label>';document.body.append(d);",
@@ -148,6 +165,12 @@ try {
       );
       await until(
         "window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+      );
+      const frames = await evaluate("return {...window.fixture.frames};");
+      await evaluate("return window.fixture.mutateOutsideGuide();");
+      assert.deepEqual(
+        await evaluate("return {...window.fixture.frames};"),
+        frames,
       );
       const before = await evaluate(
         "return {created:window.fixture.motion.created,scroll:scrollY};",
@@ -186,11 +209,11 @@ try {
     },
   );
   await check(
-    "cerrar la guía después del modal limpia observers, listeners, timers y animaciones sin reinicio tardío",
+    "cerrar la guía después del modal limpia RAF, observers, listeners, timers y animaciones sin reinicio tardío",
     async () => {
       await cli("press", "Escape");
       await until(
-        "!document.querySelector('span[data-step]') && window.fixture.motion.active===0 && window.fixture.pendingTimers()===0",
+        "!document.querySelector('span[data-step]') && window.fixture.motion.active===0 && window.fixture.pendingTimers()===0 && window.fixture.pendingFrames()===0",
       );
       const created = await evaluate("return window.fixture.motion.created;");
       await delay(2100);

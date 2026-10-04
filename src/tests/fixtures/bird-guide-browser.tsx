@@ -13,6 +13,9 @@ const sections = [
 const fixture = {
   steps: [] as string[],
   resources: { resize: 0, mutation: 0, listeners: 0 },
+  frames: { requested: 0, executed: 0, cancelled: 0 },
+  pendingFrames: () => 0,
+  mutateOutsideGuide: async () => {},
   motion: {
     created: 0,
     active: 0,
@@ -51,6 +54,37 @@ timerWindow.clearTimeout = (timer) => {
   nativeClearTimeout(timer);
 };
 fixture.pendingTimers = () => pendingTimers.size;
+const nativeFrame = window.requestAnimationFrame.bind(window);
+const nativeCancelFrame = window.cancelAnimationFrame.bind(window);
+const pendingFrames = new Set<number>();
+window.requestAnimationFrame = (callback) => {
+  fixture.frames.requested++;
+  const frame = nativeFrame((time) => {
+    pendingFrames.delete(frame);
+    fixture.frames.executed++;
+    callback(time);
+  });
+  pendingFrames.add(frame);
+  return frame;
+};
+window.cancelAnimationFrame = (frame) => {
+  if (pendingFrames.delete(frame)) fixture.frames.cancelled++;
+  nativeCancelFrame(frame);
+};
+fixture.pendingFrames = () => pendingFrames.size;
+fixture.mutateOutsideGuide = async () => {
+  const noise = document.createElement("aside");
+  noise.style.cssText =
+    "position:fixed;left:0;bottom:0;width:1px;height:1px;overflow:hidden";
+  document.body.append(noise);
+  for (let index = 0; index < 40; index++) {
+    noise.textContent = `Estado ficticio ajeno ${index}`;
+    // La carga de la prueba no entra en los contadores de timers/RAF de la guía.
+    await new Promise((resolve) => nativeTimeout(resolve, 50));
+  }
+  noise.remove();
+  await new Promise((resolve) => nativeFrame(() => nativeFrame(resolve)));
+};
 const nativeAnimate = Element.prototype.animate;
 Element.prototype.animate = function (keyframes, options) {
   const animation = nativeAnimate.call(this, keyframes, options);
