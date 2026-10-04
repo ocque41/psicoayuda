@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   assignments,
   auditLogs,
+  session as authSessions,
   conversations,
   helpRequests,
   professionals,
@@ -17,7 +18,10 @@ const mocks = vi.hoisted(() => ({
   getCookie: vi.fn(),
   setCookie: vi.fn(),
   getServerSession: vi.fn(
-    async (): Promise<{ user: { id: string; email: string } } | null> => null,
+    async (): Promise<{
+      user: { id: string; email: string };
+      session: { id: string; expiresAt: Date };
+    } | null> => null,
   ),
   notifyConversationReopened: vi.fn(async (_input: unknown) => undefined),
   disconnectConversationSockets: vi.fn(async () => true),
@@ -46,6 +50,7 @@ import { reopenConversation } from "@/app/c/[conversationId]/actions";
 const P = "test-reopen";
 const id = {
   user: `${P}-user`,
+  session: `${P}-auth-session`,
   capacityUser: `${P}-capacity-user`,
   pro: `${P}-pro`,
   help: `${P}-help`,
@@ -80,6 +85,7 @@ async function cleanup() {
   await db.delete(conversations).where(like(conversations.id, `${P}-%`));
   await db.delete(helpRequests).where(like(helpRequests.id, `${P}-%`));
   await db.delete(professionals).where(like(professionals.id, `${P}-%`));
+  await db.delete(authSessions).where(like(authSessions.id, `${P}-%`));
   await db.delete(user).where(like(user.id, `${P}-%`));
   await db.delete(auditLogs).where(like(auditLogs.entityId, `${P}-%`));
 }
@@ -96,6 +102,12 @@ describe("reopenConversation (mismo hilo, con cupo)", () => {
         email: `${id.capacityUser}@test.local`,
       },
     ]);
+    await db.insert(authSessions).values({
+      id: id.session,
+      userId: id.user,
+      token: `${P}-fictitious-session-token`,
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
     await db.insert(professionals).values([
       {
         id: id.pro,
@@ -253,6 +265,7 @@ describe("reopenConversation (mismo hilo, con cupo)", () => {
     mocks.getCookie.mockReturnValue(undefined);
     mocks.getServerSession.mockResolvedValue({
       user: { id: id.user, email: `${id.user}@test.local` },
+      session: { id: id.session, expiresAt: new Date(Date.now() + 3_600_000) },
     });
     mocks.notifyConversationReopened.mockClear();
 
@@ -272,6 +285,7 @@ describe("reopenConversation (mismo hilo, con cupo)", () => {
     mocks.getCookie.mockReturnValue(undefined);
     mocks.getServerSession.mockResolvedValue({
       user: { id: id.user, email: `${id.user}@test.local` },
+      session: { id: id.session, expiresAt: new Date(Date.now() + 3_600_000) },
     });
     // El profesional queda a tope de cupo (2 activos de 2).
     await db
@@ -292,6 +306,7 @@ describe("reopenConversation (mismo hilo, con cupo)", () => {
     mocks.getCookie.mockReturnValue(undefined);
     mocks.getServerSession.mockResolvedValue({
       user: { id: id.user, email: `${id.user}@test.local` },
+      session: { id: id.session, expiresAt: new Date(Date.now() + 3_600_000) },
     });
 
     const result = await reopenConversation(id.taken);
@@ -313,6 +328,7 @@ describe("reopenConversation (mismo hilo, con cupo)", () => {
     mocks.getCookie.mockReturnValue(undefined);
     mocks.getServerSession.mockResolvedValue({
       user: { id: id.user, email: `${id.user}@test.local` },
+      session: { id: id.session, expiresAt: new Date(Date.now() + 3_600_000) },
     });
     const result = await reopenConversation(id.anon);
     expect(result).toEqual({ ok: false, reason: "anonymized" });

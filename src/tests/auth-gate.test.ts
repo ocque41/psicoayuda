@@ -442,6 +442,8 @@ describe("conexiones de AVISOS del profesional (gate)", () => {
     const token = mintProfessionalInboxToken(
       {
         professionalId,
+        authSessionId: "auth_1",
+        userId: "user_1",
         role: "inbox",
         iat: now,
         exp: now + 3_600_000,
@@ -475,9 +477,15 @@ describe("conexiones de AVISOS del profesional (gate)", () => {
   ) {
     return {
       prepare: () => ({
-        bind: () => ({
+        bind: (professionalId: string) => ({
           first: async () =>
-            row ? { ...row, conversation_status: row.status } : null,
+            row?.owner_id === professionalId
+              ? {
+                  ...row,
+                  conversation_status: row.status,
+                  auth_session_expires_at: Date.now() + 3_600_000,
+                }
+              : null,
         }),
       }),
     } as unknown as Env["DB"];
