@@ -4154,6 +4154,20 @@ a.professional-carousel-link:focus-visible {
     background: rgba(255, 254, 250, 0.97);
     box-shadow: 0 8px 30px -9px rgba(37, 62, 45, 0.22);
   }
+  /* En /mi la navegación ocupa su espacio y no tapa campos ni acciones. */
+  .workspace-section[data-workspace-audience="patient"] .workspace-rail {
+    position: static;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  .workspace-section[data-workspace-audience="patient"] .workspace-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+  body:has(.workspace-section[data-workspace-audience="patient"]) {
+    padding-bottom: 0;
+  }
   .workspace-rail-inner {
     position: static;
   }

@@ -2,7 +2,7 @@
 
 import { createAuthClient } from "better-auth/react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { repararRegistroHuerfano } from "@/app/actions-account";
 import { trackConversion } from "@/components/click-tracker";
 import { buildProfessionalNewUserCallbackUrl } from "@/lib/contact-messages";
@@ -84,11 +84,13 @@ export function AuthPanel({
 }) {
   const router = useRouter();
   const ids = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   // "reset" es una vista interna (¿olvidaste tu contraseña?): no entra por
   // defaultMode, que sigue siendo solo entrar/crear cuenta.
   const [mode, setMode] = useState<Mode | "reset">(defaultMode);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [pending, setPending] = useState(false);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -97,7 +99,32 @@ export function AuthPanel({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
+  function rememberFields(form: HTMLFormElement) {
+    // El navegador puede rellenar controles sin emitir onChange. Conserva
+    // también los que van a desmontarse al cambiar de modo.
+    const data = new FormData(form);
+    const correo = String(data.get("email") ?? "").trim();
+    const clave = String(data.get("password") ?? password);
+    const nombre = String(data.get("name") ?? name).trim();
+    setEmail(correo);
+    setPassword(clave);
+    setName(nombre);
+    return { correo, clave, nombre };
+  }
+
+  function changeMode(next: Mode | "reset") {
+    if (formRef.current) rememberFields(formRef.current);
+    setMode(next);
+    setError("");
+    setInfo("");
+  }
+
   async function withGoogle() {
+    if (!ready || pending || googleLoading) return;
     setError("");
     setGoogleLoading(true);
     try {
@@ -127,12 +154,13 @@ export function AuthPanel({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!ready || pending || googleLoading) return;
+    // Lee el valor actual, incluidos autofill y entradas antes de hidratar.
+    // No recortes ni transformes la contraseña.
+    const { correo, clave, nombre } = rememberFields(event.currentTarget);
     setError("");
     setInfo("");
     setPending(true);
-    // El autocompletado (sobre todo el móvil) cuela espacios al final del
-    // correo y el login falla por un carácter invisible: normaliza siempre.
-    const correo = email.trim();
     try {
       if (mode === "reset") {
         // Respuesta neutra exista o no la cuenta: no confirmamos correos
@@ -158,11 +186,11 @@ export function AuthPanel({
         mode === "signup"
           ? await authClient.signUp.email({
               email: correo,
-              password,
-              name: name.trim() || correo,
+              password: clave,
+              name: nombre || correo,
               callbackURL,
             })
-          : await authClient.signIn.email({ email: correo, password });
+          : await authClient.signIn.email({ email: correo, password: clave });
 
       // Registro que quedó a medias (fila user sin credencial, p. ej. si el
       // worker murió al hashear la contraseña): se repara en el servidor y se
@@ -176,8 +204,8 @@ export function AuthPanel({
         if (reparado) {
           result = await authClient.signUp.email({
             email: correo,
-            password,
-            name: name.trim() || correo,
+            password: clave,
+            name: nombre || correo,
             callbackURL,
           });
         }
@@ -228,7 +256,7 @@ export function AuthPanel({
         };
         if (w.PasswordCredential && navigator.credentials?.store) {
           await navigator.credentials.store(
-            new w.PasswordCredential({ id: correo, password }),
+            new w.PasswordCredential({ id: correo, password: clave }),
           );
         }
       } catch {
@@ -243,7 +271,7 @@ export function AuthPanel({
     }
   }
 
-  const busy = pending || googleLoading;
+  const busy = !ready || pending || googleLoading;
 
   return (
     <div className="card auth-panel">
@@ -264,15 +292,21 @@ export function AuthPanel({
         </>
       ) : null}
 
-      <form onSubmit={onSubmit}>
+      <form ref={formRef} method="post" onSubmit={onSubmit}>
+        <noscript>
+          <p className="hint">
+            Activa JavaScript para entrar o crear tu cuenta.
+          </p>
+        </noscript>
         {mode === "signup" && (
           <div className="field">
             <label htmlFor={`${ids}-name`}>Tu nombre</label>
             <input
               id={`${ids}-name`}
+              name="name"
               type="text"
               autoComplete="name"
-              value={name}
+              defaultValue={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
@@ -290,7 +324,7 @@ export function AuthPanel({
             autoCorrect="off"
             spellCheck={false}
             inputMode="email"
-            value={email}
+            defaultValue={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
@@ -308,7 +342,7 @@ export function AuthPanel({
                 autoComplete={
                   mode === "signup" ? "new-password" : "current-password"
                 }
-                value={password}
+                defaultValue={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => setCapsLock(e.getModifierState("CapsLock"))}
                 onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))}
@@ -336,14 +370,7 @@ export function AuthPanel({
 
         {mode === "signin" && (
           <p className="auth-toggle">
-            <button
-              type="button"
-              onClick={() => {
-                setMode("reset");
-                setError("");
-                setInfo("");
-              }}
-            >
+            <button type="button" onClick={() => changeMode("reset")}>
               ¿Olvidaste tu contraseña?
             </button>
           </p>
@@ -381,28 +408,14 @@ export function AuthPanel({
         {mode === "signin" ? (
           <>
             ¿Aún no tienes cuenta?{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setMode("signup");
-                setError("");
-                setInfo("");
-              }}
-            >
+            <button type="button" onClick={() => changeMode("signup")}>
               Crea una
             </button>
           </>
         ) : (
           <>
             ¿Ya tienes cuenta?{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setMode("signin");
-                setError("");
-                setInfo("");
-              }}
-            >
+            <button type="button" onClick={() => changeMode("signin")}>
               Entra
             </button>
           </>

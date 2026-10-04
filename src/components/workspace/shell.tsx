@@ -17,7 +17,10 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   return (
-    <section className="section workspace-section">
+    <section
+      className="section workspace-section"
+      data-workspace-audience={audience}
+    >
       <div className="container workspace-shell">
         <WorkspaceNav audience={audience} />
         <div className="workspace-content">
