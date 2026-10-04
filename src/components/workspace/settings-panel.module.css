@@ -1,0 +1,117 @@
+.panel {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  scroll-margin-top: 96px;
+  margin-top: 24px;
+}
+.navigation {
+  position: sticky;
+  top: 96px;
+  padding: 18px 10px;
+  background: var(--surface-muted, #f4f3ec);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 20px);
+}
+.caption {
+  margin: 0 10px 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.tabs {
+  display: grid;
+  gap: 5px;
+}
+.tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-soft, #4f594d);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+}
+.tabs button:hover {
+  background: var(--accent-soft);
+}
+.tabs button[aria-selected="true"] {
+  background: var(--surface-raised, #fffefa);
+  border-color: var(--border);
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+.tabs button:focus-visible,
+.section:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.tabs svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.arrow {
+  margin-left: auto;
+  opacity: 0.6;
+}
+.note {
+  margin: 18px 10px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.content {
+  min-width: 0;
+}
+.section[hidden] {
+  display: none;
+}
+.heading {
+  margin-bottom: 22px;
+}
+.heading h2 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+}
+.heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+@media (max-width: 900px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .navigation {
+    position: static;
+    padding: 12px;
+  }
+  .tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .tabs button {
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 6px;
+    font-size: 0.77rem;
+  }
+  .arrow,
+  .note,
+  .caption {
+    display: none;
+  }
+}

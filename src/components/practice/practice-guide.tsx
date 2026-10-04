@@ -170,6 +170,17 @@ export function PracticeGuide() {
         steps={guide.steps}
         guideLabel={guide.label}
         triggerLabel="Conocer este espacio con el pajarito"
+        onStepChange={
+          pathname === "/pro/ajustes"
+            ? (step) => {
+                window.dispatchEvent(
+                  new CustomEvent("nido:settings-target", {
+                    detail: step.targetId,
+                  }),
+                );
+              }
+            : undefined
+        }
       />
       <div id="practice-guide-actions" className={styles.actions}>
         {patientPage ? (

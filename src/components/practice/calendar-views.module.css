@@ -1,0 +1,142 @@
+.root :global(.workspace-segmented) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.root :global(.calendar-date-picker) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.root :global(.calendar-date-picker) input {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised, #fffefa);
+  color: var(--foreground);
+  font: inherit;
+  min-width: 0;
+}
+.root :global(.calendar-date-picker) input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.root :global(.calendar-event-end) {
+  display: block;
+  margin-top: 3px;
+  font-weight: 400;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.root :global(.calendar-week) {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.root :global(.calendar-week-column) {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-raised, #fffefa);
+}
+.root :global(.calendar-week-column.is-today) {
+  border-color: var(--accent);
+}
+.root :global(.calendar-week-heading) {
+  padding: 14px 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  background: var(--surface-muted, #f4f3ec);
+  border-radius: 14px 14px 0 0;
+}
+.root :global(.calendar-week-heading) h3 {
+  margin: 0 0 5px;
+  font-size: 0.7rem;
+}
+.root :global(.calendar-week-heading) a {
+  display: block;
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+.root :global(.calendar-week-heading) a:hover {
+  text-decoration: underline;
+}
+.root :global(.calendar-week-heading) strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.25rem;
+}
+.root :global(.calendar-week-heading .hint) {
+  font-size: 0.67rem;
+}
+.root :global(.calendar-week-events) {
+  padding: 10px;
+}
+.root :global(.calendar-week .calendar-event) {
+  position: relative;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+}
+.root :global(.calendar-week .calendar-event-time) {
+  font-size: 0.78rem;
+}
+.root :global(.calendar-week .calendar-event-end) {
+  display: inline;
+  margin-left: 4px;
+}
+.root :global(.calendar-week .calendar-event-copy) h4 {
+  font-size: 0.79rem;
+}
+.root :global(.calendar-week .calendar-event-copy) p {
+  display: none;
+}
+.root :global(.calendar-week .calendar-event-open) {
+  align-self: flex-end;
+}
+.root :global(.calendar-week-empty) {
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+.root[data-view="dia"] :global(.calendar-events) {
+  max-height: none;
+}
+@media (max-width: 1199px) {
+  .root :global(.calendar-week) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .root :global(.calendar-week .calendar-event) {
+    flex-direction: row;
+  }
+  .root :global(.calendar-week .calendar-event-end) {
+    display: block;
+    margin-left: 0;
+  }
+}
+@media (max-width: 600px) {
+  .root :global(.calendar-week) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .root :global(.calendar-heading) {
+    flex-wrap: wrap;
+  }
+  .root :global(.calendar-subheading) {
+    flex-wrap: wrap;
+  }
+  .root :global(.workspace-segmented) {
+    width: 100%;
+  }
+  .root :global(.workspace-segmented) button {
+    flex: 1;
+    padding-inline: 8px;
+  }
+}

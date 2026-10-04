@@ -126,6 +126,16 @@ describe("destinos autorizados del calendario del paciente", () => {
         updatedAt: timestamp,
       });
     }
+    await db.insert(practiceAppointments).values({
+      id: id("appointment", "previous-month"),
+      professionalId: id("pro", "live"),
+      patientId: id("record", "live"),
+      startsAt: "2026-09-30T14:00:00.000Z",
+      endsAt: "2026-09-30T14:50:00.000Z",
+      timeZone: "UTC",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
     renderToStaticMarkup(
       await PatientCalendar({
         searchParams: Promise.resolve({ mes: "2026-10" }),
@@ -139,6 +149,39 @@ describe("destinos autorizados del calendario del paciente", () => {
     expect(events.find((e) => e.id === id("appointment", "live"))?.href).toBe(
       `/sesion/${id("appointment", "live")}`,
     );
+  });
+
+  it("consulta la semana completa aunque empiece en el mes anterior", async () => {
+    renderToStaticMarkup(
+      await PatientCalendar({
+        searchParams: Promise.resolve({
+          mes: "2026-10",
+          dia: "2026-10-01",
+          vista: "semana",
+        }),
+      }),
+    );
+    const events = mocks.calendar.mock.calls.at(-1)?.[0] as CalendarEvent[];
+    expect(events.map((event) => event.id)).toEqual([
+      id("appointment", "previous-month"),
+    ]);
+  });
+
+  it("el modo diario no incluye sesiones de otros días", async () => {
+    renderToStaticMarkup(
+      await PatientCalendar({
+        searchParams: Promise.resolve({
+          mes: "2026-10",
+          dia: "2026-10-06",
+          vista: "dia",
+        }),
+      }),
+    );
+    const events = mocks.calendar.mock.calls.at(-1)?.[0] as CalendarEvent[];
+    expect(events).toHaveLength(5);
+    expect(
+      events.every((event) => event.startsAt === "2026-10-06T14:00:00.000Z"),
+    ).toBe(true);
   });
 
   it.each([

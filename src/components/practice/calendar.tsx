@@ -17,14 +17,18 @@ import {
   type CalendarView,
   calendarDay,
   calendarHref,
+  calendarPeriod,
   calendarView,
+  shiftCalendarDay,
   shiftCalendarMonth,
 } from "@/lib/practice/calendar";
+import styles from "./calendar-views.module.css";
 import { PracticePagination } from "./pagination";
 
 export type CalendarEvent = {
   id: string;
   startsAt: string;
+  endsAt?: string;
   dateText: string;
   patientId?: string;
   href?: string;
@@ -48,6 +52,50 @@ const weekdays = [
   "Sábado",
   "Domingo",
 ];
+
+function CalendarEventCard({
+  event,
+  audience,
+  clockFormat,
+}: {
+  event: CalendarEvent;
+  audience: "professional" | "patient";
+  clockFormat: Intl.DateTimeFormat;
+}) {
+  const href =
+    event.href ||
+    (audience === "professional" && event.patientId
+      ? `/pro/pacientes/${event.patientId}`
+      : undefined);
+  return (
+    <article className={`calendar-event calendar-event-${event.status}`}>
+      <time className="calendar-event-time" dateTime={event.startsAt}>
+        {clockFormat.format(new Date(event.startsAt))}
+        {event.endsAt ? (
+          <span className="calendar-event-end">
+            – {clockFormat.format(new Date(event.endsAt))}
+          </span>
+        ) : null}
+      </time>
+      <div className="calendar-event-copy">
+        <h4>{href ? <Link href={href}>{event.name}</Link> : event.name}</h4>
+        <p>{event.dateText}</p>
+        <span className={`calendar-status calendar-status-${event.status}`}>
+          {statuses[event.status] || "Por confirmar"}
+        </span>
+      </div>
+      {href ? (
+        <Link
+          className="calendar-event-open"
+          href={href}
+          aria-label={`Abrir ${audience === "patient" ? "detalle de la sesión con" : "ficha de"} ${event.name}`}
+        >
+          ↗
+        </Link>
+      ) : null}
+    </article>
+  );
+}
 
 /** Los enlaces siguen el contexto actual, también tras cambios locales de History. */
 export function CalendarPagination({
@@ -89,11 +137,13 @@ export function CalendarPagination({
 export function PracticeCalendar({
   events,
   month,
+  initialDay,
   timeZone,
   audience = "professional",
 }: {
   events: CalendarEvent[];
   month: string;
+  initialDay?: string;
   timeZone: string;
   audience?: "professional" | "patient";
 }) {
@@ -104,6 +154,10 @@ export function PracticeCalendar({
   const agendaId = useId();
   const selected = calendarDay(params.get("dia"), month);
   const view = calendarView(params.get("vista"));
+  const referenceDay =
+    selected || calendarDay(initialDay, month) || `${month}-01`;
+  const period = calendarPeriod(month, referenceDay, view);
+  const periodView = view === "semana" || view === "dia";
   const [focusedDay, setFocusedDay] = useState(
     selected ? Number(selected.slice(-2)) : 1,
   );
@@ -115,11 +169,26 @@ export function PracticeCalendar({
   final.setUTCDate(0);
   const days = final.getUTCDate();
   const offset = (first.getUTCDay() + 6) % 7;
-  const heading = new Intl.DateTimeFormat("es", {
+  const monthHeading = new Intl.DateTimeFormat("es", {
     timeZone: "UTC",
     month: "long",
     year: "numeric",
   }).format(first);
+  const periodFormat = new Intl.DateTimeFormat("es", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const heading =
+    view === "dia"
+      ? periodFormat.format(new Date(`${referenceDay}T12:00:00Z`))
+      : view === "semana"
+        ? periodFormat.formatRange(
+            new Date(`${period.from}T12:00:00Z`),
+            new Date(`${period.days.at(-1)}T12:00:00Z`),
+          )
+        : monthHeading;
   const { grouped, ordered, dateFormat, longDateFormat, clockFormat } =
     useMemo(() => {
       const dateFormat = new Intl.DateTimeFormat("sv-SE", {
@@ -142,8 +211,10 @@ export function PracticeCalendar({
       });
       const grouped = new Map<string, CalendarEvent[]>();
       const ordered = events
-        .filter((event) =>
-          dateFormat.format(new Date(event.startsAt)).startsWith(month),
+        .filter(
+          (event) =>
+            dateFormat.format(new Date(event.startsAt)) >= period.from &&
+            dateFormat.format(new Date(event.startsAt)) < period.until,
         )
         .toSorted((a, b) => a.startsAt.localeCompare(b.startsAt));
       for (const event of ordered) {
@@ -153,7 +224,7 @@ export function PracticeCalendar({
         else grouped.set(key, [event]);
       }
       return { grouped, ordered, dateFormat, longDateFormat, clockFormat };
-    }, [events, month, timeZone]);
+    }, [events, period.from, period.until, timeZone]);
   // Client-only "today" avoids server/browser clock or zone hydration differences.
   const [today, setToday] = useState<string | null>(null);
   useEffect(() => {
@@ -180,6 +251,13 @@ export function PracticeCalendar({
   function select(day: string | null) {
     updateContext({ dia: day });
   }
+  function dayHref(day: string, targetView = view) {
+    return calendarHref(pathname, params.toString(), month, {
+      mes: day.slice(0, 7),
+      dia: day,
+      vista: targetView,
+    });
+  }
   function updateContext(changes: {
     dia?: string | null;
     vista?: CalendarView;
@@ -199,7 +277,10 @@ export function PracticeCalendar({
         href
       )
         return;
-      window.history.pushState(null, "", href);
+      // Semana y día consultan su rango completo, incluso al cruzar de mes.
+      if (periodView || changes.vista === "semana" || changes.vista === "dia")
+        router.push(href, { scroll: false });
+      else window.history.pushState(null, "", href);
     });
   }
   function focusDate(day: number) {
@@ -238,17 +319,31 @@ export function PracticeCalendar({
       });
     }
   }
-  const previous = shiftCalendarMonth(month, -1);
-  const next = shiftCalendarMonth(month, 1);
-  const visible = selected ? grouped.get(selected) || [] : ordered;
-  const selectedLabel = selected
-    ? longDateFormat.format(new Date(`${selected}T12:00:00Z`))
-    : "Sesiones del mes";
+  const previousDay = shiftCalendarDay(
+    referenceDay,
+    view === "semana" ? -7 : -1,
+  );
+  const nextDay = shiftCalendarDay(referenceDay, view === "semana" ? 7 : 1);
+  const previous = periodView ? previousDay : shiftCalendarMonth(month, -1);
+  const next = periodView ? nextDay : shiftCalendarMonth(month, 1);
+  const visible =
+    view === "dia"
+      ? grouped.get(referenceDay) || []
+      : selected
+        ? grouped.get(selected) || []
+        : ordered;
+  const selectedLabel =
+    view === "dia" || selected
+      ? longDateFormat.format(
+          new Date(`${view === "dia" ? referenceDay : selected}T12:00:00Z`),
+        )
+      : "Sesiones del mes";
   const weekCount = Math.ceil((offset + days) / 7);
 
   return (
     <section
-      className={`card calendar-card calendar-view-${view === "mes" ? "calendar" : "list"}`}
+      className={`card calendar-card ${styles.root} calendar-view-${view === "mes" ? "calendar" : "list"}`}
+      data-view={view}
       id="calendario"
       aria-labelledby={headingId}
     >
@@ -267,7 +362,9 @@ export function PracticeCalendar({
                 className="calendar-today"
                 onClick={() => {
                   setFocusedDay(Number(today.slice(-2)));
-                  select(today);
+                  if (periodView)
+                    router.push(dayHref(today), { scroll: false });
+                  else select(today);
                 }}
               >
                 Hoy
@@ -286,10 +383,16 @@ export function PracticeCalendar({
           {previous ? (
             <Link
               className="calendar-arrow"
-              href={monthHref(previous)}
+              href={periodView ? dayHref(previous) : monthHref(previous)}
               prefetch={false}
               scroll={false}
-              aria-label="Mes anterior"
+              aria-label={
+                view === "semana"
+                  ? "Semana anterior"
+                  : view === "dia"
+                    ? "Día anterior"
+                    : "Mes anterior"
+              }
             >
               ←
             </Link>
@@ -297,10 +400,16 @@ export function PracticeCalendar({
           {next ? (
             <Link
               className="calendar-arrow"
-              href={monthHref(next)}
+              href={periodView ? dayHref(next) : monthHref(next)}
               prefetch={false}
               scroll={false}
-              aria-label="Mes siguiente"
+              aria-label={
+                view === "semana"
+                  ? "Semana siguiente"
+                  : view === "dia"
+                    ? "Día siguiente"
+                    : "Mes siguiente"
+              }
             >
               →
             </Link>
@@ -318,10 +427,26 @@ export function PracticeCalendar({
           <button
             type="button"
             aria-pressed={view === "mes"}
-            onClick={() => updateContext({ vista: "mes" })}
+            onClick={() => updateContext({ vista: "mes", dia: null })}
           >
             <WorkspaceIcon name="calendar" />
             Mes
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "semana"}
+            onClick={() =>
+              updateContext({ vista: "semana", dia: referenceDay })
+            }
+          >
+            Semana
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "dia"}
+            onClick={() => updateContext({ vista: "dia", dia: referenceDay })}
+          >
+            Día
           </button>
           <button
             type="button"
@@ -333,6 +458,22 @@ export function PracticeCalendar({
           </button>
         </fieldset>
       </div>
+      {periodView ? (
+        <label className="calendar-date-picker">
+          Elegir fecha
+          <input
+            type="date"
+            value={referenceDay}
+            min="0001-01-01"
+            max="9999-12-31"
+            onChange={(event) => {
+              const day = event.target.value;
+              if (calendarDay(day, day.slice(0, 7)))
+                router.push(dayHref(day), { scroll: false });
+            }}
+          />
+        </label>
+      ) : null}
       <div className="calendar-layout">
         {view === "mes" ? (
           <div className="calendar-month">
@@ -427,97 +568,125 @@ export function PracticeCalendar({
             </p>
           </div>
         ) : null}
-        <div className="calendar-agenda" id={agendaId}>
-          <div className="calendar-agenda-heading">
-            <h3>{selectedLabel}</h3>
-            {selected ? (
-              <button
-                type="button"
-                className="calendar-clear"
-                onClick={() => select(null)}
-              >
-                Ver el mes
-              </button>
-            ) : (
-              <span className="workspace-tag">
-                {ordered.length} {ordered.length === 1 ? "sesión" : "sesiones"}
-              </span>
-            )}
-          </div>
-          <div
-            className="calendar-events"
+        {view === "semana" ? (
+          <section
+            className="calendar-week"
+            aria-label="Sesiones de la semana"
             aria-live="polite"
-            aria-atomic="false"
           >
-            {visible.map((event) => {
-              const href =
-                event.href ||
-                (audience === "professional" && event.patientId
-                  ? `/pro/pacientes/${event.patientId}`
-                  : undefined);
+            {period.days.map((day) => {
+              const dayEvents = grouped.get(day) || [];
               return (
-                <article
-                  className={`calendar-event calendar-event-${event.status}`}
-                  key={`${view}:${selected ?? "mes"}:${event.id}`}
+                <section
+                  className={`calendar-week-column${day === today ? " is-today" : ""}`}
+                  key={day}
                 >
-                  <time
-                    className="calendar-event-time"
-                    dateTime={event.startsAt}
-                  >
-                    {clockFormat.format(new Date(event.startsAt))}
-                  </time>
-                  <div className="calendar-event-copy">
-                    <h4>
-                      {href ? (
-                        <Link href={href}>{event.name}</Link>
-                      ) : (
-                        event.name
-                      )}
-                    </h4>
-                    <p>{event.dateText}</p>
-                    <span
-                      className={`calendar-status calendar-status-${event.status}`}
-                    >
-                      {statuses[event.status] || "Por confirmar"}
+                  <header className="calendar-week-heading">
+                    <h3>
+                      <Link
+                        href={dayHref(day, "dia")}
+                        prefetch={false}
+                        scroll={false}
+                        aria-label={`Ver el día ${longDateFormat.format(new Date(`${day}T12:00:00Z`))}`}
+                      >
+                        <time
+                          dateTime={day}
+                          aria-current={day === today ? "date" : undefined}
+                        >
+                          <span>
+                            {
+                              weekdays[
+                                (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) %
+                                  7
+                              ]
+                            }
+                          </span>
+                          <strong>{Number(day.slice(-2))}</strong>
+                        </time>
+                      </Link>
+                    </h3>
+                    <span className="hint">
+                      {dayEvents.length}{" "}
+                      {dayEvents.length === 1 ? "sesión" : "sesiones"}
                     </span>
+                  </header>
+                  <div className="calendar-week-events">
+                    {dayEvents.map((event) => (
+                      <CalendarEventCard
+                        key={event.id}
+                        event={event}
+                        audience={audience}
+                        clockFormat={clockFormat}
+                      />
+                    ))}
+                    {!dayEvents.length ? (
+                      <p className="calendar-week-empty">Sin sesiones</p>
+                    ) : null}
                   </div>
-                  {href ? (
-                    <Link
-                      className="calendar-event-open"
-                      href={href}
-                      aria-label={`Abrir ${audience === "patient" ? "detalle de la sesión con" : "ficha de"} ${event.name}`}
-                    >
-                      ↗
-                    </Link>
-                  ) : null}
-                </article>
+                </section>
               );
             })}
-            {!visible.length ? (
-              <div
-                className="calendar-empty"
-                key={`${view}:${selected ?? "mes"}:empty`}
-              >
-                <span className="calendar-empty-icon">
-                  <WorkspaceIcon name="leaf" />
+          </section>
+        ) : (
+          <div className="calendar-agenda" id={agendaId}>
+            <div className="calendar-agenda-heading">
+              <h3>{selectedLabel}</h3>
+              {selected && !periodView ? (
+                <button
+                  type="button"
+                  className="calendar-clear"
+                  onClick={() => select(null)}
+                >
+                  Ver el mes
+                </button>
+              ) : (
+                <span className="workspace-tag">
+                  {visible.length}{" "}
+                  {visible.length === 1 ? "sesión" : "sesiones"}
                 </span>
-                <h4>
-                  {selected ? "Un día con espacio" : "Tu agenda empieza aquí"}
-                </h4>
-                <p>
-                  {audience === "patient"
-                    ? "Las sesiones que acuerdes con tu profesional aparecerán aquí."
-                    : "Programa una sesión desde la ficha de tu paciente y la encontrarás aquí."}
-                </p>
-                {audience === "professional" ? (
-                  <Link href="/pro/pacientes">Ir a pacientes →</Link>
-                ) : (
-                  <Link href="/mi/mensajes">Ir a mis mensajes →</Link>
-                )}
-              </div>
-            ) : null}
+              )}
+            </div>
+            <div
+              className="calendar-events"
+              aria-live="polite"
+              aria-atomic="false"
+            >
+              {visible.map((event) => (
+                <CalendarEventCard
+                  key={`${view}:${selected ?? "mes"}:${event.id}`}
+                  event={event}
+                  audience={audience}
+                  clockFormat={clockFormat}
+                />
+              ))}
+              {!visible.length ? (
+                <div
+                  className="calendar-empty"
+                  key={`${view}:${selected ?? "mes"}:empty`}
+                >
+                  <span className="calendar-empty-icon">
+                    <WorkspaceIcon name="leaf" />
+                  </span>
+                  <h4>
+                    {selected || view === "dia"
+                      ? "Un día con espacio"
+                      : "Tu agenda empieza aquí"}
+                  </h4>
+                  <p>
+                    {audience === "patient"
+                      ? "Las sesiones que acuerdes con tu profesional aparecerán aquí."
+                      : "Programa una sesión desde la ficha de tu paciente y la encontrarás aquí."}
+                  </p>
+                  {audience === "professional" ? (
+                    <Link href="/pro/pacientes">Ir a pacientes →</Link>
+                  ) : (
+                    <Link href="/mi/mensajes">Ir a mis mensajes →</Link>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

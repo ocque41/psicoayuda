@@ -74,11 +74,12 @@ async function securityGate(
 
 function credentialDestination(
   formData?: FormData,
-): "/mi/ajustes" | "/pro/dashboard" {
+): "/mi/ajustes" | "/pro/ajustes" | "/pro/dashboard" {
   // An exact allowlist avoids protocol-relative URLs, external origins, encoded
   // separators and arbitrary private routes supplied through a hidden input.
-  return formData?.get("credentialReturnTo") === "/mi/ajustes"
-    ? "/mi/ajustes"
+  const destination = formData?.get("credentialReturnTo");
+  return destination === "/mi/ajustes" || destination === "/pro/ajustes"
+    ? destination
     : "/pro/dashboard";
 }
 function dashboardUrl(formData?: FormData) {
