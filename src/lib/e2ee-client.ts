@@ -225,11 +225,15 @@ export async function exportKeystoreJson(scope?: string): Promise<string> {
 }
 
 /** Importa un keystore restaurado; devuelve cuántas claves se añadieron. */
-export async function importKeystoreJson(json: string): Promise<number> {
+export async function importKeystoreJson(
+  json: string,
+  current = () => true,
+): Promise<number> {
   const file = parseKeystore(json);
   if (!file) return 0;
   let count = 0;
   for (const entry of file.entries) {
+    if (!current()) return count;
     await putStoredKey(entry);
     count += 1;
   }
@@ -289,12 +293,16 @@ export async function restoreFromBackup(
   codeInput: string,
   wrapped: string,
   scope?: string,
+  current = () => true,
 ): Promise<{ ok: boolean; restored: number }> {
+  if (!current()) return { ok: false, restored: 0 };
   const json = await unwrapKeystore(wrapped, codeInput);
+  if (!current()) return { ok: false, restored: 0 };
   if (!json) return { ok: false, restored: 0 };
   const normalized = normalizeRecoveryCode(codeInput);
   if (!normalized) return { ok: false, restored: 0 };
-  const restored = await importKeystoreJson(json);
+  const restored = await importKeystoreJson(json, current);
+  if (!current()) return { ok: false, restored };
   if (restored === 0) return { ok: false, restored: 0 };
   const file = parseKeystore(json);
   // Un respaldo legado permanece intacto en el servidor: no reutilizar su código

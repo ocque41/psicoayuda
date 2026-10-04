@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadRecoveryKeystore, saveRecoveryKeystore } from "@/app/actions-e2ee";
 import { persistRecoveryBackup } from "@/lib/e2ee-backup";
+import { createE2eeSessionGuard } from "@/lib/e2ee-session-guard";
 import {
   createEnvelope,
   openEnvelope,
@@ -10,6 +11,32 @@ import {
 
 if (!process.env.DATABASE_URL?.includes("nido-tests-"))
   throw new Error("Requiere test:isolated.");
+
+it("revocación durante descifrado no importa ni borra claves/códigos del dispositivo", async () => {
+  const client = await import("@/lib/e2ee-client");
+  const scope = client.professionalSlot("fixture-invalidation");
+  await client.getOrCreateIdentity(scope);
+  const backup = await client.createRecoveryBackup(scope);
+  if (!backup) throw new Error("Sin respaldo ficticio");
+  const before = await client.exportKeystoreJson();
+  const beforeCode = await client.getStoredRecoveryCode(scope);
+  const guard = createE2eeSessionGuard(
+    async () => ({ ok: true }),
+    () => {},
+  );
+  const ticket = guard.ticket();
+  const pending = client.restoreFromBackup(
+    backup.code,
+    backup.wrapped,
+    scope,
+    () => guard.current(ticket),
+  );
+  guard.invalidate();
+  expect(await pending).toEqual({ ok: false, restored: 0 });
+  expect(await client.exportKeystoreJson()).toBe(before);
+  expect(await client.getStoredRecoveryCode(scope)).toBe(beforeCode);
+  guard.dispose();
+});
 describe("recuperación E2EE entre dispositivos", () => {
   it("restaura la misma identidad y lee un sobre anterior con el respaldo confirmado", async () => {
     const first = await import("@/lib/e2ee-client");

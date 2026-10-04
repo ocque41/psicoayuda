@@ -21,8 +21,8 @@ export async function loadChatDraft(
 ): Promise<string | null> {
   const key = chatDraftKey(context);
   try {
-    // El formato legado no identifica cuenta/rol: no se atribuye a quien abra ahora la sala.
-    localStorage.removeItem(`nido:chat-draft:${context.conversationId}`);
+    // El legado no identifica cuenta/rol. Conservar sus bytes sin leer, importar,
+    // mostrar ni eliminar: su recuperación requiere una decisión independiente.
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const stored = JSON.parse(raw);

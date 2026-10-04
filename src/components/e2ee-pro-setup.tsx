@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   publishProIdentityKey,
   saveRecoveryKeystore,
+  verifyProfessionalE2eeActor,
 } from "@/app/actions-e2ee";
 import { E2eeRestorePanel } from "@/app/c/[conversationId]/e2ee-restore-panel";
 import { persistRecoveryBackup } from "@/lib/e2ee-backup";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/e2ee-client";
 import styles from "./e2ee.module.css";
 import { E2eeBackupModal } from "./e2ee-backup-modal";
+import { useE2eeSessionGuard } from "./use-e2ee-session-guard";
 
 /**
  * Cifrado de extremo a extremo del profesional, SIEMPRE visible en su panel:
@@ -40,6 +42,22 @@ export function E2eeProSetupCard({
   accountPublicKey: string | null;
   professionalId: string;
 }) {
+  return (
+    <ProfessionalSetup
+      key={professionalId}
+      accountPublicKey={accountPublicKey}
+      professionalId={professionalId}
+    />
+  );
+}
+
+function ProfessionalSetup({
+  accountPublicKey,
+  professionalId,
+}: {
+  accountPublicKey: string | null;
+  professionalId: string;
+}) {
   const slot = professionalSlot(professionalId);
   const [hasLocalKey, setHasLocalKey] = useState(false);
   const [needsKey, setNeedsKey] = useState(false);
@@ -48,8 +66,50 @@ export function E2eeProSetupCard({
   const backupTriggerRef = useRef<HTMLButtonElement>(null);
   const [code, setCode] = useState<string | null>(null);
 
+  const [blocked, setBlocked] = useState(false);
+  const invalidate = useCallback(() => {
+    setBlocked(true);
+    setHasLocalKey(false);
+    setNeedsKey(false);
+    setBusy(false);
+    setCode(null);
+    setError("");
+  }, []);
+  const checkActor = useCallback(
+    () => verifyProfessionalE2eeActor(professionalId),
+    [professionalId],
+  );
+  const guard = useE2eeSessionGuard(checkActor, invalidate);
+
+  const showOrCreateBackup = useCallback(async () => {
+    const ticket = guard.ticket();
+    if (!(await guard.authorize(ticket))) return;
+    setError("");
+    setBusy(true);
+    try {
+      const backup = await persistRecoveryBackup(
+        "professional",
+        saveRecoveryKeystore,
+        slot,
+      );
+      // Comprobar también el actor después de cualquier respuesta tardía.
+      if (!(await guard.authorize(ticket))) return;
+      if (backup.ok) setCode(backup.code);
+      else
+        setError(
+          "No pudimos guardar tu respaldo. Puedes reintentarlo con el mismo código.",
+        );
+    } finally {
+      if (guard.current(ticket)) setBusy(false);
+    }
+  }, [guard, slot]);
+
   useEffect(() => {
+    const ticket = guard.ticket();
     let cancelled = false;
+    const current = () => !cancelled && guard.current(ticket);
+    const authorize = async () =>
+      current() && (await guard.authorize(ticket)) && current();
     setBusy(true);
     setHasLocalKey(false);
     setNeedsKey(false);
@@ -57,35 +117,37 @@ export function E2eeProSetupCard({
     setError("");
     void (async () => {
       try {
+        if (!(await authorize())) return;
         const existing = await loadProfessionalIdentity(
           professionalId,
           accountPublicKey,
         );
-        if (cancelled) return;
+        if (!(await authorize())) return;
         if (existing) {
-          // Republicar es idempotente cuando coinciden; si la cuenta tiene otra
-          // clave distinta, no pisamos nada: el estado `needsKey` lo decide.
           if (!accountPublicKey || accountPublicKey === existing.publicKey) {
-            const result = await publishProIdentityKey(existing.publicKey);
-            if (!result.ok) {
-              setNeedsKey(true);
-              return;
-            }
-            if (!cancelled) setHasLocalKey(true);
-          } else {
-            setNeedsKey(true);
-          }
+            const result = await publishProIdentityKey(
+              existing.publicKey,
+              undefined,
+              professionalId,
+            );
+            if (!(await authorize())) return;
+            if (!result.ok) setNeedsKey(true);
+            else setHasLocalKey(true);
+          } else setNeedsKey(true);
           return;
         }
         if (accountPublicKey) {
-          // La clave vive en otro dispositivo: decidir con el panel.
           setNeedsKey(true);
           return;
         }
         const { identity } = await getOrCreateIdentity(slot);
-        if (cancelled) return;
-        const published = await publishProIdentityKey(identity.publicKey);
-        if (cancelled) return;
+        if (!(await authorize())) return;
+        const published = await publishProIdentityKey(
+          identity.publicKey,
+          undefined,
+          professionalId,
+        );
+        if (!(await authorize())) return;
         if (!published.ok) {
           setError(
             "No pudimos guardar tu clave. Recarga la página e inténtalo de nuevo.",
@@ -93,46 +155,28 @@ export function E2eeProSetupCard({
           return;
         }
         setHasLocalKey(true);
-        const backup = await persistRecoveryBackup(
-          "professional",
-          saveRecoveryKeystore,
-          slot,
-        );
-        if (!cancelled) {
-          if (backup.ok) setCode(backup.code);
-          else
-            setError(
-              "No pudimos guardar tu respaldo. Reintenta antes de usar el código en otro dispositivo.",
-            );
-        }
+        await showOrCreateBackup();
       } catch {
-        if (!cancelled) {
+        if (current())
           setError("No pudimos activar el cifrado en este dispositivo.");
-        }
       } finally {
-        if (!cancelled) setBusy(false);
+        if (current()) setBusy(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountPublicKey, professionalId, slot]);
+  }, [accountPublicKey, professionalId, slot, guard, showOrCreateBackup]);
 
-  async function showOrCreateBackup() {
-    setError("");
-    setBusy(true);
-    const backup = await persistRecoveryBackup(
-      "professional",
-      saveRecoveryKeystore,
-      slot,
+  if (blocked)
+    return (
+      <p role="status">
+        La sesión cambió o caducó.{" "}
+        <a href="/pro/dashboard">
+          Verifica tu cuenta para gestionar el cifrado.
+        </a>
+      </p>
     );
-    if (backup.ok) setCode(backup.code);
-    else
-      setError(
-        "No pudimos guardar tu respaldo. Puedes reintentarlo con el mismo código.",
-      );
-    setBusy(false);
-  }
 
   return (
     <div className={styles.setupBanner}>
@@ -153,31 +197,48 @@ export function E2eeProSetupCard({
           <E2eeRestorePanel
             audience="professional"
             recoveryScope={slot}
+            checkActor={checkActor}
             onRestored={async () => {
+              const ticket = guard.ticket();
+              if (!(await guard.authorize(ticket))) return false;
               const restored = await loadProfessionalIdentity(
                 professionalId,
                 accountPublicKey,
               );
-              if (!restored) return false;
-              if (!(await publishProIdentityKey(restored.publicKey)).ok)
+              if (!restored || !(await guard.authorize(ticket))) return false;
+              if (
+                !(
+                  await publishProIdentityKey(
+                    restored.publicKey,
+                    undefined,
+                    professionalId,
+                  )
+                ).ok
+              )
                 return false;
+              if (!(await guard.authorize(ticket))) return false;
               setNeedsKey(false);
               setHasLocalKey(true);
               return true;
             }}
             onUseNewKeys={async () => {
+              const ticket = guard.ticket();
+              if (!(await guard.authorize(ticket))) return;
               const { identity } = await replaceIdentity(slot);
+              if (!(await guard.authorize(ticket))) return;
               if (
                 !(
                   await publishProIdentityKey(
                     identity.publicKey,
                     accountPublicKey,
+                    professionalId,
                   )
                 ).ok
               )
                 throw new Error(
                   "La cuenta tiene otra clave. Recarga para recuperarla.",
                 );
+              if (!(await guard.authorize(ticket))) return;
               setNeedsKey(false);
               setHasLocalKey(true);
               await showOrCreateBackup();
@@ -212,6 +273,7 @@ export function E2eeProSetupCard({
       {code ? (
         <E2eeBackupModal
           code={code}
+          checkActor={checkActor}
           onClose={() => setCode(null)}
           returnFocusRef={backupTriggerRef}
         />

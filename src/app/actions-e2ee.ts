@@ -11,6 +11,26 @@ const KEYSTORE_MAX_LENGTH = 262_144;
 const KEYSTORE_SAVES_PER_HOUR = 300;
 const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 
+/** Autoriza ESTA cuenta, sin aceptar el actor de una página anterior. */
+export async function verifyProfessionalE2eeActor(
+  professionalId: string,
+): Promise<{ ok: boolean; expiresAt?: number }> {
+  const session = await getServerSession();
+  if (!session?.user?.id) return { ok: false };
+  const expiresAt = new Date(session.session.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now())
+    return { ok: false };
+  const pro = await db.query.professionals.findFirst({
+    where: and(
+      eq(professionals.id, professionalId),
+      eq(professionals.userId, session.user.id),
+      eq(professionals.status, "approved"),
+    ),
+    columns: { id: true },
+  });
+  return pro ? { ok: true, expiresAt } : { ok: false };
+}
+
 /**
  * Publica la clave pública ECDH del profesional (la privada vive SOLO en su
  * navegador). Sin esta clave, la persona no puede cifrar mensajes para él, así
@@ -20,6 +40,7 @@ const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 export async function publishProIdentityKey(
   publicKey: string,
   expectedPublicKey?: string | null,
+  expectedProfessionalId?: string,
 ): Promise<{ ok: boolean }> {
   if (!isValidPublicKey(publicKey)) return { ok: false };
   const session = await getServerSession();
@@ -28,7 +49,11 @@ export async function publishProIdentityKey(
   const pro = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
   });
-  if (pro?.status !== "approved") return { ok: false };
+  if (
+    pro?.status !== "approved" ||
+    (expectedProfessionalId !== undefined && pro.id !== expectedProfessionalId)
+  )
+    return { ok: false };
 
   const changed = await db
     .update(professionals)

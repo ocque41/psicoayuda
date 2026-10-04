@@ -14,11 +14,11 @@ import {
 import {
   publishProIdentityKey,
   saveRecoveryKeystore,
+  verifyProfessionalE2eeActor,
 } from "@/app/actions-e2ee";
 import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { E2eeBackupModal } from "@/components/e2ee-backup-modal";
 import { loadChatDraft, saveChatDraft } from "@/lib/chat-draft-storage";
-import { onChatSessionEnd } from "@/lib/chat-session-end";
 import { persistRecoveryBackup } from "@/lib/e2ee-backup";
 import {
   getOrCreateIdentity,
@@ -29,6 +29,7 @@ import {
   replaceIdentity,
   seekerSlot,
 } from "@/lib/e2ee-client";
+import { listenE2eeSessionInvalidation } from "@/lib/e2ee-session-guard";
 import {
   type ChatMessage,
   type ClientFrame,
@@ -290,9 +291,21 @@ export function ChatRoom({
       ? professionalSlot(professionalId ?? "unavailable")
       : seekerSlot(conversationId);
 
+  const sessionRevisionRef = useRef(0);
+  const checkE2eeActor = useCallback(
+    async () =>
+      role === "professional"
+        ? professionalId
+          ? verifyProfessionalE2eeActor(professionalId)
+          : { ok: false }
+        : { ok: true },
+    [role, professionalId],
+  );
+
   useEffect(
     () =>
-      onChatSessionEnd(() => {
+      listenE2eeSessionInvalidation(() => {
+        sessionRevisionRef.current += 1;
         setLoggedOut(true);
         setDraftReady(false);
         setIdentity(null);
@@ -367,12 +380,15 @@ export function ChatRoom({
     proVisitor && professionalId ? professionalSlot(professionalId) : slot;
   const ensureBackup = useCallback(
     async (kind: "professional" | "seeker") => {
+      const revision = sessionRevisionRef.current;
       await registerIdentityOwner(slot, recoveryScope);
+      if (revision !== sessionRevisionRef.current) return null;
       const result = await persistRecoveryBackup(
         kind,
         saveRecoveryKeystore,
         recoveryScope,
       );
+      if (revision !== sessionRevisionRef.current) return null;
       setBackupError(
         result.ok
           ? ""
@@ -1335,12 +1351,13 @@ export function ChatRoom({
               type="button"
               className="button secondary"
               onClick={async () => {
+                const revision = sessionRevisionRef.current;
                 const result = await persistRecoveryBackup(
                   role === "professional" ? "professional" : "seeker",
                   saveRecoveryKeystore,
                   recoveryScope,
                 );
-                if (result.ok) {
+                if (result.ok && revision === sessionRevisionRef.current) {
                   setBackupError("");
                   setBackupCode(result.code);
                 }
@@ -1366,6 +1383,7 @@ export function ChatRoom({
           <div className={styles.messages}>
             <E2eeRestorePanel
               recoveryScope={recoveryScope}
+              checkActor={checkE2eeActor}
               audience={role}
               onRestored={async () => {
                 const ok = await reloadIdentity();
@@ -1645,6 +1663,7 @@ export function ChatRoom({
       {backupCode ? (
         <E2eeBackupModal
           code={backupCode}
+          checkActor={checkE2eeActor}
           onClose={() => setBackupCode(null)}
           returnFocusRef={composerRef}
         />

@@ -5,6 +5,7 @@ import {
   loadChatDraft,
   saveChatDraft,
 } from "@/lib/chat-draft-storage";
+import { completeChatSignOut, onChatSessionEnd } from "@/lib/chat-session-end";
 import { generateIdentityKeyPair, toConversationIdentity } from "@/shared/e2ee";
 
 const data = new Map<string, string>();
@@ -48,11 +49,10 @@ describe("borradores cifrados", () => {
       await loadChatDraft({ ...context, ownerId: "fictional-pro-b" }, identity),
     ).toBeNull();
   });
-  it("elimina texto legado sin atribuirlo al usuario actual; caduca y rechaza fechas futuras", async () => {
+  it("caduca sólo el borrador cifrado y rechaza fechas futuras", async () => {
     const identity = await toConversationIdentity(
       await generateIdentityKeyPair(),
     );
-    data.set(`nido:chat-draft:${context.conversationId}`, "legacy plaintext");
     await saveChatDraft(context, identity, "Ficticio");
     const raw = JSON.parse(data.get(chatDraftKey(context)) ?? "");
     data.set(
@@ -60,7 +60,6 @@ describe("borradores cifrados", () => {
       JSON.stringify({ ...raw, at: Date.now() - 86400001 }),
     );
     expect(await loadChatDraft(context, identity)).toBeNull();
-    expect(data.has(`nido:chat-draft:${context.conversationId}`)).toBe(false);
     data.set(
       chatDraftKey(context),
       JSON.stringify({ ...raw, at: Date.now() + 10000 }),
@@ -78,4 +77,48 @@ describe("borradores cifrados", () => {
     await saveChatDraft(context, identity, "Mensaje cancelado", () => false);
     expect(data.has(chatDraftKey(context))).toBe(false);
   });
+});
+
+it("conserva bytes legados al abrir, cambiar cuenta/rol y salir; jamás los lee ni los muestra automáticamente", async () => {
+  const legacyKey = `nido:chat-draft:${context.conversationId}`;
+  const legacy =
+    '{ "t": 1, "v": "Borrador ficticio legado\\nSin propietario verificado" }';
+  data.set(legacyKey, legacy);
+  const getItem = vi.fn((key: string) => data.get(key) ?? null);
+  const setItem = vi.fn((key: string, value: string) => data.set(key, value));
+  const removeItem = vi.fn((key: string) => data.delete(key));
+  vi.stubGlobal("localStorage", { getItem, setItem, removeItem });
+  vi.stubGlobal("window", new EventTarget());
+  const identityA = await toConversationIdentity(
+    await generateIdentityKeyPair(),
+  );
+  const identityB = await toConversationIdentity(
+    await generateIdentityKeyPair(),
+  );
+  // Éste es el valor que loadChatDraft suministra al compositor: no adopta legado.
+  expect(await loadChatDraft(context, identityA)).toBeNull();
+  expect(data.get(legacyKey)).toBe(legacy);
+  await saveChatDraft(context, identityA, "Nuevo borrador ficticio de A");
+  const contextB = { ...context, ownerId: "fictional-pro-b" };
+  expect(await loadChatDraft(contextB, identityB)).toBeNull();
+  expect(
+    await loadChatDraft({ ...context, role: "seeker" }, identityB),
+  ).toBeNull();
+  await saveChatDraft(contextB, identityB, "");
+  const closed = vi.fn();
+  const stop = onChatSessionEnd(closed);
+  await completeChatSignOut(
+    async () => undefined,
+    async () => ({ error: null }),
+  );
+  expect(closed).toHaveBeenCalledOnce();
+  stop();
+  expect(data.get(legacyKey)).toBe(legacy);
+  expect(await loadChatDraft(contextB, identityB)).toBeNull();
+  expect(await loadChatDraft(context, identityA)).toBe(
+    "Nuevo borrador ficticio de A",
+  );
+  expect(getItem.mock.calls.map((call) => call[0])).not.toContain(legacyKey);
+  expect(removeItem.mock.calls.map((call) => call[0])).not.toContain(legacyKey);
+  expect(setItem.mock.calls.map((call) => call[0])).not.toContain(legacyKey);
 });

@@ -1,7 +1,18 @@
 "use client";
 
-import { type RefObject, useEffect, useId, useRef, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import type { E2eeActorCheck } from "@/lib/e2ee-session-guard";
 import styles from "./e2ee.module.css";
+import { useE2eeSessionGuard } from "./use-e2ee-session-guard";
+
+const checkGuest = async () => ({ ok: true });
 
 /**
  * Se muestra UNA vez, cuando este dispositivo genera la primera clave de
@@ -12,11 +23,15 @@ export function E2eeBackupModal({
   code,
   onClose,
   returnFocusRef,
+  checkActor = checkGuest,
 }: {
   code: string;
   onClose: () => void;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  checkActor?: E2eeActorCheck;
 }) {
+  const [visibleCode, setVisibleCode] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
   const [escapeNotice, setEscapeNotice] = useState("");
@@ -24,9 +39,32 @@ export function E2eeBackupModal({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-  const groups = code.match(/.{1,6}/gu)?.join(" ") ?? code;
+  const invalidate = useCallback(() => {
+    setVisibleCode(null);
+    setCopied(false);
+    setCopyError("");
+    setEscapeNotice("");
+    setBlocked(true);
+    // Cerrar inmediatamente, antes del siguiente commit de React.
+    dialogRef.current?.close();
+  }, []);
+  const guard = useE2eeSessionGuard(checkActor, invalidate);
+  const groups = visibleCode?.match(/.{1,6}/gu)?.join(" ") ?? "";
 
   useEffect(() => {
+    const ticket = guard.ticket();
+    let cancelled = false;
+    setVisibleCode(null);
+    void guard.authorize(ticket).then((ok) => {
+      if (ok && !cancelled && guard.current(ticket)) setVisibleCode(code);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, guard]);
+
+  useEffect(() => {
+    if (!visibleCode) return;
     const dialog = dialogRef.current;
     if (!dialog) return;
     const previousFocus = document.activeElement;
@@ -42,19 +80,24 @@ export function E2eeBackupModal({
           : returnFocusRef?.current;
       target?.focus({ preventScroll: true });
     };
-  }, [returnFocusRef]);
+  }, [returnFocusRef, visibleCode]);
 
   async function copyCode() {
+    const ticket = guard.ticket();
+    if (!visibleCode || !(await guard.authorize(ticket))) return;
     setCopyError("");
     try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
+      await navigator.clipboard.writeText(visibleCode);
+      if (guard.current(ticket)) setCopied(true);
     } catch {
-      setCopyError("No pudimos copiarlo. Escríbelo o descárgalo.");
+      if (guard.current(ticket))
+        setCopyError("No pudimos copiarlo. Escríbelo o descárgalo.");
     }
   }
 
-  function downloadCode() {
+  async function downloadCode() {
+    const ticket = guard.ticket();
+    if (!visibleCode || !(await guard.authorize(ticket))) return;
     const blob = new Blob(
       [
         "Nido — código de recuperación de mensajes cifrados\n\n",
@@ -72,6 +115,8 @@ export function E2eeBackupModal({
     link.click();
     URL.revokeObjectURL(url);
   }
+
+  if (blocked || !visibleCode) return null;
 
   return (
     <dialog

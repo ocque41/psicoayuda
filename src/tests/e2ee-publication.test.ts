@@ -7,7 +7,10 @@ import { generateIdentityKeyPair, toConversationIdentity } from "@/shared/e2ee";
 const mocks = vi.hoisted(() => ({ session: vi.fn() }));
 vi.mock("@/lib/auth-server", () => ({ getServerSession: mocks.session }));
 
-import { publishProIdentityKey } from "@/app/actions-e2ee";
+import {
+  publishProIdentityKey,
+  verifyProfessionalE2eeActor,
+} from "@/app/actions-e2ee";
 
 const prefix = "test-key-publication";
 if (!process.env.DATABASE_URL?.includes("nido-tests-"))
@@ -37,6 +40,34 @@ afterAll(async () => {
   await db.delete(user).where(eq(user.id, prefix));
 });
 describe("publicación de claves entre dispositivos", () => {
+  it("autoriza sólo el profesional aprobado de la sesión actual y viva", async () => {
+    mocks.session.mockResolvedValue({
+      user: { id: prefix },
+      session: { expiresAt: new Date(Date.now() + 60000) },
+    });
+    expect((await verifyProfessionalE2eeActor(prefix)).ok).toBe(true);
+    expect(await verifyProfessionalE2eeActor("otra-cuenta-ficticia")).toEqual({
+      ok: false,
+    });
+    const key = (await toConversationIdentity(await generateIdentityKeyPair()))
+      .publicKey;
+    expect(
+      await publishProIdentityKey(key, undefined, "otra-cuenta-ficticia"),
+    ).toEqual({ ok: false });
+    mocks.session.mockResolvedValue({
+      user: { id: "otro-actor-ficticio" },
+      session: { expiresAt: new Date(Date.now() + 60000) },
+    });
+    expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
+    mocks.session.mockResolvedValue({
+      user: { id: prefix },
+      session: { expiresAt: new Date(Date.now() - 1) },
+    });
+    expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
+    mocks.session.mockResolvedValue(null);
+    expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
+    mocks.session.mockResolvedValue({ user: { id: prefix } });
+  });
   it("dos inicializaciones concurrentes no sobrescriben la identidad ganadora", async () => {
     const keys = await Promise.all(
       [generateIdentityKeyPair(), generateIdentityKeyPair()].map(
