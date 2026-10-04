@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createConversation } from "@/app/actions-chat";
 import { ExpandableText } from "@/components/expandable-text";
 import { needLabels } from "@/lib/constants";
@@ -31,7 +32,7 @@ export function FeedProfessionalCard({
     `Hola ${professional.name}, te contacto desde Nido (saludmental-venezuela.com). Me gustaría hablar contigo.`,
   );
 
-  // El chat en la app es secundario: cuando hay WhatsApp, va plegado.
+  // El contacto en Nido permanece visible; los otros medios conservan sus enlaces.
   const chatForm = (
     <form action={createConversation}>
       <input type="hidden" name="professionalId" value={professional.id} />
@@ -69,7 +70,7 @@ export function FeedProfessionalCard({
         </p>
       </div>
       <button className="button human block" type="submit">
-        Hablar con {professional.name}
+        Contactar ahora
       </button>
     </form>
   );
@@ -206,16 +207,7 @@ export function FeedProfessionalCard({
         </div>
 
         {available ? (
-          hasPhone ? (
-            <details style={{ marginTop: "12px" }}>
-              <summary className="muted">
-                Prefiero escribir por aquí (sin salir de Nido)
-              </summary>
-              <div style={{ marginTop: "10px" }}>{chatForm}</div>
-            </details>
-          ) : (
-            chatForm
-          )
+          chatForm
         ) : hasPhone ? null : (
           <button
             className="button secondary block"
@@ -227,6 +219,10 @@ export function FeedProfessionalCard({
             Sin cupo ahora mismo
           </button>
         )}
+        <p className="hint">
+          ¿Buscas apoyo por un motivo ajeno al terremoto?{" "}
+          <Link href="/lista-de-espera">Ver la lista de espera general</Link>.
+        </p>
       </div>
     </article>
   );

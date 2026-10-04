@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, professionals, recoveryKeystores } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
@@ -19,6 +19,7 @@ const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
  */
 export async function publishProIdentityKey(
   publicKey: string,
+  expectedPublicKey?: string | null,
 ): Promise<{ ok: boolean }> {
   if (!isValidPublicKey(publicKey)) return { ok: false };
   const session = await getServerSession();
@@ -27,17 +28,32 @@ export async function publishProIdentityKey(
   const pro = await db.query.professionals.findFirst({
     where: eq(professionals.userId, session.user.id),
   });
-  if (!pro || pro.status === "suspended") return { ok: false };
+  if (pro?.status !== "approved") return { ok: false };
 
-  await db
+  const changed = await db
     .update(professionals)
     .set({
       cryptoPublicKey: publicKey,
       cryptoPublicKeyUpdatedAt: new Date(),
       updatedAt: nowIso(),
     })
-    .where(eq(professionals.id, pro.id));
-  return { ok: true };
+    .where(
+      and(
+        eq(professionals.id, pro.id),
+        eq(professionals.userId, session.user.id),
+        eq(professionals.status, "approved"),
+        expectedPublicKey === undefined
+          ? or(
+              isNull(professionals.cryptoPublicKey),
+              eq(professionals.cryptoPublicKey, publicKey),
+            )
+          : expectedPublicKey === null
+            ? isNull(professionals.cryptoPublicKey)
+            : eq(professionals.cryptoPublicKey, expectedPublicKey),
+      ),
+    )
+    .returning({ id: professionals.id });
+  return { ok: changed.length === 1 };
 }
 
 /**

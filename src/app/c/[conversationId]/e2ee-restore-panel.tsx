@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { loadRecoveryKeystore } from "@/app/actions-e2ee";
 import { restoreFromBackup } from "@/lib/e2ee-client";
 import { recoveryIdFor } from "@/shared/e2ee";
@@ -13,14 +13,17 @@ import styles from "./chat.module.css";
  */
 export function E2eeRestorePanel({
   audience,
+  recoveryScope,
   onRestored,
   onUseNewKeys,
 }: {
   audience: "seeker" | "professional";
+  recoveryScope?: string;
   /** Devuelve true si la clave de ESTA sala quedó disponible. */
   onRestored: () => Promise<boolean>;
   onUseNewKeys: () => Promise<void>;
 }) {
+  const inputId = useId();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +47,11 @@ export function E2eeRestorePanel({
         );
         return;
       }
-      const result = await restoreFromBackup(code, stored.wrapped);
+      const result = await restoreFromBackup(
+        code,
+        stored.wrapped,
+        recoveryScope,
+      );
       if (!result.ok) {
         setError(
           "No pudimos abrir el respaldo. Revisa el código e inténtalo de nuevo.",
@@ -66,8 +73,16 @@ export function E2eeRestorePanel({
 
   async function startFresh() {
     setBusy(true);
-    await onUseNewKeys();
-    setBusy(false);
+    setError("");
+    try {
+      await onUseNewKeys();
+    } catch {
+      setError(
+        "No pudimos confirmar la nueva clave. Recarga la página antes de reintentar.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -75,16 +90,16 @@ export function E2eeRestorePanel({
       <h2 className={styles.restoreTitle}>Recupera el acceso a tus mensajes</h2>
       <p className={styles.restoreText}>
         {audience === "seeker"
-          ? "Esta conversación ya tiene mensajes cifrados, pero este dispositivo no tiene la clave para leerlos."
-          : "Tu cuenta ya tiene una clave de cifrado, pero este dispositivo no la tiene."}{" "}
-        Escribe tu código de recuperación para volver a leer el historial.
+          ? "Esta conversación está cifrada de extremo a extremo y este dispositivo no tiene la clave."
+          : "El historial cifrado con otra clave solo se puede leer con tu código de recuperación. El mismo código sirve para todas tus conversaciones."}{" "}
+        Escribe tu código para volver a leer los mensajes anteriores.
       </p>
 
-      <label className={styles.restoreLabel} htmlFor="e2ee-recovery-code">
+      <label className={styles.restoreLabel} htmlFor={inputId}>
         Código de recuperación
       </label>
       <input
-        id="e2ee-recovery-code"
+        id={inputId}
         className={styles.restoreInput}
         value={code}
         onChange={(event) => setCode(event.target.value)}

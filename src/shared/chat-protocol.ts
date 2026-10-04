@@ -47,6 +47,7 @@ export type ServerFrame =
       serverTs: number;
     }
   | { type: "msg"; message: ChatMessage }
+  | { type: "activity"; role: SenderRole; at: number }
   | {
       type: "history";
       messages: ChatMessage[];

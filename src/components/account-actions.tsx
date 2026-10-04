@@ -7,6 +7,8 @@ import {
   type DeleteMyAccountState,
   deleteMyAccount,
 } from "@/app/actions-account";
+import { clearChatSessionCookies } from "@/app/actions-chat-session";
+import { announceChatSessionEnd } from "@/lib/chat-session-end";
 
 const authClient = createAuthClient();
 
@@ -17,6 +19,7 @@ const authClient = createAuthClient();
 export function AccountActions() {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
   const initialDeleteState: DeleteMyAccountState = { error: null };
   const [deleteState, deleteAction, deleting] = useActionState(
     deleteMyAccount,
@@ -25,10 +28,18 @@ export function AccountActions() {
 
   async function onSignOut() {
     setSigningOut(true);
+    setSignOutError("");
     try {
-      await authClient.signOut();
+      await clearChatSessionCookies();
+      announceChatSessionEnd();
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("sign-out");
     } catch {
-      // Aunque falle el servidor, salimos y refrescamos el estado del cliente.
+      setSignOutError(
+        "No se pudo cerrar la sesión. Revisa tu conexión y reintenta.",
+      );
+      setSigningOut(false);
+      return;
     }
     router.push("/");
     router.refresh();
@@ -55,6 +66,11 @@ export function AccountActions() {
         {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
       </button>
 
+      {signOutError ? (
+        <p className="form-error" role="alert">
+          {signOutError}
+        </p>
+      ) : null}
       <details className="disclosure">
         <summary>Borrar mi cuenta</summary>
         <div className="disclosure-body">

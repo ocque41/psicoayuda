@@ -17,14 +17,15 @@ import {
 } from "@/app/actions-e2ee";
 import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { E2eeBackupModal } from "@/components/e2ee-backup-modal";
-import { clearDraft, loadDraft, saveDraft } from "@/lib/draft-storage";
+import { loadChatDraft, saveChatDraft } from "@/lib/chat-draft-storage";
+import { onChatSessionEnd } from "@/lib/chat-session-end";
+import { persistRecoveryBackup } from "@/lib/e2ee-backup";
 import {
-  createRecoveryBackup,
   getOrCreateIdentity,
-  getStoredRecoveryCode,
   loadIdentity,
-  PRO_SLOT,
-  refreshRecoveryBackup,
+  loadProfessionalIdentity,
+  professionalSlot,
+  registerIdentityOwner,
   replaceIdentity,
   seekerSlot,
 } from "@/lib/e2ee-client";
@@ -43,6 +44,11 @@ import {
   openEnvelope,
   parseEnvelope,
 } from "@/shared/e2ee";
+import { decideE2eeGate } from "@/shared/e2ee-gating";
+import {
+  buildWaitlistPromptPayload,
+  isWaitlistPromptPayload,
+} from "@/shared/waitlist-prompt";
 import {
   ensureProChatToken,
   markProfessionalChatRead,
@@ -53,13 +59,10 @@ import styles from "./chat.module.css";
 import { nextHistorySyncCursor } from "./chat-history";
 import { createReadPersistence } from "./chat-read-persistence";
 import { E2eeRestorePanel } from "./e2ee-restore-panel";
+import { WaitlistPromptCard } from "./waitlist-prompt-card";
 
 type ConnStatus = "connecting" | "online" | "offline" | "error";
 
-// El borrador sin enviar es contenido sensible: lo guardamos para no perderlo al
-// cerrar, pero con caducidad para que no quede indefinidamente en un dispositivo
-// compartido (la sala ya está gateada por cookie, pero esto acota el residuo).
-const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const FOLLOW_BOTTOM_DISTANCE = 96;
 
 type ReadingAnchor = { seq: string; offset: number };
@@ -91,17 +94,31 @@ function readingAnchor(el: HTMLElement): ReadingAnchor | null {
 
 type Pending = { clientMsgId: string; content: string; envelope: string };
 
+/**
+ * Aviso (no bloqueante) para el profesional cuando este equipo usa una clave
+ * distinta de la publicada en su cuenta. Nunca impide leer ni escribir: solo
+ * explica qué pasa con los mensajes de otros dispositivos y ofrece el código de
+ * recuperación. (Este dispositivo NUNCA rota la clave de la cuenta en silencio:
+ * si no tiene ninguna, se pide el código con el panel.)
+ */
+const E2EE_MISMATCH_NOTICE =
+  "Tu cuenta tiene publicada la clave de otro dispositivo. Puedes seguir atendiendo con la de este equipo; algunos mensajes nuevos pueden no verse aquí. Si guardaste tu código de recuperación, puedes unificarlo con él.";
+
 function wsUrl(conversationId: string, asPersona: boolean): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const query = asPersona ? "?como=persona" : "";
   return `${proto}//${window.location.host}/parties/conversation/${conversationId}${query}`;
 }
 
+// Hora de los mensajes, fija en la zona de Venezuela: el servidor y el
+// navegador pintan lo mismo (sin desajuste de hidratación) y ambas partes ven
+// la misma hora.
 function formatTime(ms: number): string {
   try {
     return new Date(ms).toLocaleTimeString("es-VE", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Caracas",
     });
   } catch {
     return "";
@@ -169,14 +186,17 @@ function peerPubFromMessages(
 
 export function ChatRoom({
   conversationId,
+  professionalId,
   role,
   otherName,
   open,
   canSwitchView = false,
   paymentLinks = [],
   proPublicKey = null,
+  waitlistSignup = null,
 }: {
   conversationId: string;
+  professionalId?: string;
   role: SenderRole;
   otherName: string;
   open: boolean;
@@ -188,11 +208,15 @@ export function ChatRoom({
   paymentLinks?: { id: string; title: string; priceLabel: string }[];
   // Clave pública E2EE del profesional (la persona la necesita para cifrar).
   proPublicKey?: string | null;
+  // Anotación de lista de espera nacida de esta conversación (si existe), para
+  // que la tarjeta muestre el estado a las dos partes.
+  waitlistSignup?: { email: string; createdAt: string } | null;
 }) {
   // El profesional puede estar viendo la sala como la persona. En ese caso TODO
   // (WebSocket, reabrir, borrar) actúa con la identidad de la persona: lo que
   // escribe se registra como suyo y el caso se cierra en vez de reencolarse.
   const writeAsPersona = role === "seeker";
+  const proVisitor = role === "professional" || Boolean(canSwitchView);
   const [confirmed, setConfirmed] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [conn, setConn] = useState<ConnStatus>("connecting");
@@ -200,6 +224,7 @@ export function ChatRoom({
   const [otherOnline, setOtherOnline] = useState(false);
   const [otherReadSeq, setOtherReadSeq] = useState(0);
   const [draft, setDraft] = useState("");
+  const [loggedOut, setLoggedOut] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [reopenError, setReopenError] = useState("");
   const [sendError, setSendError] = useState("");
@@ -213,6 +238,12 @@ export function ChatRoom({
   const [identity, setIdentity] = useState<ConversationIdentity | null>(null);
   const [keysLoaded, setKeysLoaded] = useState(false);
   const [restoreNeeded, setRestoreNeeded] = useState(false);
+  // El profesional nunca rota su clave en silencio si la cuenta ya tiene una:
+  // eso rompería el historial en todos sus dispositivos. Si a este dispositivo
+  // le falta, se pide el código (uno solo para todas las conversaciones) con la
+  // opción explícita de empezar de cero; la primera vez se crea sin más.
+  const [proNotice, setProNotice] = useState<"mismatch" | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
   const [historyStats, setHistoryStats] = useState<{
     count: number;
     envelopes: number;
@@ -223,6 +254,11 @@ export function ChatRoom({
   }>({});
   const [decrypted, setDecrypted] = useState<Record<string, string | null>>({});
   const [backupCode, setBackupCode] = useState<string | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState<{
+    email: string;
+    createdAt: string;
+  } | null>(waitlistSignup);
+  const [promptSending, setPromptSending] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const lastSeqRef = useRef(0);
@@ -249,8 +285,25 @@ export function ChatRoom({
   const pageScrollRef = useRef<{ height: number; top: number } | null>(null);
   const observedSeqRef = useRef(0);
 
-  const slot = role === "professional" ? PRO_SLOT : seekerSlot(conversationId);
+  const slot =
+    role === "professional"
+      ? professionalSlot(professionalId ?? "unavailable")
+      : seekerSlot(conversationId);
 
+  useEffect(
+    () =>
+      onChatSessionEnd(() => {
+        setLoggedOut(true);
+        setDraftReady(false);
+        setIdentity(null);
+        setBackupCode(null);
+        setDraft("");
+        setConfirmed([]);
+        setPending([]);
+        wsRef.current?.close();
+      }),
+    [],
+  );
   useEffect(() => {
     pendingRef.current = pending;
   }, [pending]);
@@ -274,58 +327,86 @@ export function ChatRoom({
     };
   }, [identity, conversationId, slot, role]);
 
-  // Borrador del compositor: sobrevive a cerrar la pestaña, en este dispositivo.
-  // El historial ya vive en el servidor; esto solo cuida lo aún no enviado.
+  const draftContext = useMemo(
+    () => ({
+      ownerId:
+        role === "professional"
+          ? (professionalId ?? "unavailable")
+          : conversationId,
+      conversationId,
+      role,
+    }),
+    [professionalId, conversationId, role],
+  );
+  const [draftReady, setDraftReady] = useState(false);
   useEffect(() => {
-    const saved = loadDraft<string>(
-      `nido:chat-draft:${conversationId}`,
-      CHAT_DRAFT_TTL_MS,
-    );
-    if (saved) setDraft(saved);
-  }, [conversationId]);
-
+    let cancelled = false;
+    setDraftReady(false);
+    setDraft("");
+    if (identity && !loggedOut)
+      void loadChatDraft(draftContext, identity).then((saved) => {
+        if (!cancelled) {
+          setDraft(saved ?? "");
+          setDraftReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [identity, draftContext, loggedOut]);
   useEffect(() => {
-    const key = `nido:chat-draft:${conversationId}`;
-    if (draft) saveDraft(key, draft);
-    else clearDraft(key);
-  }, [draft, conversationId]);
+    if (!identity || !draftReady || loggedOut) return;
+    // Puede terminar al cerrar sesión: sigue cifrado y ligado a este dueño.
+    void saveChatDraft(draftContext, identity, draft);
+  }, [draftContext, identity, draftReady, draft, loggedOut]);
+  const [backupError, setBackupError] = useState("");
 
   // ---- Identidad E2EE de este dispositivo ----------------------------------
 
-  const ensureBackup = useCallback(async (kind: "professional" | "seeker") => {
-    const storedCode = await getStoredRecoveryCode();
-    if (storedCode) {
-      // Ya respaldó antes: se re-cifra el keystore completo (incluye la clave
-      // nueva) con el MISMO código y se actualiza el respaldo en el servidor.
-      const refreshed = await refreshRecoveryBackup();
-      if (refreshed) {
-        await saveRecoveryKeystore(refreshed.id, refreshed.wrapped, kind);
-      }
-      return null;
-    }
-    const created = await createRecoveryBackup();
-    if (!created) return null;
-    await saveRecoveryKeystore(created.id, created.wrapped, kind);
-    return created.code;
-  }, []);
+  const recoveryScope =
+    proVisitor && professionalId ? professionalSlot(professionalId) : slot;
+  const ensureBackup = useCallback(
+    async (kind: "professional" | "seeker") => {
+      await registerIdentityOwner(slot, recoveryScope);
+      const result = await persistRecoveryBackup(
+        kind,
+        saveRecoveryKeystore,
+        recoveryScope,
+      );
+      setBackupError(
+        result.ok
+          ? ""
+          : "No pudimos guardar tu respaldo. Reintenta antes de usar el código en otro dispositivo.",
+      );
+      return result.ok && result.created ? result.code : null;
+    },
+    [slot, recoveryScope],
+  );
 
   const setupIdentity = useCallback(
     async (idn: ConversationIdentity) => {
       if (role === "professional") {
-        void publishProIdentityKey(idn.publicKey);
+        const published = await publishProIdentityKey(idn.publicKey);
+        if (!published.ok)
+          throw new Error("No pudimos confirmar la clave de esta cuenta.");
       }
       const code = await ensureBackup(
         role === "professional" ? "professional" : "seeker",
       );
-      if (code) setBackupCode(code);
+      // El código solo se muestra a la persona: es quien no tiene cuenta ni
+      // otra forma de recuperar su clave. El profesional lo ve en su panel.
+      if (code && !proVisitor) setBackupCode(code);
     },
-    [role, ensureBackup],
+    [role, ensureBackup, proVisitor],
   );
 
   useEffect(() => {
+    if (loggedOut) return;
     let cancelled = false;
     setIdentity(null);
     setRestoreNeeded(false);
+    setProNotice(null);
+    setShowRestore(false);
     setKeysLoaded(false);
     setHistoryStats(null);
     historyStatsSetRef.current = false;
@@ -333,81 +414,146 @@ export function ChatRoom({
     migrateTriedRef.current = new Set();
     setDecrypted({});
     void (async () => {
-      const existing = await loadIdentity(slot);
+      const existing =
+        role === "professional" && professionalId
+          ? await loadProfessionalIdentity(professionalId, proPublicKey)
+          : await loadIdentity(slot);
       if (cancelled) return;
       if (existing) {
-        setIdentity(existing);
-        if (role === "professional") {
-          if (!proPublicKey) {
-            // La cuenta aún no tiene clave pública: publica la de este
-            // dispositivo (p. ej. un intento anterior no llegó a guardarse).
-            void publishProIdentityKey(existing.publicKey);
-          } else if (existing.publicKey !== proPublicKey) {
-            // Otra clave distinta en la cuenta: hay que decidir con el panel.
-            setRestoreNeeded(true);
+        if (
+          role === "professional" &&
+          ((proPublicKey && proPublicKey !== existing.publicKey) ||
+            !(await publishProIdentityKey(existing.publicKey)).ok)
+        ) {
+          setRestoreNeeded(true);
+          setProNotice("mismatch");
+        } else {
+          const code = await ensureBackup(
+            role === "professional" ? "professional" : "seeker",
+          );
+          if (!cancelled) {
+            setIdentity(existing);
+            if (code && !proVisitor) setBackupCode(code);
           }
         }
-      } else if (role === "professional" && proPublicKey) {
-        // La cuenta ya tiene clave (otro dispositivo) pero esta no: restaurar
-        // con el código o rotar (con advertencia). Nunca rotar en silencio.
-        setRestoreNeeded(true);
       }
-      setKeysLoaded(true);
-    })();
+      if (!cancelled) setKeysLoaded(true);
+    })().catch(() => {
+      if (!cancelled)
+        setSendError(
+          "No pudimos confirmar el cifrado. Recarga para reintentarlo.",
+        );
+    });
     return () => {
       cancelled = true;
     };
-  }, [slot, role, proPublicKey]);
+  }, [
+    slot,
+    role,
+    proPublicKey,
+    professionalId,
+    ensureBackup,
+    proVisitor,
+    loggedOut,
+  ]);
 
-  // Con el historial inicial delante decidimos: si hay sobres y no hay clave,
-  // restaurar; si no hay nada cifrado, generar identidad nueva en silencio.
+  // Regla pura (probada en src/tests/e2ee-gating.test.ts): decide si toca
+  // restaurar (código obligatorio) o crear la clave. Se recalcula con el
+  // historial.
+  const e2eeGate = useMemo(
+    () =>
+      historyStats === null
+        ? null
+        : decideE2eeGate({
+            role,
+            proVisitor,
+            hasLocalIdentity: identity !== null,
+            accountPublicKey: proPublicKey,
+            localPublicKey: identity?.publicKey ?? null,
+            envelopes: historyStats.envelopes,
+          }),
+    [historyStats, identity, proPublicKey, role, proVisitor],
+  );
+
   useEffect(() => {
-    if (!keysLoaded || identity || restoreNeeded) return;
-    if (role === "professional" && proPublicKey) return;
-    if (historyStats === null) return;
-    if (historyStats.envelopes > 0) {
-      setRestoreNeeded(true);
+    if (e2eeGate?.restore) setRestoreNeeded(true);
+    // El motivo del aviso se fija una vez por carga de sala: al publicar la
+    // clave nueva el prop del servidor queda un instante desactualizado y no
+    // queremos reescribir el aviso (ni hacerlo parpadear).
+    if (e2eeGate?.notice) setProNotice((prev) => prev ?? e2eeGate.notice);
+  }, [e2eeGate]);
+
+  // Crea la identidad en silencio cuando el gate lo permite (nada cifrado aún,
+  // o vista "como la persona" del profesional).
+  useEffect(() => {
+    if (loggedOut || !keysLoaded || identity || restoreNeeded || showRestore)
       return;
-    }
+    if (!e2eeGate?.create) return;
     let cancelled = false;
     void (async () => {
       const { identity: created, created: isNew } =
         await getOrCreateIdentity(slot);
       if (cancelled) return;
-      setIdentity(created);
+      if (
+        role === "professional" &&
+        !(await publishProIdentityKey(created.publicKey)).ok
+      ) {
+        setRestoreNeeded(true);
+        return;
+      }
+      if (cancelled) return;
       if (isNew) await setupIdentity(created);
-    })();
+      if (!cancelled) setIdentity(created);
+    })().catch(() => {
+      if (!cancelled)
+        setSendError(
+          "No pudimos activar el cifrado. Recarga para reintentarlo.",
+        );
+    });
     return () => {
       cancelled = true;
     };
   }, [
+    loggedOut,
     keysLoaded,
     identity,
     restoreNeeded,
-    historyStats,
-    role,
-    proPublicKey,
+    showRestore,
+    e2eeGate,
     slot,
     setupIdentity,
+    role,
   ]);
 
   const reloadIdentity = useCallback(async (): Promise<boolean> => {
-    const restored = await loadIdentity(slot);
+    const restored =
+      role === "professional" && professionalId
+        ? await loadProfessionalIdentity(professionalId, proPublicKey)
+        : await loadIdentity(slot);
     if (!restored) return false;
+    if (
+      role === "professional" &&
+      !(await publishProIdentityKey(restored.publicKey)).ok
+    )
+      return false;
     setIdentity(restored);
     setRestoreNeeded(false);
-    if (role === "professional" && restored.publicKey !== proPublicKey) {
-      void publishProIdentityKey(restored.publicKey);
-    }
     return true;
-  }, [slot, role, proPublicKey]);
+  }, [slot, role, proPublicKey, professionalId]);
 
-  const useNewKeys = useCallback(async () => {
+  const startWithNewKeys = useCallback(async () => {
     const { identity: created } = await replaceIdentity(slot);
+    if (
+      role === "professional" &&
+      !(await publishProIdentityKey(created.publicKey, proPublicKey)).ok
+    )
+      throw new Error(
+        "La clave de la cuenta ha cambiado. Recarga para recuperarla.",
+      );
     setIdentity(created);
     setRestoreNeeded(false);
     await setupIdentity(created);
-  }, [slot, setupIdentity]);
+  }, [slot, setupIdentity, role, proPublicKey]);
 
   // ---- Mensajes ------------------------------------------------------------
 
@@ -570,6 +716,16 @@ export function ChatRoom({
           if (m.senderRole !== role) {
             setOtherTyping(false);
           }
+          // La lista de conversaciones del profesional se refresca al momento:
+          // esta sala (y su "sin leer") no debe esperar al siguiente sondeo.
+          if (role === "professional") {
+            window.dispatchEvent(new Event("nido:chat-update"));
+            if (m.senderRole === "seeker") {
+              // El espejo de D1 marca leído al abrir la sala; con mensajes
+              // nuevos hay que volver a marcarlo (best-effort, sin bloquear).
+              void ensureProChatToken(conversationId).catch(() => undefined);
+            }
+          }
           break;
         }
         case "ack": {
@@ -593,6 +749,10 @@ export function ChatRoom({
             );
           }
           if (frame.seq > lastSeqRef.current) lastSeqRef.current = frame.seq;
+          // Mensaje propio confirmado: la actividad de la sala cambió.
+          if (role === "professional") {
+            window.dispatchEvent(new Event("nido:chat-update"));
+          }
           break;
         }
         case "keys":
@@ -621,7 +781,7 @@ export function ChatRoom({
           break;
       }
     },
-    [role, requestSync],
+    [role, requestSync, conversationId],
   );
 
   // Descifra los sobres que van llegando (historial, sync, mensajes nuevos).
@@ -722,6 +882,7 @@ export function ChatRoom({
 
   // Conexión WebSocket con reintento exponencial + jitter y sync por delta.
   useEffect(() => {
+    if (loggedOut) return;
     let cancelled = false;
     let attempts = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -783,7 +944,9 @@ export function ChatRoom({
         }, 30000);
       };
 
-      ws.onmessage = (event) => handleFrame(event.data);
+      ws.onmessage = (event) => {
+        if (!cancelled) handleFrame(event.data);
+      };
 
       ws.onerror = () => {
         try {
@@ -819,6 +982,7 @@ export function ChatRoom({
       }
     };
   }, [
+    loggedOut,
     conversationId,
     role,
     writeAsPersona,
@@ -960,12 +1124,11 @@ export function ChatRoom({
     typingTimerRef.current = setTimeout(() => sendTyping(false), 2500);
   }
 
-  async function submit() {
-    const content = draft.trim();
-    if (!content || content.length > MAX_MESSAGE_LENGTH) return;
-    if (!identity || !peerKey) return;
+  /** Cifra y envía un texto ya construido (composer o tarjeta del sistema). */
+  async function sendPlaintext(content: string): Promise<boolean> {
+    if (!identity || !peerKey) return false;
     const context = decryptionContextRef.current;
-    if (!context || context.identity !== identity) return;
+    if (!context || context.identity !== identity) return false;
     setSendError("");
     let envelope: string;
     try {
@@ -980,24 +1143,52 @@ export function ChatRoom({
       if (decryptionContextRef.current === context) {
         setSendError("No pudimos cifrar el mensaje en este dispositivo.");
       }
-      return;
+      return false;
     }
     // No encolar ni enviar un sobre creado para una clave/sala/rol anterior.
-    if (decryptionContextRef.current !== context) return;
+    if (decryptionContextRef.current !== context) return false;
     const clientMsgId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     forceBottomRef.current = true;
     setPending((prev) => [...prev, { clientMsgId, content, envelope }]);
-    setDraft("");
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    sendTyping(false);
     if (!sendRaw({ type: "send", clientMsgId, content: envelope })) {
       // Queda pendiente y se reenvía al reconectar.
       setSendError("");
     }
+    return true;
   }
+
+  async function submit() {
+    const content = draft.trim();
+    if (!content || content.length > MAX_MESSAGE_LENGTH) return;
+    if (!e2eeReady) return;
+    const sent = await sendPlaintext(content);
+    if (!sent) return;
+    setDraft("");
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    sendTyping(false);
+  }
+
+  /**
+   * Tarjeta de lista de espera (solo profesional): va como mensaje cifrado con
+   * un payload JSON marcado. La persona lo ve como formulario para dejar su
+   * correo; si no aplica, el profesional simplemente no la envía.
+   */
+  async function sendWaitlistPrompt() {
+    if (!e2eeReady || promptSending) return;
+    setPromptSending(true);
+    try {
+      await sendPlaintext(buildWaitlistPromptPayload());
+    } finally {
+      setPromptSending(false);
+    }
+  }
+
+  const handleWaitlistJoined = useCallback((email: string) => {
+    setWaitlistJoined({ email, createdAt: new Date().toISOString() });
+  }, []);
 
   function retry(clientMsgId: string) {
     const item = pendingRef.current.find((x) => x.clientMsgId === clientMsgId);
@@ -1056,12 +1247,24 @@ export function ChatRoom({
     : !identity
       ? conn === "error"
         ? "No pudimos abrir la conversación. Recarga la página e inténtalo de nuevo."
-        : "Preparando el cifrado…"
+        : restoreNeeded
+          ? "Escribe tu código de recuperación para leer y escribir en este dispositivo."
+          : "Preparando el cifrado…"
       : !peerKey
         ? role === "seeker"
           ? "El profesional todavía no activó el cifrado de extremo a extremo. Podrás escribirle en cuanto lo haga."
           : "La persona aún no abrió su chat cifrado. Podrás escribir en cuanto lo abra."
         : "";
+
+  if (loggedOut)
+    return (
+      <p role="status">
+        La sesión está cerrada.{" "}
+        <Link href="/entrar">
+          Vuelve a entrar para abrir tus conversaciones.
+        </Link>
+      </p>
+    );
 
   return (
     <>
@@ -1125,12 +1328,58 @@ export function ChatRoom({
           </div>
         ) : null}
 
-        {restoreNeeded ? (
+        {backupError ? (
+          <div role="alert">
+            <p>{backupError}</p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={async () => {
+                const result = await persistRecoveryBackup(
+                  role === "professional" ? "professional" : "seeker",
+                  saveRecoveryKeystore,
+                  recoveryScope,
+                );
+                if (result.ok) {
+                  setBackupError("");
+                  setBackupCode(result.code);
+                }
+              }}
+            >
+              Reintentar respaldo
+            </button>
+          </div>
+        ) : null}
+        {proNotice && !restoreNeeded && !showRestore ? (
+          <div className={styles.e2eeNotice} role="status">
+            <p>{E2EE_MISMATCH_NOTICE}</p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setShowRestore(true)}
+            >
+              Tengo mi código de recuperación
+            </button>
+          </div>
+        ) : null}
+        {restoreNeeded || showRestore ? (
           <div className={styles.messages}>
             <E2eeRestorePanel
+              recoveryScope={recoveryScope}
               audience={role}
-              onRestored={reloadIdentity}
-              onUseNewKeys={useNewKeys}
+              onRestored={async () => {
+                const ok = await reloadIdentity();
+                if (ok) {
+                  setProNotice(null);
+                  setShowRestore(false);
+                }
+                return ok;
+              }}
+              onUseNewKeys={async () => {
+                await startWithNewKeys();
+                setProNotice(null);
+                setShowRestore(false);
+              }}
             />
           </div>
         ) : (
@@ -1172,6 +1421,10 @@ export function ChatRoom({
 
                 {confirmed.map((m) => {
                   const mine = m.senderRole === role;
+                  const text = messageText(m);
+                  const waitlist =
+                    m.senderRole === "professional" &&
+                    isWaitlistPromptPayload(text);
                   return (
                     <div
                       key={m.serverId}
@@ -1181,10 +1434,24 @@ export function ChatRoom({
                       <div>
                         <div
                           className={`${styles.bubble} ${
-                            mine ? styles.bubbleMine : styles.bubbleTheirs
+                            waitlist
+                              ? styles.waitlistBubble
+                              : mine
+                                ? styles.bubbleMine
+                                : styles.bubbleTheirs
                           }`}
                         >
-                          {messageText(m)}
+                          {waitlist ? (
+                            <WaitlistPromptCard
+                              conversationId={conversationId}
+                              role={role}
+                              asPersona={writeAsPersona}
+                              signup={waitlistJoined}
+                              onJoined={handleWaitlistJoined}
+                            />
+                          ) : (
+                            text
+                          )}
                         </div>
                         <div
                           className={`${styles.meta} ${mine ? "" : styles.metaTheirs}`}
@@ -1259,6 +1526,18 @@ export function ChatRoom({
                 {composerNotice ? (
                   <p className={styles.composerNotice}>{composerNotice}</p>
                 ) : null}
+                {role === "professional" ? (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() => void sendWaitlistPrompt()}
+                    disabled={!e2eeReady || promptSending}
+                  >
+                    {promptSending
+                      ? "Enviando…"
+                      : "Enviar tarjeta de lista de espera"}
+                  </button>
+                ) : null}
                 {role === "professional" && paymentLinks.length > 0 ? (
                   <details className={styles.payLinks}>
                     <summary>Insertar link de pago</summary>
@@ -1293,13 +1572,13 @@ export function ChatRoom({
                   rows={1}
                   maxLength={MAX_MESSAGE_LENGTH}
                   aria-label="Escribe un mensaje"
-                  disabled={!e2eeReady}
+                  disabled={!e2eeReady || !draftReady}
                 />
                 <button
                   type="button"
                   className={`button human ${styles.sendBtn}`}
                   onClick={() => void submit()}
-                  disabled={!draft.trim() || !e2eeReady}
+                  disabled={!draft.trim() || !e2eeReady || !draftReady}
                 >
                   Enviar
                 </button>

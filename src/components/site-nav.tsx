@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { clearChatSessionCookies } from "@/app/actions-chat-session";
+import { announceChatSessionEnd } from "@/lib/chat-session-end";
 
 type SessionUser = { id: string };
 
@@ -130,6 +132,8 @@ export function SiteNav({
     setSigningOut(true);
     setError("");
     try {
+      await clearChatSessionCookies();
+      announceChatSessionEnd();
       const response = await fetch("/api/auth/sign-out", {
         method: "POST",
         headers: { "content-type": "application/json" },

@@ -9,9 +9,11 @@ import {
   user,
 } from "@/db/schema";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import { makeOnBeforeConnect } from "@/server/auth-gate";
@@ -201,5 +203,45 @@ describe("chat: autorización D1 fail-closed y pertenencia actual", () => {
     expect(
       await makeOnBeforeConnect(env)(request("seeker"), lobby),
     ).toBeInstanceOf(Response);
+  });
+  it("aviso de bandeja requiere dueño aprobado, token válido y no hereda headers públicos", async () => {
+    const now = Date.now();
+    const makeRequest = (pro: string, exp = now + 900000) =>
+      new Request(
+        "https://nido.example/parties/conversation/fixture?avisos=1",
+        {
+          headers: {
+            Cookie: `${PRO_INBOX_COOKIE}=${mintProfessionalInboxToken({ professionalId: pro, role: "inbox", iat: now, exp }, secret)}`,
+            Origin: "https://nido.example",
+          },
+        },
+      );
+    const result = await makeOnBeforeConnect(env)(
+      makeRequest(`${prefix}-pro`),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+    expect((result as Request).headers.get("x-nido-informer")).toBe("1");
+    expect((result as Request).headers.get("x-nido-can-send")).toBe("0");
+    expect(
+      await makeOnBeforeConnect(env)(makeRequest(`${prefix}-other`), lobby),
+    ).toBeInstanceOf(Response);
+    expect(
+      await makeOnBeforeConnect(env)(makeRequest(`${prefix}-pro`, now), lobby),
+    ).toBeInstanceOf(Response);
+    await db
+      .update(professionals)
+      .set({ status: "pending" })
+      .where(eq(professionals.id, `${prefix}-pro`));
+    try {
+      expect(
+        await makeOnBeforeConnect(env)(makeRequest(`${prefix}-pro`), lobby),
+      ).toBeInstanceOf(Response);
+    } finally {
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, `${prefix}-pro`));
+    }
   });
 });

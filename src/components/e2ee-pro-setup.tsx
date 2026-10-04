@@ -5,36 +5,84 @@ import {
   publishProIdentityKey,
   saveRecoveryKeystore,
 } from "@/app/actions-e2ee";
+import { E2eeRestorePanel } from "@/app/c/[conversationId]/e2ee-restore-panel";
+import { persistRecoveryBackup } from "@/lib/e2ee-backup";
 import {
-  createRecoveryBackup,
   getOrCreateIdentity,
-  getStoredRecoveryCode,
-  PRO_SLOT,
-  refreshRecoveryBackup,
+  loadProfessionalIdentity,
+  professionalSlot,
+  replaceIdentity,
 } from "@/lib/e2ee-client";
 import styles from "./e2ee.module.css";
 import { E2eeBackupModal } from "./e2ee-backup-modal";
 
 /**
- * Primer paso del E2EE para el profesional: al entrar al panel, este
- * dispositivo genera su clave, la publica en su ficha (para que las personas
- * puedan cifrarle) y muestra el código de recuperación UNA vez. Sin clave
- * publicada, las personas no pueden escribirle: el chat queda en espera.
+ * Cifrado de extremo a extremo del profesional, SIEMPRE visible en su panel:
+ * aquí (y no dentro de cada chat) se gestiona la clave del dispositivo y su
+ * código de recuperación. Tres estados:
  *
- * Si ya existe una clave local (p. ej. la creó al abrir una sala), solo la
- * republica y ofrece ver/crear el respaldo.
+ * - Este dispositivo ya tiene la clave: se republica (idempotente) y se puede
+ *   ver el código de recuperación.
+ * - La cuenta tiene clave pero este dispositivo no: se ofrece recuperarla con
+ *   el código o crear una nueva (nunca en silencio: rotar deja ilegible el
+ *   historial anterior).
+ * - Ni cuenta ni dispositivo tienen clave: se genera y publica, y se muestra
+ *   el código UNA vez.
+ *
+ * Dentro de cada sala el profesional nunca recibe este código: solo un aviso
+ * discreto con acceso a este mismo flujo.
  */
-export function E2eeProSetupBanner() {
-  const [code, setCode] = useState<string | null>(null);
+export function E2eeProSetupCard({
+  accountPublicKey,
+  professionalId,
+}: {
+  /** Clave pública E2EE ya publicada en la ficha (null si no hay ninguna). */
+  accountPublicKey: string | null;
+  professionalId: string;
+}) {
+  const slot = professionalSlot(professionalId);
+  const [hasLocalKey, setHasLocalKey] = useState(false);
+  const [needsKey, setNeedsKey] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const backupTriggerRef = useRef<HTMLButtonElement>(null);
+  const [code, setCode] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setBusy(true);
+    setHasLocalKey(false);
+    setNeedsKey(false);
+    setCode(null);
+    setError("");
     void (async () => {
       try {
-        const { identity } = await getOrCreateIdentity(PRO_SLOT);
+        const existing = await loadProfessionalIdentity(
+          professionalId,
+          accountPublicKey,
+        );
+        if (cancelled) return;
+        if (existing) {
+          // Republicar es idempotente cuando coinciden; si la cuenta tiene otra
+          // clave distinta, no pisamos nada: el estado `needsKey` lo decide.
+          if (!accountPublicKey || accountPublicKey === existing.publicKey) {
+            const result = await publishProIdentityKey(existing.publicKey);
+            if (!result.ok) {
+              setNeedsKey(true);
+              return;
+            }
+            if (!cancelled) setHasLocalKey(true);
+          } else {
+            setNeedsKey(true);
+          }
+          return;
+        }
+        if (accountPublicKey) {
+          // La clave vive en otro dispositivo: decidir con el panel.
+          setNeedsKey(true);
+          return;
+        }
+        const { identity } = await getOrCreateIdentity(slot);
         if (cancelled) return;
         const published = await publishProIdentityKey(identity.publicKey);
         if (cancelled) return;
@@ -44,26 +92,18 @@ export function E2eeProSetupBanner() {
           );
           return;
         }
-        const storedCode = await getStoredRecoveryCode();
-        if (storedCode) {
-          const refreshed = await refreshRecoveryBackup();
-          if (refreshed) {
-            await saveRecoveryKeystore(
-              refreshed.id,
-              refreshed.wrapped,
-              "professional",
+        setHasLocalKey(true);
+        const backup = await persistRecoveryBackup(
+          "professional",
+          saveRecoveryKeystore,
+          slot,
+        );
+        if (!cancelled) {
+          if (backup.ok) setCode(backup.code);
+          else
+            setError(
+              "No pudimos guardar tu respaldo. Reintenta antes de usar el código en otro dispositivo.",
             );
-          }
-        } else {
-          const created = await createRecoveryBackup();
-          if (created) {
-            await saveRecoveryKeystore(
-              created.id,
-              created.wrapped,
-              "professional",
-            );
-            if (!cancelled) setCode(created.code);
-          }
         }
       } catch {
         if (!cancelled) {
@@ -76,42 +116,94 @@ export function E2eeProSetupBanner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accountPublicKey, professionalId, slot]);
 
   async function showOrCreateBackup() {
     setError("");
-    const stored = await getStoredRecoveryCode();
-    if (stored) {
-      setCode(stored);
-      return;
-    }
-    const created = await createRecoveryBackup();
-    if (!created) {
-      setError("No pudimos crear el respaldo en este dispositivo.");
-      return;
-    }
-    await saveRecoveryKeystore(created.id, created.wrapped, "professional");
-    setCode(created.code);
+    setBusy(true);
+    const backup = await persistRecoveryBackup(
+      "professional",
+      saveRecoveryKeystore,
+      slot,
+    );
+    if (backup.ok) setCode(backup.code);
+    else
+      setError(
+        "No pudimos guardar tu respaldo. Puedes reintentarlo con el mismo código.",
+      );
+    setBusy(false);
   }
 
   return (
     <div className={styles.setupBanner}>
-      <p>
-        <strong>Cifrado de extremo a extremo.</strong>{" "}
-        {busy
-          ? "Preparando la clave de este dispositivo…"
-          : "Listo: tus conversaciones se cifran en tu dispositivo y Nido no puede leer su contenido. Guarda tu código de recuperación para poder leerlas en otro dispositivo."}
-      </p>
-      {!busy && !code ? (
-        <button
-          ref={backupTriggerRef}
-          type="button"
-          className="button secondary"
-          onClick={() => void showOrCreateBackup()}
-        >
-          Ver mi código de recuperación
-        </button>
-      ) : null}
+      {busy ? (
+        <p>
+          <strong>Cifrado de extremo a extremo.</strong> Preparando la clave de
+          este dispositivo…
+        </p>
+      ) : needsKey ? (
+        <>
+          <p>
+            <strong>Este dispositivo no tiene tu clave de cifrado.</strong> Tus
+            conversaciones están cifradas de extremo a extremo y la clave vive
+            solo en los dispositivos donde la creaste. Tienes UN solo código
+            para todas tus conversaciones: recupérala con él o crea una nueva
+            aquí (el historial anterior dejará de poder leerse).
+          </p>
+          <E2eeRestorePanel
+            audience="professional"
+            recoveryScope={slot}
+            onRestored={async () => {
+              const restored = await loadProfessionalIdentity(
+                professionalId,
+                accountPublicKey,
+              );
+              if (!restored) return false;
+              if (!(await publishProIdentityKey(restored.publicKey)).ok)
+                return false;
+              setNeedsKey(false);
+              setHasLocalKey(true);
+              return true;
+            }}
+            onUseNewKeys={async () => {
+              const { identity } = await replaceIdentity(slot);
+              if (
+                !(
+                  await publishProIdentityKey(
+                    identity.publicKey,
+                    accountPublicKey,
+                  )
+                ).ok
+              )
+                throw new Error(
+                  "La cuenta tiene otra clave. Recarga para recuperarla.",
+                );
+              setNeedsKey(false);
+              setHasLocalKey(true);
+              await showOrCreateBackup();
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <p>
+            <strong>Cifrado de extremo a extremo.</strong>{" "}
+            {hasLocalKey
+              ? "Listo: tus conversaciones se cifran en tu dispositivo y Nido no puede leer su contenido. Un único código de recuperación sirve para TODAS tus conversaciones; guárdalo para poder leerlas en otro dispositivo."
+              : "Preparando la clave de este dispositivo…"}
+          </p>
+          {hasLocalKey && !code ? (
+            <button
+              ref={backupTriggerRef}
+              type="button"
+              className="button secondary"
+              onClick={() => void showOrCreateBackup()}
+            >
+              Ver mi código de recuperación
+            </button>
+          ) : null}
+        </>
+      )}
       {error ? (
         <p className={styles.setupError} role="alert">
           {error}

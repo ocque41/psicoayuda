@@ -262,16 +262,30 @@
       "breakpoints": true
     },
     {
+      "idx": 37,
+      "version": "6",
+      "when": 1791082800000,
+      "tag": "0037_waitlist_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1791082801000,
+      "tag": "0038_waitlist_chat",
+      "breakpoints": true
+    },
+    {
       "idx": 39,
       "version": "6",
-      "when": 1791081500000,
+      "when": 1791082802000,
       "tag": "0039_web_push",
       "breakpoints": true
     },
     {
       "idx": 40,
       "version": "6",
-      "when": 1791081600000,
+      "when": 1791082803000,
       "tag": "0040_professional_admission_pipeline",
       "breakpoints": true
     }

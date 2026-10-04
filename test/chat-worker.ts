@@ -18,6 +18,7 @@ const fixtureDatabase = {
           ? {
               conversation_status: status,
               professional_status: "approved",
+              owner_id: "pro_1",
               deleted_at: null,
               anonymized_at: null,
             }

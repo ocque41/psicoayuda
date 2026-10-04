@@ -400,12 +400,17 @@ export async function openEnvelope(input: {
 
 export type KeystoreEntry = {
   slot: string;
+  ownerSlot?: string;
   publicKey: string;
   privateKey: JsonWebKey;
   createdAt: string;
 };
 
-export type KeystoreFile = { v: number; entries: KeystoreEntry[] };
+export type KeystoreFile = {
+  v: number;
+  entries: KeystoreEntry[];
+  scope?: string;
+};
 
 export function parseKeystore(json: string): KeystoreFile | null {
   let data: unknown;
@@ -432,12 +437,19 @@ export function parseKeystore(json: string): KeystoreFile | null {
     }
     entries.push({
       slot: entry.slot,
+      ...(typeof entry.ownerSlot === "string"
+        ? { ownerSlot: entry.ownerSlot }
+        : {}),
       publicKey: entry.publicKey,
       privateKey: entry.privateKey as JsonWebKey,
       createdAt: entry.createdAt,
     });
   }
-  return { v: E2EE_VERSION, entries };
+  return {
+    v: E2EE_VERSION,
+    entries,
+    ...(typeof file.scope === "string" ? { scope: file.scope } : {}),
+  };
 }
 
 async function deriveRecoveryAesKey(code: string): Promise<CryptoKey> {

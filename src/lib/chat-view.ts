@@ -85,7 +85,7 @@ export async function loadChatView(
       professionalRow = pro;
     }
   }
-  if (!isProfessional) {
+  if (!isProfessional && !session?.user?.id) {
     const proRaw = cookieStore.get(PRO_COOKIE)?.value;
     if (proRaw) {
       const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
@@ -106,6 +106,12 @@ export async function loadChatView(
   }
 
   // Persona (seeker anónimo): cookie firmada para ESTA sala + sesión vigente.
+  // La sesión puede ser la ORIGINAL (creada al abrir el chat) o una nueva del
+  // enlace mágico (`createSeekerAccessLink` mintea un sid distinto): ambas son
+  // filas vigentes de ESTA conversación. Comparar contra `conversation.seekerSid`
+  // rompía el acceso desde otro navegador (la página respondía 404 tras abrir el
+  // enlace del correo). La regla es la misma que la del WebSocket
+  // (`auth-gate.ts`) y la de `renewSeekerChatToken`.
   let isSeeker = false;
   const seekerRaw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (seekerRaw) {
@@ -163,10 +169,28 @@ export async function loadChatView(
     conversationId,
     open,
     otherName,
+    // La vista "como la persona" del profesional también puede abrir la lista
+    // de sus conversaciones: solo en ese caso se expone su id.
+    professionalId: canSwitchView ? conversation.professionalId : undefined,
     canSwitchView,
     deleted,
     purgeAfter,
     deletedByRole: conversation.deletedByRole,
     proPublicKey: professionalRow?.cryptoPublicKey ?? null,
   };
+}
+
+/**
+ * ¿Existe la conversación? Se usa SOLO para decidir entre 404 y la pantalla de
+ * acceso privado cuando el visitante no trae credencial: un enlace abierto en
+ * otro navegador NO es una página rota, es una sala privada que pide el correo.
+ */
+export async function conversationExists(
+  conversationId: string,
+): Promise<boolean> {
+  const row = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+    columns: { id: true },
+  });
+  return Boolean(row);
 }

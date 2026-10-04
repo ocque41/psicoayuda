@@ -2,9 +2,11 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { getServerByName } from "partyserver";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import type { ClientFrame, ServerFrame } from "@/shared/chat-protocol";
@@ -708,3 +710,182 @@ async function readMessageContent(
     return rows[0]?.content ?? null;
   });
 }
+
+describe("observadores de bandeja privados", () => {
+  it("sólo reciben actividad, sin historial, claves, contenido ni presencia", async () => {
+    const room = "inbox-metadata-fixture";
+    const now = Date.now();
+    const token = mintProfessionalInboxToken(
+      { professionalId: "pro_1", role: "inbox", iat: now, exp: now + HOUR },
+      SECRET,
+    );
+    const response = await SELF.fetch(
+      `https://internal.test/parties/conversation/${room}?avisos=1`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: `${PRO_INBOX_COOKIE}=${token}`,
+        },
+      },
+    );
+    expect(response.status).toBe(101);
+    const observer = wrap(response.webSocket as unknown as WebSocket);
+    const seeker = await open(room, seekerCookie(room));
+    await seeker.waitFor("history");
+    await seeker.waitFor("keys");
+    const identity = await toConversationIdentity(
+      await generateIdentityKeyPair(),
+    );
+    seeker.send({ type: "key", publicKey: identity.publicKey });
+    seeker.send({ type: "typing", isTyping: true });
+    seeker.send({ type: "read", upToSeq: 1 });
+    const ciphertext = await createEnvelope({
+      identity,
+      peerPublicKey: identity.publicKey,
+      conversationId: room,
+      senderRole: "seeker",
+      plaintext: "Mensaje ficticio",
+    });
+    seeker.send({
+      type: "send",
+      clientMsgId: "fixture-message",
+      content: ciphertext,
+    });
+    const activity = await observer.waitFor("activity");
+    expect(activity).toEqual({
+      type: "activity",
+      role: "seeker",
+      at: expect.any(Number),
+    });
+    expect(observer.buffered()).toEqual([]);
+    observer.send({
+      type: "send",
+      clientMsgId: "forbidden-observer-write",
+      content: "Ficticio",
+    });
+    await settle();
+    const stub = await getServerByName(env.Conversation, room);
+    const count = await runInDurableObject(
+      stub,
+      (_instance, state) =>
+        state.storage.sql.exec("SELECT COUNT(*) AS c FROM messages").one().c,
+    );
+    expect(count).toBe(1);
+    expect(await readMeta(room, "last_notify_at")).toBeGreaterThan(0);
+    observer.close();
+    seeker.close();
+  });
+
+  it("avisos sin token no caen al canal normal y un header público no activa el observador", async () => {
+    const room = "inbox-no-fallback-fixture";
+    const rejected = await SELF.fetch(
+      `https://internal.test/parties/conversation/${room}?avisos=1`,
+      { headers: { Upgrade: "websocket", Cookie: proCookie(room) } },
+    );
+    expect(rejected.status).toBe(403);
+    const regular = await openWith(room, seekerCookie(room), {
+      "x-nido-informer": "1",
+      "x-nido-inbox-exp": String(Date.now() + HOUR),
+    });
+    expect((await regular.waitFor("history")).type).toBe("history");
+    regular.close();
+  });
+
+  it("revoca un observador conectado antes de enviar nuevos metadatos", async () => {
+    const room = "inbox-revocation-fixture";
+    const now = Date.now();
+    const token = mintProfessionalInboxToken(
+      { professionalId: "pro_1", role: "inbox", iat: now, exp: now + HOUR },
+      SECRET,
+    );
+    const response = await SELF.fetch(
+      `https://internal.test/parties/conversation/${room}?avisos=1`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: `${PRO_INBOX_COOKIE}=${token}`,
+        },
+      },
+    );
+    expect(response.status).toBe(101);
+    const observer = wrap(response.webSocket as unknown as WebSocket);
+    const seeker = await open(room, seekerCookie(room));
+    await seeker.waitFor("history");
+    const stub = await getServerByName(env.Conversation, room);
+    await runInDurableObject(stub, (instance) => {
+      const runtime = instance as unknown as { env: { DB: D1Database } };
+      runtime.env.DB = {
+        prepare: (query: string) => ({
+          bind: () => ({
+            first: async () =>
+              query.includes("owner_id")
+                ? {
+                    owner_id: "another-professional",
+                    professional_status: "approved",
+                    conversation_status: "open",
+                  }
+                : {
+                    status: "open",
+                    revoked_at: null,
+                    expires_at: Date.now() + HOUR,
+                    deleted_at: null,
+                    anonymized_at: null,
+                  },
+          }),
+        }),
+      } as unknown as D1Database;
+    });
+    seeker.send({
+      type: "send",
+      clientMsgId: "revoked-observer",
+      content: "Mensaje ficticio legado",
+    });
+    expect(await observer.closed).toBe(4003);
+    expect(observer.buffered()).toEqual([]);
+    seeker.close();
+  });
+});
+
+it("un destinatario profesional revocado no recibe contenido de nuevos mensajes", async () => {
+  const room = "revoked-recipient-fixture";
+  const pro = await open(room, proCookie(room));
+  await pro.waitFor("history");
+  await pro.waitFor("keys");
+  const seeker = await open(room, seekerCookie(room));
+  await seeker.waitFor("history");
+  await seeker.waitFor("keys");
+  await settle();
+  const stub = await getServerByName(env.Conversation, room);
+  await runInDurableObject(stub, (instance) => {
+    const runtime = instance as unknown as { env: { DB: D1Database } };
+    runtime.env.DB = {
+      prepare: (query: string) => ({
+        bind: () => ({
+          first: async () =>
+            query.includes("professional_status")
+              ? {
+                  professional_status: "suspended",
+                  conversation_status: "open",
+                  deleted_at: null,
+                  anonymized_at: null,
+                }
+              : {
+                  status: "open",
+                  revoked_at: null,
+                  expires_at: Date.now() + HOUR,
+                  deleted_at: null,
+                  anonymized_at: null,
+                },
+        }),
+      }),
+    } as unknown as D1Database;
+  });
+  seeker.send({
+    type: "send",
+    clientMsgId: "fixture-after-revocation",
+    content: "Mensaje ficticio legado",
+  });
+  expect(await pro.closed).toBe(4003);
+  expect(pro.buffered().filter((frame) => frame.type === "msg")).toEqual([]);
+  seeker.close();
+});
