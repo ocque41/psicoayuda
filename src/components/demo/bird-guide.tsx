@@ -179,11 +179,8 @@ export function BirdGuide({
     if (!active) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (
-        document.activeElement instanceof Element &&
-        document.activeElement.closest("dialog[open], [aria-modal='true']")
-      )
-        return;
+      // Escape pertenece al modal aunque el navegador esté entre destinos de foco.
+      if (document.querySelector("dialog[open], [aria-modal='true']")) return;
       event.preventDefault();
       setOpen(false);
     };
@@ -250,6 +247,8 @@ export function BirdGuide({
       bird.dataset.positioned = "true";
     }
 
+    const modalOpen = () =>
+      Boolean(document.querySelector("dialog[open], [aria-modal='true']"));
     const motionAllowed = () =>
       !document.hidden &&
       !reduced.matches &&
@@ -330,6 +329,10 @@ export function BirdGuide({
       idleTimer = window.setTimeout(
         () => {
           idleTimer = 0;
+          if (modalOpen()) {
+            rest();
+            return;
+          }
           if (!motionAllowed()) {
             rest(true);
             return;
@@ -584,6 +587,11 @@ export function BirdGuide({
     const measure = () => {
       frame = 0;
       if (closed) return;
+      // El formulario modal conserva su foco y su posición mientras se revisa.
+      if (modalOpen()) {
+        rest();
+        return;
+      }
       const nextTarget = document.getElementById(targetId);
       if (nextTarget !== target) {
         if (target) resize.unobserve(target);
@@ -773,7 +781,12 @@ export function BirdGuide({
     if (navbar) resize.observe(navbar);
     if (navigation) resize.observe(navigation);
     const mutation = new MutationObserver(schedule);
-    mutation.observe(document.body, { childList: true, subtree: true });
+    mutation.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["open", "aria-modal"],
+    });
     window.addEventListener("resize", schedule, { passive: true });
     window.addEventListener("scroll", schedule, {
       passive: true,
@@ -788,7 +801,7 @@ export function BirdGuide({
     reduced.addEventListener("change", visibilityChanged);
     connection?.addEventListener?.("change", visibilityChanged);
     document.addEventListener("visibilitychange", visibilityChanged);
-    titleRef.current?.focus({ preventScroll: true });
+    if (!modalOpen()) titleRef.current?.focus({ preventScroll: true });
     schedule();
     return () => {
       closed = true;

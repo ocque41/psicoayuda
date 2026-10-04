@@ -161,6 +161,10 @@ try {
       await cli("click", "button[aria-label='Minimizar guía']");
       await until("document.querySelector('[role=dialog] [hidden]')");
       await cli("fill", "#input-agenda", "Segundo borrador ficticio");
+      // El panel se vuelve a medir tras editar; esperar su posición antes del clic.
+      await evaluate(
+        "return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))));",
+      );
       await cli("click", "button[aria-label='Mostrar guía']");
       await until("!document.querySelector('[role=dialog] [hidden]')");
       assert.equal(
