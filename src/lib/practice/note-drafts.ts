@@ -82,12 +82,24 @@ export function clearNoteDrafts() {
   sync();
   notify({ type: "session" });
 }
-export function forgetNoteDraft(scope: NoteDraftScope) {
+export function forgetNoteDraft(scope: NoteDraftScope, expected?: NoteDraft) {
   const key = noteDraftKey(scope);
+  const current = entries.get(key)?.draft;
+  if (
+    expected &&
+    (!current ||
+      current.id !== expected.id ||
+      current.revision !== expected.revision ||
+      current.content !== expected.content ||
+      current.saved !== expected.saved)
+  )
+    return false;
   if (entries.delete(key)) {
     sync();
     notify({ type: "removed", key });
+    return true;
   }
+  return false;
 }
 export function noteDraftMetadata(scope: NoteDraftScope) {
   connect();

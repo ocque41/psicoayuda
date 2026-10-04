@@ -86,6 +86,13 @@ function ScopedNoteEditor({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const destination = useRef<string | null>(null);
   const operation = useRef(false);
+  const mountGeneration = useRef(0);
+  useEffect(
+    () => () => {
+      mountGeneration.current++;
+    },
+    [],
+  );
   const baseline = useRef({
     content: note?.content || "",
     saved: note?.content || "",
@@ -192,6 +199,7 @@ function ScopedNoteEditor({
     if (operation.current || !canEdit || !dirty) return;
     operation.current = true;
     const epoch = authorizationGeneration.current;
+    const mount = mountGeneration.current;
     try {
       const result = await savePatientNote({
         patientId,
@@ -199,10 +207,11 @@ function ScopedNoteEditor({
         ...identity,
         content,
       });
-      if (epoch !== noteDraftGeneration()) return;
+      if (mount !== mountGeneration.current || epoch !== noteDraftGeneration())
+        return;
       setState(result);
       if (result.ok) {
-        forgetNoteDraft(scope);
+        forgetNoteDraft(scope, { ...identity, content, saved });
         setDraftNotice("");
         setIdentity({
           id: result.id || identity.id,
@@ -211,7 +220,8 @@ function ScopedNoteEditor({
         setSaved(content);
       }
     } catch {
-      if (epoch !== noteDraftGeneration()) return;
+      if (mount !== mountGeneration.current || epoch !== noteDraftGeneration())
+        return;
       setState({
         ok: false,
         message:
@@ -341,21 +351,30 @@ function ScopedNoteEditor({
                 if (operation.current || !canEdit || !confirmDelete) return;
                 operation.current = true;
                 const epoch = authorizationGeneration.current;
+                const mount = mountGeneration.current;
                 try {
                   const result = await deletePatientNote(
                     patientId,
                     identity.id || "",
                     identity.revision || 0,
                   );
-                  if (epoch !== noteDraftGeneration()) return;
+                  if (
+                    mount !== mountGeneration.current ||
+                    epoch !== noteDraftGeneration()
+                  )
+                    return;
                   setState(result);
                   if (result.ok) {
-                    forgetNoteDraft(scope);
+                    forgetNoteDraft(scope, { ...identity, content, saved });
                     setSaved(content);
                     setDeleted(true);
                   }
                 } catch {
-                  if (epoch !== noteDraftGeneration()) return;
+                  if (
+                    mount !== mountGeneration.current ||
+                    epoch !== noteDraftGeneration()
+                  )
+                    return;
                   setState({
                     ok: false,
                     message:

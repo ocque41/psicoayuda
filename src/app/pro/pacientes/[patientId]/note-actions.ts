@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { practiceNotes } from "@/db/notes-schema";
 import { practiceAppointments, professionals } from "@/db/schema";
+import { getServerSession } from "@/lib/auth-server";
 import {
   ownedPatient,
   requirePracticeProfessional,
@@ -21,6 +22,7 @@ function currentActor(
   professionalId: string,
   userId: string,
   patientId: string,
+  sessionId: string,
 ) {
   return sql`EXISTS (
     SELECT 1 FROM professionals p
@@ -28,6 +30,9 @@ function currentActor(
     WHERE p.id = ${professionalId} AND p.user_id = ${userId}
       AND p.status = 'approved' AND coalesce(p.non_clinical_helper, 0) = 0
       AND patient.id = ${patientId}
+      AND EXISTS (SELECT 1 FROM session auth_session
+        WHERE auth_session.id = ${sessionId} AND auth_session.user_id = ${userId}
+          AND auth_session.expires_at > cast(unixepoch('subsecond') * 1000 as integer))
   )`;
 }
 function currentNoteSession() {
@@ -46,6 +51,14 @@ export async function savePatientNote(data: {
   content: string;
 }): Promise<NoteState> {
   const pro = await requirePracticeProfessional();
+  const current = await getServerSession();
+  if (!current?.session?.id || current.user.id !== pro.userId)
+    return {
+      ok: false,
+      message:
+        "Tu sesión ya no está disponible. Vuelve a entrar antes de guardar cambios.",
+    };
+  const sessionId = current.session.id;
   const parsed = z
     .object({
       patientId: z.string().min(1).max(100),
@@ -109,7 +122,7 @@ export async function savePatientNote(data: {
             eq(practiceNotes.id, id),
             eq(practiceNotes.patientId, input.patientId),
             eq(practiceNotes.professionalId, pro.id),
-            currentActor(pro.id, pro.userId, input.patientId),
+            currentActor(pro.id, pro.userId, input.patientId, sessionId),
             currentNoteSession(),
             appointmentId
               ? eq(practiceNotes.appointmentId, appointmentId)
@@ -128,7 +141,7 @@ export async function savePatientNote(data: {
             eq(practiceNotes.patientId, input.patientId),
             eq(practiceNotes.professionalId, pro.id),
             eq(practiceNotes.revision, input.revision + 1),
-            currentActor(pro.id, pro.userId, input.patientId),
+            currentActor(pro.id, pro.userId, input.patientId, sessionId),
             currentNoteSession(),
             appointmentId
               ? eq(practiceNotes.appointmentId, appointmentId)
@@ -179,7 +192,7 @@ export async function savePatientNote(data: {
             .where(
               and(
                 eq(professionals.id, pro.id),
-                currentActor(pro.id, pro.userId, input.patientId),
+                currentActor(pro.id, pro.userId, input.patientId, sessionId),
                 sql`EXISTS (SELECT 1 FROM practice_appointments appointment
               WHERE appointment.id = ${appointmentId}
                 AND appointment.patient_id = ${input.patientId}
@@ -195,7 +208,7 @@ export async function savePatientNote(data: {
             eq(practiceNotes.id, id),
             eq(practiceNotes.patientId, input.patientId),
             eq(practiceNotes.professionalId, pro.id),
-            currentActor(pro.id, pro.userId, input.patientId),
+            currentActor(pro.id, pro.userId, input.patientId, sessionId),
             currentNoteSession(),
           ),
         });
@@ -244,6 +257,14 @@ export async function deletePatientNote(
   revision: number,
 ): Promise<NoteState> {
   const pro = await requirePracticeProfessional();
+  const current = await getServerSession();
+  if (!current?.session?.id || current.user.id !== pro.userId)
+    return {
+      ok: false,
+      message:
+        "Tu sesión ya no está disponible. Vuelve a entrar antes de guardar cambios.",
+    };
+  const sessionId = current.session.id;
   if (!(await ownedPatient(patientId, pro.id)))
     return { ok: false, message: "No tienes acceso a esta ficha." };
   const removed = await db
@@ -253,7 +274,7 @@ export async function deletePatientNote(
         eq(practiceNotes.id, noteId),
         eq(practiceNotes.patientId, patientId),
         eq(practiceNotes.professionalId, pro.id),
-        currentActor(pro.id, pro.userId, patientId),
+        currentActor(pro.id, pro.userId, patientId, sessionId),
         currentNoteSession(),
         eq(practiceNotes.revision, revision),
       ),

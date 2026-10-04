@@ -104,6 +104,52 @@ async function reproduce(page) {
       (await control("state")).authCalls >= before + 2,
       "cada montaje pide autorización fresca por nota",
     );
+    // Guardado confirmado en servidor, respuesta pendiente durante Back/Forward.
+    const heldSave = await control("holdSave");
+    const saveResponse = page.waitForResponse(
+      (response) =>
+        Boolean(response.request().headers()["next-action"]) &&
+        response.request().postData()?.includes("Primer borrador ficticio"),
+    );
+    await page
+      .locator("form.note-editor")
+      .nth(0)
+      .getByRole("button", { name: "Guardar nota", exact: true })
+      .click();
+    await page.waitForFunction(
+      async (initial) =>
+        (
+          await (
+            await fetch("/api/control", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "state" }),
+            })
+          ).json()
+        ).saveCalls > initial,
+      heldSave.saveCalls,
+    );
+    await back();
+    await forward();
+    await inputs()
+      .nth(0)
+      .fill("Borrador ficticio posterior al guardado pendiente");
+    await control("releaseSave");
+    await (await saveResponse).finished();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await back();
+    await forward();
+    ok(
+      (await inputs().nth(0).inputValue()) ===
+        "Borrador ficticio posterior al guardado pendiente",
+      "save pendiente, Atrás/Adelante y respuesta antigua conservan el borrador posterior",
+    );
+    await inputs().nth(0).fill("Primer borrador ficticio antes de Atrás");
     await back();
     await control("revise");
     await forward();

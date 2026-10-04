@@ -46,7 +46,7 @@ await writeFile(
 await writeFile(
   join(directory, "fixture-state.ts"),
   `
-  export function fixtureState(){const root=globalThis as any;return root.__notesFixture ||= {actor:'A',expired:false,gate:null,release:null,authCalls:0,saveRevisions:[],notes:{A:[{content:'Apunte ficticio 0',revision:1},{content:'Apunte ficticio 1',revision:1}],B:[{content:'Apunte ficticio B0',revision:1},{content:'Apunte ficticio B1',revision:1}]}};}
+  export function fixtureState(){const root=globalThis as any;return root.__notesFixture ||= {actor:'A',expired:false,gate:null,release:null,saveGate:null,releaseSave:null,saveCalls:0,authCalls:0,saveRevisions:[],notes:{A:[{content:'Apunte ficticio 0',revision:1},{content:'Apunte ficticio 1',revision:1}],B:[{content:'Apunte ficticio B0',revision:1},{content:'Apunte ficticio B1',revision:1}]}};}
 `,
 );
 await writeFile(
@@ -59,7 +59,9 @@ await writeFile(
     if(input.kind==='revise'){s.notes[s.actor][0]={content:'Cambio guardado ficticio desde otra ventana',revision:s.notes[s.actor][0].revision+1};}
     if(input.kind==='hold')s.gate=new Promise(resolve=>{s.release=()=>{s.gate=null;resolve();};});
     if(input.kind==='release')s.release?.();
-    return Response.json({actor:s.actor,expired:s.expired,authCalls:s.authCalls,saveRevisions:s.saveRevisions});
+    if(input.kind==='holdSave')s.saveGate=new Promise(resolve=>{s.releaseSave=()=>{s.saveGate=null;resolve();};});
+    if(input.kind==='releaseSave')s.releaseSave?.();
+    return Response.json({actor:s.actor,expired:s.expired,authCalls:s.authCalls,saveCalls:s.saveCalls,saveRevisions:s.saveRevisions});
   }
 `,
 );
@@ -91,7 +93,7 @@ await writeFile(
   `"use server";import {fixtureState} from './fixture-state';
    export type NoteState={ok:boolean;message:string;id?:string;revision?:number};
    export async function authorizeNoteDraft(input){const s=fixtureState();s.authCalls++;const accountCurrent=!s.expired && input.accountId===s.actor;const result={accountCurrent,scopeAllowed:accountCurrent && input.professionalId===s.actor+'-professional' && input.patientId==='fixture-patient' && input.appointmentId==='fixture-session'};if(s.gate)await s.gate;return result;}
-   export async function savePatientNote(input){const s=fixtureState();s.saveRevisions.push(input.revision);const index=input.id==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];if(note.revision!==input.revision)return {ok:false,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};s.notes[s.actor][index]={content:input.content,revision:input.revision+1};return {ok:true,message:'Guardado ficticio',id:input.id,revision:input.revision+1};}
+   export async function savePatientNote(input){const s=fixtureState();s.saveCalls++;s.saveRevisions.push(input.revision);const index=input.id==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];if(note.revision!==input.revision)return {ok:false,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};s.notes[s.actor][index]={content:input.content,revision:input.revision+1};if(s.saveGate)await s.saveGate;return {ok:true,message:'Guardado ficticio',id:input.id,revision:input.revision+1};}
    export async function deletePatientNote(){return {ok:true,message:'Eliminado ficticio'};}
   `,
 );

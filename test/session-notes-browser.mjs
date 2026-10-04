@@ -184,6 +184,90 @@ async function browserChecks(page) {
       "texto vuelve a habilitarse tras respuesta",
     );
 
+    await reset();
+    await text().fill("Borrador ficticio enviado desde editor anterior");
+    await fixture(() => window.nidoNotesFixture.hold());
+    await save().click();
+    await page.waitForFunction(
+      () => window.nidoNotesFixture.calls.length === 1,
+    );
+    // Desmontar/remontar el mismo ámbito sin evento logout: nuevo editor fresco.
+    await fixture(() => window.nidoNotesFixture.remount());
+    await text().waitFor();
+    await idle();
+    await text().fill("Borrador ficticio más reciente después de volver");
+    await fixture(() => window.nidoNotesFixture.release());
+    await page.evaluate(
+      () => new Promise((resolve) => setTimeout(resolve, 50)),
+    );
+    await fixture(() => window.nidoNotesFixture.remount());
+    await text().waitFor();
+    await idle();
+    ok(
+      (await text().inputValue()) ===
+        "Borrador ficticio más reciente después de volver",
+      "respuesta de editor desmontado no retira borrador nuevo del mismo ámbito",
+    );
+    await save().click();
+    await idle();
+    ok(
+      await fixture(
+        () => window.nidoNotesFixture.calls.at(-1).input.revision === 1,
+      ),
+      "respuesta desmontada no promueve revisión del nuevo editor",
+    );
+
+    await reset();
+    await text().fill("Borrador ficticio antes de eliminar");
+    await page.getByText("Eliminar esta nota", { exact: true }).click();
+    await page
+      .getByRole("button", { name: "Confirmar eliminación" })
+      .waitFor({ state: "visible" });
+    await page.waitForFunction(
+      () => !document.querySelector("details button").disabled,
+    );
+    await fixture(() => window.nidoNotesFixture.hold());
+    await page.getByRole("button", { name: "Confirmar eliminación" }).click();
+    await page.waitForFunction(
+      () => window.nidoNotesFixture.calls.length === 1,
+    );
+    await fixture(() => window.nidoNotesFixture.remount());
+    await text().waitFor();
+    await idle();
+    await text().fill("Borrador ficticio posterior a delete pendiente");
+    await fixture(() => window.nidoNotesFixture.release());
+    await page.evaluate(
+      () => new Promise((resolve) => setTimeout(resolve, 50)),
+    );
+    await fixture(() => window.nidoNotesFixture.remount());
+    await text().waitFor();
+    await idle();
+    ok(
+      (await text().inputValue()) ===
+        "Borrador ficticio posterior a delete pendiente",
+      "respuesta delete desmontada no retira el borrador posterior",
+    );
+
+    await reset();
+    await page.getByText("Eliminar esta nota", { exact: true }).click();
+    await page.waitForFunction(
+      () => !document.querySelector("details button").disabled,
+    );
+    await fixture(() => window.nidoNotesFixture.hold());
+    await page.getByRole("button", { name: "Confirmar eliminación" }).click();
+    await page.waitForFunction(
+      () => window.nidoNotesFixture.calls.length === 1,
+    );
+    await fixture(() => {
+      window.dispatchEvent(new Event("nido:session-changed"));
+      window.nidoNotesFixture.release();
+    });
+    await idle();
+    ok(
+      (await text().inputValue()) === "" && (await text().isDisabled()),
+      "logout durante delete mantiene editor vacío y bloqueado",
+    );
+
     await reset({ mode: "throw" });
     await page.getByText("Eliminar esta nota", { exact: true }).click();
     // El evento nativo toggle de details se despacha en una tarea posterior.

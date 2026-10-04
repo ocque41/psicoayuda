@@ -125,6 +125,23 @@ describe("borradores sólo en memoria del documento", () => {
     expect(read()).toBeNull();
     expect(read({ ...scope, slot: "other" })).toEqual({ ...note, id: "other" });
   });
+  it("sólo retira la copia exacta enviada y nunca un borrador posterior", () => {
+    remember();
+    const later = { ...note, content: "Borrador ficticio posterior" };
+    remember(scope, later);
+    expect(drafts.forgetNoteDraft(scope, note)).toBe(false);
+    expect(read()).toEqual(later);
+    for (const patch of [
+      { id: "other" },
+      { revision: 5 },
+      { saved: "Otro baseline ficticio" },
+    ]) {
+      expect(drafts.forgetNoteDraft(scope, { ...later, ...patch })).toBe(false);
+      expect(read()).toEqual(later);
+    }
+    expect(drafts.forgetNoteDraft(scope, later)).toBe(true);
+    expect(read()).toBeNull();
+  });
   it("limpiar la cuenta invalida lecturas/escrituras de respuestas anteriores", () => {
     remember();
     const epoch = drafts.noteDraftGeneration();
