@@ -33,6 +33,10 @@ export function NoteEditor({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const destination = useRef<string | null>(null);
   const leaving = useRef(false);
+  const operation = useRef(false);
+  useEffect(() => {
+    if (state && !state.ok && !pending && enabled) textarea.current?.focus();
+  }, [state, pending, enabled]);
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -100,6 +104,8 @@ export function NoteEditor({
   }, [dirty]);
   if (deleted) return <p role="status">Nota eliminada.</p>;
   async function save() {
+    if (operation.current || !enabled || !dirty) return;
+    operation.current = true;
     try {
       const result = await savePatientNote({
         patientId,
@@ -121,11 +127,14 @@ export function NoteEditor({
         message:
           "No se confirmó el guardado. Tu texto permanece en esta ventana.",
       });
+    } finally {
+      operation.current = false;
     }
   }
   return (
     <form
       className="practice-form note-editor"
+      method="post"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(save);
@@ -144,17 +153,20 @@ export function NoteEditor({
         maxLength={12000}
         required
         disabled={!enabled || pending}
+        aria-describedby={`${labelId}-save-status${state ? ` ${labelId}-feedback` : ""}`}
         placeholder="Un espacio privado para tus apuntes de la consulta…"
       />
       <div className="note-toolbar">
-        <span className="hint" role="status">
+        <span className="hint" role="status" id={`${labelId}-save-status`}>
           {pending
             ? "Guardando…"
             : dirty
               ? "Cambios sin guardar"
               : identity.revision
                 ? "Guardada"
-                : "Solo para ti"}{" "}
+                : "Solo para ti"}
+        </span>
+        <span className="hint">
           · {content.length.toLocaleString("es")} / 12.000
         </span>
         <button
@@ -167,6 +179,7 @@ export function NoteEditor({
       </div>
       {state ? (
         <p
+          id={`${labelId}-feedback`}
           role={state.ok ? "status" : "alert"}
           className={state.ok ? "hint" : "form-error"}
         >
@@ -199,9 +212,11 @@ export function NoteEditor({
           <button
             type="button"
             className="button secondary"
-            disabled={pending || !confirmDelete}
+            disabled={!enabled || pending || !confirmDelete}
             onClick={() =>
               startTransition(async () => {
+                if (operation.current || !enabled || !confirmDelete) return;
+                operation.current = true;
                 try {
                   const result = await deletePatientNote(
                     patientId,
@@ -219,6 +234,8 @@ export function NoteEditor({
                     message:
                       "No se confirmó la eliminación. Actualiza antes de repetirla.",
                   });
+                } finally {
+                  operation.current = false;
                 }
               })
             }
