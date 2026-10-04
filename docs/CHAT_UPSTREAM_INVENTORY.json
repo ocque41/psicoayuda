@@ -1,0 +1,667 @@
+{
+  "base": "f1c69cd7f69daefb735ccce97385a3b4711f4657",
+  "upstream_start": "aca220de8386077cb768f5bb7a673da902baad93",
+  "upstream_end": "3479233a01df924ca472ee074a413125348c1dab",
+  "cut": "664d40d466bc48e8659a6c84d61ac2ba565c9d68",
+  "scope": "Rama aislada; no certifica fuente integrada ni producción",
+  "entries": [
+    {
+      "path": ".gitignore",
+      "upstream_change": "M",
+      "decision": "Fuera",
+      "note": "Ignore .playwright-mcp opcional; el runner local elimina sus temporales.",
+      "base_blob": "d8028512bbb34b00323b:c0ce2cd2e3eeb5b33f8a",
+      "upstream_blob": "3c8d2c2256e478ed5ec1:c01021532f9c1c28eda7",
+      "cut_blob": "d8028512bbb34b00323b:c0ce2cd2e3eeb5b33f8a"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Reconciliar historia/versiones; no copiar claims de rotación automática de 0.14.1.",
+      "base_blob": "48769c54b3def3c285f9:af63a97e2ef3ee59541b",
+      "upstream_blob": "c6b237f6541b6a95c9cd:16e6c38734769408aa2b",
+      "cut_blob": "48769c54b3def3c285f9:af63a97e2ef3ee59541b"
+    },
+    {
+      "path": "docs/CHAT_ARCHITECTURE.md",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Actualizado al contrato actual; detalle en CHAT_WAITLIST_INTEGRATION, sin claims de marcar leído al abrir.",
+      "base_blob": "507a6d10cf3e272ed10b:b58277fd50ab28cf609e",
+      "upstream_blob": "a87e38e4fe543dd1fd35:2357a87bc396287e3c95",
+      "cut_blob": "507a6d10cf3e272ed10b:b58277fd50ab28cf609e"
+    },
+    {
+      "path": "drizzle/0027_waitlist_entries.sql",
+      "upstream_change": "A",
+      "decision": "Renumerado",
+      "note": "Mismas adiciones waitlist en0037/0038, sin sustituir CRM0027/0028.",
+      "base_blob": null,
+      "upstream_blob": "13071d320dc52f1bc881:58c584a8099936db75d2",
+      "cut_blob": null
+    },
+    {
+      "path": "drizzle/0028_waitlist_chat.sql",
+      "upstream_change": "A",
+      "decision": "Renumerado",
+      "note": "Mismas adiciones waitlist en0037/0038, sin sustituir CRM0027/0028.",
+      "base_blob": null,
+      "upstream_blob": "03fdd0722af6c2c352b8:586a7d62d591d0ebdee2",
+      "cut_blob": null
+    },
+    {
+      "path": "drizzle/meta/0027_snapshot.json",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "Snapshots upstream preCRM incompatibles; preservar snapshots y SQL CRM0000–0036.",
+      "base_blob": null,
+      "upstream_blob": "1e83e094134ec3ca32da:6ebec2b51ef4a9eea477",
+      "cut_blob": null
+    },
+    {
+      "path": "drizzle/meta/0028_snapshot.json",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "Snapshots upstream preCRM incompatibles; preservar snapshots y SQL CRM0000–0036.",
+      "base_blob": null,
+      "upstream_blob": "89fe36eb4b0e177dc865:3a72502a51650545da90",
+      "cut_blob": null
+    },
+    {
+      "path": "drizzle/meta/_journal.json",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Append0037/0038 y tabla waitlist/vínculo; conservar todas las tablas CRM.",
+      "base_blob": "a65a3b4fb71d17b2cef8:d22e0768f60abc21369d",
+      "upstream_blob": "19ce360592fd80f0ba9e:a8816568ab91c422baea",
+      "cut_blob": "1713e51fec5df9011f2a:541e9b19dbcfcdfb466c"
+    },
+    {
+      "path": "src/app/acceso/[token]/route.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Permiso registrado de misma sala; ahora intercambio atómico permiso de enlace→permiso de navegador en664d40d.",
+      "base_blob": "9761907ec3ee7ce46b8a:e36a82de928d0d0c0daa",
+      "upstream_blob": "576be75c09bb8a0da8dc:059ef6a2f963a0e759a1",
+      "cut_blob": "827b05e70eacaa74673a:3277bf7fc12d10bd694c"
+    },
+    {
+      "path": "src/app/actions-waitlist.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Alta y cambios de estado/auditoría atómicos; correo conocido no altera fila ajena.",
+      "base_blob": null,
+      "upstream_blob": "115b9bf2d4ed09bee33a:d67e67ac0debf3262e9c",
+      "cut_blob": "bb3eaa7a793b02ef9939:9c687c790beeda6fd1fd"
+    },
+    {
+      "path": "src/app/admin/page.tsx",
+      "upstream_change": "M",
+      "decision": "Sustituido",
+      "note": "Ruta propia /admin/lista-de-espera paginada/autorizada; nav/badge AdminShell pendientes root, no200 relatos en resumen.",
+      "base_blob": "8acbe41000d136d791be:429b344cc94a575d8f1a",
+      "upstream_blob": "a333538f98663f3f2705:32fb53a4709ae3004c7c",
+      "cut_blob": "8acbe41000d136d791be:429b344cc94a575d8f1a"
+    },
+    {
+      "path": "src/app/alianzas/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitido WaitlistCallout showAssociationsLink=false; adaptar descubrimiento al producto actual.",
+      "base_blob": "3b448c502bf95e32d90a:2992a2f989b22dc6b1d2",
+      "upstream_blob": "da5321fca35e52f89f72:603ba203cb5ff4a5e8da",
+      "cut_blob": "3b448c502bf95e32d90a:2992a2f989b22dc6b1d2"
+    },
+    {
+      "path": "src/app/api/pro/chats/route.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Metadatos propios no-store; exige profesional aprobado y autenticación fresca.",
+      "base_blob": null,
+      "upstream_blob": "16a4cc3f8315ab92156e:14dd35a10f765c5e2dd3",
+      "cut_blob": "2915a31188cba8366dfa:d30d2b8cc146169fcf0c"
+    },
+    {
+      "path": "src/app/ayuda/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitido WaitlistPanel source=ayuda antes del directorio; conservar programa gratuito y cupos separados.",
+      "base_blob": "a6849b116f922b6f2f0c:273b474c5bd484de0f7e",
+      "upstream_blob": "b3d46232c1d219823221:58939bba1161bd2fc1d6",
+      "cut_blob": "a6849b116f922b6f2f0c:273b474c5bd484de0f7e"
+    },
+    {
+      "path": "src/app/c/[conversationId]/actions.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "SID registrado/rol/permisosSQL; avisos15 minutos/liveauth; waitlist general con consentimiento y guard SQL.",
+      "base_blob": "2b54fa4e71ed61d57c1e:36676b60dc5014b6d4f8",
+      "upstream_blob": "41df42c6dacd840b13af:55aafecd26078380f8e5",
+      "cut_blob": "162509c4a7439fd5a24f:4ebbb0294762628f3f1c"
+    },
+    {
+      "path": "src/app/c/[conversationId]/chat-room.tsx",
+      "upstream_change": "M",
+      "decision": "Parcial",
+      "note": "Gate E2EE/sin rotación automática, waitlist, America/Caracas y eventos bandeja; conservar sync/scroll/lectura visible y compositor 56e55be. Diferencia explícita: clave local distinta de publicada exige recuperación; upstream permitía continuar con aviso.",
+      "base_blob": "f11f6dcdc8fb7cfc3339:fedaf1292c904b9761e0",
+      "upstream_blob": "cfc3b0507c2cec9da856:bf75e84994e1423563e9",
+      "cut_blob": "8baba9e7634c17569222:4a58a2d10f365b382a11"
+    },
+    {
+      "path": "src/app/c/[conversationId]/chat.module.css",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Combina estilos sala y tarjeta waitlist; conserva bloque de movimiento reducido cerrado.",
+      "base_blob": "8f87d8a7d1ab96e84970:cb8f77a45781abc78430",
+      "upstream_blob": "bb6d8925922ec3aecf7f:223dbd734d1a940b3ae6",
+      "cut_blob": "02e5d0372b43aa41474c:096369e1ce59045366f2"
+    },
+    {
+      "path": "src/app/c/[conversationId]/conversation-access-panel.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Acceso privado sin revelar datos; solicitar enlace y recordar recuperación de claves por separado.",
+      "base_blob": null,
+      "upstream_blob": "e3da99cc4b758aac46c0:5cc1f646755ee6269565",
+      "cut_blob": "e3da99cc4b758aac46c0:5cc1f646755ee6269565"
+    },
+    {
+      "path": "src/app/c/[conversationId]/conversation-deleted-notice.tsx",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Recuperación tras papelera conserva permisos y sesión/identidad por cuenta.",
+      "base_blob": "54994e8d93de85c0cc0e:9b369898e38cdcaa9daa",
+      "upstream_blob": "7bd6811dca5c06cebaaf:3aba07b606624d2b5ad2",
+      "cut_blob": "7bd6811dca5c06cebaaf:3aba07b606624d2b5ad2"
+    },
+    {
+      "path": "src/app/c/[conversationId]/e2ee-restore-panel.tsx",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Recuperación explícita; actor fresco/rol y descarte de importaciones tardías en16b98a2/9e9c7fe.",
+      "base_blob": "63dcfac6c7799fcc180e:75dbb85ae5f2280a7851",
+      "upstream_blob": "d6feb4eb5d6d49bcb5d6:d13e190b99d87cf747b8",
+      "cut_blob": "3c36964e0c714c26149e:f2c885d3698049e08ae1"
+    },
+    {
+      "path": "src/app/c/[conversationId]/page.tsx",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Lista lateral sólo dueño, privateaccess y waitlist; preserva redirectpaciente/Calendar/paquetes; la key incluye cuenta/rol/sala.",
+      "base_blob": "3839c41e1cb333fac7c2:64373115db06cf5acc5c",
+      "upstream_blob": "9f1cb87937b6deb2fbd9:1a5b229e6d856dcb1a2b",
+      "cut_blob": "26fb01f4cf247e5a3564:21367954a8d176739e9d"
+    },
+    {
+      "path": "src/app/c/[conversationId]/waitlist-prompt-card.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Botón Anotarme explícito y confirmación motivo general; correo sóloHTTPS, no mensajeWS.",
+      "base_blob": null,
+      "upstream_blob": "ce39f677c85b481558f0:dcd4487d36c140fa6aed",
+      "cut_blob": "90764bdc66242b8704cf:cb23d388975f1e57888d"
+    },
+    {
+      "path": "src/app/como-funciona/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitido WaitlistCallout contextual; decidir ubicación/copy con marketing actual.",
+      "base_blob": "d0069d38a2428afaded5:af4bcff84837f1ca11f7",
+      "upstream_blob": "7f0c9f9d9e9dbb9f90e0:1fc49550c760c14cbd61",
+      "cut_blob": "d0069d38a2428afaded5:af4bcff84837f1ca11f7"
+    },
+    {
+      "path": "src/app/globals.css",
+      "upstream_change": "M",
+      "decision": "Parcial",
+      "note": "Chat/inbox/drawer/waitlist aislados en CSS locales; no tokens globales/panel-shell ni jerarquía pro-contact-wa/main upstream.",
+      "base_blob": "171d9fd3ce800274ac95:ab9dae2dfd2dd687746c",
+      "upstream_blob": "621ff44d250925c25b9d:488bff7173dae8957b6a",
+      "cut_blob": "171d9fd3ce800274ac95:ab9dae2dfd2dd687746c"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Enlace footer omitido; footer actual en components/app-frame.tsx, no transplantar layout upstream.",
+      "base_blob": "0c64db2ce251323c12e1:cdcd2b26a942f2dbed5f",
+      "upstream_blob": "f0ef7a04cb2fb8cccf83:f2b95512c4eb0729e52e",
+      "cut_blob": "0c64db2ce251323c12e1:cdcd2b26a942f2dbed5f"
+    },
+    {
+      "path": "src/app/lista-de-espera/page.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Página/formulario general separado de terremoto; no promete cupo garantizado ni todos los servicios gratuitos.",
+      "base_blob": null,
+      "upstream_blob": "dba0f0e223547cf13368:7701e9d247aae3925565",
+      "cut_blob": "5279a43cdaf3fa50c052:d6ad7c0a4f3cfd36dced"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitido WaitlistCallout contextual; decidir ubicación/copy con marketing actual.",
+      "base_blob": "cdc3db2c46a348b1f809:4783d19849fae682bbcd",
+      "upstream_blob": "e267957991efdecc43f4:82335bdef74211f48bee",
+      "cut_blob": "cdc3db2c46a348b1f809:4783d19849fae682bbcd"
+    },
+    {
+      "path": "src/app/preguntas-frecuentes/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitidos callout/pregunta para personas no afectadas y FAQ JSON-LD concordante; adaptar sin prometer disponibilidad.",
+      "base_blob": "ad55f99ac712a60c1ba6:a2ac3f774f76aca23161",
+      "upstream_blob": "5bbeb037c7f09bdec0ff:76151a5f5a6ad8fce3ec",
+      "cut_blob": "ad55f99ac712a60c1ba6:a2ac3f774f76aca23161"
+    },
+    {
+      "path": "src/app/privacidad/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitidos campos/uso/hash/retiro/anonimización12 meses waitlist; necesario reconciliar copy antes de publicar.",
+      "base_blob": "01d47339d540c8097521:198d1bb49fc3096ef469",
+      "upstream_blob": "cf16deef10b74e3d71bd:fc9a83c6d75c46b35aeb",
+      "cut_blob": "01d47339d540c8097521:198d1bb49fc3096ef469"
+    },
+    {
+      "path": "src/app/pro/dashboard/page.tsx",
+      "upstream_change": "M",
+      "decision": "Parcial",
+      "note": "Tarjeta Cifrado siempre visible y por cuenta; no PanelShell upstream ni reemplazo de ajustes/calendario/CRM.",
+      "base_blob": "7f364f5e16e7e508fa60:70e10a845e0cb60fed83",
+      "upstream_blob": "0038ec8be0ffd6e130cb:77e0c8e481311620f9ba",
+      "cut_blob": "91223d8feb7455fe74b8:11cf986e5d4e25d46a64"
+    },
+    {
+      "path": "src/app/pro/page.tsx",
+      "upstream_change": "M",
+      "decision": "Descartado",
+      "note": "No redirecciones/defaults profesionales globales del upstream; root conserva chooser paciente/pro/admin/Admisión y callbacks actuales.",
+      "base_blob": "32593e9095cd01b964a2:e5f9ba64aa016a445315",
+      "upstream_blob": "618877651a3525a622e2:de4d6d33be79b3aac404",
+      "cut_blob": "32593e9095cd01b964a2:e5f9ba64aa016a445315"
+    },
+    {
+      "path": "src/app/profesionales/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitido WaitlistPanel source=profesionales; adaptar a catálogo general actual sin bloquear contacto.",
+      "base_blob": "83a54a4d1cac8d79a66c:9596fbfaafeff622efda",
+      "upstream_blob": "5137696e0caf6557460d:ea99453bac34c6ad650d",
+      "cut_blob": "83a54a4d1cac8d79a66c:9596fbfaafeff622efda"
+    },
+    {
+      "path": "src/app/profesionales/professional-card.tsx",
+      "upstream_change": "M",
+      "decision": "Parcial",
+      "note": "CTA Contactar ahora visible y tracking restituido; se conservan alias/correo opcionales y medios externos. Jerarquía única347 pendiente decisión root.",
+      "base_blob": "b1ce922cecaf77b16329:18e9a3d1d94d8efb5495",
+      "upstream_blob": "4daaa54ebf9f78b20724:4b39772da5c68abd1602",
+      "cut_blob": "64999248da57f77dafc9:db56cc633be16dd77d9a"
+    },
+    {
+      "path": "src/app/quienes-somos/page.tsx",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitidos enlaces explicativos a lista general y asociaciones.",
+      "base_blob": "6623363872fa472b593a:8610b39b5295274dae72",
+      "upstream_blob": "717647a2487711341ac6:9779b7202b1637d9f456",
+      "cut_blob": "6623363872fa472b593a:8610b39b5295274dae72"
+    },
+    {
+      "path": "src/app/sitemap.ts",
+      "upstream_change": "M",
+      "decision": "Root",
+      "note": "Omitida entrada /lista-de-espera con priority0.6/changeFrequency monthly; owner de SEO.",
+      "base_blob": "a5880748bb243fbba544:5db7b9a08ff6c6d0af32",
+      "upstream_blob": "92fef405acf6cf69cb4e:901b84f412717c59d8cd",
+      "cut_blob": "a5880748bb243fbba544:5db7b9a08ff6c6d0af32"
+    },
+    {
+      "path": "src/components/admin-incomplete-registrations.tsx",
+      "upstream_change": "M",
+      "decision": "Descartado",
+      "note": "Sólo id=registros/aliados para anchors del PanelShell antiguo; AdminShell vigente usa rutas.",
+      "base_blob": "7927591d458e1bc7b215:39ccc4dd8cab2df091d0",
+      "upstream_blob": "d458044b0cd2cb800544:7b557753d1e67e1df5ba",
+      "cut_blob": "7927591d458e1bc7b215:39ccc4dd8cab2df091d0"
+    },
+    {
+      "path": "src/components/admin-partners.tsx",
+      "upstream_change": "M",
+      "decision": "Descartado",
+      "note": "Sólo id=registros/aliados para anchors del PanelShell antiguo; AdminShell vigente usa rutas.",
+      "base_blob": "392ef79cb91aa566d0ea:6d2daed1ddfcf0d5fba2",
+      "upstream_blob": "8e01e9bc7801cca89f72:14f6ca4d5492e6b4e35f",
+      "cut_blob": "392ef79cb91aa566d0ea:6d2daed1ddfcf0d5fba2"
+    },
+    {
+      "path": "src/components/auth-panel.tsx",
+      "upstream_change": "M",
+      "decision": "Descartado",
+      "note": "No redirecciones/defaults profesionales globales del upstream; root conserva chooser paciente/pro/admin/Admisión y callbacks actuales.",
+      "base_blob": "fb8bef3ab214c7a9ecac:a2b37ed5570c3b72b329",
+      "upstream_blob": "d43f5a240db0bd32a7dd:c5838c297d75520cee8d",
+      "cut_blob": "fb8bef3ab214c7a9ecac:a2b37ed5570c3b72b329"
+    },
+    {
+      "path": "src/components/e2ee-pro-setup.tsx",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Tarjeta por cuenta/código único; backups confirmados y memoria invalidada al logout/switch/expiry.",
+      "base_blob": "54e71c3c7cd5baf3646e:60d064c3f68699948ebc",
+      "upstream_blob": "1de2b0f67b28b62fca45:af2eeebe18bf7b2bca0a",
+      "cut_blob": "bb859c43d7ef72a21ab0:a2a7709086921be60c6d"
+    },
+    {
+      "path": "src/components/panel-shell.tsx",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "No sustituir AdminShell/WorkspaceShell/PracticeNav por panel de scroll upstream.",
+      "base_blob": null,
+      "upstream_blob": "8aad9a9532d76df059cb:9560505466055cab7a39",
+      "cut_blob": null
+    },
+    {
+      "path": "src/components/pro-chat-list.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Orden/metadatos/unread, sondeo y WSobserver 5 canales; renovación15 minutos, cierres visibility/logout y scopepropietario.",
+      "base_blob": null,
+      "upstream_blob": "d24d9e67b4df3bf9af14:1db4191846aa8bd41c4f",
+      "cut_blob": "c9e49074ac7f4ddebf44:df80430e82f0e1c7f96a"
+    },
+    {
+      "path": "src/components/side-drawer.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Cajón móvil de inbox, Escape/foco/trap/cleanup/desktop; CSSlocal, no menús del resto del producto.",
+      "base_blob": null,
+      "upstream_blob": "e82ee90488df936366e6:9846734eea88ceab2b79",
+      "cut_blob": "efb68cac19eefddffc91:afd6450ae951424c3b77"
+    },
+    {
+      "path": "src/components/waitlist-callout.tsx",
+      "upstream_change": "A",
+      "decision": "Parcial",
+      "note": "Componente disponible pero sin callsites públicos en esta rama: no afirmar descubrimiento implementado.",
+      "base_blob": null,
+      "upstream_blob": "8c2d199d6435ad4c3df0:854af2f5055d8b0068f8",
+      "cut_blob": "7644cea4ac50d3bc0cea:c09aeeb0a677f994122c"
+    },
+    {
+      "path": "src/components/waitlist-form.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Consentimiento y separación de ayuda gratuita y formulario general; sólo panel dedicado montado en esta rama.",
+      "base_blob": null,
+      "upstream_blob": "9d42516fbb5bd220163c:903a331fbccd4e067517",
+      "cut_blob": "9d42516fbb5bd220163c:903a331fbccd4e067517"
+    },
+    {
+      "path": "src/components/waitlist-panel.tsx",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Consentimiento y separación de ayuda gratuita y formulario general; sólo panel dedicado montado en esta rama.",
+      "base_blob": null,
+      "upstream_blob": "31d1da1e3a530b6341a6:77de2fc3c3deac7e7c7c",
+      "cut_blob": "07f19a87ae95c78becb2:2d1b4c80d27e1d335289"
+    },
+    {
+      "path": "src/db/schema.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Append0037/0038 y tabla waitlist/vínculo; conservar todas las tablas CRM.",
+      "base_blob": "0a42354701a4b9ccdc38:4d935f5d7162071d96f4",
+      "upstream_blob": "d7986ec66b5b33e4d1ee:9b4dbe4a87e7a44166df",
+      "cut_blob": "096690cfa3b3fae55669:a4a1072168bde699d272"
+    },
+    {
+      "path": "src/lib/chat-view.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Permiso seeker registrado de sala y dueño profesional con sesión de autenticación viva, sin cookiepro independiente.",
+      "base_blob": "cb106ccec919b23026ff:a35368dc9ce8bc516e62",
+      "upstream_blob": "df15f7d379cc3434f0df:a422da4c59d7c6619bc5",
+      "cut_blob": "e5fcd12d4b285a1c5e41:065131ad238d3fdbb156"
+    },
+    {
+      "path": "src/lib/email-templates.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Confirmación waitlist y aviso interno sin relato; no envíos reales en QA.",
+      "base_blob": "92e3e13b0549a7d73402:02fe6246f1e4bae44001",
+      "upstream_blob": "7c072c19c3cab46f8c2a:7e5e5af64dbe1b0b8f1c",
+      "cut_blob": "210626a4ec74c5d2bd79:80b0a7c7673c120b143b"
+    },
+    {
+      "path": "src/lib/notifications.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Confirmación waitlist y aviso interno sin relato; no envíos reales en QA.",
+      "base_blob": "215aada0f2647248f917:bd3ba9771a054e2b1ddb",
+      "upstream_blob": "415ee78b947f4f28bbab:eba9d245487336c455d3",
+      "cut_blob": "86ca8ddd50ee12e0ca0b:e6838145ba7ebca4281d"
+    },
+    {
+      "path": "src/lib/panel-nav.ts",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "No sustituir AdminShell/WorkspaceShell/PracticeNav por panel de scroll upstream.",
+      "base_blob": null,
+      "upstream_blob": "8a3b8fc85ab161e9f2a4:3fd719dae8000a96b402",
+      "cut_blob": null
+    },
+    {
+      "path": "src/lib/pro-chats.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Orden/metadatos/unread, sondeo y WSobserver 5 canales; renovación15 minutos, cierres visibility/logout y scopepropietario.",
+      "base_blob": null,
+      "upstream_blob": "b6584ecd7031eea1e03b:2f9b1e060e98827e5170",
+      "cut_blob": "95ae5da8861fbbce6086:56dbaa77cff19a374331"
+    },
+    {
+      "path": "src/lib/pro-entry.ts",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "No redirecciones/defaults profesionales globales del upstream; root conserva chooser paciente/pro/admin/Admisión y callbacks actuales.",
+      "base_blob": null,
+      "upstream_blob": "e48d98f8eeaac3fee9ce:deca86ac273a9e220a10",
+      "cut_blob": null
+    },
+    {
+      "path": "src/lib/requester-hash.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Dominio waitlist hash/límites/esquemas; confirmación general y sources conservados.",
+      "base_blob": "6df8fc61c7fd127435f8:fe2225169b55f7772fcd",
+      "upstream_blob": "33d0ccd6ad23f6db0a69:417db8ea4081a3500e21",
+      "cut_blob": "33d0ccd6ad23f6db0a69:417db8ea4081a3500e21"
+    },
+    {
+      "path": "src/lib/retention.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Anonimización12 meses atómica/idempotente; conserva toda retención CRM y guard de caducidad dentro de UPDATE.",
+      "base_blob": "cf84df296752b5205568:15a47530417e01b4df14",
+      "upstream_blob": "e533cea192313568a0fa:02feed61592345433cc4",
+      "cut_blob": "53eac4617296394fa2ab:99c81beeac0a021361ed"
+    },
+    {
+      "path": "src/lib/seeker-token.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Inbox separado authSessionId/userId; finalidadenlace/navegador firmada y parser failclosed.",
+      "base_blob": "fa7ef1a5f11b0ce5d420:4ebccf80076ad47d43c9",
+      "upstream_blob": "1e26dfa978d84138ae26:18b2b3032b80eddf4320",
+      "cut_blob": "7f1d19b9faed5423cd74:f1ee890792379c91041d"
+    },
+    {
+      "path": "src/lib/validation.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Dominio waitlist hash/límites/esquemas; confirmación general y sources conservados.",
+      "base_blob": "f7fd854d7c3b6743b3d2:5bc91fc6847d7db7191c",
+      "upstream_blob": "5edec2a73ccd0ad42266:adae8775228d0cf13c75",
+      "cut_blob": "7d74dd2935618b24c4a0:f8fa66681725e85af38d"
+    },
+    {
+      "path": "src/lib/waitlist-store.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Alta y cambios de estado/auditoría atómicos; correo conocido no altera fila ajena.",
+      "base_blob": null,
+      "upstream_blob": "7618d74f6b5aa363b720:5f4f258cd9064baac2b9",
+      "cut_blob": "f1eb0546fa20bdf8a23e:0397d0a98f65f599b1cf"
+    },
+    {
+      "path": "src/lib/waitlist.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Dominio waitlist hash/límites/esquemas; confirmación general y sources conservados.",
+      "base_blob": null,
+      "upstream_blob": "348f217f6439f8584235:5d9dd8556917404f220a",
+      "cut_blob": "348f217f6439f8584235:5d9dd8556917404f220a"
+    },
+    {
+      "path": "src/server/auth-gate.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Observer sin datos ni presencia; D1role/sala/propietario/sesión viva antes de historia/frame/destinatario/presencia, sin fallback.",
+      "base_blob": "70c5b73576d5709a6b25:dc2ea2b402caa817f06c",
+      "upstream_blob": "f8253ed2c0bf099671e2:1404982088a0bf12b5c5",
+      "cut_blob": "2ef18b8fcdefe21b6362:85cf1eed537101fe7435"
+    },
+    {
+      "path": "src/server/conversation.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Observer sin datos ni presencia; D1role/sala/propietario/sesión viva antes de historia/frame/destinatario/presencia, sin fallback.",
+      "base_blob": "9e99eb2bf45682736741:a27207bc98acc2837276",
+      "upstream_blob": "704c78b0617bb4f0690c:49f7eaadac470d03525c",
+      "cut_blob": "d944d3e2ef2aeed0adce:b21ab05e466cc6d56cb7"
+    },
+    {
+      "path": "src/shared/e2ee-gating.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Estado final7e0c7b3: nunca rotar clave publicada sin consentimiento. No reaplicar estado inseguro intermedio7bb1827.",
+      "base_blob": null,
+      "upstream_blob": "edff3c17a89bfd978d00:1d8c49fdacab9b330a3b",
+      "cut_blob": "edff3c17a89bfd978d00:1d8c49fdacab9b330a3b"
+    },
+    {
+      "path": "src/shared/waitlist-prompt.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Botón Anotarme explícito y confirmación motivo general; correo sóloHTTPS, no mensajeWS.",
+      "base_blob": null,
+      "upstream_blob": "8aac9e473c62871665d9:badcc260a31329374fe1",
+      "cut_blob": "8aac9e473c62871665d9:badcc260a31329374fe1"
+    },
+    {
+      "path": "src/tests/acceso-token-route.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Pruebas propias SQLite temporal de SIDnuevo/permiso/rol/revoked/TTL/actor/sala y carreras SQL.",
+      "base_blob": null,
+      "upstream_blob": "c5ddcd42536afd9b942d:7b4baf0799e010477cb1",
+      "cut_blob": "4ae5a1f91493f090ec90:2d87f28d14807e7e2d7e"
+    },
+    {
+      "path": "src/tests/auth-gate.test.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "Fixtures liveauth/grants; root corrige fixture expiry en fuente integrada. No modificado en lotes nuevos por reserva root.",
+      "base_blob": "ab2984bc3f1d1ff244d6:2c1a697d576719dac941",
+      "upstream_blob": "9f96ac194852211c8e0c:2ba514247ebbd45c9c57",
+      "cut_blob": "d7f9a48951d6c037be0b:9c3cadd1984485389643"
+    },
+    {
+      "path": "src/tests/chat-access.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Pruebas propias SQLite temporal de SIDnuevo/permiso/rol/revoked/TTL/actor/sala y carreras SQL.",
+      "base_blob": null,
+      "upstream_blob": "161c662b7b5fa23a5177:b072b6845163c776d4f6",
+      "cut_blob": "c07e8f05b1f89f976e29:7778b3c380cc15129024"
+    },
+    {
+      "path": "src/tests/e2ee-gating.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Gate final compatible con recuperación, no auto-rotación y vistas porrol.",
+      "base_blob": null,
+      "upstream_blob": "2cfd0d32c58be10ae4d0:bbf194db0a4907b4d291",
+      "cut_blob": "2cfd0d32c58be10ae4d0:bbf194db0a4907b4d291"
+    },
+    {
+      "path": "src/tests/panel-navigation.test.ts",
+      "upstream_change": "A",
+      "decision": "Descartado",
+      "note": "Prueba PanelShell viejo; QA pertinente actual en practice-navigation/admin-navigation, integración root.",
+      "base_blob": null,
+      "upstream_blob": "f9c5cd287238d70de760:1bc7f0999e27057b3cd8",
+      "cut_blob": null
+    },
+    {
+      "path": "src/tests/waitlist-actions.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Fixtures ficticias, SQL temporal/races/sin takeover/permisos/consentimiento/migraciones renumeradas.",
+      "base_blob": null,
+      "upstream_blob": "ac90d4a50f6e3b5d2b37:1a731dae7165b609b172",
+      "cut_blob": "3068c9a7cfabf2322525:9a005ddd0d4c03f8e2f6"
+    },
+    {
+      "path": "src/tests/waitlist-chat-actions.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Fixtures ficticias, SQL temporal/races/sin takeover/permisos/consentimiento/migraciones renumeradas.",
+      "base_blob": null,
+      "upstream_blob": "381ad09b7a71745aa97f:504fd1e1610057ff8b80",
+      "cut_blob": "0c2ed295e425bfcfc93e:8fa1a2730b1b11bbae0c"
+    },
+    {
+      "path": "src/tests/waitlist-migration.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Fixtures ficticias, SQL temporal/races/sin takeover/permisos/consentimiento/migraciones renumeradas.",
+      "base_blob": null,
+      "upstream_blob": "98a332b75c5408c9032d:fe09bcff8883172f7b87",
+      "cut_blob": "67eb003877cd70fbcbf1:97c749746cd88e462672"
+    },
+    {
+      "path": "src/tests/waitlist-prompt.test.ts",
+      "upstream_change": "A",
+      "decision": "Adaptado",
+      "note": "Fixtures ficticias, SQL temporal/races/sin takeover/permisos/consentimiento/migraciones renumeradas.",
+      "base_blob": null,
+      "upstream_blob": "e01b12d5de34b2b5c47a:a71e0c35322a9beefe92",
+      "cut_blob": "e01b12d5de34b2b5c47a:a71e0c35322a9beefe92"
+    },
+    {
+      "path": "test/chat.workers.test.ts",
+      "upstream_change": "M",
+      "decision": "Adaptado",
+      "note": "WS/DO/mensajesSQL reales, transporte D1 ficticio explícito;25checks; D1driver real independiente en chat-d1-atomic.",
+      "base_blob": "e4191605d99feac73ab6:5a4750323131da6d904a",
+      "upstream_blob": "962c761d5a78cca0ee7c:b2e633658184bcbb0e7f",
+      "cut_blob": "23266784d3bdacfa13c0:372c7c2328d3cb7a6691"
+    },
+    {
+      "path": "vitest.workers.config.mts",
+      "upstream_change": "M",
+      "decision": "Parcial",
+      "note": "No importar d1Databases:[DB] sin crear esquema/filas; integración conjunta D1/WS sigue pendiente root. D1SQL real se prueba aparte.",
+      "base_blob": "936453affe83ab77c6b4:c1ea1fe4b2797d7fd160",
+      "upstream_blob": "39b97f693f752ac80c49:81eea5e458d2f089c70a",
+      "cut_blob": "936453affe83ab77c6b4:c1ea1fe4b2797d7fd160"
+    }
+  ],
+  "blob_format": "SHA-1 hex completo, dos bloques de20 separados por dos puntos; reconstruir quitando el separador. Son IDs de objetos Git, no credenciales."
+}

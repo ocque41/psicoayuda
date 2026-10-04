@@ -228,3 +228,14 @@ quien le escribió; la autorización la resuelve el `onBeforeConnect`).
 ## Preguntas abiertas
 - ✅ Resuelto (v0.8.0): reanudación cross-device con enlace mágico (`/acceso`) + sesión deslizante.
 - Pendientes del workflow original: ventana del algoritmo de respuesta (30d/20conv), umbral de muestras (3) y timeout (48h), frecuencia del Cron, presencia opt-in.
+
+
+## Integración CRM del 4 de octubre de 2026
+
+El contrato vigente de recuperación por cuenta, grants ligados a BetterAuth, enlace separado del SID del navegador, borradores cifrados y lista general se describe en [CHAT_WAITLIST_INTEGRATION](CHAT_WAITLIST_INTEGRATION.md). La auditoría [CHAT_UPSTREAM_AUDIT](CHAT_UPSTREAM_AUDIT.md) y su inventario de 73 rutas distinguen funciones recuperadas, sustituciones deliberadas y gaps de otros owners. Es una integración selectiva sobre f1c69cd, sin reemplazar CRM/admin/Calendar/Notas.
+
+La tarjeta Cifrado ofrece un código por cuenta, sin rotación silenciosa de una clave profesional publicada; el slot se identifica por professionalId. La sesión/rol actual se verifica antes de revelar/restaurar y los eventos de invalidación/expiración retiran memoria y promesas tardías sin borrar claves ni texto cifrado. Acceso por enlace y descifrado por código son capacidades distintas.
+
+La bandeja ProChatList usa sondeo y hasta 5 WebSockets observer con token propio de 15 minutos ligado a authSessionId/userId vivos en D1; sólo reciben activity(role, at) y no historia, claves o presencia. Su existencia no suprime correo. Abrir la sala o renovar el token no marca leído: se persiste únicamente el mensaje observado en pantalla.
+
+La tarjeta cifrada de lista de espera deriva a HTTPS y exige confirmación explícita de motivo general. No cambia solicitudes/cupos de Ayuda Terremoto. Migraciones 0037/0038 son aditivas, porque 0027/0028 pertenecen a CRM.

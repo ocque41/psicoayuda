@@ -407,6 +407,34 @@ try {
       );
     }
     await scenario(
+      "dos Enter en la misma tarea sólo inician un cifrado",
+      async (page) => {
+        const input = await composer(page);
+        await input.fill("Doble Enter simultáneo ficticio");
+        await page.evaluate(() => {
+          window.fixture.holdEncryption = true;
+          const input = document.querySelector("textarea");
+          for (let i = 0; i < 2; i++)
+            input.dispatchEvent(
+              new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+            );
+        });
+        await page.waitForFunction(
+          () => window.fixture.encryptionPending === 1,
+        );
+        await page.waitForTimeout(80);
+        assert.equal(
+          await page.evaluate(() => window.fixture.encryptionPending),
+          1,
+        );
+        await finish(page);
+        assert.deepEqual(
+          await page.evaluate(() => window.fixture.sentTexts()),
+          ["Doble Enter simultáneo ficticio"],
+        );
+      },
+    );
+    await scenario(
       "envío intacto limpia texto y borrador cifrado",
       async (page) => {
         const input = await composer(page);

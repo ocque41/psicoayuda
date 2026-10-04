@@ -69,7 +69,12 @@ export function FeedProfessionalCard({
           dispositivo). Puedes dejarlo vacío.
         </p>
       </div>
-      <button className="button human block" type="submit">
+      <button
+        className="button human block"
+        type="submit"
+        data-track="chat_start"
+        data-track-label={professional.name}
+      >
         Contactar ahora
       </button>
     </form>
