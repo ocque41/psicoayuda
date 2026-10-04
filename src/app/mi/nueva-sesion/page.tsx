@@ -3,8 +3,8 @@ import { PracticeForm } from "@/components/practice/forms";
 import { PracticePagination } from "@/components/practice/pagination";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { requirePatientAccount } from "@/lib/patient/access";
-import { patientChats } from "@/lib/patient/queries";
 import { requestPatientSession } from "../actions";
+import { patientSessionOptions } from "./options";
 export default async function NewPatientSession({
   searchParams,
 }: {
@@ -12,8 +12,8 @@ export default async function NewPatientSession({
 }) {
   const { account } = await requirePatientAccount(),
     params = await searchParams,
-    chats = await patientChats(account.userId, params.pagina);
-  const available = chats.rows.filter((c) => c.status === "open");
+    chats = await patientSessionOptions(account.userId, params.pagina);
+  const available = chats.rows;
   return (
     <WorkspaceShell
       audience="patient"
@@ -61,7 +61,9 @@ export default async function NewPatientSession({
           ) : (
             <div className="workspace-empty">
               <p>
-                Necesitas una conversación abierta para coordinar una sesión.
+                Necesitas una conversación abierta con un profesional aprobado
+                para proponer una sesión. Tus conversaciones anteriores siguen
+                disponibles en Mensajes.
               </p>
               <div className="panel-nav">
                 <Link className="button human" href="/profesionales">
