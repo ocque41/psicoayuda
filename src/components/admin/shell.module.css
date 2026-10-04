@@ -109,7 +109,7 @@
   line-height: 1.5;
 }
 .sidebarFooter > span {
-  color: #79816e;
+  color: #626a5b;
   font-size: 11px;
 }
 .main {
@@ -192,6 +192,13 @@
 }
 .content :global(table select) {
   max-width: 190px;
+  min-height: 44px;
+}
+.content :global(table .button),
+.content :global(table button) {
+  min-height: 44px;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .content :global(.admin-request-list) {
   grid-template-columns: minmax(0, 1fr);
