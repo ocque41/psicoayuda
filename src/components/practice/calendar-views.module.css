@@ -3,6 +3,18 @@
   flex-wrap: wrap;
   gap: 4px;
 }
+.root :global(.workspace-segmented button) {
+  min-height: 44px;
+}
+.root :global(.practice-calendar td) {
+  padding: 0;
+}
+.root :global(.calendar-day) {
+  width: 100%;
+  min-width: 24px;
+  min-height: 44px;
+  padding: 0;
+}
 .root :global(.calendar-date-picker) {
   display: flex;
   align-items: center;
