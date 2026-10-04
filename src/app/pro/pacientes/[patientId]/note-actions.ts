@@ -118,12 +118,46 @@ export async function savePatientNote(data: {
           ),
         )
         .returning({ id: practiceNotes.id });
-      if (!changed.length)
+      if (!changed.length) {
+        // Una respuesta perdida puede dejar el cliente en la revisión anterior.
+        // Solo confirma el mismo contenido en la revisión inmediata: no escribe
+        // ni convierte una edición antigua en permiso para pisar otra ventana.
+        const existing = await db.query.practiceNotes.findFirst({
+          where: and(
+            eq(practiceNotes.id, id),
+            eq(practiceNotes.patientId, input.patientId),
+            eq(practiceNotes.professionalId, pro.id),
+            eq(practiceNotes.revision, input.revision + 1),
+            currentActor(pro.id, pro.userId, input.patientId),
+            currentNoteSession(),
+            appointmentId
+              ? eq(practiceNotes.appointmentId, appointmentId)
+              : isNull(practiceNotes.appointmentId),
+          ),
+        });
+        if (
+          existing &&
+          (await decryptNote(
+            existing.ciphertext,
+            pro.id,
+            input.patientId,
+            id,
+          )) === input.content
+        ) {
+          revalidatePath(`/pro/pacientes/${input.patientId}`);
+          return {
+            ok: true,
+            id,
+            revision: existing.revision,
+            message: "Nota guardada en tu espacio privado.",
+          };
+        }
         return {
           ok: false,
           message:
             "Esta nota cambió en otra ventana. Conserva tu texto y actualiza la página antes de reemplazarlo.",
         };
+      }
     } else {
       const inserted = await db
         .insert(practiceNotes)
@@ -180,6 +214,7 @@ export async function savePatientNote(data: {
             message:
               "La nota ya existe con otro contenido. Conserva tu texto y actualiza antes de reemplazarla.",
           };
+        revalidatePath(`/pro/pacientes/${input.patientId}`);
         return {
           ok: true,
           id,

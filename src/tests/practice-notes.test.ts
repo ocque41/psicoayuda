@@ -297,6 +297,62 @@ describe("notas privadas con cifrado e integridad", () => {
     );
     expect((await deletePatientNote(base.patientId, base.id, 2)).ok).toBe(true);
   });
+  it("reintentar una edición cuya respuesta se perdió confirma el guardado sin otra escritura", async () => {
+    key();
+    const base = {
+      patientId: `${P}-patient`,
+      appointmentId: `${P}-session`,
+      id: `${P}-edit-retry`,
+      content: "Apunte inicial ficticio",
+      revision: 0,
+    };
+    expect(await savePatientNote(base)).toMatchObject({
+      ok: true,
+      revision: 1,
+    });
+    const edit = { ...base, content: "Apunte ficticio editado", revision: 1 };
+    expect(await savePatientNote(edit)).toMatchObject({
+      ok: true,
+      revision: 2,
+    });
+    const saved = await db.query.practiceNotes.findFirst({
+      where: eq(practiceNotes.id, base.id),
+    });
+    expect(await savePatientNote(edit)).toMatchObject({
+      ok: true,
+      id: base.id,
+      revision: 2,
+    });
+    expect(
+      await db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, base.id),
+      }),
+    ).toEqual(saved);
+    expect(
+      (await savePatientNote({ ...edit, content: "Otra edición ficticia" })).ok,
+    ).toBe(false);
+    expect(
+      (await savePatientNote({ ...edit, appointmentId: `${P}-session-2` })).ok,
+    ).toBe(false);
+    expect(
+      await db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, base.id),
+      }),
+    ).toEqual(saved);
+    expect(await savePatientNote({ ...edit, revision: 2 })).toMatchObject({
+      ok: true,
+      revision: 3,
+    });
+    const latest = await db.query.practiceNotes.findFirst({
+      where: eq(practiceNotes.id, base.id),
+    });
+    expect((await savePatientNote(edit)).ok).toBe(false);
+    expect(
+      await db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, base.id),
+      }),
+    ).toEqual(latest);
+  });
   it.each([
     undefined,
     null,
@@ -325,6 +381,22 @@ describe("notas privadas con cifrado e integridad", () => {
       content: "Nota antigua revisada",
     });
     expect(result).toMatchObject({ ok: true, revision: 2 });
+    const saved = await db.query.practiceNotes.findFirst({
+      where: eq(practiceNotes.id, `${P}-legacy`),
+    });
+    expect(
+      await savePatientNote({
+        patientId: `${P}-patient`,
+        id: `${P}-legacy`,
+        revision: 1,
+        content: "Nota antigua revisada",
+      }),
+    ).toMatchObject({ ok: true, revision: 2 });
+    expect(
+      await db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, `${P}-legacy`),
+      }),
+    ).toEqual(saved);
     expect(
       (
         await savePatientNote({
