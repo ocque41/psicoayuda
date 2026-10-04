@@ -13,6 +13,7 @@ export type SeekerTokenPayload = {
   conversationId: string;
   helpRequestId?: string;
   role: "seeker";
+  purpose?: "browser" | "access-link";
   iat: number;
   exp: number;
 };
@@ -41,7 +42,7 @@ export function mintSeekerToken(
   return `${body}.${sign(body, secret)}`;
 }
 
-export function verifySeekerToken(
+function verifySeekerPayload(
   token: string,
   secret: string,
   nowMs: number,
@@ -72,13 +73,40 @@ export function verifySeekerToken(
     payload.role !== "seeker" ||
     typeof payload.sid !== "string" ||
     typeof payload.conversationId !== "string" ||
-    typeof payload.exp !== "number" ||
-    payload.exp < nowMs
+    (payload.purpose !== undefined &&
+      payload.purpose !== "browser" &&
+      payload.purpose !== "access-link") ||
+    !Number.isFinite(payload.exp) ||
+    !Number.isFinite(payload.iat) ||
+    payload.iat > nowMs ||
+    payload.exp <= nowMs ||
+    payload.exp <= payload.iat ||
+    !payload.sid ||
+    !payload.conversationId
   ) {
     return null;
   }
 
   return payload;
+}
+
+/** Cookie de navegador: un enlace de correo nunca concede autoridad directamente. */
+export function verifySeekerToken(
+  token: string,
+  secret: string,
+  nowMs: number,
+) {
+  const payload = verifySeekerPayload(token, secret, nowMs);
+  return payload?.purpose === "access-link" ? null : payload;
+}
+/** Intercambio explícito: admite enlaces legados, nunca una cookie nueva como enlace. */
+export function verifySeekerAccessToken(
+  token: string,
+  secret: string,
+  nowMs: number,
+) {
+  const payload = verifySeekerPayload(token, secret, nowMs);
+  return payload?.purpose === "browser" ? null : payload;
 }
 
 // ---- Token simétrico para el PROFESIONAL ----

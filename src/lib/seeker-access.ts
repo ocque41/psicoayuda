@@ -27,7 +27,7 @@ export function accessUrlForToken(token: string) {
 }
 
 /**
- * Crea una sesión efímera NUEVA + token firmado para que una persona sin cuenta
+ * Crea un permiso de enlace NUEVO + token firmado para que una persona sin cuenta
  * vuelva a su conversación (enlace mágico por correo o aviso de respuesta). A
  * diferencia de re-mintear el mismo sid, cada enlace es revocable por separado.
  */
@@ -44,7 +44,7 @@ export async function createSeekerAccessLink(input: {
   await db.insert(seekerSessions).values({
     sid,
     conversationId: input.conversationId,
-    role: "seeker",
+    role: "access-link",
     issuedAt: new Date(now),
     expiresAt: new Date(expiresAt),
   });
@@ -55,6 +55,7 @@ export async function createSeekerAccessLink(input: {
       conversationId: input.conversationId,
       helpRequestId: input.helpRequestId ?? undefined,
       role: "seeker",
+      purpose: "access-link",
       iat: now,
       exp: expiresAt,
     },

@@ -371,6 +371,7 @@ export async function renewSeekerChatToken(
   const token = mintSeekerToken(
     {
       sid: payload.sid,
+      purpose: "browser",
       conversationId,
       helpRequestId: payload.helpRequestId,
       role: "seeker",

@@ -1,74 +1,47 @@
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { conversations, seekerSessions } from "@/db/schema";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { SEEKER_COOKIE, verifySeekerToken } from "@/lib/seeker-token";
+import { exchangeSeekerAccess } from "@/lib/seeker-access-session";
+import {
+  mintSeekerToken,
+  SEEKER_COOKIE,
+  verifySeekerAccessToken,
+  verifySeekerToken,
+} from "@/lib/seeker-token";
 
-/**
- * Enlace de acceso del solicitante (llega por correo cuando un profesional
- * acepta o responde). Verifica el token, comprueba que la conversación sigue
- * viva (no anonimizada), deja la cookie httpOnly de la sala y redirige al chat.
- * Sin cuenta, sin contraseña: el token acota la sesión a esa conversación.
- */
+/** El enlace autoriza un SID propio del navegador; nunca se copia como cookie. */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const secret = getAuthSecret();
   const now = Date.now();
-  const payload = verifySeekerToken(token, getAuthSecret(), now);
-
-  if (!payload) {
-    return NextResponse.redirect(
+  const payload = verifySeekerAccessToken(token, secret, now);
+  const invalid = () => {
+    const response = NextResponse.redirect(
       new URL("/ayuda?acceso=invalido", request.url),
     );
-  }
-
-  const conversation = await db.query.conversations.findFirst({
-    where: eq(conversations.id, payload.conversationId),
-  });
-  if (!conversation || conversation.anonymizedAt) {
-    return NextResponse.redirect(
-      new URL("/ayuda?acceso=invalido", request.url),
-    );
-  }
-
-  // La sesión debe existir, ser de ESTA conversación y estar vigente: un token
-  // firmado cuyo sid ya no vale (p. ej. sesión revocada o purgada) no debe
-  // entrar. Antes solo se miraba el token, así que un enlace viejo con la fila
-  // borrada dejaba una cookie inservible y la sala respondía “no encontrada”.
-  const sessionRow = await db.query.seekerSessions.findFirst({
-    where: eq(seekerSessions.sid, payload.sid),
-  });
-  if (
-    !sessionRow ||
-    sessionRow.conversationId !== payload.conversationId ||
-    sessionRow.revokedAt ||
-    sessionRow.expiresAt.getTime() <= now
-  ) {
-    return NextResponse.redirect(
-      new URL("/ayuda?acceso=invalido", request.url),
-    );
-  }
-
-  // Marca de actividad de la sesión (útil para diagnóstico y limpieza futura).
-  await db
-    .update(seekerSessions)
-    .set({ lastSeenAt: new Date(now) })
-    .where(eq(seekerSessions.sid, payload.sid));
-
+    response.headers.set("cache-control", "no-store");
+    response.headers.set("referrer-policy", "no-referrer");
+    return response;
+  };
+  if (!payload) return invalid();
+  const raw = new NextRequest(request).cookies.get(SEEKER_COOKIE)?.value;
+  const current = raw ? verifySeekerToken(raw, secret, now) : null;
+  const browser = await exchangeSeekerAccess(payload, current);
+  if (!browser) return invalid();
   const response = NextResponse.redirect(
-    new URL(`/c/${payload.conversationId}`, request.url),
+    new URL(`/c/${encodeURIComponent(payload.conversationId)}`, request.url),
   );
-  response.cookies.set(SEEKER_COOKIE, token, {
+  response.headers.set("cache-control", "no-store");
+  response.headers.set("referrer-policy", "no-referrer");
+  response.headers.set("x-robots-tag", "noindex");
+  response.cookies.set(SEEKER_COOKIE, mintSeekerToken(browser, secret), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    // La cookie dura lo que le quede al token; la sesión se renueva de forma
-    // deslizante al entrar a la sala (renewSeekerChatToken).
-    maxAge: Math.max(60, Math.floor((payload.exp - now) / 1000)),
+    maxAge: Math.max(0, Math.floor((browser.exp - Date.now()) / 1000)),
   });
   return response;
 }

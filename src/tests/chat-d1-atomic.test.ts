@@ -68,6 +68,10 @@ let database: D1Database;
 
 import { createConversation } from "@/app/actions-chat";
 import { reopenConversation } from "@/app/c/[conversationId]/actions";
+import { getAuthSecret } from "@/lib/auth-secret";
+import { createSeekerAccessLink } from "@/lib/seeker-access";
+import { exchangeSeekerAccess } from "@/lib/seeker-access-session";
+import { verifySeekerAccessToken } from "@/lib/seeker-token";
 
 const timestamp = new Date().toISOString();
 async function aggregate() {
@@ -194,4 +198,52 @@ describe("chat: driver D1 del proyecto con SQLite real en workerd", () => {
     });
     expect((await aggregate()).quota).toBe(2);
   }, 30000);
+  it("intercambio aditivo del enlace registra sólo SIDs propios en driver D1 real", async () => {
+    const room = "fixture-d1-access";
+    await database
+      .prepare(
+        "INSERT INTO conversations(id,professional_id,seeker_sid,status,created_at,updated_at) VALUES (?, 'fixture-d1-pro', 'fixture-origin', 'open', ?, ?)",
+      )
+      .bind(room, timestamp, timestamp)
+      .run();
+    const link = await createSeekerAccessLink({ conversationId: room });
+    const payload = verifySeekerAccessToken(
+      link.token,
+      getAuthSecret(),
+      Date.now(),
+    );
+    if (!payload) throw new Error("Sin enlace ficticio");
+    const a = await exchangeSeekerAccess(payload, null),
+      b = await exchangeSeekerAccess(payload, null);
+    expect(a?.sid).not.toBe(b?.sid);
+    expect(a?.sid).not.toBe(link.sid);
+    expect(a?.purpose).toBe("browser");
+    if (!a || !b) throw new Error("Sin navegadores ficticios");
+    await database
+      .prepare("UPDATE seeker_sessions SET revoked_at=? WHERE sid=?")
+      .bind(Date.now(), a.sid)
+      .run();
+    expect(await exchangeSeekerAccess(payload, a)).toBeNull();
+    expect((await exchangeSeekerAccess(payload, b))?.sid).toBe(b.sid);
+    const source = await database
+      .prepare("SELECT role,revoked_at FROM seeker_sessions WHERE sid=?")
+      .bind(link.sid)
+      .first();
+    expect(source?.role).toBe("access-link");
+    expect(source?.revoked_at).toBeNull();
+    await database
+      .prepare("UPDATE seeker_sessions SET revoked_at=? WHERE sid=?")
+      .bind(Date.now(), link.sid)
+      .run();
+    expect(await exchangeSeekerAccess(payload, null)).toBeNull();
+    expect(await exchangeSeekerAccess(payload, b)).toBeNull();
+    // Revocar el enlace sólo impide nuevos intercambios; el navegador existente
+    // mantiene su propio permiso hasta salir/caducar, sin UPDATE sobre su fila.
+    const survivor = await database
+      .prepare("SELECT role,revoked_at FROM seeker_sessions WHERE sid=?")
+      .bind(b.sid)
+      .first();
+    expect(survivor?.role).toBe("seeker");
+    expect(survivor?.revoked_at).toBeNull();
+  });
 });

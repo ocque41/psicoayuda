@@ -18,6 +18,7 @@ import {
   SEEKER_COOKIE,
   verifyProfessionalInboxToken,
   verifyProfessionalToken,
+  verifySeekerToken,
 } from "@/lib/seeker-token";
 import { makeOnBeforeConnect } from "@/server/auth-gate";
 
@@ -39,6 +40,7 @@ vi.mock("@/lib/notifications", () => ({
 }));
 vi.mock("@/lib/chat-admin", () => ({ disconnectConversationSockets: vi.fn() }));
 
+import { GET as accessGET } from "@/app/acceso/[token]/route";
 import { clearChatSessionCookies } from "@/app/actions-chat-session";
 import {
   ensureProChatToken,
@@ -48,6 +50,7 @@ import {
   verifyConversationE2eeActor,
 } from "@/app/c/[conversationId]/actions";
 import { loadChatView } from "@/lib/chat-view";
+import { createSeekerAccessLink } from "@/lib/seeker-access";
 
 const url = process.env.DATABASE_URL;
 if (!url?.includes("nido-tests-")) throw new Error("Requiere test:isolated.");
@@ -410,5 +413,126 @@ describe("grants chat ligados a una sesión revocable", () => {
         })
       )?.revokedAt,
     ).toBeNull();
+  });
+  it("el enlace no concede actor/renew/WS; intercambio registra SIDs independientes que logout no propaga", async () => {
+    mocks.current.mockResolvedValue(null);
+    const link = await createSeekerAccessLink({ conversationId: id.conv });
+    async function exchange() {
+      const response = await accessGET(
+        new Request(`https://nido.example/acceso/${link.token}`),
+        { params: Promise.resolve({ token: link.token }) },
+      );
+      const value = /nido_seeker=([^;]+)/.exec(
+        response.headers.get("set-cookie") ?? "",
+      )?.[1];
+      if (!value) throw new Error("Sin cookie ficticia");
+      return decodeURIComponent(value);
+    }
+    const a = await exchange(),
+      b = await exchange();
+    const pa = verifySeekerToken(a, secret, Date.now()),
+      pb = verifySeekerToken(b, secret, Date.now());
+    expect(pa?.sid).not.toBe(pb?.sid);
+    mocks.get.mockImplementation((name) =>
+      name === SEEKER_COOKIE ? { value: link.token } : undefined,
+    );
+    expect(await loadChatView(id.conv)).toBeNull();
+    expect((await verifyConversationE2eeActor(id.conv, "seeker")).ok).toBe(
+      false,
+    );
+    expect(await renewSeekerChatToken(id.conv)).toEqual({ ok: false });
+    expect(
+      ((await socketGate(SEEKER_COOKIE, link.token)) as Response).status,
+    ).toBe(403);
+    expect(mocks.set).not.toHaveBeenCalled();
+    await clearChatSessionCookies();
+    expect(
+      (
+        await db.query.seekerSessions.findFirst({
+          where: eq(seekerSessions.sid, link.sid),
+        })
+      )?.revokedAt,
+    ).toBeNull();
+    mocks.get.mockImplementation((name) =>
+      name === SEEKER_COOKIE ? { value: a } : undefined,
+    );
+    expect((await loadChatView(id.conv))?.role).toBe("seeker");
+    expect((await verifyConversationE2eeActor(id.conv, "seeker")).ok).toBe(
+      true,
+    );
+    expect(await socketGate(SEEKER_COOKIE, a)).toBeInstanceOf(Request);
+    expect(await renewSeekerChatToken(id.conv)).toEqual({ ok: true });
+    const renewed = mocks.set.mock.calls.at(-1)?.[1] as string;
+    expect(verifySeekerToken(renewed, secret, Date.now())?.sid).toBe(pa?.sid);
+    expect(verifySeekerToken(renewed, secret, Date.now())?.purpose).toBe(
+      "browser",
+    );
+    await clearChatSessionCookies();
+    expect(
+      ((await socketGate(SEEKER_COOKIE, renewed)) as Response).status,
+    ).toBe(403);
+    expect(await renewSeekerChatToken(id.conv)).toEqual({ ok: false });
+    expect((await verifyConversationE2eeActor(id.conv, "seeker")).ok).toBe(
+      false,
+    );
+    expect(await loadChatView(id.conv)).toBeNull();
+    expect(await socketGate(SEEKER_COOKIE, b)).toBeInstanceOf(Request);
+    mocks.get.mockImplementation((name) =>
+      name === SEEKER_COOKIE ? { value: b } : undefined,
+    );
+    expect((await loadChatView(id.conv))?.role).toBe("seeker");
+    expect((await verifyConversationE2eeActor(id.conv, "seeker")).ok).toBe(
+      true,
+    );
+    const after = await exchange();
+    const fresh = verifySeekerToken(after, secret, Date.now());
+    expect(fresh?.sid).not.toBe(pa?.sid);
+    expect(await socketGate(SEEKER_COOKIE, after)).toBeInstanceOf(Request);
+    expect(
+      (
+        await db.query.seekerSessions.findFirst({
+          where: eq(seekerSessions.sid, link.sid),
+        })
+      )?.revokedAt,
+    ).toBeNull();
+    expect(
+      (
+        await db.query.seekerSessions.findFirst({
+          where: eq(seekerSessions.sid, pb?.sid ?? ""),
+        })
+      )?.revokedAt,
+    ).toBeNull();
+    expect(
+      (
+        await db.query.seekerSessions.findFirst({
+          where: eq(seekerSessions.sid, pa?.sid ?? ""),
+        })
+      )?.revokedAt,
+    ).not.toBeNull();
+    // Aunque se etiquete como browser con firma válida, el rol D1 de enlace
+    // impide autoridad: prueba el guard SQL y no sólo el parser de tokens.
+    const now = Date.now();
+    const relabeled = mintSeekerToken(
+      {
+        sid: link.sid,
+        conversationId: id.conv,
+        role: "seeker",
+        purpose: "browser",
+        iat: now,
+        exp: now + 3600000,
+      },
+      secret,
+    );
+    mocks.get.mockImplementation((name) =>
+      name === SEEKER_COOKIE ? { value: relabeled } : undefined,
+    );
+    expect(await loadChatView(id.conv)).toBeNull();
+    expect(await renewSeekerChatToken(id.conv)).toEqual({ ok: false });
+    expect((await verifyConversationE2eeActor(id.conv, "seeker")).ok).toBe(
+      false,
+    );
+    expect(
+      ((await socketGate(SEEKER_COOKIE, relabeled)) as Response).status,
+    ).toBe(403);
   });
 });

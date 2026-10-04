@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mintSeekerToken,
   type SeekerTokenPayload,
+  verifySeekerAccessToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
 
@@ -61,5 +62,35 @@ describe("seeker token", () => {
     expect(verifySeekerToken("sin-punto", SECRET, NOW)).toBeNull();
     expect(verifySeekerToken("a.", SECRET, NOW)).toBeNull();
     expect(verifySeekerToken(".b", SECRET, NOW)).toBeNull();
+  });
+  it("separa finalidad del enlace y navegador, con legado válido compatible", () => {
+    const link = mintSeekerToken(payload({ purpose: "access-link" }), SECRET);
+    const browser = mintSeekerToken(payload({ purpose: "browser" }), SECRET);
+    expect(verifySeekerToken(link, SECRET, NOW)).toBeNull();
+    expect(verifySeekerAccessToken(browser, SECRET, NOW)).toBeNull();
+    expect(verifySeekerToken(browser, SECRET, NOW)?.purpose).toBe("browser");
+    expect(verifySeekerAccessToken(link, SECRET, NOW)?.purpose).toBe(
+      "access-link",
+    );
+    const legacy = mintSeekerToken(payload(), SECRET);
+    expect(verifySeekerToken(legacy, SECRET, NOW)).not.toBeNull();
+    expect(verifySeekerAccessToken(legacy, SECRET, NOW)).not.toBeNull();
+  });
+  it("rechaza finalidad desconocida y fechas no finitas o inconsistentes", () => {
+    for (const changes of [
+      { purpose: "otro" },
+      { exp: Infinity },
+      { iat: NaN },
+      { iat: NOW + 1 },
+      { exp: NOW },
+      { iat: NOW, exp: NOW - 1 },
+    ]) {
+      const token = mintSeekerToken(
+        { ...payload(), ...changes } as SeekerTokenPayload,
+        SECRET,
+      );
+      expect(verifySeekerToken(token, SECRET, NOW)).toBeNull();
+      expect(verifySeekerAccessToken(token, SECRET, NOW)).toBeNull();
+    }
   });
 });

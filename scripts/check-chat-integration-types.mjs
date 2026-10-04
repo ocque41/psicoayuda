@@ -2,6 +2,8 @@ import ts from "typescript";
 
 // Comprobación focal sin emitir archivos ni compilar toda la aplicación.
 const entries = [
+  "src/app/acceso/[token]/route.ts",
+  "test/fixtures/e2ee-session/main.tsx",
   "src/app/c/[conversationId]/page.tsx",
   "src/components/e2ee-pro-setup.tsx",
   "src/components/pro-chat-list.tsx",

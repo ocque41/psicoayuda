@@ -19,10 +19,11 @@ import {
 const SECRET = "test-secret";
 const HOUR = 3_600_000;
 
-function seekerCookie(conversationId: string) {
+function seekerCookie(conversationId: string, sid = "seek_1") {
   const token = mintSeekerToken(
     {
-      sid: "seek_1",
+      sid,
+      purpose: "browser",
       conversationId,
       role: "seeker",
       iat: Date.now(),
@@ -1004,4 +1005,92 @@ it("una sesión BetterAuth revocada corta send de socket abierto sin escribir me
     ),
   );
   expect(count).toBe(0);
+});
+
+it("el enlace de correo no abre directamente WebSocket aunque el transporte D1 ficticio acepte filas", async () => {
+  const room = "link-grant-denied-fixture";
+  const now = Date.now();
+  const token = mintSeekerToken(
+    {
+      sid: "fixture-link",
+      conversationId: room,
+      role: "seeker",
+      purpose: "access-link",
+      iat: now,
+      exp: now + HOUR,
+    },
+    SECRET,
+  );
+  const response = await SELF.fetch(
+    `https://internal.test/parties/conversation/${room}`,
+    { headers: { Upgrade: "websocket", Cookie: `${SEEKER_COOKIE}=${token}` } },
+  );
+  expect(response.status).toBe(403);
+});
+it.each([
+  "sender",
+  "recipient",
+])("revocar SID de navegador conectado corta %s, sin revocar otro navegador", async (mode) => {
+  const room = `browser-grants-revocation-${mode}-fixture`;
+  const a = await open(room, seekerCookie(room, "browser-a"));
+  const b = await open(room, seekerCookie(room, "browser-b"));
+  const pro = await open(room, proCookie(room));
+  for (const client of [a, b, pro]) {
+    await client.waitFor("history");
+    await client.waitFor("keys");
+  }
+  await settle();
+  const stub = await getServerByName(env.Conversation, room);
+  await runInDurableObject(stub, (instance) => {
+    const runtime = instance as unknown as { env: { DB: D1Database } };
+    runtime.env.DB = {
+      prepare: (query) => ({
+        bind: (...args) => ({
+          first: async () =>
+            query.includes("professional_status")
+              ? {
+                  conversation_status: "open",
+                  professional_status: "approved",
+                  auth_session_expires_at: Date.now() + HOUR,
+                  deleted_at: null,
+                  anonymized_at: null,
+                }
+              : {
+                  status: "open",
+                  revoked_at: args[0] === "browser-a" ? Date.now() : null,
+                  expires_at: Date.now() + HOUR,
+                  deleted_at: null,
+                  anonymized_at: null,
+                },
+        }),
+      }),
+    } as unknown as D1Database;
+  });
+  if (mode === "sender") {
+    a.send({
+      type: "send",
+      clientMsgId: "fixture-revoked-browser",
+      content: "No debe persistirse",
+    });
+    expect(await a.closed).toBe(4003);
+    const count = await runInDurableObject(stub, (_instance, state) =>
+      Number(
+        state.storage.sql.exec("SELECT count(*) AS n FROM messages").one().n,
+      ),
+    );
+    expect(count).toBe(0);
+  }
+  pro.send({
+    type: "send",
+    clientMsgId: "fixture-surviving-browser",
+    content: "Mensaje ficticio permitido",
+  });
+  const frame = await b.waitFor("msg");
+  expect(await a.closed).toBe(4003);
+  expect(frame.type === "msg" && frame.message.content).toBe(
+    "Mensaje ficticio permitido",
+  );
+  expect(a.buffered().filter((frame) => frame.type === "msg")).toEqual([]);
+  b.close();
+  pro.close();
 });
