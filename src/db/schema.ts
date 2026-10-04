@@ -591,9 +591,11 @@ export const contactMessages = sqliteTable(
 // AJENOS al terremoto. La ayuda gratuita de la emergencia está reservada para
 // las víctimas, así que aquí guardamos lo mínimo para avisarles cuando se libere
 // un cupo voluntario: correo, un título breve y una descripción de lo que
-// necesitan. UNA fila por correo: si la persona vuelve a enviar el formulario,
-// se actualiza su anotación en vez de duplicarla. El contenido es sensible:
-// solo lo ve el equipo de coordinación y se anonimiza por retención.
+// necesitan. Una fila por correo (índice único). Repetir el formulario público
+// no modifica una anotación previa sólo por conocer su correo. Las anotaciones
+// desde el chat exigen confirmación explícita y autorización seeker vigente.
+// El contenido es sensible: solo lo ve el equipo de coordinación y se anonimiza
+// por retención.
 export const waitlistEntries = sqliteTable(
   "waitlist_entries",
   {
