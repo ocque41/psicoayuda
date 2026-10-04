@@ -456,7 +456,10 @@ describe("conexiones de AVISOS del profesional (gate)", () => {
   ) {
     return {
       prepare: () => ({
-        bind: () => ({ first: async () => row }),
+        bind: () => ({
+          first: async () =>
+            row ? { ...row, conversation_status: row.status } : null,
+        }),
       }),
     } as unknown as Env["DB"];
   }
