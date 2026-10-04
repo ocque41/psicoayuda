@@ -225,6 +225,9 @@ export function ChatRoom({
   const [otherOnline, setOtherOnline] = useState(false);
   const [otherReadSeq, setOtherReadSeq] = useState(0);
   const [draft, setDraft] = useState("");
+  const draftRevisionRef = useRef(0);
+  const submitInFlightRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [loggedOut, setLoggedOut] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [reopenError, setReopenError] = useState("");
@@ -305,6 +308,7 @@ export function ChatRoom({
         setDraftReady(false);
         setIdentity(null);
         setBackupCode(null);
+        draftRevisionRef.current += 1;
         setDraft("");
         setConfirmed([]);
         setPending([]);
@@ -350,10 +354,12 @@ export function ChatRoom({
   useEffect(() => {
     let cancelled = false;
     setDraftReady(false);
+    draftRevisionRef.current += 1;
     setDraft("");
     if (identity && !loggedOut)
       void loadChatDraft(draftContext, identity).then((saved) => {
         if (!cancelled) {
+          draftRevisionRef.current += 1;
           setDraft(saved ?? "");
           setDraftReady(true);
         }
@@ -1158,6 +1164,7 @@ export function ChatRoom({
   );
 
   function onDraftChange(value: string) {
+    draftRevisionRef.current += 1;
     setDraft(value);
     sendTyping(true);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -1201,14 +1208,32 @@ export function ChatRoom({
   }
 
   async function submit() {
-    const content = draft.trim();
+    if (submitInFlightRef.current) return;
+    const snapshot = draft;
+    const content = snapshot.trim();
     if (!content || content.length > MAX_MESSAGE_LENGTH) return;
-    if (!e2eeReady) return;
-    const sent = await sendPlaintext(content);
-    if (!sent) return;
-    setDraft("");
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    sendTyping(false);
+    if (!e2eeReady || !draftReady || loggedOut) return;
+    const revision = draftRevisionRef.current;
+    const context = decryptionContextRef.current;
+    // El ref protege también dos Enter dentro del mismo commit de React.
+    submitInFlightRef.current = true;
+    setSubmitting(true);
+    try {
+      const sent = await sendPlaintext(content);
+      if (
+        !sent ||
+        decryptionContextRef.current !== context ||
+        draftRevisionRef.current !== revision
+      )
+        return;
+      draftRevisionRef.current += 1;
+      setDraft((current) => (current === snapshot ? "" : current));
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      sendTyping(false);
+    } finally {
+      submitInFlightRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   /**
@@ -1251,6 +1276,7 @@ export function ChatRoom({
 
   function insertPaymentLink(packageId: string) {
     const url = `${window.location.origin}/pagar/${packageId}?c=${conversationId}`;
+    draftRevisionRef.current += 1;
     setDraft((prev) => (prev.trim() ? `${prev.trimEnd()}\n${url}` : url));
   }
 
@@ -1620,7 +1646,10 @@ export function ChatRoom({
                   type="button"
                   className={`button human ${styles.sendBtn}`}
                   onClick={() => void submit()}
-                  disabled={!draft.trim() || !e2eeReady || !draftReady}
+                  disabled={
+                    submitting || !draft.trim() || !e2eeReady || !draftReady
+                  }
+                  aria-busy={submitting}
                 >
                   Enviar
                 </button>

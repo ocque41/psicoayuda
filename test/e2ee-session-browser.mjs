@@ -1,6 +1,7 @@
 // QA focal reproducible: componentes React reales, Chromium nuevo, transportes
 // ficticios explícitos. WebCrypto/IndexedDB reales; no Next build ni producción.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -14,6 +15,7 @@ const modulePath = process.env.NIDO_PLAYWRIGHT_MODULE;
 const { chromium } = await import(
   modulePath ? pathToFileURL(modulePath).href : "playwright"
 );
+const reproduce = process.env.NIDO_REPRO_COMPOSER === "1";
 const directory = await mkdtemp(path.resolve(".e2ee-session-test-"));
 let browser, server;
 let checks = 0;
@@ -29,7 +31,40 @@ try {
         "test/fixtures/e2ee-session/actions.ts",
       ),
       "@": path.resolve("src"),
+      "next/navigation": path.resolve(
+        "test/fixtures/e2ee-session/navigation.ts",
+      ),
+      "next/link": path.resolve("test/fixtures/e2ee-session/link.tsx"),
+      "@/app/c/[conversationId]/actions": path.resolve(
+        "test/fixtures/e2ee-session/chat-actions.ts",
+      ),
     },
+    plugins: [
+      {
+        name: "fictional-chat-actions",
+        setup(build) {
+          if (reproduce)
+            build.onLoad({ filter: /chat-room\.tsx$/ }, () => ({
+              contents: execFileSync(
+                "git",
+                ["show", "9e9c7fe:src/app/c/[conversationId]/chat-room.tsx"],
+                { encoding: "utf8" },
+              ),
+              loader: "tsx",
+              resolveDir: path.resolve("src/app/c/[conversationId]"),
+            }));
+          build.onResolve({ filter: /^\.\/actions$/ }, (args) =>
+            args.importer.includes("/c/[conversationId]/")
+              ? {
+                  path: path.resolve(
+                    "test/fixtures/e2ee-session/chat-actions.ts",
+                  ),
+                }
+              : undefined,
+          );
+        },
+      },
+    ],
     define: { "process.env.NODE_ENV": '"development"' },
     logLevel: "silent",
   });
@@ -65,7 +100,20 @@ try {
     await page
       .getByRole("button", { name: "Ver mi código de recuperación" })
       .waitFor();
-    await run(page, context);
+    try {
+      await run(page, context);
+    } catch (error) {
+      console.error(
+        "Fixture counts",
+        await page.evaluate(() => ({
+          encryptCalls: window.fixture.encryptCalls,
+          pending: window.fixture.encryptionPending,
+          frameTypes: window.fixture.frames.map((frame) => frame.type),
+        })),
+        errors,
+      );
+      throw error;
+    }
     assert.deepEqual(errors, []);
     await context.close();
     checks += 1;
@@ -94,6 +142,16 @@ try {
       0,
     );
   }
+  await scenario(
+    "logout rechazado conserva modal autorizado y su código",
+    async (page) => {
+      await open(page);
+      const before = await page.locator("dialog code").textContent();
+      await page.evaluate(() => window.fixture.rejectLogout());
+      assert.equal(await page.getByRole("dialog").count(), 1);
+      assert.equal(await page.locator("dialog code").textContent(), before);
+    },
+  );
   await scenario(
     "logout cross-tab con modal abierto conserva claves/código/respaldo",
     async (page, context) => {
@@ -232,6 +290,281 @@ try {
       );
     },
   );
+  await scenario(
+    reproduce
+      ? "REPRO: cifrado diferido borra edición nueva"
+      : "compositor conserva edición durante cifrado",
+    async (page) => {
+      await page.evaluate(() => window.fixture.mountComposer());
+      const input = page.getByRole("textbox", {
+        name: "Escribe un mensaje",
+        exact: true,
+      });
+      await input.waitFor();
+      await input.fill("Primer mensaje ficticio");
+      await page.evaluate(() => {
+        window.fixture.holdEncryption = true;
+      });
+      await input.press("Enter");
+      await page.waitForFunction(
+        () => window.fixture.encryptionPending === 1,
+        null,
+        { timeout: 3000 },
+      );
+      await input.fill("Continuación ficticia nueva");
+      await page.evaluate(() => window.fixture.resumeEncryption());
+      await page.waitForFunction(
+        () =>
+          window.fixture.frames.filter((frame) => frame.type === "send")
+            .length === 1,
+      );
+      assert.deepEqual(await page.evaluate(() => window.fixture.sentTexts()), [
+        "Primer mensaje ficticio",
+      ]);
+      // Esperar al commit del compositor, no sólo al envío del transporte.
+      await page.waitForTimeout(100);
+      assert.equal(
+        await input.inputValue(),
+        reproduce ? "" : "Continuación ficticia nueva",
+      );
+    },
+  );
+  await scenario(
+    reproduce
+      ? "REPRO: dobleEnter crea dos envíos"
+      : "dobleEnter sólo cifra y envía una vez",
+    async (page) => {
+      await page.evaluate(() => window.fixture.mountComposer());
+      const input = page.getByRole("textbox", {
+        name: "Escribe un mensaje",
+        exact: true,
+      });
+      await input.waitFor();
+      await input.fill("Mensaje ficticio único");
+      await page.evaluate(() => {
+        window.fixture.holdEncryption = true;
+      });
+      await input.press("Enter");
+      await page.waitForFunction(
+        () => window.fixture.encryptionPending === 1,
+        null,
+        { timeout: 3000 },
+      );
+      await input.press("Enter");
+      if (!reproduce) {
+        const button = page.getByRole("button", {
+          name: "Enviar",
+          exact: true,
+        });
+        assert.equal(await button.isDisabled(), true);
+        assert.equal(await button.getAttribute("aria-busy"), "true");
+        assert.equal(await input.isEditable(), true);
+      }
+      await page.waitForTimeout(100);
+      assert.equal(
+        await page.evaluate(() => window.fixture.encryptionPending),
+        reproduce ? 2 : 1,
+      );
+      await page.evaluate(() => window.fixture.resumeEncryption());
+      await page.waitForFunction(
+        (expected) =>
+          window.fixture.frames.filter((frame) => frame.type === "send")
+            .length === expected,
+        reproduce ? 2 : 1,
+      );
+    },
+  );
+  if (!reproduce) {
+    async function composer(page, role = "seeker") {
+      await page.evaluate((role) => window.fixture.mountComposer(role), role);
+      const input = page.getByRole("textbox", {
+        name: "Escribe un mensaje",
+        exact: true,
+      });
+      await input.waitFor();
+      await page.waitForFunction(
+        () => !document.querySelector("textarea")?.disabled,
+      );
+      return input;
+    }
+    async function holdAndSubmit(page, input) {
+      await page.evaluate(() => {
+        window.fixture.holdEncryption = true;
+      });
+      await input.press("Enter");
+      await page.waitForFunction(() => window.fixture.encryptionPending === 1);
+    }
+    async function finish(page, count = 1) {
+      await page.evaluate(() => window.fixture.resumeEncryption());
+      await page.waitForFunction(
+        (count) =>
+          window.fixture.frames.filter((frame) => frame.type === "send")
+            .length === count,
+        count,
+      );
+      await page.waitForFunction(() =>
+        document.querySelector('button[aria-busy="false"]'),
+      );
+    }
+    await scenario(
+      "envío intacto limpia texto y borrador cifrado",
+      async (page) => {
+        const input = await composer(page);
+        await input.fill("  Mensaje ficticio con espacios  ");
+        await holdAndSubmit(page, input);
+        await finish(page);
+        assert.equal(await input.inputValue(), "");
+        assert.deepEqual(
+          await page.evaluate(() => window.fixture.sentTexts()),
+          ["Mensaje ficticio con espacios"],
+        );
+        assert.equal(
+          await page.evaluate(() => window.fixture.readDraft()),
+          null,
+        );
+      },
+    );
+    await scenario(
+      "editar y volver al mismo texto conserva revisión nueva",
+      async (page) => {
+        const input = await composer(page);
+        await input.fill("Texto ficticio inicial");
+        await holdAndSubmit(page, input);
+        await input.fill("Otra edición ficticia");
+        await input.fill("Texto ficticio inicial");
+        await finish(page);
+        assert.equal(await input.inputValue(), "Texto ficticio inicial");
+        await page.waitForFunction(
+          async () =>
+            (await window.fixture.readDraft()) === "Texto ficticio inicial",
+        );
+      },
+    );
+    await scenario(
+      "error de cifrado conserva edición y permite reintento único",
+      async (page) => {
+        const input = await composer(page);
+        await input.fill("Mensaje previo ficticio");
+        await holdAndSubmit(page, input);
+        await input.fill("Nueva edición ficticia tras fallo");
+        await page.evaluate(() => {
+          window.fixture.failEncryption = true;
+          window.fixture.resumeEncryption();
+        });
+        await page
+          .getByText("No pudimos cifrar el mensaje en este dispositivo.")
+          .waitFor();
+        assert.equal(
+          await input.inputValue(),
+          "Nueva edición ficticia tras fallo",
+        );
+        assert.equal(
+          await page.evaluate(
+            () =>
+              window.fixture.frames.filter((frame) => frame.type === "send")
+                .length,
+          ),
+          0,
+        );
+        await page.waitForFunction(
+          async () =>
+            (await window.fixture.readDraft()) ===
+            "Nueva edición ficticia tras fallo",
+        );
+        await page.evaluate(() => {
+          window.fixture.failEncryption = false;
+        });
+        await input.press("Enter");
+        await page.waitForFunction(
+          () =>
+            window.fixture.frames.filter((frame) => frame.type === "send")
+              .length === 1,
+        );
+        assert.deepEqual(
+          await page.evaluate(() => window.fixture.sentTexts()),
+          ["Nueva edición ficticia tras fallo"],
+        );
+        await page.waitForFunction(
+          () => document.querySelector("textarea")?.value === "",
+        );
+      },
+    );
+    await scenario(
+      "logout durante cifrado descarta envío y conserva ciphertext",
+      async (page) => {
+        const input = await composer(page);
+        await input.fill("Borrador privado ficticio");
+        await page.waitForFunction(
+          async () =>
+            (await window.fixture.readDraft()) === "Borrador privado ficticio",
+        );
+        const stored = await page.evaluate(() =>
+          JSON.stringify(Object.entries(localStorage)),
+        );
+        const keys = await page.evaluate(() => window.fixture.keys());
+        await holdAndSubmit(page, input);
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event("nido:chat-session-ended"));
+        });
+        await page.waitForFunction(() => !document.querySelector("textarea"));
+        await page.evaluate(() => window.fixture.resumeEncryption());
+        await page.waitForTimeout(150);
+        assert.equal(
+          await page.evaluate(
+            () =>
+              window.fixture.frames.filter((frame) => frame.type === "send")
+                .length,
+          ),
+          0,
+        );
+        assert.equal(await input.count(), 0);
+        assert.equal(
+          await page.evaluate(() =>
+            JSON.stringify(Object.entries(localStorage)),
+          ),
+          stored,
+        );
+        assert.equal(await page.evaluate(() => window.fixture.keys()), keys);
+      },
+    );
+    await scenario(
+      "insertar enlace durante cifrado conserva y envía edición siguiente",
+      async (page) => {
+        const input = await composer(page, "professional");
+        await input.fill("Acuerdo ficticio");
+        await holdAndSubmit(page, input);
+        await page.getByText("Insertar link de pago", { exact: true }).click();
+        await page
+          .getByRole("button", { name: "Paquete ficticio · Importe ficticio" })
+          .click();
+        const next = await input.inputValue();
+        assert.equal(
+          next,
+          `Acuerdo ficticio\n${url}/pagar/fictional-package?c=fictional-composer`,
+        );
+        await finish(page);
+        assert.equal(await input.inputValue(), next);
+        await page.waitForFunction(
+          async (next) => (await window.fixture.readDraft()) === next,
+          next,
+        );
+        assert.deepEqual(
+          await page.evaluate(() => window.fixture.sentTexts()),
+          ["Acuerdo ficticio"],
+        );
+        await input.press("Enter");
+        await page.waitForFunction(
+          () =>
+            window.fixture.frames.filter((frame) => frame.type === "send")
+              .length === 2,
+        );
+        assert.deepEqual(
+          await page.evaluate(() => window.fixture.sentTexts()),
+          ["Acuerdo ficticio", next],
+        );
+      },
+    );
+  }
   console.log(`${checks} escenarios E2EE React/Chromium aprobados.`);
 } finally {
   await browser?.close();

@@ -1,4 +1,18 @@
+import type { ClientFrame } from "../../../src/shared/chat-protocol";
 export interface Fixture {
+  frames: ClientFrame[];
+  encryptionPending: number;
+  encryptCalls: number;
+  holdEncryption?: boolean;
+  failEncryption?: boolean;
+  encryptions: (() => void)[];
+  resumeEncryption: () => void;
+  composerRole?: "seeker" | "professional";
+  mountComposer: (role?: "seeker" | "professional") => Promise<void>;
+  readDraft: () => Promise<string | null>;
+  sentTexts: () => Promise<(string | null)[]>;
+  peerKey?: string;
+  seekerKey?: string;
   actor: string;
   expiresAt: number;
   backups: Map<string, string>;
@@ -21,6 +35,7 @@ export interface Fixture {
   mount: (kind?: string, id?: string) => Promise<void>;
   keys: () => Promise<string>;
   snapshotBackup: () => Promise<string>;
+  rejectLogout: () => Promise<void>;
 }
 declare global {
   interface Window {
