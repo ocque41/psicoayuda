@@ -74,7 +74,7 @@ export function AdminContactInbox({
         ))}
       </div>
 
-      <form action="/admin#contactos" className="admin-contact-filters">
+      <form action="/admin/contactos" className="admin-contact-filters">
         <label>
           Estado
           <select name="contacto_estado" defaultValue={statusFilter}>
@@ -112,7 +112,7 @@ export function AdminContactInbox({
           <button className="button" type="submit">
             Filtrar
           </button>
-          <Link className="button secondary" href="/admin#contactos">
+          <Link className="button secondary" href="/admin/contactos">
             Limpiar
           </Link>
         </div>

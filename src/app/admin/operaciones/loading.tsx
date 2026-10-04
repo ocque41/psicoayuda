@@ -1,2 +1,1 @@
-import { PracticeLoading } from "@/components/practice/loading";
-export default PracticeLoading;
+export { default } from "../loading";
