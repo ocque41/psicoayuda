@@ -13,6 +13,7 @@ import { db } from "@/db";
 import {
   assignments,
   auditLogs,
+  session as authSessions,
   conversations,
   helpRequests,
   professionals,
@@ -90,7 +91,10 @@ const url = process.env.DATABASE_URL;
 if (!url?.includes("nido-tests-"))
   throw new Error("Esta prueba requiere test:isolated.");
 const client = createClient({ url });
-const proSession = { user: { id: ids.user, email: `${prefix}@example.test` } };
+const proSession = {
+  session: { id: `${prefix}-auth`, expiresAt: new Date(Date.now() + 3600000) },
+  user: { id: ids.user, email: `${prefix}@example.test` },
+};
 function seekerToken() {
   const now = Date.now();
   return mintSeekerToken(
@@ -109,6 +113,8 @@ function proToken() {
   return mintProfessionalToken(
     {
       professionalId: ids.pro,
+      authSessionId: `${prefix}-auth`,
+      userId: ids.user,
       conversationId: ids.conv,
       role: "professional",
       iat: now,
@@ -205,6 +211,12 @@ describe("chat: transacciones, permisos actuales y lectura auténtica", () => {
         email: `${prefix}-foreign@example.test`,
       },
     ]);
+    await db.insert(authSessions).values({
+      id: `${prefix}-auth`,
+      userId: ids.user,
+      token: `${prefix}-token`,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
     await db.insert(professionals).values(
       [
         { id: ids.pro, userId: ids.user },

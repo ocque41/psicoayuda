@@ -90,6 +90,8 @@ export const PRO_COOKIE = "nido_pro";
 
 export type ProTokenPayload = {
   professionalId: string;
+  authSessionId: string;
+  userId: string;
   conversationId: string;
   role: "professional";
   iat: number;
@@ -135,8 +137,18 @@ export function verifyProfessionalToken(
     payload.role !== "professional" ||
     typeof payload.professionalId !== "string" ||
     typeof payload.conversationId !== "string" ||
+    !payload.professionalId ||
+    !payload.conversationId ||
+    typeof payload.authSessionId !== "string" ||
+    !payload.authSessionId ||
+    typeof payload.userId !== "string" ||
+    !payload.userId ||
     typeof payload.exp !== "number" ||
-    payload.exp < nowMs
+    !Number.isFinite(payload.exp) ||
+    !Number.isFinite(payload.iat) ||
+    payload.iat > nowMs ||
+    payload.exp <= nowMs ||
+    payload.exp <= payload.iat
   ) {
     return null;
   }
@@ -155,6 +167,8 @@ export const PRO_INBOX_COOKIE = "nido_pro_avisos";
 
 export type ProInboxTokenPayload = {
   professionalId: string;
+  authSessionId: string;
+  userId: string;
   role: "inbox";
   iat: number;
   exp: number;
@@ -198,6 +212,10 @@ export function verifyProfessionalInboxToken(
   if (
     payload.role !== "inbox" ||
     typeof payload.professionalId !== "string" ||
+    typeof payload.authSessionId !== "string" ||
+    !payload.authSessionId ||
+    typeof payload.userId !== "string" ||
+    !payload.userId ||
     typeof payload.exp !== "number" ||
     !Number.isFinite(payload.exp) ||
     !Number.isFinite(payload.iat) ||

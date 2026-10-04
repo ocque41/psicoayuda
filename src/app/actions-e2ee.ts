@@ -3,7 +3,7 @@
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, professionals, recoveryKeystores } from "@/db/schema";
-import { getServerSession } from "@/lib/auth-server";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { newId, nowIso } from "@/lib/ids";
 import { isValidPublicKey } from "@/shared/e2ee";
 
@@ -15,20 +15,8 @@ const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 export async function verifyProfessionalE2eeActor(
   professionalId: string,
 ): Promise<{ ok: boolean; expiresAt?: number }> {
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
-  const expiresAt = new Date(session.session.expiresAt).getTime();
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now())
-    return { ok: false };
-  const pro = await db.query.professionals.findFirst({
-    where: and(
-      eq(professionals.id, professionalId),
-      eq(professionals.userId, session.user.id),
-      eq(professionals.status, "approved"),
-    ),
-    columns: { id: true },
-  });
-  return pro ? { ok: true, expiresAt } : { ok: false };
+  const live = await loadLiveChatProfessional(professionalId);
+  return live ? { ok: true, expiresAt: live.expiresAt } : { ok: false };
 }
 
 /**
@@ -43,17 +31,9 @@ export async function publishProIdentityKey(
   expectedProfessionalId?: string,
 ): Promise<{ ok: boolean }> {
   if (!isValidPublicKey(publicKey)) return { ok: false };
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
-
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-  if (
-    pro?.status !== "approved" ||
-    (expectedProfessionalId !== undefined && pro.id !== expectedProfessionalId)
-  )
-    return { ok: false };
+  const live = await loadLiveChatProfessional(expectedProfessionalId);
+  if (!live) return { ok: false };
+  const pro = live.professional;
 
   const changed = await db
     .update(professionals)
@@ -65,8 +45,9 @@ export async function publishProIdentityKey(
     .where(
       and(
         eq(professionals.id, pro.id),
-        eq(professionals.userId, session.user.id),
+        eq(professionals.userId, live.userId),
         eq(professionals.status, "approved"),
+        sql`EXISTS(SELECT 1 FROM session a WHERE a.id=${live.authSessionId} AND a.user_id=${live.userId} AND a.expires_at > (cast(unixepoch('subsecond') * 1000 as integer)))`,
         expectedPublicKey === undefined
           ? or(
               isNull(professionals.cryptoPublicKey),

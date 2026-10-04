@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ remove: vi.fn() }));
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ delete: mocks.remove }),
+  cookies: async () => ({ get: () => undefined, delete: mocks.remove }),
 }));
+vi.mock("@/lib/auth-server", () => ({ getServerSession: async () => null }));
 
 import { clearChatSessionCookies } from "@/app/actions-chat-session";
 import {

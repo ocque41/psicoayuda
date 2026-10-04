@@ -241,6 +241,8 @@ it("otra cuenta autenticada no hereda la capacidad de la cookie profesional ante
   const token = mintProfessionalToken(
     {
       professionalId: id.pro,
+      authSessionId: `${P}-auth`,
+      userId: id.user,
       conversationId: id.conv,
       role: "professional",
       iat: now,

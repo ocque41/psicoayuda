@@ -8,7 +8,7 @@ import type { E2eeActorCheck } from "@/lib/e2ee-session-guard";
 import { recoveryIdFor } from "@/shared/e2ee";
 import styles from "./chat.module.css";
 
-const checkGuest = async () => ({ ok: true });
+const denyUnverifiedActor = async () => ({ ok: false });
 
 /**
  * Pantalla de restauración: este dispositivo no tiene la clave de cifrado pero
@@ -20,7 +20,7 @@ export function E2eeRestorePanel({
   recoveryScope,
   onRestored,
   onUseNewKeys,
-  checkActor = checkGuest,
+  checkActor = denyUnverifiedActor,
 }: {
   audience: "seeker" | "professional";
   recoveryScope?: string;

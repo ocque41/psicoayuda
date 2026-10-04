@@ -14,7 +14,6 @@ import {
 import {
   publishProIdentityKey,
   saveRecoveryKeystore,
-  verifyProfessionalE2eeActor,
 } from "@/app/actions-e2ee";
 import { ConversationDeleteButton } from "@/components/conversation-delete-button";
 import { E2eeBackupModal } from "@/components/e2ee-backup-modal";
@@ -55,6 +54,7 @@ import {
   markProfessionalChatRead,
   renewSeekerChatToken,
   reopenConversation,
+  verifyConversationE2eeActor,
 } from "./actions";
 import styles from "./chat.module.css";
 import { nextHistorySyncCursor } from "./chat-history";
@@ -293,13 +293,8 @@ export function ChatRoom({
 
   const sessionRevisionRef = useRef(0);
   const checkE2eeActor = useCallback(
-    async () =>
-      role === "professional"
-        ? professionalId
-          ? verifyProfessionalE2eeActor(professionalId)
-          : { ok: false }
-        : { ok: true },
-    [role, professionalId],
+    () => verifyConversationE2eeActor(conversationId, role, professionalId),
+    [conversationId, role, professionalId],
   );
 
   useEffect(
@@ -402,7 +397,11 @@ export function ChatRoom({
   const setupIdentity = useCallback(
     async (idn: ConversationIdentity) => {
       if (role === "professional") {
-        const published = await publishProIdentityKey(idn.publicKey);
+        const published = await publishProIdentityKey(
+          idn.publicKey,
+          undefined,
+          professionalId ?? "",
+        );
         if (!published.ok)
           throw new Error("No pudimos confirmar la clave de esta cuenta.");
       }
@@ -413,7 +412,7 @@ export function ChatRoom({
       // otra forma de recuperar su clave. El profesional lo ve en su panel.
       if (code && !proVisitor) setBackupCode(code);
     },
-    [role, ensureBackup, proVisitor],
+    [role, ensureBackup, proVisitor, professionalId],
   );
 
   useEffect(() => {
@@ -439,7 +438,13 @@ export function ChatRoom({
         if (
           role === "professional" &&
           ((proPublicKey && proPublicKey !== existing.publicKey) ||
-            !(await publishProIdentityKey(existing.publicKey)).ok)
+            !(
+              await publishProIdentityKey(
+                existing.publicKey,
+                undefined,
+                professionalId ?? "",
+              )
+            ).ok)
         ) {
           setRestoreNeeded(true);
           setProNotice("mismatch");
@@ -512,7 +517,13 @@ export function ChatRoom({
       if (cancelled) return;
       if (
         role === "professional" &&
-        !(await publishProIdentityKey(created.publicKey)).ok
+        !(
+          await publishProIdentityKey(
+            created.publicKey,
+            undefined,
+            professionalId ?? "",
+          )
+        ).ok
       ) {
         setRestoreNeeded(true);
         return;
@@ -539,6 +550,7 @@ export function ChatRoom({
     slot,
     setupIdentity,
     role,
+    professionalId,
   ]);
 
   const reloadIdentity = useCallback(async (): Promise<boolean> => {
@@ -549,7 +561,13 @@ export function ChatRoom({
     if (!restored) return false;
     if (
       role === "professional" &&
-      !(await publishProIdentityKey(restored.publicKey)).ok
+      !(
+        await publishProIdentityKey(
+          restored.publicKey,
+          undefined,
+          professionalId ?? "",
+        )
+      ).ok
     )
       return false;
     setIdentity(restored);
@@ -561,7 +579,13 @@ export function ChatRoom({
     const { identity: created } = await replaceIdentity(slot);
     if (
       role === "professional" &&
-      !(await publishProIdentityKey(created.publicKey, proPublicKey)).ok
+      !(
+        await publishProIdentityKey(
+          created.publicKey,
+          proPublicKey,
+          professionalId ?? "",
+        )
+      ).ok
     )
       throw new Error(
         "La clave de la cuenta ha cambiado. Recarga para recuperarla.",
@@ -569,7 +593,7 @@ export function ChatRoom({
     setIdentity(created);
     setRestoreNeeded(false);
     await setupIdentity(created);
-  }, [slot, setupIdentity, role, proPublicKey]);
+  }, [slot, setupIdentity, role, proPublicKey, professionalId]);
 
   // ---- Mensajes ------------------------------------------------------------
 

@@ -17,6 +17,7 @@ const fixtureDatabase = {
         return query.includes("professional_status")
           ? {
               conversation_status: status,
+              auth_session_expires_at: Date.now() + 3600000,
               professional_status: "approved",
               owner_id: "pro_1",
               deleted_at: null,

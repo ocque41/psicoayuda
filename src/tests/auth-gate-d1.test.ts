@@ -3,6 +3,7 @@ import { eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
+  session as authSessions,
   conversations,
   professionals,
   seekerSessions,
@@ -41,7 +42,7 @@ function request(role: "seeker" | "professional", pro = `${prefix}-pro`) {
   const now = Date.now();
   const cookie =
     role === "professional"
-      ? `${PRO_COOKIE}=${mintProfessionalToken({ professionalId: pro, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`
+      ? `${PRO_COOKIE}=${mintProfessionalToken({ professionalId: pro, authSessionId: `${prefix}-auth`, userId: `${prefix}-user`, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`
       : `${SEEKER_COOKIE}=${mintSeekerToken({ sid: `${prefix}-sid`, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`;
   return new Request("https://nido.example/parties/conversation/fixture", {
     headers: {
@@ -89,6 +90,12 @@ describe("chat: autorización D1 fail-closed y pertenencia actual", () => {
         updatedAt: timestamp,
       })),
     );
+    await db.insert(authSessions).values({
+      id: `${prefix}-auth`,
+      userId: `${prefix}-user`,
+      token: `${prefix}-token`,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
     await db.insert(conversations).values({
       id: `${prefix}-conv`,
       professionalId: `${prefix}-pro`,
@@ -211,7 +218,7 @@ describe("chat: autorización D1 fail-closed y pertenencia actual", () => {
         "https://nido.example/parties/conversation/fixture?avisos=1",
         {
           headers: {
-            Cookie: `${PRO_INBOX_COOKIE}=${mintProfessionalInboxToken({ professionalId: pro, role: "inbox", iat: now, exp }, secret)}`,
+            Cookie: `${PRO_INBOX_COOKIE}=${mintProfessionalInboxToken({ professionalId: pro, authSessionId: `${prefix}-auth`, userId: `${prefix}-user`, role: "inbox", iat: now, exp }, secret)}`,
             Origin: "https://nido.example",
           },
         },

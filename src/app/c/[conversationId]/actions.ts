@@ -10,9 +10,9 @@ import {
   seekerSessions,
 } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { chooseChatIdentity } from "@/lib/chat-identity";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { needLabels } from "@/lib/constants";
 import { TRASH_GRACE_MS } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
@@ -35,7 +35,6 @@ import {
   PRO_COOKIE,
   PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
-  verifyProfessionalToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
 import { waitlistChatSignupSchema } from "@/lib/validation";
@@ -47,7 +46,7 @@ const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
 /**
  * Resuelve la identidad del actor de una acción sobre la sala con la MISMA
  * prelación que la página y el WebSocket (src/lib/chat-identity.ts): el
- * profesional (sesión o cookie de sala) gana por defecto; el seeker solo si no
+ * profesional con sesión vigente gana por defecto; el seeker solo si no
  * hay credencial profesional o si el profesional pide actuar como la persona
  * (`asPersona`, desde su vista de persona). Devuelve null si no hay ninguna.
  */
@@ -59,6 +58,8 @@ async function resolveActor(
   actorEmail: string | null;
   professionalId: string | null;
   userId: string | null;
+  authSessionId: string | null;
+  expiresAt: number;
   seekerSid: string | null;
 } | null> {
   if (
@@ -68,44 +69,13 @@ async function resolveActor(
     return null;
   const cookieStore = await cookies();
 
-  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
-  let isProfessional = false;
-  let actorEmail: string | null = null;
-  let professionalUserId: string | null = null;
-  const session = await getServerSession();
-  if (session?.user?.id) {
-    const pro = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (
-      pro &&
-      pro.id === conversation.professionalId &&
-      pro.status === "approved"
-    ) {
-      isProfessional = true;
-      actorEmail = session.user.email ?? null;
-      professionalUserId = session.user.id;
-    }
-  }
-  if (!isProfessional && !session?.user?.id) {
-    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
-    if (proRaw) {
-      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
-      if (
-        pro &&
-        pro.conversationId === conversation.id &&
-        pro.professionalId === conversation.professionalId
-      ) {
-        const row = await db.query.professionals.findFirst({
-          where: eq(professionals.id, conversation.professionalId),
-        });
-        if (row && row.status === "approved") {
-          isProfessional = true;
-          actorEmail = row.email;
-        }
-      }
-    }
-  }
+  // El actor profesional exige la sesión autenticada vigente en DB.
+  const liveProfessional = await loadLiveChatProfessional(
+    conversation.professionalId,
+  );
+  const isProfessional = !!liveProfessional;
+  const actorEmail = liveProfessional?.professional.email ?? null;
+  const professionalUserId = liveProfessional?.userId ?? null;
 
   // Persona (seeker): la sesión puede ser la original o una del enlace mágico
   // (/acceso). Cualquier fila vigente de ESTA conversación vale — es la misma
@@ -113,6 +83,7 @@ async function resolveActor(
   // `renewSeekerChatToken`. (Antes se exigía el sid original y el enlace del
   // correo abría la sala sin poder reabrir/borrar.)
   let seekerSid: string | null = null;
+  let seekerExpiresAt = 0;
   const raw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (raw) {
     const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
@@ -126,7 +97,10 @@ async function resolveActor(
         sessionRow.role === "seeker" &&
         !sessionRow.revokedAt &&
         sessionRow.expiresAt.getTime() > Date.now();
-      if (valid) seekerSid = payload.sid;
+      if (valid) {
+        seekerSid = payload.sid;
+        seekerExpiresAt = Math.min(payload.exp, sessionRow.expiresAt.getTime());
+      }
     }
   }
 
@@ -141,6 +115,8 @@ async function resolveActor(
         actorEmail,
         professionalId: conversation.professionalId,
         userId: professionalUserId,
+        authSessionId: liveProfessional?.authSessionId ?? null,
+        expiresAt: liveProfessional?.expiresAt ?? 0,
         seekerSid: null,
       }
     : {
@@ -148,6 +124,8 @@ async function resolveActor(
         actorEmail: null,
         professionalId: null,
         userId: null,
+        authSessionId: null,
+        expiresAt: seekerExpiresAt,
         seekerSid,
       };
 }
@@ -161,11 +139,41 @@ function actorPermission(
   if (actor.role === "professional") {
     return sql`EXISTS(SELECT 1 FROM conversations owned JOIN professionals p ON p.id=owned.professional_id
       WHERE owned.id=${conversationId} AND p.id=${actor.professionalId} AND p.status='approved'
-        AND (${actor.userId} IS NULL OR p.user_id=${actor.userId}))`;
+        AND p.user_id=${actor.userId}
+        AND EXISTS(SELECT 1 FROM session a WHERE a.id=${actor.authSessionId}
+          AND a.user_id=p.user_id AND a.expires_at > (cast(unixepoch('subsecond') * 1000 as integer))))`;
   }
   return sql`EXISTS(SELECT 1 FROM seeker_sessions s WHERE s.sid=${actor.seekerSid}
     AND s.conversation_id=${conversationId} AND s.role='seeker' AND s.revoked_at IS NULL
-    AND s.expires_at > ${Date.now()})`;
+    AND s.expires_at > (cast(unixepoch('subsecond') * 1000 as integer)))`;
+}
+
+/** Guard fresco para revelar/exportar/restaurar E2EE en ESTA sala y rol. */
+export async function verifyConversationE2eeActor(
+  conversationId: string,
+  role: "professional" | "seeker",
+  expectedProfessionalId?: string,
+): Promise<{ ok: boolean; expiresAt?: number }> {
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+  });
+  if (!conversation || conversation.deletedAt || conversation.anonymizedAt)
+    return { ok: false };
+  const actor = await resolveActor(conversation, role === "seeker");
+  if (!actor || actor.role !== role || actor.expiresAt <= Date.now())
+    return { ok: false };
+  if (
+    role === "professional" &&
+    actor.professionalId !== expectedProfessionalId
+  )
+    return { ok: false };
+  const rows =
+    await db.all(sql`SELECT id FROM conversations WHERE id=${conversationId}
+    AND deleted_at IS NULL AND anonymized_at IS NULL AND status IN ('open','closed')
+    AND ${actorPermission(actor, conversationId)} LIMIT 1`);
+  return rows.length && actor.expiresAt > Date.now()
+    ? { ok: true, expiresAt: actor.expiresAt }
+    : { ok: false };
 }
 
 /**
@@ -177,13 +185,9 @@ function actorPermission(
 export async function ensureProChatToken(
   conversationId: string,
 ): Promise<{ ok: boolean }> {
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
-
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-  if (pro?.status !== "approved") return { ok: false };
+  const live = await loadLiveChatProfessional();
+  if (!live) return { ok: false };
+  const pro = live.professional;
 
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -202,10 +206,12 @@ export async function ensureProChatToken(
   const token = mintProfessionalToken(
     {
       professionalId: pro.id,
+      authSessionId: live.authSessionId,
+      userId: live.userId,
       conversationId,
       role: "professional",
       iat: now,
-      exp: now + TTL_MS,
+      exp: Math.min(now + TTL_MS, live.expiresAt),
     },
     getAuthSecret(),
   );
@@ -271,21 +277,19 @@ export async function markProfessionalChatRead(
  * sesión y ficha de profesional activa. Idempotente.
  */
 export async function ensureProInboxToken(): Promise<{ ok: boolean }> {
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
-
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-  if (pro?.status !== "approved") return { ok: false };
+  const live = await loadLiveChatProfessional();
+  if (!live) return { ok: false };
+  const pro = live.professional;
 
   const now = Date.now();
   const token = mintProfessionalInboxToken(
     {
       professionalId: pro.id,
+      authSessionId: live.authSessionId,
+      userId: live.userId,
       role: "inbox",
       iat: now,
-      exp: now + 15 * 60 * 1000,
+      exp: Math.min(now + 15 * 60 * 1000, live.expiresAt),
     },
     getAuthSecret(),
   );
@@ -357,7 +361,7 @@ export async function renewSeekerChatToken(
         eq(seekerSessions.conversationId, conversationId),
         eq(seekerSessions.role, "seeker"),
         isNull(seekerSessions.revokedAt),
-        sql`${seekerSessions.expiresAt} > ${now}`,
+        sql`${seekerSessions.expiresAt} > (cast(unixepoch('subsecond') * 1000 as integer))`,
         sql`EXISTS(SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.anonymized_at IS NULL AND c.deleted_at IS NULL AND c.status IN ('open','closed'))`,
       ),
     )

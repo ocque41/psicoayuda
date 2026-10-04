@@ -12,7 +12,7 @@ import type { E2eeActorCheck } from "@/lib/e2ee-session-guard";
 import styles from "./e2ee.module.css";
 import { useE2eeSessionGuard } from "./use-e2ee-session-guard";
 
-const checkGuest = async () => ({ ok: true });
+const denyUnverifiedActor = async () => ({ ok: false });
 
 /**
  * Se muestra UNA vez, cuando este dispositivo genera la primera clave de
@@ -23,7 +23,7 @@ export function E2eeBackupModal({
   code,
   onClose,
   returnFocusRef,
-  checkActor = checkGuest,
+  checkActor = denyUnverifiedActor,
 }: {
   code: string;
   onClose: () => void;

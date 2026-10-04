@@ -33,6 +33,8 @@ function proCookie(conversationId = CONV, exp = NOW + 1000) {
   const token = mintProfessionalToken(
     {
       professionalId: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
       conversationId,
       role: "professional",
       iat: NOW,
@@ -55,6 +57,8 @@ describe("authorizeConnection", () => {
     expect(authorizeConnection(proCookie(), CONV, SECRET, NOW)).toEqual({
       role: "professional",
       id: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
     });
   });
 
@@ -93,6 +97,8 @@ describe("authorizeConnection", () => {
     expect(authorizeConnection(both, CONV, SECRET, NOW)).toEqual({
       role: "professional",
       id: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
     });
   });
 
@@ -108,6 +114,8 @@ describe("authorizeConnection", () => {
     expect(authorizeConnection(proCookie(), CONV, SECRET, NOW, true)).toEqual({
       role: "professional",
       id: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
     });
   });
 });
@@ -218,6 +226,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
     expect(
       professionalConnectionAllows({
         conversation_status: "open",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "approved",
         deleted_at: null,
         anonymized_at: null,
@@ -229,6 +238,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
     expect(
       professionalConnectionAllows({
         conversation_status: "closed",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "approved",
         deleted_at: null,
         anonymized_at: null,
@@ -237,6 +247,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
     expect(
       professionalConnectionAllows({
         conversation_status: "closed",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "approved",
         deleted_at: null,
         anonymized_at: 1,
@@ -248,6 +259,7 @@ describe("professionalConnectionAllows (kill-switch del profesional)", () => {
     expect(
       professionalConnectionAllows({
         conversation_status: "open",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "suspended",
         deleted_at: null,
         anonymized_at: null,
@@ -262,6 +274,7 @@ describe("professionalCanSend (lectura vs escritura)", () => {
     expect(
       professionalCanSend({
         conversation_status: "open",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "approved",
         deleted_at: null,
         anonymized_at: null,
@@ -270,6 +283,7 @@ describe("professionalCanSend (lectura vs escritura)", () => {
     expect(
       professionalCanSend({
         conversation_status: "closed",
+        auth_session_expires_at: Date.now() + 3600000,
         professional_status: "approved",
         deleted_at: null,
         anonymized_at: null,
@@ -292,6 +306,7 @@ describe("makeOnBeforeConnect (guard de Origin)", () => {
             query.includes("professional_status")
               ? {
                   conversation_status: "open",
+                  auth_session_expires_at: Date.now() + 3600000,
                   professional_status: "approved",
                   deleted_at: null,
                   anonymized_at: null,
@@ -369,6 +384,8 @@ describe("makeOnBeforeConnect (guard de Origin)", () => {
     const pro = mintProfessionalToken(
       {
         professionalId: "pro_1",
+        authSessionId: "auth_1",
+        userId: "user_1",
         conversationId: CONV,
         role: "professional",
         iat: Date.now(),
@@ -396,6 +413,8 @@ describe("makeOnBeforeConnect (guard de Origin)", () => {
     const pro = mintProfessionalToken(
       {
         professionalId: "pro_1",
+        authSessionId: "auth_1",
+        userId: "user_1",
         conversationId: CONV,
         role: "professional",
         iat: Date.now(),

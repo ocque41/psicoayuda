@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { professionals, user } from "@/db/schema";
+import { session as authSessions, professionals, user } from "@/db/schema";
 import { generateIdentityKeyPair, toConversationIdentity } from "@/shared/e2ee";
 
 const mocks = vi.hoisted(() => ({ session: vi.fn() }));
@@ -21,6 +21,12 @@ beforeAll(async () => {
     name: "Cuenta ficticia",
     email: `${prefix}@example.com`,
   });
+  await db.insert(authSessions).values({
+    id: `${prefix}-auth`,
+    userId: prefix,
+    token: `${prefix}-token`,
+    expiresAt: new Date(Date.now() + 3600000),
+  });
   const timestamp = new Date().toISOString();
   await db.insert(professionals).values({
     id: prefix,
@@ -33,7 +39,13 @@ beforeAll(async () => {
     createdAt: timestamp,
     updatedAt: timestamp,
   });
-  mocks.session.mockResolvedValue({ user: { id: prefix } });
+  mocks.session.mockResolvedValue({
+    user: { id: prefix },
+    session: {
+      id: `${prefix}-auth`,
+      expiresAt: new Date(Date.now() + 3600000),
+    },
+  });
 });
 afterAll(async () => {
   await db.delete(professionals).where(eq(professionals.id, prefix));
@@ -43,7 +55,10 @@ describe("publicación de claves entre dispositivos", () => {
   it("autoriza sólo el profesional aprobado de la sesión actual y viva", async () => {
     mocks.session.mockResolvedValue({
       user: { id: prefix },
-      session: { expiresAt: new Date(Date.now() + 60000) },
+      session: {
+        id: `${prefix}-auth`,
+        expiresAt: new Date(Date.now() + 60000),
+      },
     });
     expect((await verifyProfessionalE2eeActor(prefix)).ok).toBe(true);
     expect(await verifyProfessionalE2eeActor("otra-cuenta-ficticia")).toEqual({
@@ -56,17 +71,26 @@ describe("publicación de claves entre dispositivos", () => {
     ).toEqual({ ok: false });
     mocks.session.mockResolvedValue({
       user: { id: "otro-actor-ficticio" },
-      session: { expiresAt: new Date(Date.now() + 60000) },
+      session: {
+        id: `${prefix}-auth`,
+        expiresAt: new Date(Date.now() + 60000),
+      },
     });
     expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
     mocks.session.mockResolvedValue({
       user: { id: prefix },
-      session: { expiresAt: new Date(Date.now() - 1) },
+      session: { id: `${prefix}-auth`, expiresAt: new Date(Date.now() - 1) },
     });
     expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
     mocks.session.mockResolvedValue(null);
     expect(await verifyProfessionalE2eeActor(prefix)).toEqual({ ok: false });
-    mocks.session.mockResolvedValue({ user: { id: prefix } });
+    mocks.session.mockResolvedValue({
+      user: { id: prefix },
+      session: {
+        id: `${prefix}-auth`,
+        expiresAt: new Date(Date.now() + 3600000),
+      },
+    });
   });
   it("dos inicializaciones concurrentes no sobrescriben la identidad ganadora", async () => {
     const keys = await Promise.all(

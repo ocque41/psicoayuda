@@ -5,14 +5,9 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { conversations, professionals, seekerSessions } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
 import { chooseChatIdentity } from "@/lib/chat-identity";
-import {
-  PRO_COOKIE,
-  SEEKER_COOKIE,
-  verifyProfessionalToken,
-  verifySeekerToken,
-} from "@/lib/seeker-token";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
+import { SEEKER_COOKIE, verifySeekerToken } from "@/lib/seeker-token";
 
 export type ChatRole = "seeker" | "professional";
 
@@ -43,8 +38,7 @@ export type ChatView = {
  * Autoriza quién puede VER la conversación y devuelve lo mínimo para pintar la
  * cabecera. Devuelve null si el visitante no es ni la persona (cookie HMAC de
  * esta sala, con sesión efímera vigente) ni el profesional dueño (sesión
- * better-auth O cookie HMAC de la sala, para que la vista y el WebSocket no se
- * contradigan cuando la sesión caducó).
+ * BetterAuth vigente; una cookie HMAC antigua exige volver a iniciar sesión).
  *
  * La prelación es la MISMA que la del `onBeforeConnect` del Worker y la de las
  * server actions (`chooseChatIdentity`, src/lib/chat-identity.ts): profesional
@@ -68,42 +62,11 @@ export async function loadChatView(
   const open = conversation.status === "open";
   const cookieStore = await cookies();
 
-  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
-  let isProfessional = false;
-  let professionalRow: typeof professionals.$inferSelect | null = null;
-  const session = await getServerSession();
-  if (session?.user?.id) {
-    const pro = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (
-      pro &&
-      pro.id === conversation.professionalId &&
-      pro.status === "approved"
-    ) {
-      isProfessional = true;
-      professionalRow = pro;
-    }
-  }
-  if (!isProfessional && !session?.user?.id) {
-    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
-    if (proRaw) {
-      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
-      if (
-        pro &&
-        pro.conversationId === conversationId &&
-        pro.professionalId === conversation.professionalId
-      ) {
-        const row = await db.query.professionals.findFirst({
-          where: eq(professionals.id, conversation.professionalId),
-        });
-        if (row && row.status === "approved") {
-          isProfessional = true;
-          professionalRow = row;
-        }
-      }
-    }
-  }
+  // Profesional dueño: BetterAuth vigente. La cookie de sala sola no basta.
+  const live = await loadLiveChatProfessional(conversation.professionalId);
+  const isProfessional = !!live;
+  let professionalRow: typeof professionals.$inferSelect | null =
+    live?.professional ?? null;
 
   // Persona (seeker anónimo): cookie firmada para ESTA sala + sesión vigente.
   // La sesión puede ser la ORIGINAL (creada al abrir el chat) o una nueva del

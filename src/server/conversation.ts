@@ -35,6 +35,8 @@ type ConnState = {
   role: SenderRole;
   id: string;
   canSend: boolean;
+  authSessionId?: string;
+  userId?: string;
   /** Conexión de avisos: solo recibe mensajes (nunca escribe ni cuenta como
    *  presencia, para no silenciar los avisos por correo del profesional). */
   informer?: boolean;
@@ -157,7 +159,7 @@ export class Conversation extends Server<Env> {
     return tags;
   }
 
-  onConnect(connection: Connection, ctx: ConnectionContext) {
+  async onConnect(connection: Connection, ctx: ConnectionContext) {
     const header = ctx.request.headers.get("x-nido-role");
     const role: SenderRole =
       header === "professional" ? "professional" : "seeker";
@@ -173,6 +175,9 @@ export class Conversation extends Server<Env> {
       connection.setState({
         role,
         id: ctx.request.headers.get("x-nido-id") ?? "",
+        authSessionId:
+          ctx.request.headers.get("x-nido-auth-session-id") ?? undefined,
+        userId: ctx.request.headers.get("x-nido-user-id") ?? undefined,
         canSend: false,
         informer: true,
         inboxExpiresAt: Number(ctx.request.headers.get("x-nido-inbox-exp")),
@@ -183,8 +188,26 @@ export class Conversation extends Server<Env> {
     connection.setState({
       role,
       id: ctx.request.headers.get("x-nido-id") ?? "",
+      authSessionId:
+        ctx.request.headers.get("x-nido-auth-session-id") ?? undefined,
+      userId: ctx.request.headers.get("x-nido-user-id") ?? undefined,
       canSend,
     } satisfies ConnState);
+
+    const initialState = connection.state as ConnState;
+    const gate = await currentConnectionGate(
+      this.env,
+      initialState.role,
+      initialState.id,
+      this.name,
+      Date.now(),
+      initialState.authSessionId,
+      initialState.userId,
+    );
+    if (!gate.allowed) {
+      connection.close(4003, "Acceso no disponible");
+      return;
+    }
 
     const rows = this.ctx.storage.sql
       .exec(
@@ -266,6 +289,8 @@ export class Conversation extends Server<Env> {
       state.id,
       this.name,
       Date.now(),
+      state.authSessionId,
+      state.userId,
     );
     if (!gate.allowed) {
       connection.close(4003, "Acceso no disponible");
@@ -409,7 +434,7 @@ export class Conversation extends Server<Env> {
 
     // PRIMERA PRIORIDAD: si el profesional no está conectado, avisarle por email
     // (con debounce para no spamear en una ráfaga de mensajes).
-    if (role === "seeker" && !this.isProfessionalOnline()) {
+    if (role === "seeker" && !(await this.isRoleOnline("professional"))) {
       const now = Date.now();
       if (now - this.lastNotifyAt >= NOTIFY_DEBOUNCE_MS) {
         this.lastNotifyAt = now;
@@ -428,7 +453,7 @@ export class Conversation extends Server<Env> {
 
     // Aviso a la PERSONA sin cuenta de que su acompañante respondió, con enlace
     // de acceso renovado (sin contenido). Cierra el ciclo asíncrono del chat.
-    if (role === "professional" && !this.isSeekerOnline()) {
+    if (role === "professional" && !(await this.isRoleOnline("seeker"))) {
       const now = Date.now();
       if (now - this.lastSeekerNotifyAt >= SEEKER_NOTIFY_DEBOUNCE_MS) {
         this.lastSeekerNotifyAt = now;
@@ -533,29 +558,26 @@ export class Conversation extends Server<Env> {
     this.sendTo(connection, { type: "reencrypted", count });
   }
 
-  private isProfessionalOnline(): boolean {
+  private async isRoleOnline(role: SenderRole): Promise<boolean> {
     for (const connection of this.getConnections()) {
       const state = connection.state as ConnState | null;
-      // Los avisos del panel no son "estar en la sala": si el profesional no
-      // tiene la conversación abierta, el correo debe seguir saliendo.
-      if (state?.role === "professional" && !state.informer) {
-        return true;
-      }
+      // Una sesión revocada (o un observador) no debe silenciar los avisos.
+      if (state?.role !== role || state.informer) continue;
+      const gate = await currentConnectionGate(
+        this.env,
+        state.role,
+        state.id,
+        this.name,
+        Date.now(),
+        state.authSessionId,
+        state.userId,
+      );
+      if (gate.allowed) return true;
+      connection.close(4003, "Acceso no disponible");
     }
     return false;
   }
 
-  private isSeekerOnline(): boolean {
-    for (const connection of this.getConnections()) {
-      if ((connection.state as ConnState | null)?.role === "seeker") {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Solo llamadas internas de confianza (mismo Worker, vía binding del DO) con
-  // el secreto compartido. Hash a longitud fija => comparación constante.
   private internalAuthorized(request: Request): boolean {
     const provided = request.headers.get("x-nido-internal");
     const expected =
@@ -661,6 +683,8 @@ export class Conversation extends Server<Env> {
             state.id,
             this.name,
             Date.now(),
+            state.authSessionId,
+            state.userId,
           );
           if (!gate.allowed) {
             recipient.close(4003, "Acceso no disponible");
@@ -685,7 +709,13 @@ export class Conversation extends Server<Env> {
     for (const recipient of this.getConnections()) {
       const state = recipient.state as ConnState | null;
       if (!state?.informer) continue;
-      const gate = await informerSessionActive(this.env, state.id, this.name);
+      const gate = await informerSessionActive(
+        this.env,
+        state.id,
+        this.name,
+        state.authSessionId,
+        state.userId,
+      );
       if (
         !gate.allowed ||
         !Number.isFinite(state.inboxExpiresAt) ||

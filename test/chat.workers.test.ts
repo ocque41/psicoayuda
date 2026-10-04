@@ -37,6 +37,8 @@ function proCookie(conversationId: string) {
   const token = mintProfessionalToken(
     {
       professionalId: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
       conversationId,
       role: "professional",
       iat: Date.now(),
@@ -716,7 +718,14 @@ describe("observadores de bandeja privados", () => {
     const room = "inbox-metadata-fixture";
     const now = Date.now();
     const token = mintProfessionalInboxToken(
-      { professionalId: "pro_1", role: "inbox", iat: now, exp: now + HOUR },
+      {
+        professionalId: "pro_1",
+        authSessionId: "auth_1",
+        userId: "user_1",
+        role: "inbox",
+        iat: now,
+        exp: now + HOUR,
+      },
       SECRET,
     );
     const response = await SELF.fetch(
@@ -795,7 +804,14 @@ describe("observadores de bandeja privados", () => {
     const room = "inbox-revocation-fixture";
     const now = Date.now();
     const token = mintProfessionalInboxToken(
-      { professionalId: "pro_1", role: "inbox", iat: now, exp: now + HOUR },
+      {
+        professionalId: "pro_1",
+        authSessionId: "auth_1",
+        userId: "user_1",
+        role: "inbox",
+        iat: now,
+        exp: now + HOUR,
+      },
       SECRET,
     );
     const response = await SELF.fetch(
@@ -818,12 +834,8 @@ describe("observadores de bandeja privados", () => {
         prepare: (query: string) => ({
           bind: () => ({
             first: async () =>
-              query.includes("owner_id")
-                ? {
-                    owner_id: "another-professional",
-                    professional_status: "approved",
-                    conversation_status: "open",
-                  }
+              query.includes("professional_status")
+                ? null // El JOIN de la sala ajena no devuelve una fila autorizada.
                 : {
                     status: "open",
                     revoked_at: null,
@@ -888,4 +900,108 @@ it("un destinatario profesional revocado no recibe contenido de nuevos mensajes"
   expect(await pro.closed).toBe(4003);
   expect(pro.buffered().filter((frame) => frame.type === "msg")).toEqual([]);
   seeker.close();
+});
+
+it.each([
+  "revocada",
+  "expirada",
+])("sesión BetterAuth %s cierra participante e inbox ya conectados sin contenido ni avisos", async (kind) => {
+  const room = `auth-session-${kind}-fixture`;
+  const pro = await open(room, proCookie(room));
+  await pro.waitFor("history");
+  await pro.waitFor("keys");
+  const now = Date.now();
+  const token = mintProfessionalInboxToken(
+    {
+      professionalId: "pro_1",
+      authSessionId: "auth_1",
+      userId: "user_1",
+      role: "inbox",
+      iat: now,
+      exp: now + HOUR,
+    },
+    SECRET,
+  );
+  const response = await SELF.fetch(
+    `https://internal.test/parties/conversation/${room}?avisos=1`,
+    {
+      headers: { Upgrade: "websocket", Cookie: `${PRO_INBOX_COOKIE}=${token}` },
+    },
+  );
+  expect(response.status).toBe(101);
+  const observer = wrap(response.webSocket as unknown as WebSocket);
+  const seeker = await open(room, seekerCookie(room));
+  await seeker.waitFor("history");
+  await seeker.waitFor("keys");
+  await settle();
+  const stub = await getServerByName(env.Conversation, room);
+  await runInDurableObject(stub, (instance) => {
+    const runtime = instance as unknown as { env: { DB: D1Database } };
+    // Transporte D1 explícito; las consultas con filas reales están en
+    // chat-session-grants. Aquí sí son reales DO, WS y SQLite de mensajes.
+    runtime.env.DB = {
+      prepare: (query) => ({
+        bind: () => ({
+          first: async () =>
+            query.includes("professional_status")
+              ? kind === "revocada"
+                ? null
+                : {
+                    conversation_status: "open",
+                    professional_status: "approved",
+                    auth_session_expires_at: Date.now() - 1,
+                    deleted_at: null,
+                    anonymized_at: null,
+                  }
+              : {
+                  status: "open",
+                  revoked_at: null,
+                  expires_at: Date.now() + HOUR,
+                  deleted_at: null,
+                  anonymized_at: null,
+                },
+        }),
+      }),
+    } as unknown as D1Database;
+  });
+  seeker.send({
+    type: "send",
+    clientMsgId: "fictional-after-auth-revocation",
+    content: "Mensaje ficticio tras salida",
+  });
+  expect(await pro.closed).toBe(4003);
+  expect(await observer.closed).toBe(4003);
+  expect(pro.buffered().filter((frame) => frame.type === "msg")).toEqual([]);
+  expect(observer.buffered()).toEqual([]);
+  seeker.close();
+});
+
+it("una sesión BetterAuth revocada corta send de socket abierto sin escribir mensaje", async () => {
+  const room = "auth-revoked-sender-fixture";
+  const pro = await open(room, proCookie(room));
+  await pro.waitFor("history");
+  await pro.waitFor("keys");
+  const stub = await getServerByName(env.Conversation, room);
+  await runInDurableObject(stub, (instance) => {
+    const runtime = instance as unknown as { env: { DB: D1Database } };
+    runtime.env.DB = {
+      prepare: () => ({ bind: () => ({ first: async () => null }) }),
+    } as unknown as D1Database;
+  });
+  pro.send({
+    type: "send",
+    clientMsgId: "fictional-revoked-send",
+    content: "Texto ficticio que debe rechazarse",
+  });
+  expect(await pro.closed).toBe(4003);
+  const count = await runInDurableObject(stub, (_instance, state) =>
+    Number(
+      (
+        state.storage.sql.exec("SELECT count(*) AS n FROM messages").one() as {
+          n: number;
+        }
+      ).n,
+    ),
+  );
+  expect(count).toBe(0);
 });
