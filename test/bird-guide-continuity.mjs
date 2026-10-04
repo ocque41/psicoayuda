@@ -55,6 +55,13 @@ async function check(name, assertion) {
   await assertion();
   checks.push(name);
 }
+// Capturar el vuelo dentro del navegador: un viaje de menos de un segundo
+// puede terminar antes de que el CLI externo entregue su siguiente consulta.
+async function observeFlight(action, step, observation) {
+  return evaluate(
+    `return new Promise((resolve,reject)=>{let timer;const observer=new MutationObserver(()=>{const bird=document.querySelector('span[data-step]');if(bird?.dataset.step===${JSON.stringify(step)}&&bird.dataset.phase==='flight'){const value=(()=>{${observation}})();observer.disconnect();clearTimeout(timer);resolve(value);}});observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-step','data-phase']});timer=setTimeout(()=>{observer.disconnect();reject(new Error('No hubo vuelo hacia ${step}'));},8000);${action}});`,
+  );
+}
 async function next() {
   await evaluate(
     "[...document.querySelector('[role=dialog]').querySelectorAll('button')].find(b=>b.textContent.trim()==='Siguiente').click();",
@@ -267,7 +274,9 @@ try {
     "movimiento reducido elimina vuelo y aleteo sin perder navegación",
     async () => {
       await cli("set", "media", "light", "reduced-motion");
-      await cli("click", "button[aria-expanded=false]");
+      await evaluate(
+        "document.querySelector('button[aria-expanded=false]').click();",
+      );
       await until("document.querySelector('[role=dialog][data-ready=true]')");
       assert.equal(
         await evaluate(
@@ -337,13 +346,9 @@ try {
       const resting = await evaluate(
         "const b=document.querySelector('span[data-step]');return {inline:b.style.transform,computed:getComputedStyle(b).transform,x:b.getBoundingClientRect().x,positioned:b.dataset.positioned};",
       );
-      await evaluate(
+      const observed = await observeFlight(
         "document.getElementById('demo-pacientes').style.width='280px';window.fixture.setStep('pacientes');",
-      );
-      await until(
-        "document.querySelector('span[data-step]')?.dataset.step==='pacientes' && document.querySelector('span[data-step]').dataset.flying==='true'",
-      );
-      const observed = await evaluate(
+        "pacientes",
         "const bird=document.querySelector('span[data-step]');return {direction:bird.dataset.direction,views:[...document.querySelectorAll('main>section')].filter(e=>!e.hidden).length,focus:document.activeElement.textContent,facing:getComputedStyle(bird.firstElementChild.firstElementChild).transform.startsWith('matrix(-1')};",
       );
       assert.deepEqual(
@@ -372,18 +377,12 @@ try {
       const before = await evaluate(
         "return window.fixture.motion.paths.length;",
       );
-      await evaluate(
+      const curvedHop = await observeFlight(
         "document.getElementById('demo-notas').style.width='280px';window.fixture.setStep('notas');",
+        "notas",
+        `const path=window.fixture.motion.paths[${before}];const points=path.transforms.map(t=>new DOMMatrixReadOnly(t));return Math.hypot(points.at(-1).m41-points[0].m41,points.at(-1).m42-points[0].m42)<20 && points.some(p=>Math.hypot(p.m41-points[0].m41,p.m42-points[0].m42)>8);`,
       );
-      await until(
-        "document.querySelector('span[data-step]')?.dataset.step==='notas' && document.querySelector('span[data-step]').dataset.flying==='true'",
-      );
-      assert.equal(
-        await evaluate(
-          `const path=window.fixture.motion.paths[${before}];const points=path.transforms.map(t=>new DOMMatrixReadOnly(t));return Math.hypot(points.at(-1).m41-points[0].m41,points.at(-1).m42-points[0].m42)<20 && points.some(p=>Math.hypot(p.m41-points[0].m41,p.m42-points[0].m42)>8);`,
-        ),
-        true,
-      );
+      assert.equal(curvedHop, true);
       await evaluate("window.fixture.setStep('mensajes');");
       await until(
         "document.querySelector('span[data-step]')?.dataset.step==='mensajes'",
@@ -519,16 +518,12 @@ try {
       await until(
         "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
       );
-      await evaluate("window.fixture.setStep('pacientes');");
-      await until(
-        "document.querySelector('span[data-step]')?.dataset.step==='pacientes' && document.querySelector('span[data-step]').dataset.phase==='flight'",
+      const replacedIdle = await observeFlight(
+        "window.fixture.setStep('pacientes');",
+        "pacientes",
+        "const bird=document.querySelector('span[data-step]');return window.fixture.motion.active===2&&bird.firstElementChild.getAnimations().every(a=>a.effect.getTiming().duration<=1000);",
       );
-      assert.equal(
-        await evaluate(
-          "const bird=document.querySelector('span[data-step]');return window.fixture.motion.active===2&&bird.firstElementChild.getAnimations().every(a=>a.effect.getTiming().duration<=1000);",
-        ),
-        true,
-      );
+      assert.equal(replacedIdle, true);
       await until(
         "document.querySelector('span[data-step]')?.dataset.phase==='idle'",
       );

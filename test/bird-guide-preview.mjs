@@ -5,18 +5,24 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// La misma fixture de regresión, sólo en loopback: sin Next, BD ni proveedores.
+// La demo real en React, sólo en loopback: sin Next, BD ni proveedores.
 const root = fileURLToPath(new URL("..", import.meta.url));
 const require = createRequire(import.meta.url);
 const esbuild = createRequire(require.resolve("tsx"))("esbuild");
 const port = Number(process.env.NIDO_GUIDE_PREVIEW_PORT || 8798);
-if (!Number.isInteger(port) || port < 1024 || port > 65535)
+if (!Number.isInteger(port) || (port !== 0 && port < 1024) || port > 65535)
   throw new Error("Puerto de preview inválido");
 const directory = await mkdtemp(join(tmpdir(), "nido-guide-preview-"));
+const regression = process.env.NIDO_GUIDE_PREVIEW_FIXTURE === "bird";
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url || "/", "http://127.0.0.1").pathname;
   const name = pathname === "/" ? "index.html" : pathname.slice(1);
-  if (!/^(index\.html|fixture\.(js|css))$/.test(name)) {
+  if (pathname === "/brand/nido-icon-128.png") {
+    response.setHeader("Content-Type", "image/png");
+    response.end(await readFile(join(root, "public/brand/nido-icon-128.png")));
+    return;
+  }
+  if (!/^(index\.html|demo-global\.css|fixture\.(js|css))$/.test(name)) {
     response.writeHead(404).end();
     return;
   }
@@ -44,7 +50,14 @@ async function close() {
 }
 try {
   await esbuild.build({
-    entryPoints: [join(root, "src/tests/fixtures/bird-guide-browser.tsx")],
+    entryPoints: [
+      join(
+        root,
+        regression
+          ? "src/tests/fixtures/bird-guide-browser.tsx"
+          : "src/tests/fixtures/practice-demo-browser.tsx",
+      ),
+    ],
     outfile: join(directory, "fixture.js"),
     bundle: true,
     platform: "browser",
@@ -52,10 +65,39 @@ try {
     jsx: "automatic",
     tsconfig: join(root, "tsconfig.json"),
     nodePaths: [join(root, "node_modules")],
+    plugins: [
+      {
+        name: "next-preview-dom",
+        setup(build) {
+          build.onResolve({ filter: /^next\/(link|image)$/ }, ({ path }) => ({
+            path,
+            namespace: "preview-dom",
+          }));
+          build.onLoad(
+            { filter: /.*/, namespace: "preview-dom" },
+            ({ path }) => ({
+              contents:
+                path === "next/link"
+                  ? 'import {createElement} from "react";export default function Link({href,prefetch,...props}){return createElement("a",{...props,href});}'
+                  : 'import {createElement} from "react";export default function Image({src,priority,quality,unoptimized,fill,loader,...props}){return createElement("img",{...props,src});}',
+              loader: "js",
+              resolveDir: root,
+            }),
+          );
+        },
+      },
+    ],
   });
   await writeFile(
+    join(directory, "demo-global.css"),
+    (await readFile(join(root, "src/app/globals.css"), "utf8")).replace(
+      '@import "tailwindcss";',
+      "",
+    ),
+  );
+  await writeFile(
     join(directory, "index.html"),
-    '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pajarito · Preview local ficticio</title><link rel="stylesheet" href="fixture.css"><style>*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui;background:#faf6f0;color:#2b2723}main{max-width:1080px;margin:auto;padding:24px 16px 180px}label,input{display:block}input{width:100%;margin:8px 0 16px;padding:10px}button{cursor:pointer}</style></head><body><div id="root"></div><script src="fixture.js"></script></body></html>',
+    '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nido · Demo con pajarito</title><link rel="stylesheet" href="demo-global.css"><link rel="stylesheet" href="fixture.css"></head><body><main id="root"></main><script src="fixture.js"></script></body></html>',
   );
   await new Promise((resolve, reject) => {
     server.once("error", reject);
@@ -63,8 +105,10 @@ try {
   });
   console.log(
     JSON.stringify({
-      url: `http://127.0.0.1:${port}/?windows=1`,
-      fixture: "BirdGuide real, ejemplos ficticios, una ventana visible",
+      url: `http://127.0.0.1:${server.address().port}/?windows=1`,
+      fixture: regression
+        ? "BirdGuide de regresión"
+        : "PracticeDemo real, ejemplos locales, pajarito entre lecturas",
     }),
   );
   process.once("SIGINT", close);
