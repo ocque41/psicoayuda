@@ -12,7 +12,7 @@ import { TurnstileWidget } from "@/components/turnstile-widget";
 type CommonProps = {
   turnstileSiteKey: string | null;
 };
-type CredentialReturnTo = "/pro/dashboard" | "/mi/ajustes";
+type CredentialReturnTo = "/pro/dashboard" | "/pro/ajustes" | "/mi/ajustes";
 
 /** Reacciona al resultado de la acción: limpia el widget (token de un uso). */
 function useTurnstileReset(state: CredentialFormState) {

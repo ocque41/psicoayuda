@@ -12,7 +12,12 @@ import {
   practiceSettings,
 } from "@/db/schema";
 import { requirePracticeProfessional } from "@/lib/practice/access";
-import { calendarMonth } from "@/lib/practice/calendar";
+import {
+  calendarMonth,
+  calendarPeriod,
+  calendarReferenceDay,
+  calendarView,
+} from "@/lib/practice/calendar";
 import { dateLabel, localToUtc, moneyLabel } from "@/lib/practice/domain";
 import { inboxSummary } from "@/lib/practice/queries";
 import { receiptPeriod } from "@/lib/practice/receipt-export";
@@ -53,6 +58,14 @@ export default async function PracticePage({
   const monthEndDate = new Date(monthStart);
   monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
   const timeZone = localSettings?.timeZone || "America/Caracas";
+  const initialDay = calendarReferenceDay(month, params.dia, timeZone);
+  const period = calendarPeriod(month, initialDay, calendarView(params.vista));
+  const calendarRangeStart =
+    localToUtc(`${period.from}T00:00`, timeZone) ||
+    new Date(`${period.from}T00:00:00Z`).toISOString();
+  const calendarRangeEnd =
+    localToUtc(`${period.until}T00:00`, timeZone) ||
+    new Date(`${period.until}T00:00:00Z`).toISOString();
   const nextMonth = monthEndDate.toISOString().slice(0, 7);
   const rangeStart =
     localToUtc(`${month}-01T00:00`, timeZone) ||
@@ -67,6 +80,7 @@ export default async function PracticePage({
         patientId: practiceAppointments.patientId,
         name: practicePatients.name,
         startsAt: practiceAppointments.startsAt,
+        endsAt: practiceAppointments.endsAt,
         status: practiceAppointments.status,
         modality: practiceAppointments.modality,
       })
@@ -81,8 +95,8 @@ export default async function PracticePage({
       .where(
         and(
           eq(practiceAppointments.professionalId, pro.id),
-          gte(practiceAppointments.startsAt, rangeStart),
-          lt(practiceAppointments.startsAt, rangeEnd),
+          gte(practiceAppointments.startsAt, calendarRangeStart),
+          lt(practiceAppointments.startsAt, calendarRangeEnd),
         ),
       )
       .orderBy(asc(practiceAppointments.startsAt))
@@ -136,10 +150,12 @@ export default async function PracticePage({
         <LegacyPracticeNavigation />
         <PracticeCalendar
           month={month}
+          initialDay={initialDay}
           timeZone={timeZone}
           events={appointments.slice(0, 200).map((a) => ({
             id: a.id,
             startsAt: a.startsAt,
+            endsAt: a.endsAt,
             dateText: dateLabel(a.startsAt, timeZone),
             patientId: a.patientId,
             name: a.name,
@@ -148,7 +164,7 @@ export default async function PracticePage({
         />
         {appointments.length > 200 ? (
           <p role="status">
-            El calendario muestra las primeras 200 sesiones de este mes.
+            El calendario muestra las primeras 200 sesiones del periodo visible.
             Consulta las fichas para el detalle completo.
           </p>
         ) : null}

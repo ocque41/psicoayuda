@@ -81,6 +81,15 @@ function emailForm(destination?: string) {
 }
 
 describe("destinos de seguridad de cuenta", () => {
+  it("la confirmación iniciada en ajustes profesionales vuelve al panel de ajustes", async () => {
+    expect((await changeMyEmail(null, emailForm("/pro/ajustes")))?.status).toBe(
+      "success",
+    );
+    expect(mocks.changeEmail).toHaveBeenCalledWith({
+      body: { newEmail: "nuevo@example.test", callbackURL: "/pro/ajustes" },
+      headers: expect.any(Headers),
+    });
+  });
   it("la confirmación de correo vuelve a preferencias del paciente", async () => {
     expect((await changeMyEmail(null, emailForm("/mi/ajustes")))?.status).toBe(
       "success",
@@ -96,6 +105,7 @@ describe("destinos de seguridad de cuenta", () => {
     "https://externo.example/",
     "//externo.example/",
     "/mi/ajustes?next=https://externo.example/",
+    "/pro/ajustes?next=https://externo.example/",
     "/%2fexterno.example/",
   ])("no admite destino externo o arbitrario: %s", async (destination) => {
     await changeMyEmail(null, emailForm(destination));

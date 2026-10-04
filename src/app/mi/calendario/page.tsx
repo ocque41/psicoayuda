@@ -10,7 +10,12 @@ import {
   patientRequestCounts,
   patientRequests,
 } from "@/lib/patient/queries";
-import { calendarMonth } from "@/lib/practice/calendar";
+import {
+  calendarMonth,
+  calendarPeriod,
+  calendarReferenceDay,
+  calendarView,
+} from "@/lib/practice/calendar";
 import { dateLabel, localToUtc } from "@/lib/practice/domain";
 import { pageNumber } from "@/lib/practice/queries";
 import { AppointmentList, RequestList } from "../patient-parts";
@@ -37,6 +42,14 @@ export default async function PatientCalendar({
   const { account } = await requirePatientAccount(),
     params = await searchParams;
   const month = calendarMonth(params.mes, localMonth(account.timezone));
+  const initialDay = calendarReferenceDay(month, params.dia, account.timezone);
+  const period = calendarPeriod(month, initialDay, calendarView(params.vista));
+  const calendarFrom =
+    localToUtc(`${period.from}T00:00`, account.timezone) ||
+    new Date(`${period.from}T00:00:00Z`).toISOString();
+  const calendarUntil =
+    localToUtc(`${period.until}T00:00`, account.timezone) ||
+    new Date(`${period.until}T00:00:00Z`).toISOString();
   const nextStart = new Date(`${month}-01T00:00:00Z`);
   nextStart.setUTCMonth(nextStart.getUTCMonth() + 1);
   const next = nextStart.toISOString().slice(0, 7);
@@ -52,7 +65,11 @@ export default async function PatientCalendar({
   const [appointments, requests, calendar] = await Promise.all([
     patientAppointments(account.userId, { page: params.pagina, from, until }),
     patientRequests(account.userId, requestPage),
-    patientAppointments(account.userId, { from, until, calendar: true }),
+    patientAppointments(account.userId, {
+      from: calendarFrom,
+      until: calendarUntil,
+      calendar: true,
+    }),
   ]);
   return (
     <WorkspaceShell
@@ -68,10 +85,12 @@ export default async function PatientCalendar({
       <PracticeCalendar
         audience="patient"
         month={month}
+        initialDay={initialDay}
         timeZone={account.timezone}
         events={calendar.rows.slice(0, 200).map((a) => ({
           id: a.id,
           startsAt: a.startsAt,
+          endsAt: a.endsAt,
           dateText: dateLabel(a.startsAt, account.timezone),
           name: a.name,
           status: a.status,
@@ -87,8 +106,9 @@ export default async function PatientCalendar({
       <section className="workspace-card">
         {calendar.total > 200 ? (
           <p className="hint">
-            El calendario muestra las primeras 200 sesiones. El listado paginado
-            contiene todas las sesiones del mes.
+            El calendario muestra las primeras 200 sesiones del periodo visible.
+            El listado paginado contiene todas las sesiones del mes
+            seleccionado.
           </p>
         ) : null}
         <h2>Sesiones de este mes</h2>

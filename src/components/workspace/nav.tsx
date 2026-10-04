@@ -16,7 +16,7 @@ const patientLinks: NavItem[] = [
   { href: "/mi/calendario", label: "Calendario", icon: "calendar" },
   { href: "/mi/mensajes", label: "Mensajes", icon: "message" },
   { href: "/mi/pagos", label: "Pagos", icon: "payment" },
-  { href: "/mi/ajustes", label: "Preferencias", icon: "settings" },
+  { href: "/mi/ajustes", label: "Ajustes", icon: "settings" },
 ];
 const professionalLinks: NavItem[] = [
   {
@@ -28,7 +28,7 @@ const professionalLinks: NavItem[] = [
   { href: "/pro/mensajes", label: "Mensajes", icon: "message" },
   { href: "/pro/servicios", label: "Servicios", icon: "leaf" },
   { href: "/pro/cobros", label: "Cobros", icon: "payment" },
-  { href: "/pro/ajustes", label: "Preferencias", icon: "settings" },
+  { href: "/pro/ajustes", label: "Ajustes", icon: "settings" },
   { href: "/pro/soporte", label: "Soporte", icon: "help" },
   { href: "/pro/plan", label: "Mi plan", icon: "payment" },
   { href: "/pro/dashboard", label: "Mi perfil", icon: "profile" },

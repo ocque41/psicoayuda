@@ -3,7 +3,10 @@ import {
   calendarDay,
   calendarHref,
   calendarMonth,
+  calendarPeriod,
+  calendarReferenceDay,
   calendarView,
+  shiftCalendarDay,
   shiftCalendarMonth,
 } from "@/lib/practice/calendar";
 
@@ -38,10 +41,12 @@ describe("contexto validado del calendario", () => {
   ])("descarta un día imposible o ajeno al mes: %s", (value) =>
     expect(calendarDay(value, "2026-02")).toBeNull());
 
-  it("acepta el día bisiesto y sólo las dos vistas conocidas", () => {
+  it("acepta el día bisiesto y las vistas conocidas", () => {
     expect(calendarDay("2024-02-29", "2024-02")).toBe("2024-02-29");
     expect(calendarView("agenda")).toBe("agenda");
     expect(calendarView("mes")).toBe("mes");
+    expect(calendarView("semana")).toBe("semana");
+    expect(calendarView("dia")).toBe("dia");
     expect(calendarView("texto")).toBe("mes");
     expect(calendarView(["agenda"])).toBe("mes");
   });
@@ -52,6 +57,66 @@ describe("contexto validado del calendario", () => {
     expect(shiftCalendarMonth("0001-01", 1)).toBe("0001-02");
     expect(shiftCalendarMonth("0001-01", -1)).toBeNull();
     expect(shiftCalendarMonth("9999-12", 1)).toBeNull();
+  });
+});
+
+describe("rangos diarios y semanales en la zona de la cuenta", () => {
+  it("incluye la semana completa de lunes a domingo al cruzar de mes", () => {
+    expect(calendarPeriod("2026-10", "2026-10-01", "semana")).toEqual({
+      from: "2026-09-28",
+      until: "2026-10-05",
+      days: [
+        "2026-09-28",
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02",
+        "2026-10-03",
+        "2026-10-04",
+      ],
+    });
+  });
+  it("incluye la semana que cruza de año y navega sin perder la fecha", () => {
+    const period = calendarPeriod("2027-01", "2027-01-01", "semana");
+    expect(period.from).toBe("2026-12-28");
+    expect(period.until).toBe("2027-01-04");
+    expect(shiftCalendarDay("2027-01-01", -7)).toBe("2026-12-25");
+    const href = new URL(
+      calendarHref("/mi/calendario", "vista=semana&solicitudes=3", "2027-01", {
+        mes: "2026-12",
+        dia: "2026-12-25",
+      }),
+      "https://ejemplo.test",
+    );
+    expect(href.searchParams.get("dia")).toBe("2026-12-25");
+    expect(href.searchParams.get("vista")).toBe("semana");
+    expect(href.searchParams.get("solicitudes")).toBe("3");
+  });
+  it("el rango diario termina en la fecha civil siguiente, incluido un año bisiesto", () => {
+    expect(calendarPeriod("2024-02", "2024-02-29", "dia")).toEqual({
+      from: "2024-02-29",
+      until: "2024-03-01",
+      days: ["2024-02-29"],
+    });
+    expect(shiftCalendarDay("2024-03-01", -1)).toBe("2024-02-29");
+    expect(shiftCalendarDay("0001-01-01", -1)).toBeNull();
+    expect(shiftCalendarDay("9999-12-31", 1)).toBeNull();
+    expect(shiftCalendarDay("2026-10-01", Number.MAX_SAFE_INTEGER)).toBeNull();
+  });
+  it("elige hoy en la zona de la cuenta y conserva una fecha explícita", () => {
+    const now = new Date("2026-10-04T01:00:00Z");
+    expect(calendarReferenceDay("2026-10", null, "America/Caracas", now)).toBe(
+      "2026-10-03",
+    );
+    expect(calendarReferenceDay("2026-10", null, "Europe/Madrid", now)).toBe(
+      "2026-10-04",
+    );
+    expect(
+      calendarReferenceDay("2026-10", "2026-10-20", "Europe/Madrid", now),
+    ).toBe("2026-10-20");
+    expect(calendarReferenceDay("2026-11", null, "Europe/Madrid", now)).toBe(
+      "2026-11-01",
+    );
   });
 });
 
