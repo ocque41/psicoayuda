@@ -3,6 +3,10 @@
   background: #f4f6ef;
   padding-bottom: 3rem;
 }
+.readingPoint {
+  min-height: 64px;
+  padding-inline-start: 72px;
+}
 .appbar {
   position: sticky;
   top: 0;

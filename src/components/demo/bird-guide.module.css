@@ -177,6 +177,10 @@
 .bird[data-phase="flight"] {
   will-change: transform;
 }
+.bird[data-reading="true"] {
+  width: 56px;
+  height: 56px;
+}
 .pose,
 .facing {
   position: relative;
