@@ -655,6 +655,7 @@ export async function AdminDashboard({
                       />
                       <select
                         name="status"
+                        aria-label="Estado del profesional"
                         defaultValue={professional.status}
                         disabled={professional.status === "deleting"}
                       >
