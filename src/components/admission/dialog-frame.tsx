@@ -26,9 +26,23 @@ export function AdmissionDialog({
   dirty?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const resumeFocus = useRef<HTMLElement | null>(null);
+  const continueButton = useRef<HTMLButtonElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
   const descriptionId = useId();
   const [discard, setDiscard] = useState(false);
+  useLayoutEffect(() => {
+    if (discard) {
+      continueButton.current?.focus({ preventScroll: true });
+      return;
+    }
+    const previous = resumeFocus.current;
+    resumeFocus.current = null;
+    if (previous && dialog.current?.contains(previous))
+      previous.focus({ preventScroll: true });
+    else if (previous) heading.current?.focus({ preventScroll: true });
+  }, [discard]);
   useLayoutEffect(() => {
     const element = dialog.current;
     if (!element || typeof element.showModal !== "function") return;
@@ -66,6 +80,8 @@ export function AdmissionDialog({
   function close() {
     if (busy) return;
     if (dirty) {
+      if (!discard && document.activeElement instanceof HTMLElement)
+        resumeFocus.current = document.activeElement;
       setDiscard(true);
       return;
     }
@@ -98,7 +114,7 @@ export function AdmissionDialog({
         <header className={styles.dialogHead}>
           <div>
             <p className={styles.eyebrow}>Admisión en Nido</p>
-            <h2 id={titleId} tabIndex={-1}>
+            <h2 ref={heading} id={titleId} tabIndex={-1}>
               {title}
             </h2>
             {description ? (
@@ -125,8 +141,10 @@ export function AdmissionDialog({
             </p>
             <div className={styles.rowActions}>
               <button
+                ref={continueButton}
                 type="button"
                 className={styles.secondary}
+                disabled={busy}
                 onClick={() => setDiscard(false)}
               >
                 Seguir revisando
@@ -134,6 +152,7 @@ export function AdmissionDialog({
               <button
                 type="button"
                 className={styles.secondary}
+                disabled={busy}
                 onClick={onClose}
               >
                 Descartar y cerrar

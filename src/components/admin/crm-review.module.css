@@ -43,7 +43,7 @@
 }
 .workspace :global(.workspace-rail) {
   position: relative;
-  top: auto;
+  inset: auto;
   width: auto;
   margin: 0;
 }
