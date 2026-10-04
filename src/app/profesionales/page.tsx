@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmergencyNotice } from "@/components/emergency-notice";
-import {
-  DirectoryItemListJsonLd,
-  DirectoryJsonLd,
-} from "@/components/structured-data";
+import { DirectoryJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
@@ -17,7 +14,7 @@ import {
 // Dinámica: lee los filtros de la URL (?q/?tipo/?tema/?disp) en el servidor para
 // que el primer render ya salga filtrado (enlace compartible/indexable, sin
 // parpadeo ni spinner). La lista pública es pequeña y la consulta a D1 es ligera.
-// El `canonical` fijo evita que los buscadores indexen las variantes con filtros.
+// El `canonical` fijo identifica la URL preferida de las variantes con filtros.
 
 export const metadata: Metadata = {
   title: "Psicólogas y psicólogos en Venezuela",
@@ -56,19 +53,11 @@ export default async function ProfesionalesPage({
     onlyAvailable: disp === "1",
     paid: pago === "1",
   };
-  // Nombres públicos ya visibles en la página, para el ItemList (SEO). Solo
-  // nombre (sin contacto ni ubicación), coherente con el criterio de privacidad.
-  const itemNames = [
-    ...professionals.map((professional) => professional.name),
-    ...organizations.map((organization) => organization.name),
-  ];
-
   return (
     <section className="section">
       <div className="container">
         <Breadcrumbs trail={[{ name: "Psicólogos", path: "/profesionales" }]} />
         <DirectoryJsonLd />
-        <DirectoryItemListJsonLd path="/profesionales" names={itemNames} />
         <h1>Psicólogas y psicólogos en Venezuela, listos para acompañarte</h1>
         <ul className="trust-strip" aria-label="Garantías">
           <li>A tu ritmo</li>
@@ -89,6 +78,7 @@ export default async function ProfesionalesPage({
         <EmergencyNotice />
 
         <SupportDirectory
+          itemListPath="/profesionales"
           professionals={professionals}
           organizations={organizations}
           initialFilters={initialFilters}

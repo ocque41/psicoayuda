@@ -7,7 +7,6 @@ import {
 } from "@/components/emergency-resources";
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
-import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
@@ -55,10 +54,6 @@ export default async function HelpPage({
     onlyAvailable: disp === "1",
     paid: pago === "1",
   };
-  const itemNames = [
-    ...professionals.map((professional) => professional.name),
-    ...organizations.map((organization) => organization.name),
-  ];
 
   let preferred: { id: string; name: string; nonClinical: boolean } | null =
     null;
@@ -110,8 +105,8 @@ export default async function HelpPage({
               directo a quien prefieras, o{" "}
               <strong>envía tu solicitud a todas a la vez</strong> más abajo.
             </p>
-            <DirectoryItemListJsonLd path="/ayuda" names={itemNames} />
             <SupportDirectory
+              itemListPath="/ayuda"
               professionals={professionals}
               organizations={organizations}
               initialFilters={initialFilters}
