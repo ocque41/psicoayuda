@@ -217,12 +217,11 @@ export async function AdminDashboard({
     contactRows,
     completedProfessionalAccounts,
   ] = await Promise.all([
-    // Excluimos el documento del comprobante (pesa ~1 MB): la lista admin no lo
-    // necesita, y así no arrastramos ese blob por cada profesional (evita repetir
-    // el incidente de CPU de /profesionales). Se leería aparte al revisar uno.
+    // Estos listados no muestran fotos ni comprobantes. Ambos pueden contener
+    // archivos grandes; los comprobantes se leen en su ruta privada al revisarlos.
     ["solicitudes", "profesionales"].includes(view)
       ? db.query.professionals.findMany({
-          columns: { registrationProofDoc: false },
+          columns: { registrationProofDoc: false, photo: false },
           orderBy: (p, { desc: descOp }) => [descOp(p.createdAt)],
         })
       : [],
