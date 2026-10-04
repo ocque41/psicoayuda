@@ -208,6 +208,61 @@ async function insertDelivery(
     updatedAt: AT,
   });
 }
+// Keep real crypto for sealed fixtures; only delivery IDs control equal-time order.
+async function seedLargeBacklog() {
+  for (let i = 0; i < 50; i++)
+    await insertDevice(
+      professional,
+      `fixture-device-${String(i).padStart(2, "0")}`,
+    );
+  for (let i = 0; i < 30; i++)
+    await fixture.db.insert(schema.conversations).values({
+      id: `fixture-chat-${i}`,
+      professionalId: "own-pro",
+      seekerSid: "fictitious",
+      status: "open",
+      lastMessageAt: new Date(AT - 1),
+      lastMessageRole: "seeker",
+      createdAt: iso(AT),
+      updatedAt: iso(AT),
+    });
+  for (const row of await fixture.db.select().from(devices)) {
+    await fixture.db
+      .update(devices)
+      .set({
+        sealedSubscription: await sealPushSubscription(
+          JSON.stringify(subscription),
+          row.userId,
+          row.role,
+          row.id,
+        ),
+      })
+      .where(eq(devices.id, row.id));
+  }
+}
+async function runOrderedBacklog(sameDeviceFirst: boolean) {
+  const send = vi.fn(async () => ({
+    ok: false as const,
+    code: "expired" as const,
+    retryable: false,
+  }));
+  const uuid = vi.spyOn(crypto, "randomUUID");
+  // Enqueue visits each device's two events consecutively. With equal due times,
+  // queue order is by UUID, so alternate devices for the original two-send case.
+  for (let i = 0; i < 10; i++) {
+    const rank = sameDeviceFirst ? i : (i % 2) * 5 + Math.floor(i / 2);
+    uuid.mockReturnValueOnce(
+      `00000000-0000-4000-8000-${String(rank).padStart(12, "0")}`,
+    );
+  }
+  try {
+    const result = await runWebPushJobs(AT, send, () => AT);
+    return { result, send };
+  } finally {
+    // Claim tokens and every subsequent test retain the real UUID generator.
+    uuid.mockRestore();
+  }
+}
 beforeAll(async () => {
   const url = process.env.DATABASE_URL || "";
   if (!url.startsWith("file:") || !url.includes("nido-tests-"))
@@ -594,43 +649,10 @@ describe("Push integration in an independent memory database", () => {
     ).toEqual(original);
   });
   it("large backlog is bounded before enqueue, rotates devices fairly, never reports successful exhaustion", async () => {
-    for (let i = 0; i < 50; i++)
-      await insertDevice(
-        professional,
-        `fixture-device-${String(i).padStart(2, "0")}`,
-      );
-    for (let i = 0; i < 30; i++)
-      await fixture.db.insert(schema.conversations).values({
-        id: `fixture-chat-${i}`,
-        professionalId: "own-pro",
-        seekerSid: "fictitious",
-        status: "open",
-        lastMessageAt: new Date(AT - 1),
-        lastMessageRole: "seeker",
-        createdAt: iso(AT),
-        updatedAt: iso(AT),
-      });
-    for (const row of await fixture.db.select().from(devices)) {
-      await fixture.db
-        .update(devices)
-        .set({
-          sealedSubscription: await sealPushSubscription(
-            JSON.stringify(subscription),
-            row.userId,
-            row.role,
-            row.id,
-          ),
-        })
-        .where(eq(devices.id, row.id));
-    }
+    await seedLargeBacklog();
     queries = [];
     batches = [];
-    const send = vi.fn(async () => ({
-      ok: false as const,
-      code: "expired" as const,
-      retryable: false,
-    }));
-    const result = await runWebPushJobs(AT, send, () => AT);
+    const { result, send } = await runOrderedBacklog(false);
     expect(result).toMatchObject({
       enqueued: 10,
       complete: false,
@@ -653,6 +675,52 @@ describe("Push integration in an independent memory database", () => {
     expect(new Set(first.map((row) => row.id)).size).toBe(5);
     expect(new Set(second.map((row) => row.id)).size).toBe(10);
     expect(send).toHaveBeenCalledTimes(2); // Six SQL statements and three writes per simulated 410, never a real provider.
+    expect(result).toMatchObject({ processed: 2, dead: 2, skipped: 0 });
+    const attempted = await fixture.db
+      .select({ subscriptionId: deliveries.subscriptionId })
+      .from(deliveries)
+      .where(eq(deliveries.status, "dead"));
+    expect(new Set(attempted.map((row) => row.subscriptionId)).size).toBe(2);
+  });
+  it("large backlog skips a second equal-time event after its device returns 410", async () => {
+    await seedLargeBacklog();
+    queries = [];
+    batches = [];
+    const { result, send } = await runOrderedBacklog(true);
+    expect(result).toMatchObject({
+      enqueued: 10,
+      processed: 2,
+      dead: 1,
+      skipped: 1,
+      complete: false,
+      exhausted: true,
+      statementsReserved: 39,
+      writesReserved: 26,
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(queries.length).toBeLessThanOrEqual(PUSH_JOB_LIMITS.statements);
+    const stopped = await fixture.db
+      .select()
+      .from(deliveries)
+      .where(eq(deliveries.subscriptionId, "fixture-device-00"));
+    expect(stopped.map((row) => row.status).sort()).toEqual([
+      "dead",
+      "skipped",
+    ]);
+    expect(stopped.map((row) => row.reasonCode).sort()).toEqual([
+      "consent_changed",
+      "expired",
+    ]);
+    const [retired] = await fixture.db
+      .select()
+      .from(devices)
+      .where(eq(devices.id, "fixture-device-00"));
+    expect(retired).toMatchObject({
+      revokedAt: AT,
+      sealedSubscription: null,
+      sessionId: null,
+      revision: 2,
+    });
   });
   it("elapsed budget covers configuration and maintenance before any enqueue or send", async () => {
     await insertDevice();
