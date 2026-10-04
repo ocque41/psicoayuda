@@ -13,7 +13,11 @@ import { TIME_ZONES } from "@/lib/geography";
 import { AdmissionActionForm } from "./action-form";
 import styles from "./admission.module.css";
 import { AdmissionDialog } from "./dialog-frame";
-import { admissionHref, formatAdmissionDate } from "./view-model";
+import {
+  admissionHref,
+  admissionRegistrationLabel,
+  formatAdmissionDate,
+} from "./view-model";
 
 const tabs = [
   { id: "profile", label: "Perfil" },
@@ -178,8 +182,7 @@ export function AdmissionDetailDialog({
                 "Registro no indicado"}
             </p>
             <p className={styles.muted}>
-              {candidate.profile.registrationType ||
-                "Tipo de registro por confirmar"}
+              {admissionRegistrationLabel(candidate.profile.registrationType)}
             </p>
             {candidate.profile.registrationDetail ? (
               <p className={styles.muted}>

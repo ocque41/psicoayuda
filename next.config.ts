@@ -67,7 +67,30 @@ const nextConfig: NextConfig = {
   // Surface unsafe lifecycles / side effects early; no production runtime cost.
   reactStrictMode: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    const documentHeaders = securityHeaders.map((header) => {
+      if (header.key === "Content-Security-Policy")
+        return {
+          key: header.key,
+          value:
+            "default-src 'none'; sandbox; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+        };
+      if (header.key === "Referrer-Policy")
+        return { key: header.key, value: "no-referrer" };
+      return header;
+    });
+    // Next aplica las reglas en orden: los comprobantes conservan su aislamiento
+    // también cuando OpenNext añade las cabeceras globales a la respuesta.
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/admin/admision/documento/:professionalId",
+        headers: documentHeaders,
+      },
+      {
+        source: "/api/practice/credential/:professionalId",
+        headers: documentHeaders,
+      },
+    ];
   },
 };
 

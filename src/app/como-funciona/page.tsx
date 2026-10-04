@@ -41,6 +41,14 @@ export default function Page() {
             </p>
           </article>
         </div>
+        <p>
+          Si buscas otras opciones de apoyo, puedes{" "}
+          <Link href="/lista-de-espera">
+            anotarte en la lista general de espera
+          </Link>
+          . El equipo revisa las solicitudes según disponibilidad, sin garantía
+          de cupo ni plazo.
+        </p>
         <h2>Si buscas ayuda por el terremoto</h2>
         <p>
           Ayuda Terremoto mantiene un recorrido separado de acompañamiento

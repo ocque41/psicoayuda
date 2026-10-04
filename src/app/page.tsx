@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HomeProfessionalsStrip } from "@/components/home-professionals-strip";
 import { HomeJsonLd } from "@/components/structured-data";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { ProductPreview } from "@/components/workspace/product-preview";
 import { getCachedFeedProfessionals } from "@/lib/feed";
@@ -104,6 +105,7 @@ export default async function HomePage() {
               Explorar todos los perfiles<span aria-hidden="true">↗</span>
             </Link>
           </p>
+          <WaitlistCallout />
         </div>
       </section>
       {localCatalogFirst ? principles : null}

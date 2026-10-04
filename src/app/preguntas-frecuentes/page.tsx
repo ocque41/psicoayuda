@@ -25,8 +25,13 @@ const professionalFaq = [
       "Sí. Puedes pausar nuevas solicitudes desde tu perfil y ajustar el horario de recepción desde Horario. En la configuración de tu cuenta puedes solicitar la eliminación; no hace falta escribir a un correo personal.",
   },
 ];
+const waitlistFaq = {
+  question: "¿Puedo anotarme en una lista de espera?",
+  answer:
+    "Sí. La lista general de espera recoge solicitudes de apoyo por motivos distintos del terremoto para que el equipo las revise según disponibilidad. No garantiza un cupo ni un plazo de respuesta. Puedes seguir explorando el catálogo y las organizaciones aliadas. Ayuda Terremoto mantiene su recorrido gratuito separado.",
+};
 export default function Page() {
-  const items = [...HOME_FAQ, ...professionalFaq];
+  const items = [...HOME_FAQ, waitlistFaq, ...professionalFaq];
   return (
     <section className="section">
       <div className="container">
@@ -39,6 +44,7 @@ export default function Page() {
         ))}
         <p>
           <Link href="/profesionales">Encontrar mi psicólogo</Link> ·{" "}
+          <Link href="/lista-de-espera">Lista general de espera</Link> ·{" "}
           <Link href="/para-psicologos">Soy profesional</Link> ·{" "}
           <Link href="/contacto">Hablar con el equipo</Link>
         </p>

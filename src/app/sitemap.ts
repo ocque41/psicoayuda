@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/para-psicologos", priority: 0.8, changeFrequency: "monthly" },
     { path: "/ayuda", priority: 0.9, changeFrequency: "monthly" },
     { path: "/profesionales", priority: 0.9, changeFrequency: "daily" },
+    { path: "/lista-de-espera", priority: 0.6, changeFrequency: "monthly" },
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
     { path: "/situacion", priority: 0.7, changeFrequency: "weekly" },
     { path: "/alianzas", priority: 0.6, changeFrequency: "monthly" },

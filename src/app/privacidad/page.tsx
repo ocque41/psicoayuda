@@ -110,6 +110,23 @@ export default function PrivacyPage() {
             de tu cuenta para evitar suplantaciones. No debes incluir datos
             privados de las personas que acompañas.
           </p>
+          <p>
+            Si te anotas en la <strong>lista general de espera</strong>,
+            guardamos tu correo, un título breve, la descripción que escribas,
+            el origen de la anotación, su estado y las fechas de seguimiento.
+            También guardamos un código irreversible de la conexión para limitar
+            envíos repetidos y, si te anotas desde un chat, el vínculo con esa
+            conversación. El equipo de coordinación autorizado puede leer estos
+            datos para revisar tu solicitud; el formulario no tiene el cifrado
+            de extremo a extremo del chat. No se publican ni aparecen en el
+            catálogo. Si te anotas desde una conversación, su profesional puede
+            ver la confirmación, el correo y la fecha de anotación, sin recibir
+            el título ni la descripción desde la lista. Se aplica el tratamiento
+            y el uso de proveedores técnicos descritos en esta política.
+            Comparte solo un resumen necesario, evitando documentos de identidad
+            o datos de otras personas. Puedes pedir que te quitemos de la lista
+            por el canal de privacidad.
+          </p>
         </section>
 
         <section className="card">
@@ -264,6 +281,16 @@ export default function PrivacyPage() {
             seguimiento, incluso si una persona profesional borra su cuenta; en
             ese caso se desvinculan de su perfil. Puedes pedir que revisemos o
             eliminemos tus mensajes escribiendo al correo de privacidad.
+          </p>
+          <p>
+            Las anotaciones en la lista general de espera se anonimizan por el
+            proceso de retención cuando han pasado 365 días (aproximadamente 12
+            meses) desde su última actualización guardada. Se retiran el correo,
+            el título y la descripción originales, el vínculo con el chat y el
+            identificador técnico de la conexión, y la anotación queda cerrada.
+            Reenviar el formulario no renueva ese plazo. Esta medida afecta a la
+            anotación; las conversaciones, notas y pagos siguen sus propias
+            reglas de conservación.
           </p>
           <p>
             Tienes derecho a solicitar, en cualquier momento, acceder a los

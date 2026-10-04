@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmergencyNotice } from "@/components/emergency-notice";
 import { DirectoryJsonLd } from "@/components/structured-data";
 import { SupportDirectory } from "@/components/support-directory";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
 import {
@@ -83,6 +84,7 @@ export default async function ProfesionalesPage({
           organizations={organizations}
           initialFilters={initialFilters}
         />
+        <WaitlistCallout />
       </div>
     </section>
   );

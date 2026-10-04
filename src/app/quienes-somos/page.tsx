@@ -53,6 +53,12 @@ export default function Page() {
           para las personas afectadas por el terremoto, según disponibilidad.
         </p>
         <Link href="/ayuda">Conocer Ayuda Terremoto</Link>
+        <p>
+          Para otras opciones de apoyo, puedes consultar las{" "}
+          <Link href="/alianzas">organizaciones aliadas</Link> o{" "}
+          <Link href="/lista-de-espera">la lista general de espera</Link>, según
+          disponibilidad y sin garantía de cupo ni plazo.
+        </p>
         <h2>Habla con nosotros</h2>
         <p>
           Si necesitas orientación sobre la plataforma, puedes contactar al

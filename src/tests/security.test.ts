@@ -66,6 +66,29 @@ describe("Seguridad — cabeceras HTTP", () => {
     )?.value;
     expect(csp).toContain("frame-ancestors 'none'");
   });
+
+  it("los comprobantes privados mantienen sandbox y no envían referrer", async () => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    for (const path of [
+      "/admin/admision/documento/:professionalId",
+      "/api/practice/credential/:professionalId",
+    ]) {
+      const index = rules.findIndex((rule) => rule.source === path);
+      expect(index).toBeGreaterThan(0);
+      const headers = new Map(
+        rules[index].headers.map((header) => [header.key, header.value]),
+      );
+      expect(headers.get("Content-Security-Policy")).toContain("sandbox");
+      expect(headers.get("Content-Security-Policy")).toContain(
+        "default-src 'none'",
+      );
+      expect(headers.get("Content-Security-Policy")).not.toContain(
+        "unsafe-inline",
+      );
+      expect(headers.get("Referrer-Policy")).toBe("no-referrer");
+      expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
+    }
+  });
 });
 
 describe("Seguridad — aislamiento de datos", () => {

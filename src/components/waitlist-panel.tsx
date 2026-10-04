@@ -6,12 +6,9 @@ import type { WaitlistSource } from "@/lib/waitlist";
 
 /**
  * Sección completa de la lista de espera: explicación + formulario. Es el
- * bloque que deja claro, ANTES de contactar con el directorio, que la ayuda
- * gratuita está reservada para las víctimas del terremoto y cuáles son los dos
- * caminos de quien no lo es (lista de espera o asociaciones aliadas).
- *
- * Se usa antes del catálogo de /profesionales, en /ayuda y en la página
- * dedicada /lista-de-espera. El `source` mide desde dónde se anotó la persona.
+ * bloque dedicado a solicitudes por motivos distintos del terremoto, sin
+ * sustituir el catálogo general ni el recorrido gratuito de Ayuda Terremoto.
+ * El `source` identifica desde dónde se anotó la persona.
  */
 export function WaitlistPanel({
   source,
@@ -25,8 +22,8 @@ export function WaitlistPanel({
   return (
     <div className="waitlist-panel" id={id}>
       <section className="waitlist-panel-copy" aria-labelledby={titleId}>
-        <p className="eyebrow">Antes de contactar</p>
-        <h2 id={titleId}>¿No eres víctima del terremoto?</h2>
+        <p className="eyebrow">Otras opciones de apoyo</p>
+        <h2 id={titleId}>Lista general de espera</h2>
         <p className="lead">
           El programa Ayuda Terremoto ofrece acompañamiento{" "}
           <strong>gratuito a las personas afectadas por el terremoto</strong>.
@@ -35,21 +32,24 @@ export function WaitlistPanel({
         <ul className="waitlist-options">
           <li>
             <strong>Anótate en la lista de espera.</strong> Déjanos tu correo y
-            cuéntanos qué necesitas. Te escribiremos cuando haya un profesional
-            voluntario disponible para acompañarte.
+            cuéntanos brevemente qué necesitas. El equipo revisa las solicitudes
+            según disponibilidad; no podemos garantizar un cupo ni un plazo de
+            respuesta.
           </li>
           <li>
-            <strong>Encuentra ayuda en una de las asociaciones aliadas.</strong>{" "}
+            <strong>Explora las organizaciones aliadas.</strong>{" "}
             <Link href="/alianzas">Ver organizaciones aliadas →</Link>
           </li>
         </ul>
       </section>
       <WaitlistForm action={createWaitlistEntry} source={source} />
       <p className="hint waitlist-panel-hint">
-        ¿Eres víctima del terremoto? Entonces la ayuda es gratuita y no
-        necesitas anotarte aquí: puedes{" "}
-        <Link href="/ayuda">pedir apoyo ahora</Link> o{" "}
-        <Link href="/profesionales">elegir a quién escribirle</Link>.
+        Si buscas apoyo por el terremoto, consulta el programa separado de{" "}
+        <Link href="/ayuda">
+          Ayuda Terremoto, gratuito según disponibilidad
+        </Link>
+        . También puedes{" "}
+        <Link href="/profesionales">explorar el catálogo general</Link>.
       </p>
     </div>
   );

@@ -11,6 +11,19 @@ export const admissionGateLabels: Record<AdmissionGate, string> = {
   interview: "Entrevista",
 };
 
+export function admissionRegistrationLabel(value: string | null) {
+  switch (value) {
+    case "colegio_psicologos":
+      return "Colegio u organismo profesional de su jurisdicción";
+    case "ministerio_educacion":
+      return "Ministerio de Educación";
+    case "inprepsi":
+      return "INPREPSI";
+    default:
+      return "Tipo de registro por confirmar";
+  }
+}
+
 export function admissionHref(
   data: Pick<AdmissionBoardData, "query" | "stageFilter" | "page">,
   options: { candidate?: string; page?: number; historyPage?: number } = {},

@@ -7,12 +7,12 @@ import { WaitlistPanel } from "@/components/waitlist-panel";
 export const metadata: Metadata = {
   title: "Lista de espera de apoyo psicológico",
   description:
-    "La ayuda gratuita de Nido está reservada para las víctimas del terremoto. Si necesitas apoyo psicológico por otro motivo, anótate en la lista de espera o encuentra ayuda en una asociación aliada.",
+    "Explora otras opciones de apoyo psicológico: la lista general de espera y las organizaciones aliadas, según disponibilidad. Ayuda Terremoto mantiene su programa gratuito separado.",
   alternates: { canonical: "/lista-de-espera" },
   openGraph: {
     title: "Lista de espera de apoyo psicológico | Nido",
     description:
-      "¿No eres víctima del terremoto y necesitas apoyo psicológico? Anótate en la lista de espera o encuentra ayuda en una de las asociaciones aliadas.",
+      "Anótate en la lista general de espera o explora organizaciones aliadas. Las solicitudes se revisan según disponibilidad, sin garantía de cupo ni plazo.",
     url: "/lista-de-espera",
   },
 };
@@ -51,9 +51,10 @@ export default function Page() {
             </li>
             <li>
               <span>
-                <strong>Te escribimos cuando haya un cupo.</strong> Cuando se
-                libere un espacio voluntario para acompañarte, te avisamos a tu
-                correo. No necesitas crear una cuenta ni volver a entrar aquí.
+                <strong>Revisamos según disponibilidad.</strong> El equipo puede
+                contactarte por correo para explorar opciones de apoyo. La lista
+                no garantiza un cupo ni un plazo de respuesta y no requiere
+                crear una cuenta.
               </span>
             </li>
             <li>
@@ -68,15 +69,16 @@ export default function Page() {
           </ol>
           <p className="hint">
             ¿Tu situación es urgente o estás en peligro? No esperes por esta
-            lista: llama al <strong>911</strong> o consulta las{" "}
-            <Link href="/emergencia">líneas de ayuda inmediata</Link>.
+            lista: busca ayuda presencial o los servicios de emergencia de tu
+            ubicación. Consulta los{" "}
+            <Link href="/emergencia">recursos de ayuda inmediata</Link>.
           </p>
 
           <p className="reassurance">
-            ¿Eres víctima del terremoto? Entonces no necesitas la lista de
-            espera: la ayuda es gratuita para ti ahora mismo.{" "}
-            <Link href="/ayuda">Pide apoyo aquí</Link> o{" "}
-            <Link href="/profesionales">elige con quién hablar</Link>.
+            Si buscas apoyo por el terremoto, el programa separado de{" "}
+            <Link href="/ayuda">Ayuda Terremoto</Link> ofrece acompañamiento
+            gratuito según disponibilidad. También puedes{" "}
+            <Link href="/profesionales">explorar el catálogo general</Link>.
           </p>
         </div>
       </section>

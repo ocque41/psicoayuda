@@ -8,6 +8,7 @@ import {
 import { HelpRequestForm } from "@/components/help-request-form";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { SupportDirectory } from "@/components/support-directory";
+import { WaitlistCallout } from "@/components/waitlist-callout";
 import { getCachedFeedProfessionals } from "@/lib/feed";
 import { publishedOrganizations } from "@/lib/organizations";
 import {
@@ -114,6 +115,7 @@ export default async function HelpPage({
           </>
         ) : null}
 
+        <WaitlistCallout />
         <QuickExitNote />
 
         <h2 id="formulario">
