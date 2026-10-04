@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { repararRegistroHuerfano } from "@/app/actions-account";
 import { trackConversion } from "@/components/click-tracker";
+import { accountSessionCallbackUrl } from "@/lib/account-session-callback";
+import { announceAccountSessionChange } from "@/lib/chat-session-end";
 import { buildProfessionalNewUserCallbackUrl } from "@/lib/contact-messages";
 
 const authClient = createAuthClient();
@@ -132,11 +134,11 @@ export function AuthPanel({
         buildProfessionalNewUserCallbackUrl(callbackURL);
       const res = await authClient.signIn.social({
         provider: "google",
-        callbackURL,
+        callbackURL: accountSessionCallbackUrl(callbackURL),
         // Better Auth usa esta URL únicamente cuando Google acaba de crear la
         // cuenta. Un acceso de una cuenta existente sigue `callbackURL`, por lo
         // que no se infla la métrica de registros.
-        newUserCallbackURL,
+        newUserCallbackURL: accountSessionCallbackUrl(newUserCallbackURL),
       });
       // En éxito redirige a Google; si volvemos aquí con error (p. ej. proveedor
       // no configurado), lo mostramos en vez de dejar "Conectando…" colgado.
@@ -238,6 +240,8 @@ export function AuthPanel({
         setPending(false);
         return;
       }
+      // La cookie ya cambió. Avisar antes de esperar el gestor de contraseñas.
+      announceAccountSessionChange();
       // Alta exitosa: registra la conversión con el UTM de entrada (atribuye la
       // campaña al registro de un profesional). Solo en signup; "entrar" no es
       // conversión nueva.
@@ -262,7 +266,6 @@ export function AuthPanel({
       } catch {
         // best-effort: si el navegador lo bloquea, el login sigue igual
       }
-      window.dispatchEvent(new Event("nido:session-changed"));
       router.push(callbackURL);
       router.refresh();
     } catch {

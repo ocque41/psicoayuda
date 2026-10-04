@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { clearChatSessionCookies } from "@/app/actions-chat-session";
 import {
+  ACCOUNT_SESSION_CHANGED_EVENT,
   bridgeChatSessionEnd,
   completeChatSignOut,
 } from "@/lib/chat-session-end";
@@ -90,9 +91,11 @@ export function SiteNav({
     if (needsSession || accountHint) void resolve();
     const sessionChanged = () => void resolve();
     window.addEventListener("nido:session-changed", sessionChanged);
+    window.addEventListener(ACCOUNT_SESSION_CHANGED_EVENT, sessionChanged);
     return () => {
       abort.abort();
       window.removeEventListener("nido:session-changed", sessionChanged);
+      window.removeEventListener(ACCOUNT_SESSION_CHANGED_EVENT, sessionChanged);
     };
   }, [needsSession]);
 

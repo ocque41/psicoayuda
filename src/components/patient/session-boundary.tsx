@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
+  ACCOUNT_SESSION_CHANGED_EVENT,
   onChatSessionEnd,
   SESSION_CHANGED_EVENT,
 } from "@/lib/chat-session-end";
@@ -60,7 +61,11 @@ export function PatientSessionBoundary({
       void boundary.check();
     };
     const stop = onChatSessionEnd(invalidate);
-    window.addEventListener(SESSION_CHANGED_EVENT, invalidate);
+    // Un login confirmado puede ser del mismo dueño. Ocultar y comprobar;
+    // sólo el cierre explícito o un dueño distinto invalidan definitivamente.
+    const revalidate = () => void boundary.check();
+    window.addEventListener(ACCOUNT_SESSION_CHANGED_EVENT, revalidate);
+    window.addEventListener(SESSION_CHANGED_EVENT, revalidate);
     const resume = () => {
       if (document.visibilityState === "visible") void boundary.check();
     };
@@ -75,7 +80,8 @@ export function PatientSessionBoundary({
     void boundary.check();
     return () => {
       stop();
-      window.removeEventListener(SESSION_CHANGED_EVENT, invalidate);
+      window.removeEventListener(SESSION_CHANGED_EVENT, revalidate);
+      window.removeEventListener(ACCOUNT_SESSION_CHANGED_EVENT, revalidate);
       window.removeEventListener("focus", resume);
       window.removeEventListener("pageshow", resume);
       window.removeEventListener("pagehide", boundary.pause);
