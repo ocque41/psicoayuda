@@ -14,11 +14,8 @@ export function SiteNav({
   variant?: "site" | "workspace";
 }) {
   const pathname = usePathname();
-  const professionalArea =
-    pathname === "/pro" ||
-    pathname.startsWith("/pro/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/");
+  const professionalArea = pathname === "/pro" || pathname.startsWith("/pro/");
+  const adminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const patientArea = pathname === "/mi" || pathname.startsWith("/mi/");
   const accountArea =
     pathname === "/entrar" ||
@@ -26,6 +23,7 @@ export function SiteNav({
     pathname.startsWith("/empezar/");
   const needsSession =
     professionalArea ||
+    adminArea ||
     patientArea ||
     accountArea ||
     pathname.startsWith("/c/") ||
@@ -89,7 +87,7 @@ export function SiteNav({
     };
   }, [needsSession]);
 
-  const checkAdmin = Boolean(session) && professionalArea;
+  const checkAdmin = Boolean(session) && (professionalArea || adminArea);
   useEffect(() => {
     if (!checkAdmin) return;
     const abort = new AbortController();

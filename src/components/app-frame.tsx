@@ -7,10 +7,17 @@ import type { ReactNode } from "react";
 import { SiteNav } from "@/components/site-nav";
 import styles from "./app-frame.module.css";
 
-type FrameArea = "public" | "professional" | "patient" | "shared" | "demo";
+type FrameArea =
+  | "public"
+  | "professional"
+  | "patient"
+  | "admin"
+  | "shared"
+  | "demo";
 
 /** La entrada profesional y la recuperación de contraseña siguen siendo públicas. */
 export function frameArea(pathname: string): FrameArea {
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "admin";
   if (pathname === "/demo/consulta" || pathname.startsWith("/demo/consulta/"))
     return "demo";
   if (pathname === "/mi" || pathname.startsWith("/mi/")) return "patient";
@@ -39,14 +46,24 @@ export function AppFrame({
 }) {
   const area = frameArea(usePathname());
   const isWorkspace =
-    area === "professional" || area === "patient" || area === "shared";
+    area === "professional" ||
+    area === "patient" ||
+    area === "admin" ||
+    area === "shared";
   const workspaceHref =
-    area === "professional"
-      ? "/pro/consulta"
-      : area === "patient"
-        ? "/mi"
-        : "/empezar";
-  const workspaceLabel = area === "professional" ? "Tu consulta" : "Tu espacio";
+    area === "admin"
+      ? "/admin"
+      : area === "professional"
+        ? "/pro/consulta"
+        : area === "patient"
+          ? "/mi"
+          : "/empezar";
+  const workspaceLabel =
+    area === "admin"
+      ? "Administración"
+      : area === "professional"
+        ? "Tu consulta"
+        : "Tu espacio";
 
   return (
     <>
