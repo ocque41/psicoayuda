@@ -162,6 +162,7 @@ try {
       await until("document.querySelector('[role=dialog] [hidden]')");
       await cli("fill", "#input-agenda", "Segundo borrador ficticio");
       await cli("click", "button[aria-label='Mostrar guía']");
+      await until("!document.querySelector('[role=dialog] [hidden]')");
       assert.equal(
         await evaluate(
           "return !!document.querySelector('[role=dialog] [hidden]');",
@@ -402,7 +403,7 @@ try {
     async () => {
       await evaluate("window.fixture.setStep('cobros');");
       await until(
-        "document.querySelector('span[data-step]')?.dataset.flying==='true'",
+        "document.querySelector('span[data-step]')?.dataset.step==='cobros' && document.querySelector('span[data-step]').dataset.flying==='true'",
       );
       await evaluate("window.fixture.setHidden(true);");
       await until("window.fixture.motion.active===0");
@@ -418,6 +419,30 @@ try {
       assert.equal(
         await evaluate("return window.fixture.motion.created;"),
         created,
+      );
+    },
+  );
+  await check(
+    "cambiar paso durante la ocultación no inicia vuelo ni gestos al volver",
+    async () => {
+      await evaluate(
+        "window.fixture.setHidden(true);window.fixture.setStep('notas');",
+      );
+      await until(
+        "document.querySelector('span[data-step]')?.dataset.step==='notas'",
+      );
+      const created = await evaluate("return window.fixture.motion.created;");
+      await evaluate("window.fixture.setHidden(null);");
+      await delay(2100);
+      assert.equal(
+        await evaluate("return window.fixture.motion.created;"),
+        created,
+      );
+      assert.equal(
+        await evaluate(
+          "return window.fixture.pendingTimers()===0&&window.fixture.motion.active===0;",
+        ),
+        true,
       );
     },
   );
