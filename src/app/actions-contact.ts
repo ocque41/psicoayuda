@@ -88,7 +88,7 @@ async function storeContactWithinRateLimit(input: {
     sourceLabel: contactSourceLabels[input.source],
     categoryLabel: contactCategoryLabels[input.category],
   }).catch(() => undefined);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidatePath("/admin/operaciones");
   if (input.source === "professional_dashboard") revalidatePath("/pro/soporte");
   return true;
@@ -226,5 +226,5 @@ export async function adminUpdateContactMessageStatus(formData: FormData) {
       createdAt: timestamp,
     }),
   ]);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }

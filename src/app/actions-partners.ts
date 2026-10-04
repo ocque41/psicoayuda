@@ -15,7 +15,7 @@ function formEntries(formData: FormData) {
 
 // Revalida las vistas donde aparecen los aliados tras un cambio del admin.
 function revalidatePartnerViews() {
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidatePath("/");
   revalidatePath("/alianzas");
   // Data cache de getCachedPublishedPartners (carrusel, escaparate y directorio).
