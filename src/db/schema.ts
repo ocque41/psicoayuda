@@ -26,6 +26,7 @@ export {
   patientConversationLinks,
   patientSessionRequests,
 } from "./patient-schema";
+export { webPushDeliveries, webPushSubscriptions } from "./push-schema";
 export {
   appointmentReminderDeliveries,
   appointmentReminderPreferences,

@@ -262,6 +262,13 @@
       "breakpoints": true
     },
     {
+      "idx": 39,
+      "version": "6",
+      "when": 1791081500000,
+      "tag": "0039_web_push",
+      "breakpoints": true
+    },
+    {
       "idx": 40,
       "version": "6",
       "when": 1791081600000,
