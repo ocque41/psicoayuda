@@ -227,6 +227,7 @@ function PartnerForm({
             />
             <input
               type="file"
+              aria-label="Seleccionar archivo de logo"
               accept="image/png,image/jpeg,image/webp,image/svg+xml"
               onChange={(event) => {
                 const file = event.target.files?.[0];
