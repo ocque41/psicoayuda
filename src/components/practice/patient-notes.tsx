@@ -12,6 +12,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { practiceNotes } from "@/db/notes-schema";
 import { practiceAppointments } from "@/db/schema";
+import { getServerSession } from "@/lib/auth-server";
 import {
   appointmentStateLabels,
   dateLabel,
@@ -19,8 +20,10 @@ import {
 } from "@/lib/practice/domain";
 import { decryptNote, notesConfigured } from "@/lib/practice/note-crypto";
 import { pageNumber } from "@/lib/practice/queries";
+import { sessionNotesReminders } from "@/lib/practice/session-notes-reminder";
 import { NoteEditor } from "./note-editor";
 import { PracticePagination } from "./pagination";
+import { SessionNotesReminder } from "./session-notes-reminder";
 
 type NotesQuery = {
   notas?: string;
@@ -188,10 +191,22 @@ export async function PatientNotes({
       );
     }
   }
-  const [decoded, decodedLegacy] = await Promise.all([
+  const [decoded, decodedLegacy, currentSession] = await Promise.all([
     Promise.all(notes.map(editor)),
     Promise.all(legacy.map(editor)),
+    enabled ? getServerSession() : Promise.resolve(null),
   ]);
+  const reminderIds = appointment
+    ? [appointment.id]
+    : sessions.map((session) => session.id);
+  const reminders = currentSession?.user.id
+    ? await sessionNotesReminders({
+        professionalId,
+        professionalUserId: currentSession.user.id,
+        patientId,
+        appointmentIds: reminderIds,
+      })
+    : [];
   return (
     <section className="card patient-notes" id="notas">
       <div className="workspace-section-heading">
@@ -205,6 +220,13 @@ export async function PatientNotes({
         Solo tú puedes leer estas notas desde tu cuenta profesional. Se guardan
         cifradas; el paciente y soporte no tienen acceso. Guarda antes de salir.
       </p>
+      {reminders.map((reminder) => (
+        <SessionNotesReminder
+          key={reminder.appointmentId}
+          reminder={reminder}
+          endedLabel={dateLabel(reminder.endsAt, timeZone)}
+        />
+      ))}
       <form
         className="practice-form"
         method="get"
