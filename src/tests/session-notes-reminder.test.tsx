@@ -232,7 +232,8 @@ describe("pajarito pos-sesión: elegibilidad, CTA privada y límites", () => {
     expect(await candidates(["done"])).toEqual([]);
     const after = await render();
     expect(after).not.toContain("Tu pajarito de Nido");
-    expect(after).toContain("Apunte exclusivamente ficticio");
+    expect(after).not.toContain("Apunte exclusivamente ficticio");
+    expect(after).toContain("Comprobando acceso…");
     expect(after).toContain("Notas anteriores sin sesión");
   });
   it.each([

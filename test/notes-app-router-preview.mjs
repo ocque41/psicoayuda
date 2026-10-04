@@ -12,6 +12,7 @@ const port = Number(process.env.NIDO_NOTES_ROUTER_PORT || 8839);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Puerto inválido");
 await mkdir(join(directory, "app/notes"), { recursive: true });
+await mkdir(join(directory, "app/api/control"), { recursive: true });
 await writeFile(
   join(directory, "package.json"),
   JSON.stringify({ name: "nido-notes-router-fixture", private: true }),
@@ -40,7 +41,27 @@ await writeFile(
 );
 await writeFile(
   join(directory, "app/notes/page.tsx"),
-  'import {NoteEditor} from "../../editor";export default function Page(){return <main><h1>Notas ficticias · App Router</h1>{[0,1].map(index=><NoteEditor key={"fixture-note-"+index} patientId="fixture-patient" appointmentId="fixture-session" note={{id:"fixture-note-"+index,content:"Apunte ficticio "+index,revision:1,updatedAt:"2026-10-04T12:00:00.000Z"}} />)}</main>;}',
+  'import {NoteEditor} from "../../editor";import {fixtureState} from "../../fixture-state";export const dynamic="force-dynamic";export default function Page(){const s=fixtureState();return <main><h1>Notas ficticias · App Router</h1>{[0,1].map(index=><NoteEditor key={"fixture-note-"+index} accountId={s.actor} professionalId={s.actor+"-professional"} patientId="fixture-patient" appointmentId="fixture-session" note={{id:"fixture-note-"+index,content:s.notes[s.actor][index].content,revision:s.notes[s.actor][index].revision,updatedAt:"2026-10-04T12:00:00.000Z"}} />)}</main>;}',
+);
+await writeFile(
+  join(directory, "fixture-state.ts"),
+  `
+  export function fixtureState(){const root=globalThis as any;return root.__notesFixture ||= {actor:'A',expired:false,gate:null,release:null,authCalls:0,saveRevisions:[],notes:{A:[{content:'Apunte ficticio 0',revision:1},{content:'Apunte ficticio 1',revision:1}],B:[{content:'Apunte ficticio B0',revision:1},{content:'Apunte ficticio B1',revision:1}]}};}
+`,
+);
+await writeFile(
+  join(directory, "app/api/control/route.ts"),
+  `
+  import {fixtureState} from '../../../fixture-state';
+  export async function POST(request){const input=await request.json();const s=fixtureState();
+    if(input.kind==='actor')s.actor=input.value;
+    if(input.kind==='expire')s.expired=input.value;
+    if(input.kind==='revise'){s.notes[s.actor][0]={content:'Cambio guardado ficticio desde otra ventana',revision:s.notes[s.actor][0].revision+1};}
+    if(input.kind==='hold')s.gate=new Promise(resolve=>{s.release=()=>{s.gate=null;resolve();};});
+    if(input.kind==='release')s.release?.();
+    return Response.json({actor:s.actor,expired:s.expired,authCalls:s.authCalls,saveRevisions:s.saveRevisions});
+  }
+`,
 );
 const editor = await readFile(
   join(root, "src/components/practice/note-editor.tsx"),
@@ -50,15 +71,29 @@ await writeFile(
   join(directory, "editor.tsx"),
   editor
     .replace('"@/app/pro/pacientes/[patientId]/note-actions"', '"./actions"')
-    .replace('"@/lib/practice/note-navigation"', '"./note-navigation"'),
+    .replace(
+      '"@/app/pro/pacientes/[patientId]/note-draft-actions"',
+      '"./actions"',
+    )
+    .replace('"@/lib/practice/note-navigation"', '"./note-navigation"')
+    .replace('"@/lib/practice/note-drafts"', '"./note-drafts"'),
 );
 await writeFile(
   join(directory, "note-navigation.ts"),
   await readFile(join(root, "src/lib/practice/note-navigation.ts"), "utf8"),
 );
 await writeFile(
+  join(directory, "note-drafts.ts"),
+  await readFile(join(root, "src/lib/practice/note-drafts.ts"), "utf8"),
+);
+await writeFile(
   join(directory, "actions.ts"),
-  'export type NoteState={ok:boolean;message:string;id?:string;revision?:number};export async function savePatientNote(input){return {ok:true,message:"Guardado ficticio",id:input.id,revision:input.revision+1};}export async function deletePatientNote(){return {ok:true,message:"Eliminado ficticio"};}',
+  `"use server";import {fixtureState} from './fixture-state';
+   export type NoteState={ok:boolean;message:string;id?:string;revision?:number};
+   export async function authorizeNoteDraft(input){const s=fixtureState();s.authCalls++;const accountCurrent=!s.expired && input.accountId===s.actor;const result={accountCurrent,scopeAllowed:accountCurrent && input.professionalId===s.actor+'-professional' && input.patientId==='fixture-patient' && input.appointmentId==='fixture-session'};if(s.gate)await s.gate;return result;}
+   export async function savePatientNote(input){const s=fixtureState();s.saveRevisions.push(input.revision);const index=input.id==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];if(note.revision!==input.revision)return {ok:false,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};s.notes[s.actor][index]={content:input.content,revision:input.revision+1};return {ok:true,message:'Guardado ficticio',id:input.id,revision:input.revision+1};}
+   export async function deletePatientNote(){return {ok:true,message:'Eliminado ficticio'};}
+  `,
 );
 const child = spawn(
   process.execPath,

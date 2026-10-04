@@ -6,67 +6,242 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-// Prueba de un gap pendiente, no una afirmación de que Atrás esté protegido.
+// Regresión de Atrás: Next/Server Actions reales, actores/persistencia ficticios.
 async function reproduce(page) {
-  await page.getByRole("link", { name: "Abrir notas ficticias" }).click();
-  await page
-    .getByRole("heading", { name: "Notas ficticias · App Router" })
-    .waitFor();
-  await page
-    .getByRole("textbox")
-    .nth(0)
-    .fill("Primer borrador ficticio antes de Atrás");
-  await page
-    .getByRole("textbox")
-    .nth(1)
-    .fill("Segundo borrador ficticio antes de Atrás");
-  await page.waitForFunction(() =>
-    [
-      ...document.querySelectorAll('form.note-editor button[type="submit"]'),
-    ].every((button) => !button.disabled),
-  );
-  await page.evaluate(() => {
-    window.notesHistoryProbe = { beforeUnload: 0, popstate: 0 };
-    window.addEventListener(
-      "beforeunload",
-      () => window.notesHistoryProbe.beforeUnload++,
-    );
-    window.addEventListener(
-      "popstate",
-      () => window.notesHistoryProbe.popstate++,
-    );
+  const checks = [];
+  const storageWrites = [];
+  await page.exposeBinding("noteStorageProbe", (_, record) => {
+    storageWrites.push(record);
   });
-  await page.goBack();
-  await page
-    .getByRole("heading", { name: "Destino anterior ficticio" })
-    .waitFor();
-  const detached = (await page.locator("textarea").count()) === 0;
-  await page.goForward();
-  await page.getByRole("textbox").nth(1).waitFor();
-  const after = await page
-    .getByRole("textbox")
-    .evaluateAll((els) => els.map((el) => el.value));
-  const probe = await page.evaluate(() => window.notesHistoryProbe);
-  if (
-    !detached ||
-    probe.beforeUnload !== 0 ||
-    after.join("|") !== "Apunte ficticio 0|Apunte ficticio 1"
-  )
-    throw new Error(
-      "El gap cambió: revisar el contrato de navegación antes de repetir esta reproducción",
-    );
-  return {
-    reproduced: true,
-    blocker: true,
-    detachedEditors: 2,
-    beforeUnload: probe.beforeUnload,
-    popstate: probe.popstate,
-    restoredDrafts: false,
-    scope:
-      "Next App Router real en dev; NoteEditor real; acciones ficticias; sin BD/proveedores",
-    required:
-      "Contrato de navegación/drafts dentro de layout autenticado, con purga al cambiar actor/salir y aislamiento profesional/paciente/sesión/revisión",
+  await page.addInitScript(() => {
+    const write = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      void window.noteStorageProbe({
+        kind: "web",
+        clinical: /Borrador|Apunte ficticio|Cambio guardado ficticio/i.test(
+          String(value),
+        ),
+      });
+      return write.call(this, key, value);
+    };
+    const open = indexedDB.open.bind(indexedDB);
+    indexedDB.open = (...args) => {
+      void window.noteStorageProbe({ kind: "idb", clinical: false });
+      return open(...args);
+    };
+  });
+  await page.reload();
+  const ok = (value, name) => {
+    if (!value) throw new Error(name);
+    checks.push(name);
   };
+  const inputs = () => page.getByRole("textbox");
+  const settled = () =>
+    page.waitForFunction(
+      () =>
+        [...document.querySelectorAll("form.note-editor")].length === 2 &&
+        [...document.querySelectorAll("form.note-editor")].every(
+          (form) => form.getAttribute("aria-busy") === "false",
+        ),
+    );
+  const control = (kind, value) =>
+    page.evaluate(
+      async ({ kind, value }) =>
+        (
+          await fetch("/api/control", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind, value }),
+          })
+        ).json(),
+      { kind, value },
+    );
+  const back = async () => {
+    await page.goBack();
+    await page
+      .getByRole("heading", { name: "Destino anterior ficticio" })
+      .waitFor();
+  };
+  const forward = async () => {
+    await page.goForward();
+    await inputs().nth(1).waitFor();
+    await settled();
+  };
+  const blank = async () => {
+    await settled();
+    return await inputs().evaluateAll((els) =>
+      els.every((el) => el.value === "" && el.disabled),
+    );
+  };
+  try {
+    await page.getByRole("link", { name: "Abrir notas ficticias" }).click();
+    await settled();
+    await inputs().nth(0).fill("Primer borrador ficticio antes de Atrás");
+    await inputs().nth(1).fill("Segundo borrador ficticio antes de Atrás");
+    const before = (await control("state")).authCalls;
+    await back();
+    ok(
+      (await page.locator("textarea").count()) === 0,
+      "Atrás desmonta los editores en App Router real",
+    );
+    ok(
+      await page.evaluate(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+      "borradores retenidos protegen cierre también fuera de la ficha",
+    );
+    await forward();
+    ok(
+      (await inputs().nth(0).inputValue()) ===
+        "Primer borrador ficticio antes de Atrás" &&
+        (await inputs().nth(1).inputValue()) ===
+          "Segundo borrador ficticio antes de Atrás",
+      "Adelante recupera ambos borradores sólo tras comprobar acceso",
+    );
+    ok(
+      (await control("state")).authCalls >= before + 2,
+      "cada montaje pide autorización fresca por nota",
+    );
+    await back();
+    await control("revise");
+    await forward();
+    await page
+      .locator("form.note-editor")
+      .nth(0)
+      .getByRole("button", { name: "Guardar nota", exact: true })
+      .click();
+    await page.getByRole("alert").filter({ hasText: "otra ventana" }).waitFor();
+    ok(
+      (await control("state")).saveRevisions.at(-1) === 1,
+      "restaurar no promueve la revisión CAS antigua",
+    );
+    ok(
+      (await inputs().nth(0).inputValue()) ===
+        "Primer borrador ficticio antes de Atrás",
+      "conflicto mantiene el borrador recuperado",
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("nido:session-changed")),
+    );
+    ok(await blank(), "evento de sesión limpia memoria y editores activos");
+    await back();
+    await forward();
+    ok(
+      !(await inputs().nth(0).inputValue()).includes("borrador"),
+      "logout no permite recuperar los borradores retirados",
+    );
+    await inputs().nth(0).fill("Borrador privado ficticio de cuenta A");
+    await back();
+    await control("actor", "B");
+    await forward();
+    ok(
+      await blank(),
+      "otra cuenta no abre texto de una ficha RSC cacheada de A",
+    );
+    await page.reload();
+    await settled();
+    ok(
+      (await inputs().nth(0).inputValue()) === "Apunte ficticio B0",
+      "B muestra únicamente su nota propia tras autorización",
+    );
+    await inputs().nth(0).fill("Borrador privado ficticio de cuenta B");
+    await back();
+    await control("actor", "A");
+    await forward();
+    ok(await blank(), "A tampoco abre el borrador cacheado de B");
+    await page.reload();
+    await settled();
+    ok(
+      !(await inputs().nth(0).inputValue()).includes("cuenta B"),
+      "cambiar de actor no mezcla el borrador de B con A",
+    );
+    // Crear historial del documento actual sin navegar con borrador.
+    await page.goto(new URL("/", page.url()).href);
+    await page.getByRole("link", { name: "Abrir notas ficticias" }).click();
+    await settled();
+    await inputs().nth(0).fill("Borrador ficticio de sesión expirada");
+    await back();
+    await control("expire", true);
+    await forward();
+    ok(
+      await blank(),
+      "sesión expirada impide abrir el draft y limpia su memoria",
+    );
+    await control("expire", false);
+    await page.reload();
+    await settled();
+    // Historial nuevo, sin borrar el documento durante el caso bajo prueba.
+    await page.goto(new URL("/", page.url()).href);
+    await page.getByRole("link", { name: "Abrir notas ficticias" }).click();
+    await settled();
+    await inputs().nth(0).fill("Borrador ficticio con respuesta tardía");
+    await back();
+    const held = await control("hold");
+    let responses = 0;
+    const lastResponse = page.waitForResponse(
+      (response) =>
+        Boolean(response.request().headers()["next-action"]) &&
+        ++responses === 2,
+    );
+    await page.goForward();
+    await inputs().nth(1).waitFor();
+    await page.waitForFunction(
+      async (initial) =>
+        (
+          await (
+            await fetch("/api/control", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "state" }),
+            })
+          ).json()
+        ).authCalls > initial,
+      held.authCalls,
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("nido:session-changed")),
+    );
+    await control("release");
+    await (await lastResponse).finished();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    ok(
+      await blank(),
+      "respuesta permitida anterior a logout no revive el texto",
+    );
+    await back();
+    await forward();
+    await inputs().nth(0).fill("Borrador ficticio con TTL");
+    await back();
+    await page.evaluate(() => {
+      const original = Date.now;
+      Date.now = () => original() + 15 * 60 * 1000 + 1;
+    });
+    await forward();
+    ok(
+      !(await inputs().nth(0).inputValue()).includes("con TTL"),
+      "draft caducado no se restaura en navegador",
+    );
+    ok(
+      !storageWrites.some((record) => record.clinical || record.kind === "idb"),
+      "ningún borrador escrito en web storage o IndexedDB",
+    );
+    return {
+      passed: checks.length,
+      checks,
+      restoredDrafts: true,
+      scope:
+        "Next App Router y Server Actions reales; editor/cache reales; actores y CAS de fixture; autorización/CAS SQL real en test:isolated",
+    };
+  } catch (error) {
+    throw new Error(`${error.message}; completadas: ${checks.join(", ")}`);
+  }
 }
 const root = fileURLToPath(new URL("..", import.meta.url));
 await mkdir(join(root, "output/playwright"), { recursive: true, mode: 0o700 });
@@ -115,9 +290,12 @@ try {
   await command("open", url);
   await command("snapshot");
   const result = await command("run-code", reproduce.toString());
-  assert.ok(result.includes('"reproduced":true'), "No se reprodujo el gap");
+  assert.ok(
+    result.includes('"restoredDrafts":true'),
+    `La regresión no entregó resultado: ${result.slice(-1800)}`,
+  );
   await writeFile(
-    join(root, "output/playwright/notes-router-blocker.txt"),
+    join(root, "output/playwright/notes-router-continuity.txt"),
     result,
     { mode: 0o600 },
   );

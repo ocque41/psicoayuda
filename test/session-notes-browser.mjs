@@ -31,6 +31,7 @@ async function browserChecks(page) {
       const epoch = await fixture((options) => {
         const f = window.nidoNotesFixture;
         f.release();
+        window.dispatchEvent(new Event("nido:session-changed"));
         Object.assign(
           f,
           {

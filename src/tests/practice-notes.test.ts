@@ -514,12 +514,13 @@ describe("notas privadas con cifrado e integridad", () => {
     const html = await render({ notaSesion: `${P}-session-2`, notas: "2" });
     expect(html).toContain("Página 2 de 2");
     expect(html).toContain("Notas anteriores sin sesión");
-    expect(html).toContain("Nota antigua revisada");
+    expect(html).not.toContain("Nota antigua revisada");
+    expect(html).toContain("Comprobando acceso…");
     expect(html).not.toContain("Nota de sesión fija");
     expect(html).not.toContain("v1.");
-    expect(await render({ encuentro: "2026-10-01" })).toContain(
-      "Nota de sesión fija",
-    );
+    const filtered = await render({ encuentro: "2026-10-01" });
+    expect(filtered).toContain("notaSesion=test-private-notes-session#notas");
+    expect(filtered).not.toContain("notaSesion=test-private-notes-session-2");
     expect(await render({ encuentro: "2026-10-01" })).not.toContain(
       "Nota paginada ficticia",
     );

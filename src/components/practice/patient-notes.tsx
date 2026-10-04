@@ -80,30 +80,36 @@ export async function PatientNotes({
       : undefined,
   );
   const legacyWhere = and(owner, isNull(practiceNotes.appointmentId));
-  const [[noteCount], [sessionCount], [legacyCount], appointment] =
-    await Promise.all([
-      db
-        .select({ value: count() })
-        .from(practiceNotes)
-        .innerJoin(
-          practiceAppointments,
-          eq(practiceNotes.appointmentId, practiceAppointments.id),
-        )
-        .where(notesWhere),
-      db
-        .select({ value: count() })
-        .from(practiceAppointments)
-        .where(sessionsWhere),
-      db.select({ value: count() }).from(practiceNotes).where(legacyWhere),
-      query.notaSesion
-        ? db.query.practiceAppointments.findFirst({
-            where: and(
-              sessionOwner,
-              eq(practiceAppointments.id, query.notaSesion),
-            ),
-          })
-        : Promise.resolve(undefined),
-    ]);
+  const [
+    [noteCount],
+    [sessionCount],
+    [legacyCount],
+    appointment,
+    currentSession,
+  ] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(practiceNotes)
+      .innerJoin(
+        practiceAppointments,
+        eq(practiceNotes.appointmentId, practiceAppointments.id),
+      )
+      .where(notesWhere),
+    db
+      .select({ value: count() })
+      .from(practiceAppointments)
+      .where(sessionsWhere),
+    db.select({ value: count() }).from(practiceNotes).where(legacyWhere),
+    query.notaSesion
+      ? db.query.practiceAppointments.findFirst({
+          where: and(
+            sessionOwner,
+            eq(practiceAppointments.id, query.notaSesion),
+          ),
+        })
+      : Promise.resolve(undefined),
+    enabled ? getServerSession() : Promise.resolve(null),
+  ]);
   const pages = (total: number) => Math.max(1, Math.ceil(total / 10));
   const selected = Math.min(pageNumber(query.notas), pages(noteCount.value));
   const legacyPage = Math.min(
@@ -172,6 +178,8 @@ export async function PatientNotes({
       );
       return (
         <NoteEditor
+          accountId={currentSession?.user.id || ""}
+          professionalId={professionalId}
           patientId={patientId}
           appointmentId={note.appointmentId}
           note={{
@@ -191,10 +199,9 @@ export async function PatientNotes({
       );
     }
   }
-  const [decoded, decodedLegacy, currentSession] = await Promise.all([
+  const [decoded, decodedLegacy] = await Promise.all([
     Promise.all(notes.map(editor)),
     Promise.all(legacy.map(editor)),
-    enabled ? getServerSession() : Promise.resolve(null),
   ]);
   const reminderIds = appointment
     ? [appointment.id]
@@ -312,7 +319,12 @@ export async function PatientNotes({
       ) : appointment ? (
         <details key={`new-${appointment.id}`}>
           <summary>Escribir una nota para esta sesión</summary>
-          <NoteEditor patientId={patientId} appointmentId={appointment.id} />
+          <NoteEditor
+            accountId={currentSession?.user.id || ""}
+            professionalId={professionalId}
+            patientId={patientId}
+            appointmentId={appointment.id}
+          />
         </details>
       ) : (
         <p className="hint">Elige una sesión para escribir una nota nueva.</p>

@@ -50,6 +50,13 @@ try {
             { filter: /^@\/app\/pro\/pacientes\/\[patientId\]\/note-actions$/ },
             () => ({ path: "actions", namespace: "fixture" }),
           );
+          build.onResolve(
+            {
+              filter:
+                /^@\/app\/pro\/pacientes\/\[patientId\]\/note-draft-actions$/,
+            },
+            () => ({ path: "draft-actions", namespace: "fixture" }),
+          );
           build.onResolve({ filter: /^next\/(link|image)$/ }, ({ path }) => ({
             path,
             namespace: "fixture",
@@ -58,8 +65,10 @@ try {
             resolveDir: root,
             loader: "js",
             contents:
-              path === "actions"
-                ? `
+              path === "draft-actions"
+                ? "export async function authorizeNoteDraft(){return {accountCurrent:true,scopeAllowed:true};}"
+                : path === "actions"
+                  ? `
             async function action(kind,input){
               const f=window.nidoNotesFixture;const mode=f.mode;
               f.calls.push({kind,input});if(f.gate)await f.gate;
@@ -70,9 +79,9 @@ try {
             export const savePatientNote=input=>action('save',input);
             export const deletePatientNote=(patientId,id,revision)=>action('delete',{patientId,id,revision});
           `
-                : path === "next/link"
-                  ? 'import {createElement} from "react";export default function Link({href,prefetch,...props}){return createElement("a",{...props,href});}'
-                  : 'import {createElement} from "react";export default function Image(props){return createElement("img",props);}',
+                  : path === "next/link"
+                    ? 'import {createElement} from "react";export default function Link({href,prefetch,...props}){return createElement("a",{...props,href});}'
+                    : 'import {createElement} from "react";export default function Image(props){return createElement("img",props);}',
           }));
         },
       },

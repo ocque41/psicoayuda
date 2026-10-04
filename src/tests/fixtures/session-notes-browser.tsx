@@ -65,6 +65,8 @@ function App() {
         ).map((noteId, index) => (
           <NoteEditor
             key={noteId}
+            accountId="fixture-account"
+            professionalId="fixture-professional"
             patientId="fixture-patient"
             appointmentId="fixture-session"
             enabled={fixture.enabled}

@@ -1,7 +1,10 @@
-// Registro efímero de guards, sin contenido ni identidad de pacientes/sesiones.
+// Registro efímero de guards/keys opacas, sin contenido clínico.
 // Sólo se conecta mientras hay borradores; no intercepta el router ni history.
 type Guard = (href: string, count: number) => void;
-const guards = new Set<Guard>();
+const guards = new Map<Guard, string | symbol>();
+let retained = new Set<string>();
+let unloadConnected = false;
+let navigationConnected = false;
 let approvedUnload = false;
 
 function warn(event: BeforeUnloadEvent) {
@@ -9,14 +12,14 @@ function warn(event: BeforeUnloadEvent) {
     approvedUnload = false;
     return;
   }
-  if (guards.size) event.preventDefault();
+  if (guards.size || retained.size) event.preventDefault();
 }
 function ask(event: Event, href: string) {
-  const guard = guards.values().next().value;
+  const guard = guards.keys().next().value;
   if (!guard) return;
   event.preventDefault();
   event.stopPropagation();
-  guard(href, guards.size);
+  guard(href, new Set([...guards.values(), ...retained]).size);
 }
 function guardLink(event: MouseEvent) {
   if (
@@ -60,21 +63,40 @@ function guardFilter(event: SubmitEvent) {
   ask(event, next.href);
 }
 
-export function registerNoteNavigation(guard: Guard) {
-  if (!guards.size) {
-    window.addEventListener("beforeunload", warn);
-    document.addEventListener("click", guardLink, true);
-    document.addEventListener("submit", guardFilter, true);
+function syncListeners() {
+  if (typeof window === "undefined") return;
+  const needsUnload = !!(guards.size || retained.size);
+  if (needsUnload !== unloadConnected) {
+    unloadConnected = needsUnload;
+    if (needsUnload) window.addEventListener("beforeunload", warn);
+    else window.removeEventListener("beforeunload", warn);
   }
-  guards.add(guard);
-  return () => {
-    guards.delete(guard);
-    if (!guards.size) {
-      approvedUnload = false;
-      window.removeEventListener("beforeunload", warn);
+  const needsNavigation = !!guards.size;
+  if (needsNavigation !== navigationConnected) {
+    navigationConnected = needsNavigation;
+    if (needsNavigation) {
+      document.addEventListener("click", guardLink, true);
+      document.addEventListener("submit", guardFilter, true);
+    } else {
       document.removeEventListener("click", guardLink, true);
       document.removeEventListener("submit", guardFilter, true);
     }
+  }
+  if (!needsUnload) approvedUnload = false;
+}
+export function setRetainedNoteKeys(keys: string[]) {
+  retained = new Set(keys);
+  syncListeners();
+}
+export function registerNoteNavigation(
+  guard: Guard,
+  key: string | symbol = Symbol(),
+) {
+  guards.set(guard, key);
+  syncListeners();
+  return () => {
+    guards.delete(guard);
+    syncListeners();
   };
 }
 
