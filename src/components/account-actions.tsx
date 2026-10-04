@@ -8,7 +8,7 @@ import {
   deleteMyAccount,
 } from "@/app/actions-account";
 import { clearChatSessionCookies } from "@/app/actions-chat-session";
-import { announceChatSessionEnd } from "@/lib/chat-session-end";
+import { completeChatSignOut } from "@/lib/chat-session-end";
 
 const authClient = createAuthClient();
 
@@ -30,10 +30,9 @@ export function AccountActions() {
     setSigningOut(true);
     setSignOutError("");
     try {
-      await clearChatSessionCookies();
-      announceChatSessionEnd();
-      const result = await authClient.signOut();
-      if (result.error) throw new Error("sign-out");
+      await completeChatSignOut(clearChatSessionCookies, () =>
+        authClient.signOut(),
+      );
     } catch {
       setSignOutError(
         "No se pudo cerrar la sesión. Revisa tu conexión y reintenta.",

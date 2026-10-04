@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { clearChatSessionCookies } from "@/app/actions-chat-session";
-import { announceChatSessionEnd } from "@/lib/chat-session-end";
+import {
+  bridgeChatSessionEnd,
+  completeChatSignOut,
+} from "@/lib/chat-session-end";
 
 type SessionUser = { id: string };
 
@@ -16,6 +19,7 @@ export function SiteNav({
   variant?: "site" | "workspace";
 }) {
   const pathname = usePathname();
+  useEffect(() => bridgeChatSessionEnd(), []);
   const professionalArea = pathname === "/pro" || pathname.startsWith("/pro/");
   const adminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const patientArea = pathname === "/mi" || pathname.startsWith("/mi/");
@@ -132,14 +136,15 @@ export function SiteNav({
     setSigningOut(true);
     setError("");
     try {
-      await clearChatSessionCookies();
-      announceChatSessionEnd();
-      const response = await fetch("/api/auth/sign-out", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
+      await completeChatSignOut(clearChatSessionCookies, async () => {
+        const response = await fetch("/api/auth/sign-out", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        if (!response.ok) throw new Error("sign-out");
+        return { error: null };
       });
-      if (!response.ok) throw new Error("sign-out");
       try {
         localStorage.removeItem("nido:account:present:v1");
       } catch {}
