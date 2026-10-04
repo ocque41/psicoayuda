@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
         "/pro/dashboard",
         "/pro/onboarding",
         "/pro/consulta",
+        "/pro/mensajes",
+        "/pro/cobros",
         "/pro/pacientes",
         "/pro/servicios",
         "/pro/ajustes",

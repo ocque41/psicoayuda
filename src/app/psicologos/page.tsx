@@ -9,8 +9,7 @@ export const metadata: Metadata = {
     "Si eres psicóloga o psicólogo en Venezuela, súmate a Nido como voluntario/a: acompaña gratis y a distancia, en la medida de tu tiempo, tras el terremoto.",
   alternates: { canonical: "/psicologos" },
   openGraph: {
-    title:
-      "Psicólogos voluntarios: tu vocación puede ayudar a sanar un país | Nido",
+    title: "Psicólogos voluntarios para Ayuda Terremoto | Nido",
     description:
       "Súmate como psicólogo o psicóloga voluntaria y ofrece apoyo gratuito y a distancia a personas afectadas por el terremoto en Venezuela.",
     url: "/psicologos",
@@ -19,19 +18,22 @@ export const metadata: Metadata = {
 
 export default async function PsychologistsLandingPage() {
   const session = await getServerSession();
+  const googleEnabled = Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim(),
+  );
 
   return (
     <>
       <section className="hero">
         <div className="container">
           <p className="eyebrow">Para psicólogas y psicólogos voluntarios</p>
-          <h1>Tu vocación puede ayudar a sanar a un país</h1>
+          <h1>Tu experiencia puede acompañar a quienes necesitan apoyo</h1>
           <p className="lead">
-            Después del terremoto, miles de personas en Venezuela cargan con
-            miedo, duelo e insomnio que nadie ve. Tú tienes justo lo que hace
-            falta para acompañarlas. En Nido pones tu experiencia al servicio de
-            quien más lo necesita: en remoto, en la medida de tu tiempo y sin
-            coste para nadie.
+            Ayuda Terremoto reúne a profesionales que ofrecen acompañamiento
+            voluntario a personas afectadas en Venezuela. Puedes colaborar a
+            distancia, dentro de tu competencia y de la disponibilidad que
+            decidas. La atención en este programa es gratuita.
           </p>
           <ul className="trust-strip" aria-label="Lo que te ofrecemos">
             <li>Tú defines tu cupo</li>
@@ -53,19 +55,16 @@ export default async function PsychologistsLandingPage() {
         <div className="container">
           <h2>Por qué tu ayuda importa ahora</h2>
           <p>
-            Una catástrofe no termina cuando deja de temblar. El dolor que no se
-            atiende se queda: se vuelve insomnio que no cede, ansiedad, duelos
-            congelados y familias que no logran rehacerse. La salud mental no es
-            un lujo para después; es parte de la reconstrucción. Un país se
-            levanta cuando su gente puede volver a dormir, a trabajar y a cuidar
-            de los suyos.
+            Después de una experiencia difícil, algunas personas buscan un
+            espacio para hablar y recibir apoyo. El programa facilita el
+            contacto con profesionales que pueden revisar con ellas qué
+            acompañamiento ofrecer y cuáles son sus límites.
           </p>
           <p>
-            Ahí es donde entras tú. No hacen falta grandes recursos para cambiar
-            la historia de alguien: a veces basta una persona preparada que
-            escuche a tiempo. Cada acompañamiento que ofreces suma a algo más
-            grande que una sesión: ayuda a que una comunidad entera vuelva a
-            ponerse de pie.
+            Tú decides cuántas solicitudes puedes atender y cuándo pausar tu
+            participación. El voluntariado no exige disponibilidad permanente ni
+            garantiza un resultado clínico. Nido no es un servicio de
+            emergencias.
           </p>
         </div>
       </section>
@@ -75,10 +74,14 @@ export default async function PsychologistsLandingPage() {
           <h2>Cómo funciona para ti</h2>
           <ol className="steps">
             <li>
-              <strong>Entras con Google (o tu correo), aquí mismo.</strong> Es
-              el primer paso y lo haces al final de esta página. Luego, en unos
-              minutos, nos cuentas tu formación, tus áreas de competencia, tus
-              idiomas y cuánto tiempo puedes donar.
+              <strong>
+                {googleEnabled
+                  ? "Entras con Google o con tu correo."
+                  : "Entras con tu correo."}
+              </strong>{" "}
+              Es el primer paso y lo haces al final de esta página. Después
+              eliges el espacio profesional y completas tu formación, áreas de
+              competencia, idiomas y disponibilidad.
             </li>
             <li>
               <strong>Verificamos tu credencial a mano.</strong> Hasta que esa
@@ -87,9 +90,10 @@ export default async function PsychologistsLandingPage() {
               red.
             </li>
             <li>
-              <strong>Recibes solicitudes afines.</strong> Te llegan casos
-              acordes a tus áreas e idiomas, siempre dentro del cupo que tú
-              decidas.
+              <strong>Revisas las solicitudes disponibles.</strong> El equipo
+              coordina según áreas, idiomas, cupo y disponibilidad. Cada
+              solicitud requiere que compruebes si puedes ofrecer ese
+              acompañamiento.
             </li>
             <li>
               <strong>Acompañas a distancia.</strong> Por el medio que acuerdes
@@ -128,11 +132,15 @@ export default async function PsychologistsLandingPage() {
               </p>
             </article>
             <article className="card">
-              <h3>Nido solo conecta</h3>
+              <h3>Privacidad y límites claros</h3>
               <p>
-                La atención sucede fuera de la app y no guardamos historias
-                clínicas. Que Nido no atienda emergencias también te protege a
-                ti: nadie espera de ti una respuesta inmediata.
+                El chat está cifrado de extremo a extremo. Si utilizas la
+                consulta de Nido, puedes guardar notas privadas cifradas en
+                servidor; ese almacenamiento no es cifrado de extremo a extremo.
+                Consulta{" "}
+                <Link href="/privacidad">cómo se tratan los datos</Link>. El
+                programa no ofrece atención de emergencias ni respuesta
+                inmediata.
               </p>
             </article>
           </div>
@@ -143,12 +151,12 @@ export default async function PsychologistsLandingPage() {
         <div className="container">
           <div className="join-cta">
             <p className="eyebrow">Paso 1: entra</p>
-            <h2>¿List@ para empezar?</h2>
+            <h2>¿Quieres participar?</h2>
             <p>
-              Súmate a las psicólogas y psicólogos que ya están sosteniendo a
-              Venezuela, una conversación a la vez. Entrar es el primer paso:
-              solo sirve para verificar tu identidad profesional y no publicamos
-              nada en tu nombre.
+              Crea una cuenta y completa tu perfil profesional. El acceso a la
+              cuenta no verifica tu identidad ni tus credenciales: el equipo
+              debe revisarlas antes de habilitar tu participación y el ámbito de
+              atención por país.
             </p>
             {session?.user ? (
               <p className="join-actions">
@@ -161,13 +169,19 @@ export default async function PsychologistsLandingPage() {
               </p>
             ) : (
               <div className="signin">
-                <AuthPanel />
+                <AuthPanel googleEnabled={googleEnabled} />
                 <p className="muted auth-foot">
-                  Entras solo para verificar tu identidad profesional. Completar
-                  tu perfil toma unos minutos.
+                  Al entrar eliges tu espacio. Selecciona «Soy profesional» para
+                  completar tu perfil.
                 </p>
               </div>
             )}
+            <p className="muted">
+              Si buscas herramientas para tu consulta, conoce{" "}
+              <Link href="/para-psicologos">Nido para psicólogos</Link>. El
+              software profesional y Ayuda Terremoto tienen recorridos
+              separados.
+            </p>
             <p className="muted">
               ¿Te quedan dudas? Mira las{" "}
               <Link href="/preguntas-frecuentes">preguntas frecuentes</Link> o,

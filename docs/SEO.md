@@ -1,163 +1,78 @@
-# SEO de Nido — estado y plan para rankear
+# SEO y búsqueda con IA de Nido
 
-Objetivo: que quien busca **"ayuda psicológica venezuela"**, **"ayuda psicológica gratis"**
-o equivalentes nos encuentre lo más fácil posible.
+Revisado el 4 de octubre de 2026. Este documento describe el código y el trabajo pendiente de búsqueda pública. La publicación vigente y sus comprobaciones se registran en [el dossier de producto](producto/README.md); una modificación local no demuestra que esté publicada. No prometemos posiciones, plazos de indexación ni presencia en respuestas de IA.
 
-Este documento separa lo que **ya está hecho en el código** de lo que **solo tú puedes
-hacer** (dominio, verificación, enlaces). El ranking #1 depende sobre todo de lo segundo
-+ tiempo de indexación; ninguna línea de código puede forzarlo.
+## Audiencias y mensajes
 
----
+| Recorrido | Páginas fuente | Mensaje verificable |
+|---|---|---|
+| Personas que buscan apoyo | `/`, `/profesionales`, `/orientacion` | Explorar perfiles y contactar; el orientador ayuda a elegir, no diagnostica. La atención se acuerda con cada profesional. |
+| Psicólogos que organizan su consulta | `/para-psicologos` | Agenda, fichas, notas, mensajes, servicios y registro de cobros externos; prueba de 90 días sin tarjeta. No garantiza pacientes, ingresos ni resultados clínicos. |
+| Ayuda Terremoto | `/ayuda`, `/psicologos` | Programa separado de acompañamiento voluntario gratuito, según disponibilidad y revisión. Mantener el banner rojo y la entrada para voluntariado. |
 
-## 🚀 Acción inmediata: qué falta para rankear
+La gratuidad de Ayuda Terremoto no describe todos los servicios de Nido. No afirmar que Nido sea una ONG o entidad sin fines de lucro sin evidencia. No publicar datos societarios, direcciones privadas, reseñas inventadas ni países de ejercicio supuestos. Entrar con Google autentica una cuenta; la revisión profesional es un proceso distinto. El formulario sólo ofrece Google cuando están configuradas ambas variables del proveedor.
 
-**El sitio ya está desplegado y en vivo** en `https://saludmental-venezuela.com`
-(verificado el 2026-07-01: responde `200`, con dominio propio, `sitemap.xml`, `robots.txt`,
-datos estructurados y el SEO on-page publicados). El deploy por **GitHub Actions**
-("Deploy to Cloudflare") **funciona y ya se ha usado** —los secretos `CLOUDFLARE_API_TOKEN`
-(GitHub) y `BETTER_AUTH_SECRET` (Cloudflare) están puestos, dado que producción está
-publicada—. Vuelve a ejecutar ese workflow cuando quieras publicar los últimos commits de
-`main` (a veces prod va unos commits por detrás hasta el siguiente deploy).
+El chat usa cifrado de extremo a extremo. El CRM permite notas privadas cifradas en servidor; ese almacenamiento tiene límites distintos. No decir que la plataforma no guarda información clínica ni que todo el CRM tiene E2EE. Los pagos con tarjeta, llamadas integradas y conexión Google Calendar requieren configuración y comprobaciones externas: véanse [los pendientes contrastados](producto/24-pendientes-y-cierre.md).
 
-Lo que **de verdad falta para posicionar #1 ya no es código ni deploy**, sino dos cosas
-que **solo tú** puedes hacer, en este orden:
+## Superficies implementadas y semántica
 
-1. **Google Search Console** (~15 min, gratis) → sección 3. Es lo que hace que Google
-   te descubra en **días, no semanas**: verifica el dominio, envía `sitemap.xml` y pide
-   indexación de `/`, `/ayuda`, `/profesionales` y `/recursos`.
-2. **Conseguir 3–5 enlaces** de sitios relevantes → correos listos en
-   [`OUTREACH.md`](./OUTREACH.md). En salud mental (YMYL), la confianza y los enlaces
-   pesan **más que cualquier ajuste técnico**.
+| Fuente | Función y límite |
+|---|---|
+| `src/lib/site.ts`, metadatos públicos | Nombre, títulos, descripciones, URL canónica e imágenes sociales. Los valores efectivos deben coincidir tras la compilación. |
+| `src/app/sitemap.ts` | Lista de rutas públicas; excluye paneles, chats y confirmaciones. No exporta pacientes ni documentos. |
+| `src/app/robots.ts`, metadatos privados | Directivas de rastreo y `noindex`. No sustituyen autenticación ni controles de acceso. |
+| `src/components/structured-data.tsx` | `Organization` y `WebSite` describen el sitio; no acreditan personalidad jurídica ni credenciales profesionales. |
+| `SearchAction` | Describe la búsqueda real `/profesionales?q=…`. No habilita un cuadro de búsqueda de Google. |
+| `WebPage`, `Service`, `FAQPage` | La página de portada conserva su URL; el servicio gratuito enlaza a `/ayuda`. Las preguntas y respuestas comparten la fuente del texto visible. Precio cero no implica cupo inmediato. |
+| `CollectionPage`, `ItemList` | Describen el directorio y nombres públicos; no añaden documentos, contactos privados, puntuaciones ni reseñas. |
+| `MedicalWebPage`, `BreadcrumbList` | Identifican guías con información de salud y su navegación. No acreditan revisión clínica ni un resultado enriquecido. |
+| `public/llms.txt` | Guía opcional de páginas públicas y límites; no contiene datos privados ni es una barrera de acceso. |
 
-> Tras esto: paciencia. Indexar y posicionar toma de días a semanas. Revisa Search Console
-> cada pocos días.
+[Schema.org define Organization](https://schema.org/Organization), [SearchAction](https://schema.org/SearchAction) y [MedicalWebPage](https://schema.org/MedicalWebPage). Su semántica es distinta de la compatibilidad de un buscador con resultados especiales. `lastReviewed` y `reviewedBy` describen revisiones de exactitud/completitud; sólo deben emitirse con evidencia de esa revisión, sin inventar autores o supervisión clínica.
 
-### Para publicar cambios nuevos (deploy — ya configurado y funcionando)
+Google retiró Sitelinks Searchbox desde el **21 de noviembre de 2024**. Puede conservarse `SearchAction` para describir el buscador real, sin prometer esa presentación. [Anuncio oficial](https://developers.google.com/search/blog/2024/10/sitelinks-search-box).
 
-GitHub → pestaña **Actions** → workflow **"Deploy to Cloudflare"** → **Run workflow**.
-Aplica las migraciones D1 y despliega lo que haya en `main`. (Nota Windows: el build local
-`opennextjs-cloudflare` falla en Windows nativo por symlinks; por eso se despliega desde CI
-Linux, no hace falta que instales nada.)
+Los resultados enriquecidos de FAQ dejaron de mostrarse desde el **7 de mayo de 2026** y se retiró su documentación en junio. `FAQPage` puede seguir describiendo las preguntas visibles, pero no debe venderse como una mejora de presentación disponible en Google. [Registro oficial de cambios](https://developers.google.com/search/updates).
 
----
+## Dominio, canonicals y publicación
 
-## 1. Ya implementado en el código (verificado en build)
+La fuente central es `SITE_URL`, basada en `NEXT_PUBLIC_SITE_URL` o su fallback de dominio. Revisar la salida efectiva de canonical, Open Graph, JSON-LD, robots y sitemap al publicar. `llms.txt` es estático y requiere revisión si cambia el dominio. No modificar configuración de infraestructura desde un lote de marketing.
 
-- **`metadataBase`, títulos, descripciones y canonical** en cada página (`layout.tsx` + cada `page.tsx`).
-- **`sitemap.xml`** dinámico con ~30 rutas públicas (portada, `/profesionales`, `/recursos` + 15 guías, legales) + hreflang `es-VE`/`es`/`x-default` (`src/app/sitemap.ts`).
-- **`robots.txt`** que permite el contenido público y bloquea `/admin`, `/api/`, panel y onboarding profesional y `/ayuda/gracias` (`src/app/robots.ts`).
-- **`manifest.webmanifest`** (PWA, colores de marca, categorías health/medical).
-- **Iconos**: `icon.svg` (favicon), `apple-icon` (180×180).
-- **Imágenes sociales**: `opengraph-image` y `twitter-image` (1200×630) generadas con `next/og`.
-- **Datos estructurados JSON-LD** (`src/components/structured-data.tsx`): `NGO` + `WebSite` (con `SearchAction` para el buscador → Sitelinks Searchbox) en todo el sitio; `WebPage` + `Service` + `FAQPage` en la portada; `MedicalWebPage` + `BreadcrumbList` en las 15 guías; `CollectionPage` + `BreadcrumbList` en `/profesionales`.
-- **Contenido on-page** optimizado: el H1 de la portada y `/recursos` ahora contienen la consulta objetivo; FAQ y enlaces internos.
-- **Páginas privadas** marcadas `noindex`; **404** (`not-found.tsx`) amable y `noindex`.
-- **Verificación de Search Console lista**: define `GOOGLE_SITE_VERIFICATION` y se emite la meta sola.
+Se elimina la afirmación anterior de que `workers.dev` recibe una penalización automática: no tenía evidencia primaria. La consistencia de URLs evita señales contradictorias de canonicalización; un dominio propio no garantiza indexación ni ranking. [Guía de canonicalización de Google](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls).
 
-Comprobar tras desplegar:
-```
-curl https://saludmental-venezuela.com/robots.txt
-curl https://saludmental-venezuela.com/sitemap.xml
-```
-Ambos deben mostrar **`https://saludmental-venezuela.com`** (no un `*.workers.dev`).
+El coordinador integra, compila y publica. No inferir que un workflow, secreto o proveedor está operativo porque exista su nombre en el repositorio. No repetir instrucciones de despliegue ni guardar tokens en esta documentación.
 
----
+## Search Console y seguimiento
 
-## 2. Dominio propio — ✅ HECHO
+1. El responsable con acceso añade o confirma la propiedad. Una propiedad **Dominio** exige verificación DNS; una propiedad de **prefijo de URL** admite otros métodos como la etiqueta HTML. El código puede emitir la meta desde `GOOGLE_SITE_VERIFICATION`, pero su presencia no demuestra verificación. [Métodos oficiales](https://support.google.com/webmasters/answer/9008080).
+2. Enviar el sitemap público e inspeccionar portada, catálogo, venta profesional y programa gratuito. Comprobar canonical seleccionado, acceso del rastreador y exclusión de destinos privados.
+3. Solicitar rastreo de cambios relevantes sin repetir solicitudes. Puede tardar días o semanas y no garantiza inclusión. [Solicitud de rastreo de Google](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl).
+4. Medir impresiones, clics, CTR y consultas por recorrido. Comparar periodos equivalentes y anotar publicaciones; no atribuir causalidad a un cambio aislado ni convertir una posición media en promesa comercial.
 
-`saludmental-venezuela.com` ya está conectado (Custom Domain en Cloudflare) y es la
-URL canónica del sitio. Esto era la palanca #1: `*.workers.dev` está **fuertemente
-penalizado** por Google y muchas veces ni se indexa; el dominio propio lo desbloquea.
-Bonus: el dominio contiene la consulta objetivo ("salud mental venezuela").
+Pendiente externo: acceso autorizado a Search Console y evidencia de cobertura/rendimiento del dominio real. Este lote no abre propiedades, cambia DNS ni solicita indexación. Otros buscadores requieren sus propias comprobaciones; no prometer inclusión en ChatGPT o Copilot por tener un sitemap.
 
-> **Cómo se configura la URL canónica (importante).** `NEXT_PUBLIC_*` se inyecta en
-> *build time*, y nuestro build de Cloudflare **no** recibe esa variable; por eso la
-> URL real de producción es el **fallback de `src/lib/site.ts`**. Si algún día cambia
-> el dominio, actualiza ESE fallback (y, por coherencia, `wrangler.jsonc` y `.env`).
+## Consultas y respuestas de IA
 
----
+Google mantiene los fundamentos de SEO para sus funciones de IA: contenido textual accesible, enlaces internos útiles y marcado coherente con lo visible. No exige archivos nuevos ni un schema especial, y la aparición no está garantizada. [Documentación oficial](https://developers.google.com/search/docs/appearance/ai-features).
 
-## 3. Google Search Console (acción tuya, ~15 min)
+`llms.txt` no beneficia ni perjudica por sí mismo la visibilidad o el ranking en Google; puede mantenerse para otros sistemas que lo utilicen. No afirmar que todos los asistentes lo leen. [Aclaración de junio de 2026](https://developers.google.com/search/updates).
 
-1. Entra en https://search.google.com/search-console y añade tu propiedad (dominio).
-2. **Verificación** (elige una):
-   - **Etiqueta HTML** (la más fácil con este repo): copia el valor `content` del token que te da Google, ponlo en `GOOGLE_SITE_VERIFICATION` (`.env` y `wrangler.jsonc`), y redespliega. La meta se emite sola.
-   - **DNS**: añade el registro TXT que indica Google en tu proveedor de dominio.
-3. **Sitemaps** → envía `sitemap.xml`.
-4. **Inspección de URLs** → pega la home y pulsa **Solicitar indexación** (repite con `/ayuda` y `/recursos`).
-5. Revisa **Resultados de la Búsqueda** y **Mejoras** a los pocos días: posición, clics y validez del FAQPage/Organization.
+Para responder a consultas sobre Nido, dirigir a fuentes públicas concretas:
 
----
+| Pregunta | Fuente | Límite que debe acompañar la respuesta |
+|---|---|---|
+| ¿Cómo encuentro apoyo? | `/profesionales`, `/orientacion` | Elección del profesional, disponibilidad y ámbito revisado; no diagnóstico automático. |
+| ¿Qué ofrece Nido a psicólogos? | `/para-psicologos` | Organización de consulta y prueba sin tarjeta; integraciones pendientes diferenciadas. |
+| ¿Es gratuito? | `/ayuda`, `/psicologos` | Ayuda Terremoto es gratuito y separado del software y de la atención acordada fuera del programa. |
+| ¿Qué se guarda? | `/privacidad` | Diferencia entre chat E2EE, notas cifradas en servidor y otros datos privados. |
+| ¿Atiende emergencias? | `/emergencia` | Nido no ofrece respuesta de emergencias; recursos según ubicación y fuentes vigentes. |
 
-## 4. Bing + IndexNow (opcional, 10 min)
+Nunca incorporar fichas, chats, notas, agendas, pagos o documentos a un resumen público o herramienta externa de IA. Una directiva para robots o un texto en `llms.txt` no protege datos accesibles sin autorización.
 
-- Da de alta el sitio en **Bing Webmaster Tools** (puedes importar desde Search Console) y envía el sitemap. Bing alimenta también a ChatGPT/Copilot.
-- IndexNow notifica cambios al instante a Bing/Yandex.
+## Mejoras siguientes y validación
 
----
-
-## 5. Enlaces y menciones — E-E-A-T (acción tuya, continuo)
-
-En salud mental Google exige **confianza** demostrable. Unos pocos enlaces de sitios
-relevantes mueven más que cualquier ajuste técnico. Objetivos realistas en Venezuela:
-
-- Federación de Psicólogos de Venezuela (FPV) y colegios regionales.
-- Programas universitarios de psicología (UCAB/PsicoLínea, UCV, ULA…).
-- ONG y redes de apoyo (p. ej. Psicólogos Sin Fronteras Venezuela).
-- Directorios de salud mental y de ONG.
-- Prensa y medios que cubren salud mental (Efecto Cocuyo, El Diario, etc.).
-
-Plantilla de correo (adáptala):
-
-```
-Asunto: Nido — apoyo psicológico gratuito y a distancia para Venezuela
-
-Hola [nombre]:
-
-Somos Nido, un proyecto sin fines de lucro que conecta gratis y a distancia a
-personas en Venezuela con psicólogas y psicólogos voluntarios verificados, sin
-que la persona tenga que crear cuenta. No atendemos emergencias.
-
-Si lo consideran útil para quienes los contactan buscando apoyo, ¿podrían
-incluirnos como recurso/enlace? Encantados de coordinar y de sumar a su red de
-profesionales voluntarios.
-
-Gracias por su labor,
-[tu nombre] — [tu correo] — https://saludmental-venezuela.com
-```
-
-> Cumple las reglas internas: no inventes cifras ni datos; menciona solo lo verificable.
-
----
-
-## 6. Google Business Profile
-
-Nido es **solo en línea, sin dirección física**, por lo que un perfil de Google Business
-(que exige ubicación o área de servicio presencial) **probablemente no aplica**. No lo
-fuerces con una dirección falsa: sería contraproducente. Si en el futuro hubiera una sede
-o alianza local con dirección, se podría reconsiderar.
-
----
-
-## 7. Contenido continuo (mejora sostenida)
-
-- Publica los **recursos verificados** de `/recursos` en cuanto coordinación los apruebe (más contenido útil y enlazable, sin inventar teléfonos).
-- Considera un pequeño blog con artículos **precisos** de salud mental (p. ej. "cómo apoyar a alguien en duelo", "señales para pedir ayuda"): cubre cola larga y refuerza E-E-A-T.
-
-### Por qué NO creamos páginas por ciudad
-
-Tentación habitual: una página casi idéntica para "ayuda psicológica en Caracas",
-"...en Maracaibo", etc. Google penaliza estas **páginas puerta** (thin/doorway) y haría
-**bajar** el ranking. La cobertura nacional ya se comunica en la portada y el FAQ con
-contenido único. Solo crear páginas locales si cada una aporta información realmente
-distinta y verificada.
-
----
-
-## Resumen de prioridad
-
-1. ~~**Dominio propio**~~ ✅ hecho (`saludmental-venezuela.com`).
-2. **Search Console** (lo más urgente ahora): verificar + enviar sitemap + solicitar
-   indexación de `/`, `/ayuda` y `/recursos`. Pega el token en `GOOGLE_SITE_VERIFICATION`.
-3. **3–5 enlaces** de sitios relevantes (FPV, universidades, ONG, prensa) para E-E-A-T.
-4. **Tiempo** (días-semanas) + contenido continuo.
+- Revisar guías individualmente con un responsable editorial autorizado; registrar cambios y revisiones reales, sin actualizar fechas sólo para aparentar frescura.
+- Mantener preguntas claras que separen programa gratuito, catálogo y software. Crear páginas adicionales sólo cuando aporten información distinta y comprobada.
+- Preparar menciones útiles con [los borradores de contacto](OUTREACH.md); confirmar destinatarios y disponibilidad operativa antes de pedir difusión. No intercambiar enlaces por posicionamiento ni atribuir alianzas sin confirmación.
+- Comprobar HTML y JSON-LD, escape de nombres públicos, URLs, rutas privadas y estados de Google ausente/presente con fixtures ficticias y pruebas focales aisladas. Biome revisa los archivos de código modificados.
+- Después de integrar, el coordinador comprueba `/robots.txt`, `/sitemap.xml`, `/llms.txt`, canonical, `noindex` privado y banner gratuito en producción. La validación local no acredita rankings, proveedor real, despliegue ni revisión clínica.
