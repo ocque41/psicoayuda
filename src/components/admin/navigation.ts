@@ -39,6 +39,20 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Revisa perfiles, credenciales, visibilidad y capacidad de atención.",
   },
   {
+    id: "crm",
+    label: "CRM profesional",
+    href: "/admin/crm",
+    description:
+      "Explora las ventanas y los componentes de la consulta profesional.",
+  },
+  {
+    id: "consola",
+    label: "Consola",
+    href: "/admin/consola",
+    description:
+      "Estado de la consulta, integraciones y configuración del servicio.",
+  },
+  {
     id: "contactos",
     label: "Contactos",
     href: "/admin/contactos",

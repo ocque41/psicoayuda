@@ -140,12 +140,14 @@ export function PracticeCalendar({
   initialDay,
   timeZone,
   audience = "professional",
+  emptyHref,
 }: {
   events: CalendarEvent[];
   month: string;
   initialDay?: string;
   timeZone: string;
   audience?: "professional" | "patient";
+  emptyHref?: string;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -678,7 +680,9 @@ export function PracticeCalendar({
                       : "Programa una sesión desde la ficha de tu paciente y la encontrarás aquí."}
                   </p>
                   {audience === "professional" ? (
-                    <Link href="/pro/pacientes">Ir a pacientes →</Link>
+                    <Link href={emptyHref || "/pro/pacientes"}>
+                      Ir a pacientes →
+                    </Link>
                   ) : (
                     <Link href="/mi/mensajes">Ir a mis mensajes →</Link>
                   )}
