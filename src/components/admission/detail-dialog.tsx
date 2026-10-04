@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import type {
   AdmissionActions,
   AdmissionBoardData,
   AdmissionDetail,
+  AdmissionFormState,
 } from "@/lib/admission/types";
 import { countries } from "@/lib/constants";
 import { TIME_ZONES } from "@/lib/geography";
@@ -54,6 +55,14 @@ export function AdmissionDetailDialog({
   const [refreshing, startRefresh] = useTransition();
   const busy = saving || refreshing;
   const [dirtyForms, setDirtyForms] = useState<string[]>([]);
+  const reviewForm = useRef<HTMLFormElement | null>(null);
+  const [errorField, setErrorField] = useState<AdmissionFormState["field"]>();
+  useEffect(() => {
+    if (busy || tab !== "interview" || !errorField) return;
+    const input = reviewForm.current?.elements.namedItem(errorField);
+    if (input instanceof HTMLElement && input.isConnected) input.focus();
+    setErrorField(undefined);
+  }, [busy, tab, errorField]);
   const [identityChecked, setIdentityChecked] = useState(
     candidate.gates.identity,
   );
@@ -255,6 +264,12 @@ export function AdmissionDetailDialog({
           onBusyChange={setBusy}
           onChange={() => markDirty("review")}
           onSaved={(state) => saved("review", state.message)}
+          onFailed={(state, form) => {
+            if (!state.field) return;
+            reviewForm.current = form;
+            setErrorField(state.field);
+            changeTab("interview");
+          }}
           onInvalid={(event) => {
             const input = event.target as HTMLInputElement;
             const panel = input.closest<HTMLElement>("[role=tabpanel]");

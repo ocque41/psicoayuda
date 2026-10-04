@@ -34,6 +34,7 @@ export type AdmissionFormState = {
     | "unavailable"
     | "blocked";
   published?: boolean;
+  field?: "interviewLocal" | "interviewTimeZone" | "interviewReference";
 };
 export type AdmissionAction = (
   previous: AdmissionFormState,

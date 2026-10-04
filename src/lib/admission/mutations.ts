@@ -43,7 +43,13 @@ function aliasedFields<Fields extends Record<string, unknown>>(fields: Fields) {
 }
 const invalid = (
   message = "Revisa los campos y la referencia de cotejo.",
-): AdmissionFormState => ({ ok: false, code: "invalid", message });
+  field?: AdmissionFormState["field"],
+): AdmissionFormState => ({
+  ok: false,
+  code: "invalid",
+  message,
+  ...(field ? { field } : {}),
+});
 const conflict = (): AdmissionFormState => ({
   ok: false,
   code: "conflict",
@@ -230,7 +236,18 @@ export async function saveAdmissionReview(
     interviewReference: value(form, "interviewReference"),
     interviewCompleted: form.get("interviewCompleted") === "on",
   });
-  if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path[0];
+    return invalid(
+      issue?.message,
+      field === "interviewLocal" ||
+        field === "interviewTimeZone" ||
+        field === "interviewReference"
+        ? field
+        : undefined,
+    );
+  }
   const input = parsed.data;
   const interviewAt = input.interviewLocal
     ? localToUtc(input.interviewLocal, input.interviewTimeZone)
@@ -238,6 +255,7 @@ export async function saveAdmissionReview(
   if (input.interviewLocal && !interviewAt)
     return invalid(
       "Revisa la fecha y zona horaria; evita horas inexistentes o ambiguas por cambios de horario.",
+      "interviewLocal",
     );
   if (
     input.interviewCompleted &&
@@ -245,6 +263,7 @@ export async function saveAdmissionReview(
   )
     return invalid(
       "Una entrevista realizada debe tener una fecha pasada o actual.",
+      "interviewLocal",
     );
   try {
     const config = await configurationFor(input, actor);

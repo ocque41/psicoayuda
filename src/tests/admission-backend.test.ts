@@ -349,6 +349,34 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
     expect(await record()).toBeUndefined();
     expect(await events()).toHaveLength(0);
   });
+  it.each([
+    [{ interviewLocal: "2099-01-01T10:00" }, "interviewLocal"],
+    [
+      {
+        interviewLocal: "2026-03-29T02:30",
+        interviewTimeZone: "Europe/Madrid",
+      },
+      "interviewLocal",
+    ],
+    [
+      {
+        interviewLocal: "2026-10-25T02:30",
+        interviewTimeZone: "Europe/Madrid",
+      },
+      "interviewLocal",
+    ],
+    [{ interviewTimeZone: "Fake/Zone" }, "interviewTimeZone"],
+    [{ interviewLocal: "" }, "interviewLocal"],
+    [{ interviewReference: "" }, "interviewReference"],
+  ] as const)("identifica el campo de entrevista rechazado: %j", async (changes, field) => {
+    expect(await saveAdmissionReview(actor, form(changes))).toMatchObject({
+      ok: false,
+      code: "invalid",
+      field,
+    });
+    expect(await record()).toBeUndefined();
+    expect(await events()).toHaveLength(0);
+  });
   it("dos formularios simultáneos no pisan una revisión ni duplican historial", async () => {
     const results = await Promise.all([
       saveAdmissionReview(actor, form()),

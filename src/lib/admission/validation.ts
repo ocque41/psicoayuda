@@ -47,7 +47,7 @@ export const admissionReviewSchema = admissionMutationSchema
     )
       context.addIssue({
         code: "custom",
-        path: ["interviewReference"],
+        path: [value.interviewLocal ? "interviewReference" : "interviewLocal"],
         message: "La entrevista realizada necesita fecha y referencia.",
       });
   });

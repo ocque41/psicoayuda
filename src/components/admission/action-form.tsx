@@ -24,6 +24,7 @@ export function AdmissionActionForm({
   disabled = false,
   submitDisabled = false,
   onSaved,
+  onFailed,
   onBusyChange,
   onChange,
   onInvalid,
@@ -34,11 +35,13 @@ export function AdmissionActionForm({
   disabled?: boolean;
   submitDisabled?: boolean;
   onSaved?: (state: AdmissionFormState) => void;
+  onFailed?: (state: AdmissionFormState, form: HTMLFormElement) => void;
   onBusyChange?: (busy: boolean) => void;
   onChange?: () => void;
   onInvalid?: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const noticeId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const notice = useRef<HTMLParagraphElement>(null);
   const locked = useRef(false);
   const handled = useRef(0);
@@ -86,8 +89,11 @@ export function AdmissionActionForm({
   useEffect(() => {
     if (busy || result.submission <= handled.current) return;
     handled.current = result.submission;
-    if (!result.state.ok && result.state.message) notice.current?.focus();
-  }, [result, busy]);
+    if (!result.state.ok && result.state.message) {
+      notice.current?.focus();
+      if (formRef.current) onFailed?.(result.state, formRef.current);
+    }
+  }, [result, busy, onFailed]);
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (disabled || submitDisabled || busy || locked.current) return;
@@ -103,6 +109,7 @@ export function AdmissionActionForm({
   }
   return (
     <form
+      ref={formRef}
       method="post"
       onSubmit={submitForm}
       onChange={onChange}
