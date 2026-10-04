@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const esbuild = createRequire(require.resolve("tsx"))("esbuild");
 const browser = process.env.NIDO_GUIDE_BROWSER || "agent-browser";
 const run = promisify(execFile);
-const session = `nido-workspace-guide-${crypto.randomUUID()}`;
+const session = `nido-wg-${crypto.randomUUID().slice(0, 12)}`;
 const directory = await mkdtemp(join(tmpdir(), "nido-workspace-guide-"));
 const artifacts = process.env.NIDO_GUIDE_ARTIFACT_DIR;
 const checks = [];
@@ -77,7 +77,8 @@ async function next() {
 }
 const navigation = `import {useSyncExternalStore} from 'react';
 const subscribe=fn=>{window.addEventListener('popstate',fn);return()=>window.removeEventListener('popstate',fn)};
-export function usePathname(){return useSyncExternalStore(subscribe,()=>location.pathname,()=>'/pro/pacientes/ficticio')};`;
+export function usePathname(){return useSyncExternalStore(subscribe,()=>location.pathname,()=>'/pro/pacientes/ficticio')};
+export function useSearchParams(){const search=useSyncExternalStore(subscribe,()=>location.search,()=> '');return new URLSearchParams(search)};`;
 const link = `import {createElement} from 'react';export default function Link({href,prefetch,scroll,onClick,...props}){return createElement('a',{...props,href,onClick:e=>{onClick?.(e);if(e.defaultPrevented||e.button||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();history.pushState(null,'',href);dispatchEvent(new Event('popstate'));}})}`;
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url, "http://127.0.0.1").pathname;
