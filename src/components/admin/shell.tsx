@@ -12,6 +12,7 @@ export function AdminShell({
   description,
   items = adminNavigation,
   accountEmail,
+  accountLabel = "Cuenta administradora",
   legacyNavigation = false,
 }: {
   active: string;
@@ -21,6 +22,7 @@ export function AdminShell({
   description?: string;
   items?: readonly AdminNavigationItem[];
   accountEmail?: string;
+  accountLabel?: string;
   legacyNavigation?: boolean;
 }) {
   const current = items.find((item) => item.id === active);
@@ -97,7 +99,7 @@ export function AdminShell({
             <details className={styles.account}>
               <summary>Mi acceso</summary>
               <p>{accountEmail}</p>
-              <p>Cuenta administradora</p>
+              <p>{accountLabel}</p>
             </details>
           ) : null}
         </header>

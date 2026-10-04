@@ -9,6 +9,11 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 export {
+  admissionCases,
+  admissionConfiguration,
+  admissionEvents,
+} from "./admission-schema";
+export {
   googleCalendarConnections,
   googleCalendarEventLinks,
   googleCalendarOAuthStates,

@@ -103,7 +103,7 @@ export function IncompleteRegistrationsSection({
                             name="kind"
                             value="certified"
                           >
-                            Aprobar (certificado)
+                            Crear candidatura
                           </button>{" "}
                           <button
                             className="button secondary"

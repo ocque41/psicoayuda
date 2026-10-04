@@ -242,6 +242,11 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
   it.each(
     decisions,
   )("una baja que gana antes de guardar la decisión clínica %s no produce éxito ni auditoría", async (decision) => {
+    if (decision === "approved")
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, PRO));
     deletionBeforeBatch();
     expect(await reviewProfessional(null, form(decision))).toMatchObject({
       ok: false,
@@ -251,6 +256,11 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
   it.each(
     decisions,
   )("una baja que gana antes de guardar %s en el panel anterior no avisa ni libera dos veces", async (decision) => {
+    if (decision === "approved")
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, PRO));
     deletionBeforeBatch();
     await expect(adminUpdateProfessionalStatus(form(decision))).rejects.toThrow(
       "REDIRECT:/admin",
@@ -290,7 +300,11 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
     );
     expect(await audits()).toHaveLength(0);
   });
-  it("el revisor conserva la aprobación normal con referencia y sin notificación duplicada", async () => {
+  it("el revisor conserva la reactivación de un perfil publicado con referencia y sin notificación duplicada", async () => {
+    await db
+      .update(professionals)
+      .set({ status: "suspended" })
+      .where(eq(professionals.id, PRO));
     session("reviewer");
     expect(await reviewProfessional(null, form())).toMatchObject({ ok: true });
     expect((await profile())?.status).toBe("approved");
@@ -316,7 +330,11 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
     expect(await audits()).toHaveLength(1);
     expect(mocks.release).toHaveBeenCalledExactlyOnceWith(PRO);
   });
-  it("aprobar desde el panel anterior conserva visibilidad, correo y una auditoría", async () => {
+  it("reactivar desde el panel anterior conserva visibilidad, correo y una auditoría", async () => {
+    await db
+      .update(professionals)
+      .set({ status: "suspended" })
+      .where(eq(professionals.id, PRO));
     await adminUpdateProfessionalStatus(form());
     expect(await profile()).toMatchObject({
       status: "approved",

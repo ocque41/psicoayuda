@@ -93,7 +93,10 @@ describe("permisos internos ligados al correo verificado en BD", () => {
     expect(await requireAdmin()).toBeNull();
     expect(await requirePracticeStaff("support")).toBeNull();
     expect(await requirePracticeStaff("credentials")).toBeNull();
-    expect(await (await adminStatus()).json()).toEqual({ isAdmin: false });
+    expect(await (await adminStatus()).json()).toEqual({
+      isAdmin: false,
+      isAdmissionReviewer: false,
+    });
     expect(
       (
         await credentialDocument(

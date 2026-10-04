@@ -45,6 +45,27 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
     description: "Preguntas, ideas y avisos enviados al equipo de Nido.",
   },
   {
+    id: "admision",
+    label: "Admisión",
+    href: "/admin/admision",
+    description:
+      "Identidad, credenciales, entrevista y publicación de nuevos profesionales.",
+  },
+  {
+    id: "crm",
+    label: "CRM profesional",
+    href: "/admin/crm",
+    description:
+      "Revisa las ventanas y los componentes de la consulta profesional.",
+  },
+  {
+    id: "consola",
+    label: "Consola",
+    href: "/admin/consola",
+    description:
+      "Estado de la consulta, integraciones y configuración del servicio.",
+  },
+  {
     id: "metricas",
     label: "Métricas",
     href: "/admin/metricas",
@@ -86,6 +107,10 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Consulta el registro profesional para apoyar la revisión documental.",
   },
 ];
+
+/** El rol de admisión no recibe enlaces ni exportaciones de administración general. */
+export const admissionNavigation: readonly AdminNavigationItem[] =
+  adminNavigation.filter((item) => item.id === "admision");
 
 export function isAdminView(value: string): value is AdminView {
   return adminViews.includes(value as AdminView);

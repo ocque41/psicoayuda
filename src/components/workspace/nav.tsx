@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import {
+  reviewHref,
+  reviewProfessionalHref,
+  reviewWindow,
+} from "@/lib/practice/review-navigation";
 import { WorkspaceIcon, type WorkspaceIconName } from "./icon";
 
 export type WorkspaceRole = "patient" | "professional";
@@ -37,11 +42,14 @@ const professionalLinks: NavItem[] = [
 export function WorkspaceNav({
   audience,
   className = "",
+  adminReview = false,
 }: {
   audience: WorkspaceRole;
   className?: string;
+  adminReview?: boolean;
 }) {
   const pathname = usePathname();
+  const params = useSearchParams();
   const items = audience === "patient" ? patientLinks : professionalLinks;
   return (
     <aside className={`workspace-rail ${className}`}>
@@ -61,15 +69,21 @@ export function WorkspaceNav({
           }
         >
           {items.map((item) => {
-            const active =
-              !item.href.includes("#") &&
-              (pathname === item.href ||
-                (item.href !== "/mi" && pathname.startsWith(`${item.href}/`)) ||
-                Boolean(item.match && pathname.startsWith(item.match)));
+            const href = adminReview
+              ? reviewProfessionalHref(item.href)
+              : item.href;
+            const active = adminReview
+              ? href === reviewHref(reviewWindow(params.get("ventana")))
+              : !item.href.includes("#") &&
+                (pathname === item.href ||
+                  (item.href !== "/mi" &&
+                    pathname.startsWith(`${item.href}/`)) ||
+                  Boolean(item.match && pathname.startsWith(item.match)));
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={href}
+                prefetch={adminReview ? false : undefined}
                 aria-current={active ? "page" : undefined}
                 className="workspace-nav-link"
               >
@@ -85,7 +99,13 @@ export function WorkspaceNav({
         <div className="workspace-rail-note">
           <span aria-hidden="true">✦</span>
           <p>Un lugar para organizar el próximo paso, a tu ritmo.</p>
-          <Link href="/empezar?cambiar=1">Cambiar de espacio ↗</Link>
+          {adminReview ? (
+            <Link href="/admin/consola" prefetch={false}>
+              Estado de las integraciones ↗
+            </Link>
+          ) : (
+            <Link href="/empezar?cambiar=1">Cambiar de espacio ↗</Link>
+          )}
         </div>
       </div>
     </aside>
