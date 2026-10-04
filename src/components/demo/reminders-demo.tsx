@@ -14,6 +14,10 @@ export const reminderDemoSteps: BirdGuideStep[] = reminderGuideTopics.map(
     ...topic,
     id: `recordatorios-${topic.id}`,
     targetId: `demo-recordatorios-${topic.id}`,
+    readingTargets: [
+      `demo-recordatorios-${topic.id}-title`,
+      `demo-recordatorios-${topic.id}-text`,
+    ],
   }),
 );
 
@@ -25,8 +29,10 @@ export function RemindersDemo() {
   return (
     <>
       <p className="kicker">Avisos a tu gusto · ejemplo</p>
-      <h2 id="demo-reminders-title">Recordatorios de tus sesiones.</h2>
-      <p className="hint">
+      <h2 id="demo-reminders-title" className={styles.readingPoint}>
+        Recordatorios de tus sesiones.
+      </h2>
+      <p id="demo-reminders-context" className={`hint ${styles.readingPoint}`}>
         En tu cuenta los encontrarás en Ajustes. Aquí puedes probarlos sin
         activar ningún envío; al recargar, el ejemplo vuelve a empezar.
       </p>
@@ -57,8 +63,18 @@ export function RemindersDemo() {
       >
         {reminderGuideTopics.map((topic) => (
           <div id={`demo-recordatorios-${topic.id}`} key={topic.id}>
-            <h3>{topic.title}</h3>
-            <p>{topic.description}</p>
+            <h3
+              id={`demo-recordatorios-${topic.id}-title`}
+              className={styles.readingPoint}
+            >
+              {topic.title}
+            </h3>
+            <p
+              id={`demo-recordatorios-${topic.id}-text`}
+              className={styles.readingPoint}
+            >
+              {topic.description}
+            </p>
             {topic.id === "consentimiento" ? (
               <label className="practice-check">
                 <input

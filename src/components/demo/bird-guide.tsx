@@ -9,6 +9,7 @@ export type BirdGuideStep = {
   targetId: string;
   title: string;
   description: string;
+  readingTargets?: string[];
 };
 
 type BirdGuideProps = {
@@ -139,6 +140,7 @@ export function BirdGuide({
   const active = open && Boolean(step);
   const targetId = step?.targetId;
   const stepId = step?.id;
+  const readingKey = step?.readingTargets?.join("\n") || "";
 
   function selectStep(next: number) {
     const nextIndex = Math.min(Math.max(0, next), steps.length - 1);
@@ -211,6 +213,12 @@ export function BirdGuide({
     bird.dataset.step = stepId;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const connection = guideConnection();
+    const readingIds = readingKey ? readingKey.split("\n") : [];
+    const birdSize = readingIds.length ? 56 : 72;
+    bird.dataset.reading = String(Boolean(readingIds.length));
+    let readingIndex = 0;
+    let readingTimer = 0;
+    let visibleReadingIds: string[] = [];
     let frame = 0;
     let landingTimer = 0;
     let retargetTimer = 0;
@@ -247,6 +255,56 @@ export function BirdGuide({
       !guideConnection()?.saveData &&
       !["slow-2g", "2g"].includes(guideConnection()?.effectiveType ?? "") &&
       typeof bird.animate === "function";
+    function cancelReading() {
+      clearTimeout(readingTimer);
+      readingTimer = 0;
+    }
+    function queueReading(delay = 5200) {
+      if (
+        closed ||
+        idleSuspended ||
+        readingTimer ||
+        !readingIds.length ||
+        !motionAllowed()
+      )
+        return;
+      readingTimer = window.setTimeout(() => {
+        readingTimer = 0;
+        if (!motionAllowed()) {
+          rest(true);
+          return;
+        }
+        if (
+          document.querySelector("dialog[open], [aria-modal='true']") ||
+          document.activeElement?.matches(
+            "input, textarea, select, [contenteditable=true]",
+          ) ||
+          bird.dataset.phase === "flight" ||
+          bird.dataset.phase === "landing"
+        ) {
+          queueReading(1200);
+          return;
+        }
+        const current = bird.dataset.readingTarget;
+        const next = readingIds
+          .slice(readingIndex + 1)
+          .concat(readingIds.slice(0, readingIndex + 1))
+          .find(
+            (candidate) =>
+              candidate !== current && visibleReadingIds.includes(candidate),
+          );
+        if (!next) {
+          queueReading();
+          return;
+        }
+        readingIndex = readingIds.indexOf(next);
+        cancelIdle();
+        arrived = false;
+        flightStart = 0;
+        flightEnd = 0;
+        schedule();
+      }, delay);
+    }
     function cancelIdle() {
       clearTimeout(idleTimer);
       clearTimeout(idleEndTimer);
@@ -352,6 +410,7 @@ export function BirdGuide({
     function rest(suspendIdle = false) {
       cancelFlight(true);
       cancelIdle();
+      cancelReading();
       clearTimeout(landingTimer);
       idleSuspended ||= suspendIdle;
       arrived = true;
@@ -369,6 +428,7 @@ export function BirdGuide({
       if (!visible) {
         cancelFlight(true);
         cancelIdle();
+        cancelReading();
         clearTimeout(landingTimer);
         bird.dataset.flying = "false";
         bird.dataset.phase = "rest";
@@ -384,6 +444,7 @@ export function BirdGuide({
         bird.style.transform = destination;
         birdPositionRef.current = { x, y };
         queueIdle();
+        queueReading();
         return;
       }
       const now = performance.now();
@@ -430,6 +491,7 @@ export function BirdGuide({
         bird.style.transform = destination;
         birdPositionRef.current = { x, y };
         queueIdle();
+        queueReading();
         return;
       }
       const direction =
@@ -440,9 +502,16 @@ export function BirdGuide({
             : 1;
       // Incluso entre ventanas con la misma geometría, un arco corto da vida al cambio.
       const hop = distance < 20;
-      const bend = Math.min(54, Math.max(26, distance * 0.16));
+      const bend = readingIds.length
+        ? Math.min(160, Math.max(90, distance * 0.35))
+        : Math.min(54, Math.max(26, distance * 0.16));
       const controlX = clamp(
-        (fromX + x) / 2 + (hop ? direction * 44 : (-Math.sign(dy) * bend) / 2),
+        (fromX + x) / 2 +
+          (readingIds.length
+            ? direction * bend
+            : hop
+              ? direction * 44
+              : (-Math.sign(dy) * bend) / 2),
         bounds.left,
         bounds.right,
       );
@@ -506,6 +575,7 @@ export function BirdGuide({
         landingTimer = window.setTimeout(() => {
           bird.dataset.phase = "rest";
           queueIdle();
+          queueReading();
         }, 1800);
       };
     }
@@ -576,7 +646,9 @@ export function BirdGuide({
         schedule();
       }
       const side =
-        rect && rect.left + rect.width / 2 > left + width / 2
+        !readingIds.length &&
+        rect &&
+        rect.left + rect.width / 2 > left + width / 2
           ? "left"
           : "right";
       const panelX =
@@ -601,26 +673,58 @@ export function BirdGuide({
             )
           : 0;
       // Una tarjeta alta puede intersectar ambos docks: en móvil proteger su cabecera.
-      const panelY = tallMobileTarget
-        ? bottomY
-        : overlap(topY) < overlap(bottomY)
-          ? topY
-          : bottomY;
+      const panelY =
+        readingIds.length || tallMobileTarget
+          ? bottomY
+          : overlap(topY) < overlap(bottomY)
+            ? topY
+            : bottomY;
       panel.style.transform = `translate3d(${panelX}px, ${panelY}px, 0)`;
       panel.dataset.ready = "true";
-      const birdX = Math.min(
-        left + width - 82,
+      let birdX = Math.min(
+        left + width - birdSize - 10,
         Math.max(left + 10, rect ? rect.right - 60 : panelX),
       );
       let birdY = Math.min(
-        top + height - 82,
+        top + height - birdSize - 10,
         Math.max(contentTop, rect ? rect.top - 62 : panelY - 80),
       );
+      const readingRects = readingIds.flatMap((readingId) => {
+        const element = document.getElementById(readingId);
+        if (!element || !target?.contains(element)) return [];
+        const r = element.getBoundingClientRect();
+        const y = r.top + 4;
+        const overlapsPanel =
+          r.right > panelX &&
+          r.left < panelX + panelWidth &&
+          r.bottom > panelY &&
+          r.top < panelY + panelHeight;
+        return r.width > 0 &&
+          r.height >= birdSize &&
+          y >= contentTop &&
+          y + birdSize <= top + height - 10 &&
+          !overlapsPanel
+          ? [{ id: readingId, rect: r }]
+          : [];
+      });
+      visibleReadingIds = readingRects.map((candidate) => candidate.id);
+      const reading =
+        readingRects.find(
+          (candidate) => candidate.id === readingIds[readingIndex],
+        ) || readingRects[0];
+      if (reading) {
+        readingIndex = readingIds.indexOf(reading.id);
+        bird.dataset.readingTarget = reading.id;
+        birdX = reading.rect.left + 4;
+        birdY = reading.rect.top + 4;
+      } else {
+        delete bird.dataset.readingTarget;
+      }
       let birdFits = birdY >= contentTop;
       if (
-        birdX + 72 > panelX &&
+        birdX + birdSize > panelX &&
         birdX < panelX + panelWidth &&
-        birdY + 72 > panelY &&
+        birdY + birdSize > panelY &&
         birdY < panelY + panelHeight
       ) {
         if (panelY - 80 >= contentTop) birdY = panelY - 80;
@@ -633,17 +737,18 @@ export function BirdGuide({
         birdY,
         {
           left: left + 10,
-          right: left + width - 82,
+          right: left + width - birdSize - 10,
           top: contentTop,
-          bottom: top + height - 82,
+          bottom: top + height - birdSize - 10,
         },
         available && birdFits,
       );
       bird.style.opacity = available && birdFits ? "1" : "0";
-      if (rect) {
-        highlight.style.transform = `translate3d(${rect.left - 4}px, ${rect.top - 4}px, 0)`;
-        highlight.style.width = `${rect.width + 8}px`;
-        highlight.style.height = `${rect.height + 8}px`;
+      const marked = reading?.rect || rect;
+      if (marked) {
+        highlight.style.transform = `translate3d(${marked.left - 4}px, ${marked.top - 4}px, 0)`;
+        highlight.style.width = `${marked.width + 8}px`;
+        highlight.style.height = `${marked.height + 8}px`;
       }
     };
     function schedule() {
@@ -681,6 +786,7 @@ export function BirdGuide({
       cancelAnimationFrame(frame);
       cancelFlight(true);
       cancelIdle();
+      cancelReading();
       clearTimeout(landingTimer);
       bird.dataset.flying = "false";
       bird.dataset.phase = "rest";
@@ -694,7 +800,7 @@ export function BirdGuide({
       connection?.removeEventListener?.("change", visibilityChanged);
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
-  }, [active, targetId, stepId]);
+  }, [active, targetId, stepId, readingKey]);
 
   if (!step) return null;
 

@@ -89,9 +89,24 @@ const steps: BirdGuideStep[] = [
       "Puedes seguir explorando o crear tu perfil profesional. Tu práctica real empezará con el recorrido de incorporación y revisión.",
   },
 ];
-const guideSteps = steps.flatMap((step) =>
-  step.id === "recordatorios" ? [step, ...reminderDemoSteps] : [step],
-);
+const readingTargets: Record<string, string[]> = {
+  inicio: ["demo-home-title", "demo-home-description", "demo-home-reading"],
+  agenda: ["demo-agenda-title", "demo-agenda-context"],
+  pacientes: ["demo-patients-title", "demo-patients-context"],
+  notas: ["demo-notes-title", "demo-notes-context", "demo-notes-privacy"],
+  mensajes: ["demo-chat-title", "demo-chat-context"],
+  cobros: ["demo-payments-title", "demo-payments-context"],
+  recordatorios: ["demo-reminders-title", "demo-reminders-context"],
+  cierre: ["demo-finish-title", "demo-finish-context"],
+};
+const guideSteps = steps
+  .flatMap((step) =>
+    step.id === "recordatorios" ? [step, ...reminderDemoSteps] : [step],
+  )
+  .map((step) => ({
+    ...step,
+    readingTargets: readingTargets[step.id] || step.readingTargets,
+  }));
 const labels: Record<string, string> = {
   inicio: "Mi consulta",
   agenda: "Agenda",
@@ -488,8 +503,13 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               aria-labelledby="demo-home-title"
             >
               <p className="kicker">A tu manera de acompañar</p>
-              <h2 id="demo-home-title">Todo listo para tu próximo paso.</h2>
-              <p className={styles.homeDescription}>
+              <h2 id="demo-home-title" className={styles.readingPoint}>
+                Todo listo para tu próximo paso.
+              </h2>
+              <p
+                id="demo-home-description"
+                className={`${styles.homeDescription} ${styles.readingPoint}`}
+              >
                 Tu agenda, las personas y sus conversaciones tienen su propio
                 lugar. Elige una ventana o deja que nuestro pajarito te
                 acompañe.
@@ -525,7 +545,10 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   <span>Mensajes y borradores, en su lugar.</span>
                 </button>
               </div>
-              <p className="hint">
+              <p
+                id="demo-home-reading"
+                className={`hint ${styles.readingPoint}`}
+              >
                 Esta es una demostración con personas ficticias. No envía
                 mensajes ni realiza cobros.
               </p>
@@ -539,7 +562,9 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               <div className={styles.panelHead}>
                 <div>
                   <p className="kicker">Tu próximo encuentro</p>
-                  <h2 id="demo-agenda-title">Una agenda con contexto.</h2>
+                  <h2 id="demo-agenda-title" className={styles.readingPoint}>
+                    Una agenda con contexto.
+                  </h2>
                 </div>
                 <button
                   type="button"
@@ -552,6 +577,13 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   Programar sesión
                 </button>
               </div>
+              <p
+                id="demo-agenda-context"
+                className={`hint ${styles.readingPoint}`}
+              >
+                Elige un día para leer sus encuentros. Puedes programar una
+                sesión de ejemplo y volver a revisar la agenda.
+              </p>
               <div className={styles.calendarHeader}>
                 <button
                   type="button"
@@ -664,8 +696,13 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               aria-labelledby="demo-patients-title"
             >
               <p className="kicker">Personas primero</p>
-              <h2 id="demo-patients-title">Todo empieza por tu paciente.</h2>
-              <p className="hint">
+              <h2 id="demo-patients-title" className={styles.readingPoint}>
+                Todo empieza por tu paciente.
+              </h2>
+              <p
+                id="demo-patients-context"
+                className={`hint ${styles.readingPoint}`}
+              >
                 Elige una ficha de ejemplo para organizar sus notas y próximos
                 pasos.
               </p>
@@ -725,8 +762,13 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               aria-labelledby="demo-notes-title"
             >
               <p className="kicker">Tu espacio para preparar</p>
-              <h2 id="demo-notes-title">Notas por sesión.</h2>
-              <p className="hint">
+              <h2 id="demo-notes-title" className={styles.readingPoint}>
+                Notas por sesión.
+              </h2>
+              <p
+                id="demo-notes-context"
+                className={`hint ${styles.readingPoint}`}
+              >
                 El pajarito te puede invitar a dejar tus apuntes al terminar un
                 encuentro: «Tu sesión terminó. ¿Quieres dejar tus notas?».
               </p>
@@ -784,7 +826,10 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   ))}
                 </select>
               </label>
-              <p className="hint">
+              <p
+                id="demo-notes-privacy"
+                className={`hint ${styles.readingPoint}`}
+              >
                 Ficha de {patient.name} · cada encuentro conserva sus propios
                 borradores y notas. Usa texto ficticio.
               </p>
@@ -873,7 +918,9 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               <div className={styles.panelHead}>
                 <div>
                   <p className="kicker">Un hilo para seguir cerca</p>
-                  <h2 id="demo-chat-title">La conversación, en su lugar.</h2>
+                  <h2 id="demo-chat-title" className={styles.readingPoint}>
+                    La conversación, en su lugar.
+                  </h2>
                 </div>
                 <span className="workspace-tag">Chat de ejemplo</span>
                 <label className={styles.patientSwitcher}>
@@ -893,6 +940,13 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   </select>
                 </label>
               </div>
+              <p
+                id="demo-chat-context"
+                className={`hint ${styles.readingPoint}`}
+              >
+                Lee la conversación de ejemplo y prueba a añadir una respuesta.
+                El borrador se conserva al cambiar de ventana.
+              </p>
               <div
                 className={styles.chat}
                 ref={chat}
@@ -975,7 +1029,9 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               <div className={styles.panelHead}>
                 <div>
                   <p className="kicker">Más claridad, menos dispersión</p>
-                  <h2 id="demo-payments-title">Tus registros, en orden.</h2>
+                  <h2 id="demo-payments-title" className={styles.readingPoint}>
+                    Tus registros, en orden.
+                  </h2>
                 </div>
                 <button
                   type="button"
@@ -988,6 +1044,14 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   Registrar pago de ejemplo
                 </button>
               </div>
+              <p
+                id="demo-payments-context"
+                className={`hint ${styles.readingPoint}`}
+              >
+                Esta demo no realiza cobros. En tu consulta puedes registrar
+                pagos externos y consultar su historial; las opciones integradas
+                dependen de su configuración.
+              </p>
               <div className={styles.totals}>
                 {[...new Set(receipts.map((r) => r.currency))].map(
                   (currency) => (
@@ -1025,11 +1089,6 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                   {notice.message}
                 </p>
               ) : null}
-              <p className="hint">
-                Esta demo no realiza cobros. En tu consulta puedes registrar
-                pagos externos y consultar su historial; las opciones integradas
-                dependen de su configuración.
-              </p>
             </section>
             <section
               className={styles.panel}
@@ -1046,10 +1105,10 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
               aria-labelledby="demo-finish-title"
             >
               <p className="kicker">A tu manera de acompañar</p>
-              <h2 id="demo-finish-title">
+              <h2 id="demo-finish-title" className={styles.readingPoint}>
                 Tu atención merece su propio lugar.
               </h2>
-              <p>
+              <p id="demo-finish-context" className={styles.readingPoint}>
                 Ya puedes imaginar tu consulta aquí. Crea tu perfil y completa
                 la revisión para empezar a organizar tu práctica.
               </p>
