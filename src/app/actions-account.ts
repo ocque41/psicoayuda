@@ -17,7 +17,8 @@ export type DeleteMyAccountState = { error: string | null };
 function revalidateAccountViews() {
   for (const path of ["/", "/ayuda", "/profesionales", "/admin", "/pro"]) {
     try {
-      revalidatePath(path);
+      if (path === "/admin") revalidatePath(path, "layout");
+      else revalidatePath(path);
     } catch (error) {
       // La cuenta ya se borró. Un fallo de caché no debe convertir una baja
       // real en un mensaje falso de error.

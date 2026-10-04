@@ -29,7 +29,7 @@ export async function replySupport(
       };
     const state = await writeSupportReply(staff, form);
     if (state?.ok) {
-      revalidatePath("/admin/operaciones");
+      revalidatePath("/admin", "layout");
       revalidatePath("/pro/soporte");
       const contactId = String(form.get("contactId") ?? "").trim();
       revalidatePath(`/pro/soporte/${contactId}`);
@@ -121,7 +121,7 @@ export async function reviewScope(
       createdAt: nowIso(),
     }),
   ]);
-  revalidatePath("/admin/operaciones");
+  revalidatePath("/admin", "layout");
   revalidatePath("/orientacion");
   return {
     ok: true,
@@ -206,7 +206,7 @@ export async function reviewProfessional(
   if (parsed.data.status !== "approved")
     await releaseProfessionalAssignments(pro.id);
   revalidateTag("professionals", { expire: 0 });
-  revalidatePath("/admin/operaciones");
+  revalidatePath("/admin", "layout");
   revalidatePath("/profesionales");
   revalidatePath("/orientacion");
   return {
@@ -254,7 +254,7 @@ export async function revokeScope(
       createdAt: nowIso(),
     }),
   ]);
-  revalidatePath("/admin/operaciones");
+  revalidatePath("/admin", "layout");
   revalidatePath("/orientacion");
   return {
     ok: true,
@@ -276,7 +276,7 @@ export async function updateSupportStatus(
       };
     const state = await writeSupportStatus(staff, form);
     if (state?.ok) {
-      revalidatePath("/admin/operaciones");
+      revalidatePath("/admin", "layout");
       revalidatePath("/pro/soporte");
       const contactId = String(form.get("contactId") ?? "").trim();
       revalidatePath(`/pro/soporte/${contactId}`);

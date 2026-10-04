@@ -275,7 +275,7 @@ export async function createFoundationContact(
   // El aviso por correo es best-effort: si el proveedor falla, la solicitud ya
   // quedó guardada y visible en /admin, así que no perdemos el contacto.
   await notifyFoundationContact(parsed.data);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return { ok: true as const };
 }
 
@@ -330,7 +330,7 @@ export async function adminUpdateAllianceStatus(formData: FormData) {
     createdAt: timestamp,
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function saveProfessionalOnboarding(
@@ -688,7 +688,7 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidateDirectoryViews();
 }
 
@@ -720,7 +720,7 @@ export async function adminSetProfessionalKind(formData: FormData) {
     createdAt: timestamp,
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidateDirectoryViews();
 }
 
@@ -751,7 +751,7 @@ export async function adminSetProfessionalVisibility(formData: FormData) {
     createdAt: timestamp,
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidateDirectoryViews();
 }
 
@@ -790,7 +790,7 @@ export async function adminSetCredentialConfirmed(formData: FormData) {
     createdAt: timestamp,
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function adminApproveIncompleteRegistration(formData: FormData) {
@@ -807,7 +807,7 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
     .where(eq(user.id, userId))
     .limit(1);
   if (!account?.email) {
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
     return;
   }
 
@@ -817,7 +817,7 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
     where: eq(professionals.userId, userId),
   });
   if (existing) {
-    revalidatePath("/admin");
+    revalidatePath("/admin", "layout");
     return;
   }
 
@@ -860,7 +860,7 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
     nonClinicalHelper,
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   revalidateDirectoryViews();
 }
 
@@ -889,7 +889,7 @@ export async function adminUpdateHelpRequestStatus(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function adminAssignRequest(formData: FormData) {
@@ -913,7 +913,7 @@ export async function adminAssignRequest(formData: FormData) {
     }
   }
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function adminAnonymizeHelpRequest(formData: FormData) {
@@ -927,5 +927,5 @@ export async function adminAnonymizeHelpRequest(formData: FormData) {
   // sesiones del seeker), compartida con el cron de retención.
   await anonymizeHelpRequest(requestId, admin.email);
 
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
