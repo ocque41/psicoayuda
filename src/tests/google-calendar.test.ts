@@ -897,6 +897,42 @@ describe("Google Calendar privado y unidireccional", () => {
       }),
     ).toBeUndefined();
   });
+  it.each([
+    { statuses: [404, 410], path: "INSERT tras ausencia" },
+    { statuses: [404, 409, 410], path: "PUT tras ausencia y conflicto" },
+    { statuses: [409, 410], path: "PUT tras conflicto" },
+  ])("recrea un evento borrado en $path sin duplicar su vínculo", async ({
+    statuses,
+  }) => {
+    const connectionId = await connection(patientActor);
+    for (const status of statuses)
+      fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+    await expect(syncGoogleCalendar(patientActor)).resolves.toMatchObject({
+      complete: true,
+      count: 1,
+    });
+    const requests = fetchMock.mock.calls.filter(([url]) =>
+      url.includes("/events"),
+    );
+    expect(requests).toHaveLength(statuses.length + 1);
+    const originalId = JSON.parse(requests[0][1].body as string).id;
+    const replacement = JSON.parse(requests.at(-1)?.[1].body as string).id;
+    expect(requests.at(-1)?.[1].method).toBe("POST");
+    expect(replacement).not.toBe(originalId);
+    const rows = await db
+      .select()
+      .from(mappings)
+      .where(eq(mappings.connectionId, connectionId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      generation: 1,
+      eventId: replacement,
+      status: "active",
+    });
+    fetchMock.mockClear();
+    await syncGoogleCalendar(patientActor, { force: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("desconectar conserva otras cuentas y limpia state/mapeos/tokens propios después de revocar", async () => {
     const connectionId = await connection(patientActor);
     await syncGoogleCalendar(patientActor);
