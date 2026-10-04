@@ -210,6 +210,8 @@ export async function sendWebPush(
     fetch?: typeof fetch;
     configuration?: VapidConfiguration;
     at?: number;
+    deadline?: number;
+    now?: () => number;
   } = {},
 ): Promise<WebPushResult> {
   const configuration = options.configuration || readVapidConfiguration();
@@ -249,11 +251,17 @@ export async function sendWebPush(
         await crypto.subtle.digest("SHA-256", utf8.encode(payload.id)),
       ).slice(0, 24),
     );
+    const remaining =
+      options.deadline === undefined
+        ? 8000
+        : Math.min(8000, options.deadline - (options.now || Date.now)());
+    if (remaining <= 0)
+      return { ok: false, retryable: true, code: "temporary" };
     const response = await (options.fetch || fetch)(subscription.endpoint, {
       method: "POST",
       redirect: "error",
       credentials: "omit",
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(Math.floor(remaining)),
       headers: {
         Authorization: authorization,
         "Content-Encoding": "aes128gcm",

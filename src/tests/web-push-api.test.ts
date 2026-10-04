@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   authorized: vi.fn(),
+  account: vi.fn(),
+  revocable: vi.fn(),
   configuration: vi.fn(),
   devices: vi.fn(),
   subscribe: vi.fn(),
@@ -12,6 +14,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth-server", () => ({ getServerSession: mocks.session }));
 vi.mock("@/lib/push/preferences", () => ({
   authorizedPushActor: mocks.authorized,
+  authorizedPushAccount: mocks.account,
+  revocablePushDevices: mocks.revocable,
   pushConfiguration: mocks.configuration,
   pushDevices: mocks.devices,
   subscribePush: mocks.subscribe,
@@ -44,6 +48,8 @@ beforeEach(() => {
     session: { id: actor.sessionId },
   });
   mocks.authorized.mockResolvedValue(true);
+  mocks.account.mockResolvedValue(true);
+  mocks.revocable.mockResolvedValue([]);
   mocks.configuration.mockResolvedValue(null);
   mocks.devices.mockResolvedValue([]);
 });

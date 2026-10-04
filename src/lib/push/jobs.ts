@@ -63,98 +63,117 @@ function alreadyQueued(
   // Exclude recorded events before LIMIT so a busy inbox progresses on every scan.
   return sql`NOT EXISTS(SELECT 1 FROM web_push_deliveries d WHERE d.subscription_id=${device.id} AND d.kind=${kind} AND d.entity_id=${kind === "chat" ? sql`c.id` : sql`a.id`} AND d.event_version=${versionColumn})`;
 }
+export const PUSH_JOB_LIMITS = {
+  // Statement reservations (not D1 billing/index rows). Each maintenance write touches <=50 base rows.
+  statements: 40,
+  writes: 30,
+  milliseconds: 20000,
+  devices: 5,
+  eventsPerDevice: 2,
+  batch: 3,
+} as const;
+class PushBudgetExceeded extends Error {}
+class PushBudget {
+  statements = 0;
+  writes = 0;
+  exhausted = false;
+  enqueued = 0;
+  constructor(
+    readonly now: () => number,
+    readonly started: number,
+  ) {}
+  checkTime() {
+    if (this.now() - this.started >= PUSH_JOB_LIMITS.milliseconds) {
+      this.exhausted = true;
+      throw new PushBudgetExceeded("push_budget_exhausted");
+    }
+  }
+  reserve(statements: number, writes = 0) {
+    this.checkTime();
+    if (
+      this.statements + statements > PUSH_JOB_LIMITS.statements ||
+      this.writes + writes > PUSH_JOB_LIMITS.writes
+    ) {
+      this.exhausted = true;
+      throw new PushBudgetExceeded("push_budget_exhausted");
+    }
+    this.statements += statements;
+    this.writes += writes;
+  }
+}
 async function deviceEvents(
   device: Device,
   preferences: PushPreferences,
   at: number,
 ): Promise<Event[]> {
-  const events: Event[] = [];
-  if (preferences.chatEnabled) {
-    const rows = await db.values<
-      [string, number]
-    >(sql`SELECT c.id,c.last_message_at FROM conversations c JOIN professionals p ON p.id=c.professional_id
- WHERE ${liveChat(device)} AND ${liveDevice(device, at)} AND c.last_message_at>=${device.consentAt} AND c.last_message_at>${at - DAY}
- AND ${alreadyQueued(device, "chat", sql`CAST(c.last_message_at AS TEXT)`)} ORDER BY c.last_message_at,c.id LIMIT 10`);
-    for (const [id, time] of rows)
-      events.push({
-        kind: "chat",
-        entityId: id,
-        version: String(time),
-        due: time,
-        expires: time + DAY,
-      });
-  }
-  if (preferences.appointmentEnabled) {
-    const due = sql`(unixepoch(a.starts_at)*1000-${preferences.offsetMinutes}*60000)`;
-    const rows = await db.values<
-      [string, string]
-    >(sql`SELECT a.id,a.starts_at FROM practice_appointments a JOIN practice_patients pp ON pp.id=a.patient_id JOIN professionals p ON p.id=a.professional_id
- WHERE ${liveAppointment(device)} AND ${liveDevice(device, at)} AND a.status='scheduled' AND a.starts_at>${new Date(at).toISOString()}
- AND ${due}>=${device.consentAt} AND ${due} BETWEEN ${at - 3600000} AND ${at + 3600000}
- AND ${alreadyQueued(device, "appointment", sql`a.starts_at`)} ORDER BY a.starts_at,a.id LIMIT 10`);
-    for (const [id, start] of rows)
-      events.push({
-        kind: "appointment",
-        entityId: id,
-        version: start,
-        due: Date.parse(start) - preferences.offsetMinutes * 60000,
-        expires: Date.parse(start),
-      });
-  }
-  if (
-    device.role === "professional" &&
-    preferences.afterSessionEnabled &&
-    notesConfigured()
-  ) {
-    const rows = await db.values<
-      [string, string, string]
-    >(sql`SELECT a.id,a.starts_at,a.ends_at FROM practice_appointments a JOIN practice_patients pp ON pp.id=a.patient_id JOIN professionals p ON p.id=a.professional_id
- WHERE ${liveAppointment(device)} AND ${liveDevice(device, at)} AND ${missingSessionNote()} AND a.status IN('scheduled','completed')
- AND a.ends_at BETWEEN ${new Date(Math.max(device.consentAt, at - DAY)).toISOString()} AND ${new Date(at).toISOString()}
- AND ${alreadyQueued(device, "after_session", sql`a.starts_at || '|' || a.ends_at`)} ORDER BY a.ends_at,a.id LIMIT 10`);
-    for (const [id, start, end] of rows)
-      events.push({
-        kind: "after_session",
-        entityId: id,
-        version: `${start}|${end}`,
-        due: Date.parse(end),
-        expires: Date.parse(end) + DAY,
-      });
-  }
-  return events;
+  const due = sql`(unixepoch(a.starts_at)*1000-${preferences.offsetMinutes}*60000)`;
+  const parts = [
+    sql`SELECT 'chat' kind,c.id entity_id,CAST(c.last_message_at AS TEXT) version,c.last_message_at due,c.last_message_at+${DAY} expires
+      FROM conversations c JOIN professionals p ON p.id=c.professional_id
+      WHERE ${preferences.chatEnabled ? 1 : 0}=1 AND ${liveChat(device)} AND ${liveDevice(device, at)}
+      AND c.last_message_at>=${device.consentAt} AND c.last_message_at>${at - DAY} AND ${alreadyQueued(device, "chat", sql`CAST(c.last_message_at AS TEXT)`)}`,
+    sql`SELECT 'appointment' kind,a.id entity_id,a.starts_at version,${due} due,unixepoch(a.starts_at)*1000 expires
+      FROM practice_appointments a JOIN practice_patients pp ON pp.id=a.patient_id JOIN professionals p ON p.id=a.professional_id
+      WHERE ${preferences.appointmentEnabled ? 1 : 0}=1 AND ${liveAppointment(device)} AND ${liveDevice(device, at)} AND a.status='scheduled' AND a.starts_at>${new Date(at).toISOString()}
+      AND ${due}>=${device.consentAt} AND ${due} BETWEEN ${at - 3600000} AND ${at + 3600000} AND ${alreadyQueued(device, "appointment", sql`a.starts_at`)}`,
+    sql`SELECT 'after_session' kind,a.id entity_id,a.starts_at || '|' || a.ends_at version,unixepoch(a.ends_at)*1000 due,unixepoch(a.ends_at)*1000+${DAY} expires
+      FROM practice_appointments a JOIN practice_patients pp ON pp.id=a.patient_id JOIN professionals p ON p.id=a.professional_id
+      WHERE ${device.role === "professional" && preferences.afterSessionEnabled && notesConfigured() ? 1 : 0}=1 AND ${liveAppointment(device)} AND ${liveDevice(device, at)} AND ${missingSessionNote()} AND a.status IN('scheduled','completed')
+      AND a.ends_at BETWEEN ${new Date(Math.max(device.consentAt, at - DAY)).toISOString()} AND ${new Date(at).toISOString()}
+      AND ${alreadyQueued(device, "after_session", sql`a.starts_at || '|' || a.ends_at`)}`,
+  ];
+  const rows = await db.values<[PushKind, string, string, number, number]>(
+    sql`SELECT * FROM (${sql.join(parts, sql` UNION ALL `)}) ORDER BY due,kind,entity_id LIMIT ${PUSH_JOB_LIMITS.eventsPerDevice}`,
+  );
+  return rows.map(([kind, entityId, version, due, expires]) => ({
+    kind,
+    entityId,
+    version,
+    due,
+    expires,
+  }));
 }
-export async function enqueueWebPush(at: number, limit = 50) {
+export async function enqueueWebPush(
+  at: number,
+  limit = PUSH_JOB_LIMITS.devices,
+  budget = new PushBudget(Date.now, Date.now()),
+) {
+  budget.reserve(1);
   const rows = await db
     .select()
     .from(subscriptions)
     .where(isNull(subscriptions.revokedAt))
     .orderBy(asc(subscriptions.updatedAt), asc(subscriptions.id))
-    .limit(Math.min(50, Math.max(1, limit)));
+    .limit(Math.min(PUSH_JOB_LIMITS.devices, Math.max(1, Math.floor(limit))));
   let queued = 0;
   for (const device of rows) {
-    let preferences: PushPreferences;
-    try {
-      preferences = pushPreferencesSchema.parse(
-        JSON.parse(device.preferencesJson),
-      );
-    } catch {
-      continue;
-    }
-    for (const event of await deviceEvents(device, preferences, at)) {
-      const due = nextOutsideQuietHours(preferences, Math.max(at, event.due));
+    const parsed = pushPreferencesSchema.safeParse(
+      JSON.parse(device.preferencesJson),
+    );
+    budget.reserve(1);
+    const events = parsed.success
+      ? await deviceEvents(device, parsed.data, at)
+      : [];
+    const inserts = [];
+    for (const event of events) {
+      if (!parsed.success) break;
+      const due = nextOutsideQuietHours(parsed.data, Math.max(at, event.due));
       if (due === null || due >= event.expires) continue;
       const hash = await pushDigest(
         JSON.stringify([event.kind, event.entityId, event.version]),
       );
-      const id = crypto.randomUUID();
-      const inserted =
-        await db.values(sql`INSERT INTO web_push_deliveries(id,subscription_id,event_hash,kind,entity_id,event_version,preference_revision,due_at,expires_at,next_attempt_at,created_at,updated_at)
- SELECT ${id},${device.id},${hash},${event.kind},${event.entityId},${event.version},${device.revision},${due},${event.expires},${due},${at},${at}
- WHERE ${liveDevice(device, at)} ON CONFLICT(subscription_id,event_hash) DO NOTHING RETURNING id`);
-      queued += inserted.length;
+      // Full schema projection for INSERT SELECT, preserving atomic live guards.
+      inserts.push(
+        db
+          .insert(deliveries)
+          .select(
+            sql`SELECT ${crypto.randomUUID()},${device.id},${hash},${event.kind},${event.entityId},${event.version},${device.revision},${due},${event.expires},'pending',0,${due},NULL,NULL,NULL,${at},${at} WHERE ${liveDevice(device, at)}`,
+          )
+          .onConflictDoNothing()
+          .returning({ id: deliveries.id }),
+      );
     }
-    // Rotate the bounded scan without changing revision or consent timestamps.
-    await db
+    const rotate = db
       .update(subscriptions)
       .set({ updatedAt: at })
       .where(
@@ -162,7 +181,20 @@ export async function enqueueWebPush(at: number, limit = 50) {
           eq(subscriptions.id, device.id),
           eq(subscriptions.revision, device.revision),
         ),
-      );
+      )
+      .returning({ id: subscriptions.id });
+    // A device's inserts and rotation share a <=3-statement atomic batch.
+    const statements = [rotate, ...inserts] as [
+      typeof rotate,
+      ...typeof inserts,
+    ];
+    budget.reserve(statements.length, statements.length);
+    const results = await db.batch(statements);
+    const inserted = results
+      .slice(1)
+      .reduce((sum, rows) => sum + rows.length, 0);
+    queued += inserted;
+    budget.enqueued += inserted;
   }
   return queued;
 }
@@ -229,8 +261,10 @@ export async function deliverWebPush(
   at: number,
   send: Sender = sendWebPush,
   now: () => number = Date.now,
+  budget?: PushBudget,
 ) {
   const configuration = await pushConfiguration();
+  budget?.checkTime();
   if (!configuration) return "unavailable";
   const token = crypto.randomUUID();
   const claimed =
@@ -292,13 +326,28 @@ export async function deliverWebPush(
     );
     return "deferred";
   }
+  if (budget && now() - budget.started >= PUSH_JOB_LIMITS.milliseconds - 8500) {
+    // Release an unstarted attempt using its reserved cleanup statement.
+    await db.run(
+      sql`UPDATE web_push_deliveries SET status='pending',attempts=attempts-1,claim_token=NULL,lease_until=NULL,updated_at=${now()} WHERE id=${id} AND claim_token=${token} AND status='sending'`,
+    );
+    budget.exhausted = true;
+    throw new PushBudgetExceeded("push_budget_exhausted");
+  }
   let result: WebPushResult;
   try {
     result = await send(
       subscription,
       { v: 1, id: event.id, kind: event.kind, role: device.role },
       Math.max(1, Math.min(300, Math.floor((event.expiresAt - sendAt) / 1000))),
-      { configuration, at: sendAt },
+      {
+        configuration,
+        at: sendAt,
+        deadline: budget
+          ? budget.started + PUSH_JOB_LIMITS.milliseconds - 500
+          : undefined,
+        now,
+      },
     );
   } catch {
     result = { ok: false, retryable: true, code: "temporary" };
@@ -406,38 +455,109 @@ export async function runWebPushJobs(
   send: Sender = sendWebPush,
   now: () => number = Date.now,
 ) {
+  // Start before configuration, maintenance and enqueue, not just delivery.
+  const budget = new PushBudget(now, now());
+  const summary = {
+    enabled: false,
+    enqueued: 0,
+    processed: 0,
+    sent: 0,
+    retried: 0,
+    skipped: 0,
+    dead: 0,
+    failed: 0,
+    complete: true,
+    exhausted: false,
+    statementsReserved: 0,
+    writesReserved: 0,
+  };
   const configuration = await pushConfiguration();
-  if (!configuration) return { enabled: false, enqueued: 0, processed: 0 };
-  const keyHash = await pushDigest(configuration.publicKey);
-  // Purge capability material when auth is revoked/expired; keep a bounded ledger.
-  await db.run(sql`UPDATE web_push_subscriptions SET sealed_subscription=NULL,session_id=NULL,revoked_at=${at},revision=revision+1,updated_at=${at}
- WHERE revoked_at IS NULL AND (vapid_key_hash!=${keyHash} OR NOT EXISTS(SELECT 1 FROM session s WHERE s.id=web_push_subscriptions.session_id AND s.user_id=web_push_subscriptions.user_id AND s.expires_at>${at})
- OR NOT EXISTS(SELECT 1 FROM user u WHERE u.id=web_push_subscriptions.user_id AND u.email_verified=1
- AND ((web_push_subscriptions.role='professional' AND EXISTS(SELECT 1 FROM professionals p WHERE p.user_id=u.id AND p.status='approved' AND p.non_clinical_helper=0))
- OR (web_push_subscriptions.role='patient' AND EXISTS(SELECT 1 FROM patient_accounts pa WHERE pa.user_id=u.id AND pa.deletion_state='active' AND pa.onboarding_completed_at IS NOT NULL)))))`);
-  await db.run(
-    sql`UPDATE web_push_deliveries SET status='dead',reason_code='expired',claim_token=NULL,lease_until=NULL,updated_at=${at} WHERE status IN('pending','sending') AND (expires_at<=${at} OR (attempts>=4 AND coalesce(lease_until,0)<=${at}))`,
-  );
-  await db.run(
-    sql`DELETE FROM web_push_deliveries WHERE expires_at<${at - 30 * DAY}`,
-  );
-  // Explicit child-first deletion works even when a driver's FK pragma is off.
-  await db.run(
-    sql`DELETE FROM web_push_deliveries WHERE subscription_id IN(SELECT id FROM web_push_subscriptions WHERE revoked_at<${at - 30 * DAY} OR NOT EXISTS(SELECT 1 FROM user u WHERE u.id=web_push_subscriptions.user_id))`,
-  );
-  await db.run(
-    sql`DELETE FROM web_push_subscriptions WHERE revoked_at<${at - 30 * DAY} OR NOT EXISTS(SELECT 1 FROM user u WHERE u.id=web_push_subscriptions.user_id)`,
-  );
-  const enqueued = await enqueueWebPush(at);
-  const rows = await db.values<[string]>(
-    sql`SELECT id FROM web_push_deliveries WHERE expires_at>${at} AND ((status='pending' AND next_attempt_at<=${at}) OR (status='sending' AND lease_until<=${at})) ORDER BY next_attempt_at,id LIMIT 20`,
-  );
-  let processed = 0;
-  const started = now();
-  for (const [id] of rows) {
-    if (now() - started > 30000) break;
-    await deliverWebPush(id, now(), send, now);
-    processed++;
+  if (!configuration) {
+    if (process.env.NIDO_PUSH_ENABLED === "true") {
+      summary.failed = 1;
+      summary.complete = false;
+    }
+    return summary;
   }
-  return { enabled: true, enqueued, processed };
+  summary.enabled = true;
+  try {
+    const keyHash = await pushDigest(configuration.publicKey);
+    const retired = sql`revoked_at<${at - 30 * DAY} OR NOT EXISTS(SELECT 1 FROM user u WHERE u.id=web_push_subscriptions.user_id)`;
+    const maintenance = [
+      db
+        .update(subscriptions)
+        .set({
+          sealedSubscription: null,
+          sessionId: null,
+          revokedAt: at,
+          revision: sql`revision+1`,
+          updatedAt: at,
+        })
+        .where(sql`id IN(SELECT id FROM web_push_subscriptions WHERE revoked_at IS NULL AND (vapid_key_hash!=${keyHash} OR NOT EXISTS(SELECT 1 FROM session s WHERE s.id=web_push_subscriptions.session_id AND s.user_id=web_push_subscriptions.user_id AND s.expires_at>${at})
+        OR NOT EXISTS(SELECT 1 FROM user u WHERE u.id=web_push_subscriptions.user_id AND u.email_verified=1
+        AND ((web_push_subscriptions.role='professional' AND EXISTS(SELECT 1 FROM professionals p WHERE p.user_id=u.id AND p.status='approved' AND p.non_clinical_helper=0))
+        OR (web_push_subscriptions.role='patient' AND EXISTS(SELECT 1 FROM patient_accounts pa WHERE pa.user_id=u.id AND pa.deletion_state='active' AND pa.onboarding_completed_at IS NOT NULL))))) ORDER BY updated_at,id LIMIT 50)`),
+      db
+        .update(deliveries)
+        .set({
+          status: "dead",
+          reasonCode: "expired",
+          claimToken: null,
+          leaseUntil: null,
+          updatedAt: at,
+        })
+        .where(
+          sql`id IN(SELECT id FROM web_push_deliveries WHERE status IN('pending','sending') AND (expires_at<=${at} OR (attempts>=4 AND coalesce(lease_until,0)<=${at})) ORDER BY expires_at,id LIMIT 50)`,
+        ),
+      db
+        .delete(deliveries)
+        .where(
+          sql`id IN(SELECT id FROM web_push_deliveries WHERE expires_at<${at - 30 * DAY} ORDER BY expires_at,id LIMIT 50)`,
+        ),
+      db
+        .delete(deliveries)
+        .where(
+          sql`id IN(SELECT id FROM web_push_deliveries WHERE subscription_id IN(SELECT id FROM web_push_subscriptions WHERE ${retired}) ORDER BY expires_at,id LIMIT 50)`,
+        ),
+      db
+        .delete(subscriptions)
+        .where(
+          sql`id IN(SELECT id FROM web_push_subscriptions WHERE (${retired}) AND NOT EXISTS(SELECT 1 FROM web_push_deliveries d WHERE d.subscription_id=web_push_subscriptions.id) ORDER BY updated_at,id LIMIT 50)`,
+        ),
+    ];
+    budget.reserve(3, 3);
+    await db.batch([maintenance[0], maintenance[1], maintenance[2]]);
+    budget.reserve(2, 2);
+    await db.batch([maintenance[3], maintenance[4]]);
+    await enqueueWebPush(at, PUSH_JOB_LIMITS.devices, budget);
+    budget.reserve(1);
+    const rows = await db.values<[string]>(
+      sql`SELECT id FROM web_push_deliveries WHERE expires_at>${at} AND ((status='pending' AND next_attempt_at<=${at}) OR (status='sending' AND lease_until<=${at})) ORDER BY next_attempt_at,id LIMIT 20`,
+    );
+    for (const [id] of rows) {
+      // A delivery needs at most six SQL statements, including 410 retirement.
+      budget.reserve(6, 3);
+      const status = await deliverWebPush(id, now(), send, now, budget);
+      summary.processed++;
+      if (status === "sent") summary.sent++;
+      else if (status === "retry") {
+        summary.retried++;
+        summary.failed++;
+      } else if (status === "dead") {
+        summary.dead++;
+        summary.failed++;
+      } else if (status === "unavailable") summary.failed++;
+      else summary.skipped++;
+    }
+    budget.checkTime();
+  } catch (error) {
+    if (!(error instanceof PushBudgetExceeded)) throw error;
+    summary.exhausted = true;
+    summary.complete = false;
+    summary.failed++;
+  }
+  summary.enqueued = budget.enqueued;
+  summary.statementsReserved = budget.statements;
+  summary.writesReserved = budget.writes;
+  return summary;
 }

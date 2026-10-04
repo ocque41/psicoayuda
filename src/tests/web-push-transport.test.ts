@@ -180,6 +180,41 @@ describe("transporte Web Push sin red", () => {
       }),
     ).toEqual({ ok: false, code, retryable });
   });
+  it("an elapsed invocation deadline never starts HTTP", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    expect(
+      await sendWebPush(subscription, payload, 60, {
+        configuration,
+        fetch: fetcher,
+        deadline: 1000,
+        now: () => 1000,
+      }),
+    ).toEqual({ ok: false, code: "temporary", retryable: true });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("clips the provider timeout to the remaining invocation budget", async () => {
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(new AbortController().signal);
+    try {
+      const fetcher = vi.fn<typeof fetch>(
+        async () => new Response(null, { status: 201 }),
+      );
+      expect(
+        (
+          await sendWebPush(subscription, payload, 60, {
+            configuration,
+            fetch: fetcher,
+            deadline: 2500,
+            now: () => 1000,
+          })
+        ).ok,
+      ).toBe(true);
+      expect(timeout).toHaveBeenCalledWith(1500);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
   it("un endpoint inválido nunca alcanza fetch", async () => {
     const fetcher = vi.fn<typeof fetch>();
     expect(

@@ -5,10 +5,12 @@ import {
   pushSubscriptionSchema,
 } from "@/lib/push/contract";
 import {
+  authorizedPushAccount,
   authorizedPushActor,
   type PushActor,
   pushConfiguration,
   pushDevices,
+  revocablePushDevices,
   revokePush,
   subscribePush,
   updatePushPreferences,
@@ -75,9 +77,17 @@ export async function GET(request: Request) {
       { message: "Entra con tu cuenta y verifica tu correo." },
       401,
     );
-  if (!(await authorizedPushActor(actor)))
+  const management =
+    new URL(request.url).searchParams.get("manage") === "revoke";
+  if (
+    !(await (management
+      ? authorizedPushAccount(actor)
+      : authorizedPushActor(actor)))
+  )
     return response({ message: "Tu espacio todavía no está disponible." }, 403);
   try {
+    if (management)
+      return response({ devices: await revocablePushDevices(actor) });
     const configuration = await pushConfiguration();
     return response({
       available: Boolean(configuration),
@@ -124,6 +134,11 @@ async function mutate(request: Request, method: "POST" | "PATCH" | "DELETE") {
   try {
     const body = await jsonBody(request);
     if (method === "DELETE") {
+      if (!(await authorizedPushAccount(actor)))
+        return response(
+          { message: "Entra con tu cuenta y verifica tu correo." },
+          401,
+        );
       const value = revokeSchema.parse(body);
       await revokePush(actor, "id" in value ? value.id : undefined);
       return response({ ok: true });

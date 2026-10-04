@@ -95,8 +95,15 @@ beforeAll(async () => {
     new URL("../../drizzle/0039_web_push.sql", import.meta.url),
     "utf8",
   );
-  for (const statement of migration.split("--> statement-breakpoint"))
-    await client.execute(statement);
+  const existing = await client.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('web_push_subscriptions','web_push_deliveries')",
+  );
+  if (existing.rows.length === 1)
+    throw new Error("Incomplete Push fixture schema");
+  if (!existing.rows.length) {
+    for (const statement of migration.split("--> statement-breakpoint"))
+      await client.execute(statement);
+  }
   client.close();
   const receiver = await crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
@@ -548,7 +555,7 @@ describe("Web Push aislado: permisos y cola", () => {
   it("cron no llama al proveedor con flag apagado", async () => {
     vi.stubEnv("NIDO_PUSH_ENABLED", "false");
     const send = sender();
-    expect(await runWebPushJobs(AT, send, () => AT)).toEqual({
+    expect(await runWebPushJobs(AT, send, () => AT)).toMatchObject({
       enabled: false,
       enqueued: 0,
       processed: 0,

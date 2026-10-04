@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { webPushDeliveries, webPushSubscriptions } from "@/db/push-schema";
 import {
@@ -13,6 +13,39 @@ import { decodeBase64url, pushDigest } from "./encoding";
 import { readVapidConfiguration, vapidAuthorization } from "./web-push";
 
 export type PushActor = { userId: string; role: PushRole; sessionId: string };
+/** Managing existing consent does not grant access to an approved practice. */
+export function verifiedPushAccount(actor: PushActor, at: number) {
+  return sql`u.id=${actor.userId} AND u.email_verified=1
+ AND EXISTS(SELECT 1 FROM session s WHERE s.id=${actor.sessionId} AND s.user_id=u.id AND s.expires_at>${at})
+ AND ((${actor.role}='professional' AND EXISTS(SELECT 1 FROM professionals p WHERE p.user_id=u.id))
+ OR (${actor.role}='patient' AND EXISTS(SELECT 1 FROM patient_accounts pa WHERE pa.user_id=u.id)))`;
+}
+export async function authorizedPushAccount(actor: PushActor, at = Date.now()) {
+  return Boolean(
+    (
+      await db.values(
+        sql`SELECT u.id FROM user u WHERE ${verifiedPushAccount(actor, at)} LIMIT 1`,
+      )
+    ).length,
+  );
+}
+export async function revocablePushDevices(actor: PushActor, at = Date.now()) {
+  return db
+    .select({
+      id: webPushSubscriptions.id,
+      revokedAt: webPushSubscriptions.revokedAt,
+    })
+    .from(webPushSubscriptions)
+    .where(
+      and(
+        eq(webPushSubscriptions.userId, actor.userId),
+        eq(webPushSubscriptions.role, actor.role),
+        isNull(webPushSubscriptions.revokedAt),
+        sql`EXISTS(SELECT 1 FROM user u WHERE ${verifiedPushAccount(actor, at)})`,
+      ),
+    )
+    .limit(20);
+}
 /** Alias u plus a real auth session; never trust the requested role as authority. */
 export function eligiblePushActor(actor: PushActor, at: number) {
   return sql`u.id=${actor.userId} AND u.email_verified=1
@@ -56,6 +89,11 @@ export async function pushDevices(actor: PushActor) {
         eq(webPushSubscriptions.userId, actor.userId),
         eq(webPushSubscriptions.role, actor.role),
       ),
+    )
+    .orderBy(
+      desc(sql`${webPushSubscriptions.revokedAt} IS NULL`),
+      desc(webPushSubscriptions.updatedAt),
+      desc(webPushSubscriptions.id),
     )
     .limit(20);
   return rows.map((row) => ({
@@ -143,13 +181,15 @@ export async function revokePush(
   at = Date.now(),
 ) {
   await db.run(sql`UPDATE web_push_subscriptions SET sealed_subscription=NULL,session_id=NULL,revoked_at=${at},revision=revision+1,updated_at=${at}
- WHERE user_id=${actor.userId} AND role=${actor.role} ${id ? sql`AND id=${id}` : sql``}`);
+ WHERE user_id=${actor.userId} AND role=${actor.role} ${id ? sql`AND id=${id}` : sql``}
+ AND EXISTS(SELECT 1 FROM user u WHERE ${verifiedPushAccount(actor, at)})`);
   await db.run(sql`UPDATE web_push_deliveries SET status='skipped',reason_code='revoked',claim_token=NULL,lease_until=NULL,updated_at=${at}
- WHERE subscription_id IN(SELECT id FROM web_push_subscriptions WHERE user_id=${actor.userId} AND role=${actor.role} AND revoked_at IS NOT NULL) AND status IN('pending','sending')`);
+ WHERE subscription_id IN(SELECT id FROM web_push_subscriptions WHERE user_id=${actor.userId} AND role=${actor.role} AND revoked_at IS NOT NULL) AND status IN('pending','sending')
+ AND EXISTS(SELECT 1 FROM user u WHERE ${verifiedPushAccount(actor, at)})`);
 }
 /** Invoke from the existing verified account-deletion flow before deleting user. */
-export async function purgePushForAccount(userId: string) {
-  await db.batch([
+export function pushAccountDeleteStatements(userId: string) {
+  return [
     db
       .delete(webPushDeliveries)
       .where(
@@ -158,5 +198,8 @@ export async function purgePushForAccount(userId: string) {
     db
       .delete(webPushSubscriptions)
       .where(eq(webPushSubscriptions.userId, userId)),
-  ]);
+  ] as const;
+}
+export async function purgePushForAccount(userId: string) {
+  await db.batch([...pushAccountDeleteStatements(userId)]);
 }

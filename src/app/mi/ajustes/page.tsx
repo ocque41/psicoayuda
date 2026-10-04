@@ -4,6 +4,7 @@ import { CalendarConnectionPanel } from "@/components/calendar/connection-panel"
 import { CredentialSettings } from "@/components/credential-settings";
 import { PracticeForm } from "@/components/practice/forms";
 import { AppointmentRemindersPanel } from "@/components/practice/reminder-preferences-panel";
+import { PushPreferencesPanel } from "@/components/push/push-preferences-panel";
 import { SettingsPanel } from "@/components/workspace/settings-panel";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { hasCredentialPassword } from "@/lib/credentials";
@@ -192,14 +193,19 @@ export default async function PatientSettings({
             label: "Avisos",
             icon: "message",
             description:
-              "Elige cuándo recibir los correos de recordatorio de Nido.",
-            anchors: ["reminders-patient"],
+              "Elige tus recordatorios por correo y los avisos de este dispositivo.",
+            anchors: ["reminders-patient", "push-patient"],
             content: (
-              <AppointmentRemindersPanel
-                userId={account.userId}
-                audience="patient"
-                timeZone={account.timezone}
-              />
+              <>
+                <AppointmentRemindersPanel
+                  userId={account.userId}
+                  audience="patient"
+                  timeZone={account.timezone}
+                />
+                <div id="push-patient">
+                  <PushPreferencesPanel audience="patient" />
+                </div>
+              </>
             ),
           },
           {
@@ -264,7 +270,7 @@ export default async function PatientSettings({
                   <Link href="/contacto">Solicitar ayuda con mis datos</Link> ·{" "}
                   <Link href="/privacidad">Ver privacidad</Link>
                 </p>
-                <AccountActions />
+                <AccountActions avisosHref="/pro/avisos?role=patient" />
               </section>
             ),
           },

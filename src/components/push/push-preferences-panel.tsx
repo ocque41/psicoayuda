@@ -36,11 +36,16 @@ const minute = (value: string) => {
 class PushUiError extends Error {}
 const failureMessage = (error: unknown, fallback: string) =>
   error instanceof PushUiError ? error.message : fallback;
-export function PushPreferencesPanel({ role }: { role: PushRole }) {
+export function PushPreferencesPanel({
+  audience: role,
+}: {
+  audience: PushRole;
+}) {
   const id = useId();
   const loadSequence = useRef(0);
   const [state, setState] = useState<State | null>(null);
   const [device, setDevice] = useState<Device | null>(null);
+  const [hasLocalSubscription, setHasLocalSubscription] = useState(false);
   const [preferences, setPreferences] = useState(defaults);
   const [supported, setSupported] = useState(false);
   const [permission, setPermission] =
@@ -88,10 +93,12 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
       const sequence = ++loadSequence.current;
       const value: State = await request("GET");
       let current: Device | null = null;
+      let localSubscription = false;
       if ("serviceWorker" in navigator) {
         const registration = await navigator.serviceWorker.getRegistration("/");
         const subscription = await registration?.pushManager.getSubscription();
         if (subscription) {
+          localSubscription = true;
           const hash = await pushDigest(subscription.endpoint);
           current =
             value.devices.find((row) => row.endpointHash === hash) || null;
@@ -100,6 +107,7 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
       if (sequence !== loadSequence.current) return;
       setState(value);
       setDevice(current);
+      setHasLocalSubscription(localSubscription);
       if (restore && current) setPreferences(current.preferences);
       if ("Notification" in window) setPermission(Notification.permission);
     },
@@ -229,6 +237,7 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
       await reload();
       setMessage("Avisos activados en este dispositivo.");
     } catch (error) {
+      await reload(false).catch(() => {});
       setMessage(
         failureMessage(
           error,
@@ -256,6 +265,32 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
         failureMessage(
           error,
           "No pudimos guardar. Tus elecciones siguen aquí.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function detachLocalDevice() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription && !(await subscription.unsubscribe()))
+        throw new PushUiError(
+          "El navegador no pudo retirar su suscripción. Revisa sus permisos e inténtalo de nuevo.",
+        );
+      // No DELETE/POST: an endpoint in another account never grants its authority.
+      await reload(false);
+      setMessage(
+        "Suscripción retirada de este navegador. Ahora puedes activar los avisos de esta cuenta y este espacio.",
+      );
+    } catch (error) {
+      setMessage(
+        failureMessage(
+          error,
+          "No pudimos retirar la suscripción de este navegador. Inténtalo de nuevo.",
         ),
       );
     } finally {
@@ -298,6 +333,7 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
     preferences.chatEnabled ||
     preferences.appointmentEnabled ||
     (role === "professional" && preferences.afterSessionEnabled);
+  const needsTransition = hasLocalSubscription && !device;
   return (
     <section id={id} className={styles.panel} aria-labelledby={`${id}-title`}>
       <div className={styles.heading}>
@@ -335,6 +371,14 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
         <p>
           El navegador bloqueó el permiso. Revísalo en los ajustes del
           dispositivo.
+        </p>
+      )}
+      {needsTransition && (
+        <p>
+          Este navegador conserva una suscripción que no aparece en este
+          espacio. Retírala de este navegador y después activa tus avisos aquí.
+          No cambia las preferencias guardadas en otra cuenta; puedes revisarlas
+          al entrar en ella.
         </p>
       )}
       <fieldset disabled={busy || !state} className={styles.options}>
@@ -448,7 +492,8 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
               !supported ||
               iosInstall ||
               !selected ||
-              permission === "denied"
+              permission === "denied" ||
+              needsTransition
             }
             onClick={activate}
           >
@@ -485,6 +530,11 @@ export function PushPreferencesPanel({ role }: { role: PushRole }) {
         >
           Actualizar estado
         </button>
+        {needsTransition && (
+          <button type="button" disabled={busy} onClick={detachLocalDevice}>
+            Retirar suscripción de este navegador
+          </button>
+        )}
       </div>
       <p role="status" aria-live="polite">
         {busy ? "Guardando tus avisos…" : message}

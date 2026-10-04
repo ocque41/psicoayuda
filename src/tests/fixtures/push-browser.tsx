@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { PushPreferencesPanel } from "@/components/push/push-preferences-panel";
+import { PushRevocationPanel } from "@/components/push/push-revocation-panel";
 import type { PushPreferences } from "@/lib/push/contract";
 import { pushDigest } from "@/lib/push/encoding";
 
@@ -8,12 +9,13 @@ const params = new URLSearchParams(location.search);
 const role = params.get("role") === "patient" ? "patient" : "professional";
 const publicKey =
   "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";
-const endpoint =
-  "https://fcm.googleapis.com/fcm/send/fictitious-browser-fixture";
+let endpoint = "https://fcm.googleapis.com/fcm/send/fictitious-browser-fixture";
 const fixture = {
   calls: [] as Array<{ method: string; body: unknown }>,
   permissionRequests: 0,
-  subscribed: false,
+  subscribed: params.has("foreign"),
+  localUnsubscriptions: 0,
+  generation: 0,
   failNext: false,
 };
 Object.assign(window, { fixture });
@@ -22,6 +24,7 @@ const fakeSubscription = {
   options: {},
   unsubscribe: async () => {
     fixture.subscribed = false;
+    fixture.localUnsubscriptions++;
     return true;
   },
   toJSON: () => ({
@@ -34,6 +37,9 @@ const registration = {
   pushManager: {
     getSubscription: async () => (fixture.subscribed ? fakeSubscription : null),
     subscribe: async () => {
+      fixture.generation++;
+      endpoint = `https://fcm.googleapis.com/fcm/send/fictitious-browser-fixture-${fixture.generation}`;
+      fakeSubscription.endpoint = endpoint;
       fixture.subscribed = true;
       return fakeSubscription;
     },
@@ -68,12 +74,36 @@ if (params.has("ios"))
 let devices: Array<{
   id: string;
   revision: number;
+  revokedAt: number | null;
   active: boolean;
   endpointHash: string;
   preferences: PushPreferences;
-}> = [];
+}> = params.has("manage")
+  ? [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        revision: 1,
+        revokedAt: null,
+        active: false,
+        endpointHash: "fictitious-hash",
+        preferences: {
+          chatEnabled: true,
+          appointmentEnabled: false,
+          afterSessionEnabled: false,
+          offsetMinutes: 60,
+          quietEnabled: false,
+          quietStart: 1320,
+          quietEnd: 480,
+          timeZone: "UTC",
+        },
+      },
+    ]
+  : [];
 window.fetch = async (input, init) => {
-  if (String(input) !== `/api/push?role=${role}`)
+  if (
+    String(input) !==
+    `/api/push?role=${role}${params.has("manage") ? "&manage=revoke" : ""}`
+  )
     throw new Error("Fixture: red externa bloqueada");
   const method = init?.method || "GET";
   const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -91,6 +121,7 @@ window.fetch = async (input, init) => {
         id: "00000000-0000-4000-8000-000000000001",
         revision: (devices[0]?.revision || 0) + 1,
         active: true,
+        revokedAt: null,
         endpointHash: await pushDigest(endpoint),
         preferences: body.preferences,
       },
@@ -105,11 +136,14 @@ window.fetch = async (input, init) => {
     devices = devices.map((device) => ({
       ...device,
       active: false,
+      revokedAt: Date.now(),
       revision: device.revision + 1,
     }));
   return Response.json(
     method === "GET"
-      ? { available: !params.has("unavailable"), publicKey, devices }
+      ? params.has("manage")
+        ? { devices: devices.map(({ id, revokedAt }) => ({ id, revokedAt })) }
+        : { available: !params.has("unavailable"), publicKey, devices }
       : { ok: true },
   );
 };
@@ -121,7 +155,11 @@ createRoot(container).render(
       <h1>
         Ajustes ficticios · {role === "patient" ? "Paciente" : "Profesional"}
       </h1>
-      <PushPreferencesPanel role={role} />
+      {params.has("manage") ? (
+        <PushRevocationPanel audience={role} />
+      ) : (
+        <PushPreferencesPanel audience={role} />
+      )}
     </main>
   </StrictMode>,
 );

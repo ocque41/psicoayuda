@@ -36,7 +36,7 @@ export const pushGuideTopics = [
     id: "baja",
     title: "Puedes apagarlos cuando quieras",
     description:
-      "«Desactivar este dispositivo» borra su permiso de envío en Nido y retira su suscripción del navegador. «Desactivar todos mis dispositivos» detiene los avisos de este espacio. Al cerrar sesión dejan de enviarse avisos nuevos y tendrás que activarlos de nuevo al entrar. El correo y sus preferencias se gestionan por separado.",
+      "«Desactivar este dispositivo» borra su permiso de envío en Nido y retira su suscripción del navegador. «Desactivar todos mis dispositivos» detiene los avisos de este espacio. Al cerrar sesión dejan de enviarse avisos nuevos y tendrás que activarlos de nuevo al entrar. Si cambias de cuenta o de espacio y el navegador conserva otra suscripción, puedes retirarla de este navegador y activar la actual. No modifica las preferencias de la otra cuenta. Aunque tu perfil esté suspendido, «Retirar mis avisos» en los controles de cuenta permite darte de baja. El correo y sus preferencias se gestionan por separado.",
   },
 ];
 export function PushGuide({ targetId }: { targetId: string }) {

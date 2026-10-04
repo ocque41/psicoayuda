@@ -1,6 +1,7 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import {
@@ -16,7 +17,11 @@ const authClient = createAuthClient();
  * Controles de cuenta para profesionales: cerrar sesión y borrar la cuenta.
  * Se muestra aunque el onboarding no esté terminado (ver `deleteMyAccount`).
  */
-export function AccountActions() {
+export function AccountActions({
+  avisosHref = "/pro/avisos",
+}: {
+  avisosHref?: string;
+} = {}) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
@@ -55,6 +60,7 @@ export function AccountActions() {
         maxWidth: "26rem",
       }}
     >
+      <Link href={avisosHref}>Retirar mis avisos</Link>
       <button
         type="button"
         className="button secondary"
