@@ -21,6 +21,7 @@ export {
 } from "./calendar-schema";
 export { practiceNotes } from "./notes-schema";
 export { practicePatientProfiles } from "./patient-profile-schema";
+export { waitlistEntries } from "./waitlist-schema";
 export {
   accountOnboardingDrafts,
   accountRolePreferences,
