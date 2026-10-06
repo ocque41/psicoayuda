@@ -12,6 +12,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { practiceNotes } from "@/db/notes-schema";
 import { practiceAppointments } from "@/db/schema";
+import { getServerSession } from "@/lib/auth-server";
 import {
   appointmentStateLabels,
   dateLabel,
@@ -19,8 +20,10 @@ import {
 } from "@/lib/practice/domain";
 import { decryptNote, notesConfigured } from "@/lib/practice/note-crypto";
 import { pageNumber } from "@/lib/practice/queries";
+import { sessionNotesReminders } from "@/lib/practice/session-notes-reminder";
 import { NoteEditor } from "./note-editor";
 import { PracticePagination } from "./pagination";
+import { SessionNotesReminder } from "./session-notes-reminder";
 
 type NotesQuery = {
   notas?: string;
@@ -77,30 +80,36 @@ export async function PatientNotes({
       : undefined,
   );
   const legacyWhere = and(owner, isNull(practiceNotes.appointmentId));
-  const [[noteCount], [sessionCount], [legacyCount], appointment] =
-    await Promise.all([
-      db
-        .select({ value: count() })
-        .from(practiceNotes)
-        .innerJoin(
-          practiceAppointments,
-          eq(practiceNotes.appointmentId, practiceAppointments.id),
-        )
-        .where(notesWhere),
-      db
-        .select({ value: count() })
-        .from(practiceAppointments)
-        .where(sessionsWhere),
-      db.select({ value: count() }).from(practiceNotes).where(legacyWhere),
-      query.notaSesion
-        ? db.query.practiceAppointments.findFirst({
-            where: and(
-              sessionOwner,
-              eq(practiceAppointments.id, query.notaSesion),
-            ),
-          })
-        : Promise.resolve(undefined),
-    ]);
+  const [
+    [noteCount],
+    [sessionCount],
+    [legacyCount],
+    appointment,
+    currentSession,
+  ] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(practiceNotes)
+      .innerJoin(
+        practiceAppointments,
+        eq(practiceNotes.appointmentId, practiceAppointments.id),
+      )
+      .where(notesWhere),
+    db
+      .select({ value: count() })
+      .from(practiceAppointments)
+      .where(sessionsWhere),
+    db.select({ value: count() }).from(practiceNotes).where(legacyWhere),
+    query.notaSesion
+      ? db.query.practiceAppointments.findFirst({
+          where: and(
+            sessionOwner,
+            eq(practiceAppointments.id, query.notaSesion),
+          ),
+        })
+      : Promise.resolve(undefined),
+    enabled ? getServerSession() : Promise.resolve(null),
+  ]);
   const pages = (total: number) => Math.max(1, Math.ceil(total / 10));
   const selected = Math.min(pageNumber(query.notas), pages(noteCount.value));
   const legacyPage = Math.min(
@@ -169,6 +178,8 @@ export async function PatientNotes({
       );
       return (
         <NoteEditor
+          accountId={currentSession?.user.id || ""}
+          professionalId={professionalId}
           patientId={patientId}
           appointmentId={note.appointmentId}
           note={{
@@ -192,6 +203,17 @@ export async function PatientNotes({
     Promise.all(notes.map(editor)),
     Promise.all(legacy.map(editor)),
   ]);
+  const reminderIds = appointment
+    ? [appointment.id]
+    : sessions.map((session) => session.id);
+  const reminders = currentSession?.user.id
+    ? await sessionNotesReminders({
+        professionalId,
+        professionalUserId: currentSession.user.id,
+        patientId,
+        appointmentIds: reminderIds,
+      })
+    : [];
   return (
     <section className="card patient-notes" id="notas">
       <div className="workspace-section-heading">
@@ -205,6 +227,13 @@ export async function PatientNotes({
         Solo tú puedes leer estas notas desde tu cuenta profesional. Se guardan
         cifradas; el paciente y soporte no tienen acceso. Guarda antes de salir.
       </p>
+      {reminders.map((reminder) => (
+        <SessionNotesReminder
+          key={reminder.appointmentId}
+          reminder={reminder}
+          endedLabel={dateLabel(reminder.endsAt, timeZone)}
+        />
+      ))}
       <form
         className="practice-form"
         method="get"
@@ -290,7 +319,12 @@ export async function PatientNotes({
       ) : appointment ? (
         <details key={`new-${appointment.id}`}>
           <summary>Escribir una nota para esta sesión</summary>
-          <NoteEditor patientId={patientId} appointmentId={appointment.id} />
+          <NoteEditor
+            accountId={currentSession?.user.id || ""}
+            professionalId={professionalId}
+            patientId={patientId}
+            appointmentId={appointment.id}
+          />
         </details>
       ) : (
         <p className="hint">Elige una sesión para escribir una nota nueva.</p>

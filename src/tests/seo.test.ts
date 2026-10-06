@@ -60,6 +60,8 @@ describe("SEO — robots.txt", () => {
       "/api/",
       "/pro/dashboard",
       "/pro/onboarding",
+      "/pro/mensajes",
+      "/pro/cobros",
       "/mi",
       "/empezar",
       "/entrar",

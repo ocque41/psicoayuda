@@ -1,15 +1,23 @@
 "use server";
 
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs, professionals, recoveryKeystores } from "@/db/schema";
-import { getServerSession } from "@/lib/auth-server";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { newId, nowIso } from "@/lib/ids";
 import { isValidPublicKey } from "@/shared/e2ee";
 
 const KEYSTORE_MAX_LENGTH = 262_144;
 const KEYSTORE_SAVES_PER_HOUR = 300;
 const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
+
+/** Autoriza ESTA cuenta, sin aceptar el actor de una página anterior. */
+export async function verifyProfessionalE2eeActor(
+  professionalId: string,
+): Promise<{ ok: boolean; expiresAt?: number }> {
+  const live = await loadLiveChatProfessional(professionalId);
+  return live ? { ok: true, expiresAt: live.expiresAt } : { ok: false };
+}
 
 /**
  * Publica la clave pública ECDH del profesional (la privada vive SOLO en su
@@ -19,25 +27,39 @@ const RECOVERY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
  */
 export async function publishProIdentityKey(
   publicKey: string,
+  expectedPublicKey?: string | null,
+  expectedProfessionalId?: string,
 ): Promise<{ ok: boolean }> {
   if (!isValidPublicKey(publicKey)) return { ok: false };
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
+  const live = await loadLiveChatProfessional(expectedProfessionalId);
+  if (!live) return { ok: false };
+  const pro = live.professional;
 
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-  if (!pro || pro.status === "suspended") return { ok: false };
-
-  await db
+  const changed = await db
     .update(professionals)
     .set({
       cryptoPublicKey: publicKey,
       cryptoPublicKeyUpdatedAt: new Date(),
       updatedAt: nowIso(),
     })
-    .where(eq(professionals.id, pro.id));
-  return { ok: true };
+    .where(
+      and(
+        eq(professionals.id, pro.id),
+        eq(professionals.userId, live.userId),
+        eq(professionals.status, "approved"),
+        sql`EXISTS(SELECT 1 FROM session a WHERE a.id=${live.authSessionId} AND a.user_id=${live.userId} AND a.expires_at > (cast(unixepoch('subsecond') * 1000 as integer)))`,
+        expectedPublicKey === undefined
+          ? or(
+              isNull(professionals.cryptoPublicKey),
+              eq(professionals.cryptoPublicKey, publicKey),
+            )
+          : expectedPublicKey === null
+            ? isNull(professionals.cryptoPublicKey)
+            : eq(professionals.cryptoPublicKey, expectedPublicKey),
+      ),
+    )
+    .returning({ id: professionals.id });
+  return { ok: changed.length === 1 };
 }
 
 /**

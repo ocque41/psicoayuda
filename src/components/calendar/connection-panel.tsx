@@ -55,6 +55,20 @@ export async function CalendarConnectionPanel({
   const configured = Boolean(googleCalendarConfig()),
     connected = connection?.status === "connected";
   const ready = configured && Boolean(actor);
+  const statusLabel =
+    connection?.status === "disconnecting"
+      ? "Desconexión pendiente"
+      : connection?.status === "needs_reconnect"
+        ? "Necesita reconexión"
+        : connected
+          ? !ready
+            ? "Actualizaciones pausadas"
+            : connection.calendarId
+              ? "Conectado"
+              : "Permiso concedido"
+          : connection
+            ? "Requiere atención"
+            : "Sin conectar";
   return (
     <section
       className={`workspace-card ${styles.panel}`}
@@ -72,15 +86,7 @@ export async function CalendarConnectionPanel({
           <p className="eyebrow">Tu agenda, donde te resulte más cómodo</p>
           <h2 id={`calendar-title-${audience}`}>Google Calendar</h2>
         </div>
-        <span className={styles.status}>
-          {connected
-            ? connection.calendarId
-              ? "Conectado"
-              : "Permiso concedido"
-            : connection
-              ? "Requiere atención"
-              : "Sin conectar"}
-        </span>
+        <span className={styles.status}>{statusLabel}</span>
       </div>
       <p>
         Copia los horarios de las sesiones de los próximos 365 días a un
@@ -106,6 +112,12 @@ export async function CalendarConnectionPanel({
             : connection.errorCode === "permission"
               ? "Las actualizaciones se pausaron porque cambió el acceso a tu cuenta. Revisa tus permisos antes de continuar."
               : "La última sincronización quedó pendiente. Reintenta: las sesiones de Nido se conservan."}
+        </p>
+      ) : null}
+      {connection?.status === "disconnecting" ? (
+        <p className="status-message" role="status">
+          Las actualizaciones están detenidas. Falta confirmar con Google la
+          retirada del permiso; pulsa Completar desconexión para reintentarlo.
         </p>
       ) : null}
       {connection?.lastSyncedAt ? (
@@ -201,10 +213,10 @@ export async function CalendarConnectionPanel({
             </div>
             <p className="hint">
               La actualización es periódica y puede tardar más según la cantidad
-              de agendas pendientes. Usa Sincronizar ahora si necesitas aplicar
-              un cambio inmediatamente. Los avisos de Google y los correos de
-              Nido se eligen por separado; los avisos de Google empiezan
-              desactivados.
+              de agendas pendientes. Sincronizar ahora inicia un paso; si quedan
+              sesiones pendientes, pulsa Continuar sincronización hasta
+              terminar. Los avisos de Google y los correos de Nido se eligen por
+              separado; los avisos de Google empiezan desactivados.
             </p>
           </PracticeForm>
           {!connection.autoSync ? (
@@ -221,10 +233,20 @@ export async function CalendarConnectionPanel({
           >
             Abrir Google Calendar ↗
           </a>
+          <p className="hint">
+            Si tienes varias cuentas Google abiertas, selecciona la que
+            autorizaste para encontrar su calendario Nido.
+          </p>
         </>
       ) : null}
       {connection ? (
-        <details className={styles.disconnect}>
+        <details
+          className={styles.disconnect}
+          open={
+            connection.status === "needs_reconnect" ||
+            connection.status === "disconnecting"
+          }
+        >
           <summary>Desconectar Google Calendar</summary>
           <p className="hint">
             Se retira el permiso de Calendar de tu cuenta Nido y se detienen las
@@ -245,7 +267,7 @@ export async function CalendarConnectionPanel({
       <div className={styles.export}>
         <h3>También puedes llevar tu agenda con un archivo</h3>
         <p className="hint">
-          Descarga las próximas sesiones de los siguientes doce meses, hasta 500
+          Descarga las próximas sesiones de los siguientes 365 días, hasta 500
           eventos, sin nombres ni notas. Es una copia: no se actualiza sola y no
           retira eventos cancelados que hayas importado antes.
         </p>

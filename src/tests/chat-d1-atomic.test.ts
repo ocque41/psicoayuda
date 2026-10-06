@@ -26,6 +26,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth-server", () => ({
   getServerSession: async () => ({
     user: { id: "fixture-d1-user", email: "fixture-d1@example.test" },
+    session: {
+      id: "fixture-d1-auth",
+      expiresAt: new Date(Date.now() + 3600000),
+    },
   }),
 }));
 vi.mock("@/lib/chat-admin", () => ({
@@ -89,6 +93,7 @@ describe("chat: driver D1 del proyecto con SQLite real en workerd", () => {
     mocks.database = database;
     const names = [
       "user",
+      "session",
       "professionals",
       "help_requests",
       "assignments",
@@ -113,6 +118,11 @@ describe("chat: driver D1 del proyecto con SQLite real en workerd", () => {
           "INSERT INTO professionals(id,user_id,email,full_name,languages,support_areas,status,max_active_requests,accepting_requests,remote_available,created_at,updated_at) VALUES ('fixture-d1-pro','fixture-d1-user','fixture-d1@example.test','Profesional ficticio','[]','[]','approved',10,1,1,?,?)",
         )
         .bind(timestamp, timestamp),
+      database
+        .prepare(
+          "INSERT INTO session(id,user_id,token,expires_at,created_at,updated_at) VALUES ('fixture-d1-auth','fixture-d1-user','fixture-d1-token',?,?,?)",
+        )
+        .bind(Date.now() + 3600000, Date.now(), Date.now()),
     ]);
   }, 30000);
   afterAll(async () => {

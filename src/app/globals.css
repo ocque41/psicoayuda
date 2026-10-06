@@ -51,6 +51,13 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* ---- Sombras difusas ---- */
   --shadow-sm:
     0 1px 2px rgba(43, 39, 35, 0.04), 0 2px 8px rgba(43, 39, 35, 0.05);
@@ -4154,6 +4161,20 @@ a.professional-carousel-link:focus-visible {
     background: rgba(255, 254, 250, 0.97);
     box-shadow: 0 8px 30px -9px rgba(37, 62, 45, 0.22);
   }
+  /* En /mi la navegación ocupa su espacio y no tapa campos ni acciones. */
+  .workspace-section[data-workspace-audience="patient"] .workspace-rail {
+    position: static;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  .workspace-section[data-workspace-audience="patient"] .workspace-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+  body:has(.workspace-section[data-workspace-audience="patient"]) {
+    padding-bottom: 0;
+  }
   .workspace-rail-inner {
     position: static;
   }
@@ -5449,4 +5470,56 @@ a.professional-carousel-link:focus-visible {
   .topbar .container {
     width: min(100% - 40px, 680px);
   }
+}
+
+/* Avisos: contraste legible sobre la superficie suave. */
+.notice a {
+  color: var(--accent-strong);
+}
+
+/* ---- CTA de chat de la ficha profesional (arriba del WhatsApp) ----
+   El chat es la vía principal: botón verde que despliega el formulario.
+   WhatsApp y el resto quedan debajo, como enlaces sin fondo. */
+/* El chat dentro de Nido es la acción principal de la ficha: un solo botón
+   grande; las demás vías quedan debajo en enlaces pequeños. */
+.pro-chat-main {
+  margin: 0 0 12px;
+}
+
+.pro-chat-main > .button {
+  min-height: 54px;
+  padding-block: 15px;
+  font-size: 1.08rem;
+}
+
+.pro-contact {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
+/* Sin fondo: solo el texto en verde con su glifo. */
+.pro-contact-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.pro-contact-wa:hover {
+  color: var(--accent);
+}
+
+.pro-contact-muted {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 0.88rem;
 }

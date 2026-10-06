@@ -33,6 +33,7 @@ import {
   practiceDeleteStatements,
   preparePracticePurge,
 } from "@/lib/practice/purge";
+import { pushAccountDeleteStatements } from "@/lib/push/preferences";
 
 /**
  * Borra la cuenta y los datos operativos del usuario `userId`. Antes de borrar
@@ -202,6 +203,7 @@ export async function purgeAccount(userId: string): Promise<void> {
     // queda no vacío por sus extremos fijos y el orden es FK-safe (todo hijo antes
     // que su padre). `professionalDeletes` ya va ordenado hijos→padre.
     await db.batch([
+      ...pushAccountDeleteStatements(userId),
       db.delete(session).where(eq(session.userId, userId)),
       ...calendarAccountDeleteStatements(userId),
       db.delete(account).where(eq(account.userId, userId)),

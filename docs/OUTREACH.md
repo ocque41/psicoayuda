@@ -1,126 +1,69 @@
-# Outreach para enlaces (backlinks) — correos listos para enviar
+# Contactos profesionales y difusión de Nido
 
-En salud mental, Google premia la **confianza demostrable** (E-E-A-T). Unos pocos enlaces
-desde sitios relevantes de Venezuela mueven el ranking más que cualquier ajuste técnico.
-Esta es la palanca #3 (ver [`SEO.md`](./SEO.md)) y es **trabajo tuyo, continuo**.
+Borradores revisados el 4 de octubre de 2026. Preparan conversaciones útiles con profesionales y organizaciones; no se han enviado. No representan alianzas confirmadas ni prometen resultados de búsqueda. Contexto en [SEO.md](SEO.md).
 
-## Cómo usar esto (lee antes de enviar)
+## Preparación
 
-- **Personaliza cada correo.** Cambia `[corchetes]` y añade una línea propia que demuestre
-  que conoces a la organización. Un envío masivo idéntico se ignora (y puede marcarse como
-  spam, lo que **perjudica** tu SEO).
-- **No compres enlaces ni los pidas “a cambio de”.** Google penaliza los enlaces pagados o
-  manipulados. Aquí ofreces un **recurso real y gratuito**; el enlace es una consecuencia
-  natural, no una transacción.
-- **Sé honesto.** No inventes cifras ni resultados. Di solo lo verificable: es un proyecto
-  sin fines de lucro, gratuito, a distancia, con voluntarios verificados, sin crear cuenta,
-  y **no** atiende emergencias.
-- **Un seguimiento, máximo.** Si no responden en ~1 semana, reenvía una vez con amabilidad.
-  Si no contestan, pasa a la siguiente.
-- **A quién escribir:** Federación de Psicólogos de Venezuela y colegios regionales,
-  programas universitarios de psicología (UCAB, UCV, ULA…), ONG y redes de salud mental,
-  directorios de salud mental/ONG, y prensa que cubre salud mental (Efecto Cocuyo, El Diario…).
-  Busca el correo de contacto público de cada una; **no inventes destinatarios**.
+- Confirmar el destinatario y su canal público de contacto; no inventar direcciones ni usar contactos de pacientes. Personalizar el motivo y respetar sus preferencias.
+- Elegir un recorrido: software para psicólogos, catálogo de apoyo o voluntariado de Ayuda Terremoto. La gratuidad pertenece al programa separado, sujeto a disponibilidad; no describir todo Nido como gratuito o sin fines de lucro.
+- Explicar la revisión de credenciales y del ámbito de atención sin certificar que todos los perfiles puedan ejercer en cualquier país. No invitar a estudiantes a prestar atención como si estuvieran habilitados.
+- No inventar cifras, testimonios, resultados clínicos, acreditaciones o capacidad de cobros/videollamadas. No publicar datos societarios o direcciones privadas.
+- Pedir una mención sólo si aporta valor a su audiencia. Evitar compra o intercambio de enlaces para manipular posiciones, conforme a [las políticas de Google sobre enlaces](https://developers.google.com/search/docs/essentials/spam-policies#link-spam). No hay garantía de ranking por conseguir una mención.
+- El envío exige autorización expresa y un remitente real. Completar los campos entre corchetes y revisar el borrador antes de enviarlo. Un seguimiento sólo si es adecuado al canal; detenerse ante una negativa.
 
----
+## Software para profesionales
 
-## 1. Federación / colegios de psicólogos
+**Asunto:** Nido: un espacio para organizar tu consulta
 
-> **Asunto:** Nido — apoyo psicológico gratuito y a distancia para Venezuela
->
-> Hola [nombre]:
->
-> Le escribo de Nido (saludmental-venezuela.com), un proyecto sin fines de lucro que
-> conecta gratis y a distancia a personas en Venezuela con psicólogas y psicólogos
-> voluntarios verificados. La persona que pide apoyo no necesita crear cuenta, y no
-> atendemos emergencias.
->
-> Dos cosas por las que les escribo:
->
-> 1. Si conocen colegiados que quieran sumar unas horas de voluntariado en remoto, pueden
->    registrarse en saludmental-venezuela.com/pro (definen su disponibilidad; nosotros
->    verificamos y coordinamos).
-> 2. Si lo consideran útil para quienes los contactan buscando apoyo, ¿podrían incluirnos
->    como recurso o enlace en su web?
->
-> Encantados de coordinar y de sumar a su red de profesionales.
->
-> Gracias por su labor,
-> [tu nombre] — [tu correo] — https://saludmental-venezuela.com
+Hola [nombre]:
 
-## 2. Programas universitarios de psicología
+Soy [remitente], de Nido. Nuestro software para psicólogos reúne agenda, fichas, notas privadas, mensajes, servicios y registro de cobros externos. Puedes conocerlo en https://saludmental-venezuela.com/para-psicologos y empezar una prueba de 90 días sin tarjeta.
 
-> **Asunto:** Voluntariado en salud mental para estudiantes y egresados de psicología
->
-> Hola [nombre]:
->
-> Soy [tu nombre], de Nido (saludmental-venezuela.com), un proyecto sin fines de lucro que
-> ofrece apoyo psicológico gratuito y a distancia en Venezuela con voluntarios verificados.
->
-> Para sus egresados y profesionales vinculados a [universidad], puede ser una vía de
-> voluntariado flexible y con impacto: atienden en remoto, en la medida de su tiempo, con
-> verificación de credenciales y coordinación de nuestra parte.
->
-> ¿Sería posible difundirlo entre su comunidad o incluirlo como recurso en la página de la
-> escuela de psicología? Con gusto les paso más detalle o coordino una llamada breve.
->
-> Gracias,
-> [tu nombre] — [tu correo] — https://saludmental-venezuela.com
+Nos interesa saber si estas herramientas responden a las necesidades de [práctica o comunidad]. El acceso a solicitudes requiere revisión del perfil y de las credenciales; no garantizamos pacientes ni ingresos. Los pagos por tarjeta y las llamadas integradas requieren activación y comprobación del proveedor.
 
-## 3. ONG y redes de salud mental
+Si te resulta útil, puedo compartir el recorrido de entrada y los límites actuales.
 
-> **Asunto:** ¿Aliamos esfuerzos? Apoyo psicológico gratuito a distancia en Venezuela
->
-> Hola [nombre]:
->
-> Le escribo de Nido (saludmental-venezuela.com), iniciativa sin fines de lucro que conecta
-> gratis y a distancia a personas en Venezuela con psicólogos voluntarios verificados, sin
-> que la persona tenga que crear cuenta. No sustituimos la atención presencial ni atendemos
-> emergencias.
->
-> Creo que nuestras labores se complementan. Dos formas de colaborar:
->
-> - Que se incluyan mutuamente como recurso/enlace para quienes buscan apoyo.
-> - Derivaciones en ambos sentidos cuando tenga sentido para la persona.
->
-> Si les parece, coordinamos una llamada corta.
->
-> Un saludo,
-> [tu nombre] — [tu correo] — https://saludmental-venezuela.com
+[remitente y contacto autorizados]
 
-## 4. Prensa / medios
+## Voluntariado: colegios y profesionales vinculados a universidades
 
-> **Asunto:** Recurso gratuito de apoyo psicológico para sus lectores en Venezuela
->
-> Hola [nombre]:
->
-> Soy [tu nombre], de Nido (saludmental-venezuela.com). Tras los terremotos recientes,
-> muchas personas en Venezuela buscan apoyo emocional y no saben a dónde acudir.
->
-> Nido es un proyecto sin fines de lucro que conecta gratis y a distancia con psicólogos
-> voluntarios verificados, sin crear cuenta. Por si les resulta útil como recurso para sus
-> lectores en notas sobre salud mental, les comparto enlaces directos:
->
-> - Pedir apoyo: https://saludmental-venezuela.com/ayuda
-> - Líneas de emergencia y qué hacer: https://saludmental-venezuela.com/emergencia
->
-> Quedo a disposición para cualquier dato o entrevista. Gracias por la difusión.
->
-> [tu nombre] — [tu correo] — https://saludmental-venezuela.com
+**Asunto:** Ayuda Terremoto: participación profesional voluntaria
 
-## 5. Directorios de salud mental / ONG
+Hola [nombre]:
 
-Para directorios suele bastar con rellenar su formulario de alta. Datos a usar (todos
-verificables):
+Le escribo de Nido por Ayuda Terremoto, nuestro programa separado de acompañamiento voluntario gratuito para personas afectadas en Venezuela. Funciona según disponibilidad y no atiende emergencias.
 
-- **Nombre:** Nido
-- **Web:** https://saludmental-venezuela.com
-- **Qué es:** Proyecto sin fines de lucro que conecta gratis y a distancia a personas en
-  Venezuela con psicólogos voluntarios verificados. Sin crear cuenta. No atiende emergencias.
-- **Ámbito:** Venezuela (atención en línea, todo el país) y venezolanos en el exterior.
-- **Categorías:** salud mental, apoyo psicológico, voluntariado, gratuito.
+Los profesionales interesados pueden conocer el proceso en https://saludmental-venezuela.com/psicologos. Definen su cupo y disponibilidad; el equipo revisa sus credenciales y el ámbito de atención antes de habilitar la participación.
 
----
+Si encaja con su comunidad de profesionales habilitados, agradeceríamos que compartieran esta información. Podemos aclarar el proceso y la capacidad actual antes de difundirlo.
 
-> Cumple las reglas del proyecto: nunca inventes teléfonos ni cifras; los recursos de crisis
-> salen de la fuente única del repo (`src/lib/resources.ts`), no de un correo improvisado.
+[remitente y contacto autorizados]
+
+## Redes de apoyo, medios y directorios
+
+**Asunto:** Información de Nido para su selección de recursos
+
+Hola [nombre]:
+
+Soy [remitente], de Nido. Compartimos estas páginas para que puedan valorar si aportan información útil a [audiencia]:
+
+- Catálogo de profesionales: https://saludmental-venezuela.com/profesionales
+- Ayuda Terremoto, programa separado gratuito según disponibilidad: https://saludmental-venezuela.com/ayuda
+- Información sobre emergencias y recursos: https://saludmental-venezuela.com/emergencia
+
+Nido permite explorar perfiles y contactar para acordar el acompañamiento. No es un servicio de emergencias ni garantiza disponibilidad inmediata. Podemos confirmar los datos y límites del programa antes de cualquier publicación.
+
+[remitente y contacto autorizados]
+
+## Ficha para un directorio
+
+| Campo | Texto propuesto |
+|---|---|
+| Nombre | Nido |
+| Web | https://saludmental-venezuela.com |
+| Descripción | Plataforma en español para encontrar profesionales de psicología y organizar la consulta. Ayuda Terremoto es un programa separado de acompañamiento voluntario gratuito, según disponibilidad. No atiende emergencias. |
+| Recorrido profesional | https://saludmental-venezuela.com/para-psicologos |
+| Programa gratuito | https://saludmental-venezuela.com/ayuda |
+| Cobertura | Personas que buscan apoyo en Venezuela; el ámbito de atención de cada profesional requiere revisión por país. No afirmar habilitación universal. |
+
+Confirmar que las categorías del directorio distingan software, apoyo y voluntariado. Los teléfonos y recursos de crisis deben salir de las fuentes revisadas del proyecto; no añadir datos improvisados ni presentar una inclusión como respaldo clínico.

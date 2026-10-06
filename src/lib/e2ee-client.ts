@@ -29,6 +29,23 @@ const STORE_META = "meta";
 
 /** Slot de la clave de identidad del profesional (una para todas sus salas). */
 export const PRO_SLOT = "pro";
+/** Slot aislado por cuenta; el slot legado sólo se adopta si coincide con la clave publicada. */
+export function professionalSlot(ownerId: string): string {
+  return `pro:${ownerId}`;
+}
+export async function loadProfessionalIdentity(
+  ownerId: string,
+  publicKey: string | null,
+) {
+  const slot = professionalSlot(ownerId);
+  const own = await loadIdentity(slot);
+  if (own && (!publicKey || own.publicKey === publicKey)) return own;
+  const legacy = await getStoredKey(PRO_SLOT);
+  if (!legacy || !publicKey || legacy.publicKey !== publicKey) return own;
+  await putStoredKey({ ...legacy, slot });
+  return loadIdentity(slot);
+}
+
 /** Slot de la clave de una conversación concreta para la persona. */
 export function seekerSlot(conversationId: string): string {
   return `seek:${conversationId}`;
@@ -110,19 +127,26 @@ async function deleteStoredKey(slot: string): Promise<void> {
   await runRequest(STORE_KEYS, "readwrite", (store) => store.delete(slot));
 }
 
-export async function getStoredRecoveryCode(): Promise<string | null> {
+export async function getStoredRecoveryCode(
+  scope?: string,
+): Promise<string | null> {
+  const key = scope ? `recoveryCode:${scope}` : "recoveryCode";
   const row = await runRequest<{ key: string; value: string }>(
     STORE_META,
     "readonly",
-    (store) => store.get("recoveryCode"),
+    (store) => store.get(key),
   );
-  return row?.value ?? memoryMeta.get("recoveryCode") ?? null;
+  return row?.value ?? memoryMeta.get(key) ?? null;
 }
 
-export async function putStoredRecoveryCode(code: string): Promise<void> {
-  memoryMeta.set("recoveryCode", code);
+export async function putStoredRecoveryCode(
+  code: string,
+  scope?: string,
+): Promise<void> {
+  const key = scope ? `recoveryCode:${scope}` : "recoveryCode";
+  memoryMeta.set(key, code);
   await runRequest(STORE_META, "readwrite", (store) =>
-    store.put({ key: "recoveryCode", value: code }),
+    store.put({ key, value: code }),
   );
 }
 
@@ -191,18 +215,25 @@ export async function replaceIdentity(slot: string): Promise<{
 }
 
 /** Snapshot del keystore completo (todas las claves de este dispositivo). */
-export async function exportKeystoreJson(): Promise<string> {
-  const entries = await listStoredKeys();
-  const file: KeystoreFile = { v: 1, entries };
+export async function exportKeystoreJson(scope?: string): Promise<string> {
+  const all = await listStoredKeys();
+  const entries = scope
+    ? all.filter((entry) => entry.slot === scope || entry.ownerSlot === scope)
+    : all;
+  const file: KeystoreFile = { v: 1, entries, ...(scope ? { scope } : {}) };
   return JSON.stringify(file);
 }
 
 /** Importa un keystore restaurado; devuelve cuántas claves se añadieron. */
-export async function importKeystoreJson(json: string): Promise<number> {
+export async function importKeystoreJson(
+  json: string,
+  current = () => true,
+): Promise<number> {
   const file = parseKeystore(json);
   if (!file) return 0;
   let count = 0;
   for (const entry of file.entries) {
+    if (!current()) return count;
     await putStoredKey(entry);
     count += 1;
   }
@@ -213,16 +244,23 @@ export async function importKeystoreJson(json: string): Promise<number> {
  * Crea (o regenera) el respaldo cifrado con un código NUEVO. Guarda el código
  * en este dispositivo para poder re-cifrar el respaldo cuando se añadan claves.
  */
-export async function createRecoveryBackup(): Promise<{
+export async function createRecoveryBackup(scope?: string): Promise<{
   code: string;
   id: string;
   wrapped: string;
 } | null> {
+  const json = await exportKeystoreJson(scope);
+  const file = parseKeystore(json);
+  if (
+    !file?.entries.length ||
+    (scope && !file.entries.some((entry) => entry.slot === scope))
+  )
+    return null;
   const code = generateRecoveryCode();
   const id = await recoveryIdFor(code);
   if (!id) return null;
-  const wrapped = await wrapKeystore(await exportKeystoreJson(), code);
-  await putStoredRecoveryCode(code);
+  const wrapped = await wrapKeystore(json, code);
+  await putStoredRecoveryCode(code, scope);
   return { code, id, wrapped };
 }
 
@@ -231,15 +269,22 @@ export async function createRecoveryBackup(): Promise<{
  * ejemplo, tras añadir la clave de una conversación nueva). Devuelve null si
  * nunca hubo respaldo (no se puede inventar el código).
  */
-export async function refreshRecoveryBackup(): Promise<{
+export async function refreshRecoveryBackup(scope?: string): Promise<{
   id: string;
   wrapped: string;
 } | null> {
-  const code = await getStoredRecoveryCode();
+  const code = await getStoredRecoveryCode(scope);
   if (!code) return null;
   const id = await recoveryIdFor(code);
   if (!id) return null;
-  const wrapped = await wrapKeystore(await exportKeystoreJson(), code);
+  const json = await exportKeystoreJson(scope);
+  const file = parseKeystore(json);
+  if (
+    !file?.entries.length ||
+    (scope && !file.entries.some((entry) => entry.slot === scope))
+  )
+    return null;
+  const wrapped = await wrapKeystore(json, code);
   return { id, wrapped };
 }
 
@@ -247,13 +292,42 @@ export async function refreshRecoveryBackup(): Promise<{
 export async function restoreFromBackup(
   codeInput: string,
   wrapped: string,
+  scope?: string,
+  current = () => true,
 ): Promise<{ ok: boolean; restored: number }> {
+  if (!current()) return { ok: false, restored: 0 };
   const json = await unwrapKeystore(wrapped, codeInput);
+  if (!current()) return { ok: false, restored: 0 };
   if (!json) return { ok: false, restored: 0 };
   const normalized = normalizeRecoveryCode(codeInput);
   if (!normalized) return { ok: false, restored: 0 };
-  const restored = await importKeystoreJson(json);
+  const file = parseKeystore(json);
+  if (!file) return { ok: false, restored: 0 };
+  // Un respaldo moderno pertenece a un solo dueño. Comprobarlo antes de
+  // importar evita modificar otra cuenta del mismo dispositivo al usar su código.
+  if (
+    file.scope &&
+    ((scope && file.scope !== scope) ||
+      file.entries.some(
+        (entry) =>
+          (entry.slot !== file.scope && entry.ownerSlot !== file.scope) ||
+          (entry.ownerSlot !== undefined && entry.ownerSlot !== file.scope),
+      ))
+  )
+    return { ok: false, restored: 0 };
+  const restored = await importKeystoreJson(json, current);
+  if (!current()) return { ok: false, restored };
   if (restored === 0) return { ok: false, restored: 0 };
-  await putStoredRecoveryCode(normalized);
+  // Un respaldo legado permanece intacto en el servidor: no reutilizar su código
+  // para sobrescribirlo con un conjunto más pequeño de claves.
+  if (!scope || file.scope === scope)
+    await putStoredRecoveryCode(normalized, scope);
   return { ok: true, restored };
+}
+
+/** Vincula sólo claves usadas en una vista autorizada a su respaldo de cuenta. */
+export async function registerIdentityOwner(slot: string, ownerSlot: string) {
+  const entry = await getStoredKey(slot);
+  if (entry && (!entry.ownerSlot || entry.ownerSlot === ownerSlot))
+    await putStoredKey({ ...entry, ownerSlot });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { restoreConversation } from "./actions";
 import styles from "./chat.module.css";
 
@@ -21,14 +21,22 @@ export function ConversationDeletedNotice({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // La fecha la pinta el navegador recién hidratada: el servidor (Workers) y el
+  // navegador pueden escribir distinto los espacios del formato ("septiembre"
+  // con espacio duro, etc.) y React lo ve como texto que no coincide.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const router = useRouter();
 
-  const deadline = purgeAfter
-    ? new Date(purgeAfter).toLocaleDateString("es-VE", {
-        day: "numeric",
-        month: "long",
-      })
-    : null;
+  // Fecha fija en la zona de Venezuela, ya en el navegador.
+  const deadline =
+    mounted && purgeAfter
+      ? new Date(purgeAfter).toLocaleDateString("es-VE", {
+          day: "numeric",
+          month: "long",
+          timeZone: "America/Caracas",
+        })
+      : null;
 
   async function restore() {
     setBusy(true);

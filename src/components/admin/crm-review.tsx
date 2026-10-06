@@ -92,7 +92,7 @@ const windows: Record<
     title: "La primera impresión también importa",
     description: "Presentación pública, disponibilidad y credenciales.",
     detail:
-      "Los cambios materiales de credenciales vuelven a revisión y vencen los ámbitos conservando su historial. La revisión y la publicación se gestionan desde Profesionales.",
+      "Los cambios materiales de credenciales vuelven a revisión y vencen los ámbitos conservando su historial. La publicación de nuevos profesionales puede seguirse desde Admisión.",
     links: [{ label: "Ver ajustes", window: "ajustes" }],
   },
 };
@@ -259,10 +259,10 @@ export function CrmReview({
               {selected === "perfil" ? (
                 <Link
                   className="button human"
-                  href="/admin/profesionales"
+                  href="/admin/admision"
                   prefetch={false}
                 >
-                  Revisar profesionales →
+                  Revisar nuevas admisiones →
                 </Link>
               ) : null}
             </div>

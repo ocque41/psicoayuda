@@ -2,17 +2,22 @@ import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ProChatList } from "@/components/pro-chat-list";
 import { QuickExit } from "@/components/quick-exit";
 import { db } from "@/db";
 import { practiceAppointments, practicePatients } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
-import { loadChatView } from "@/lib/chat-view";
+import { conversationExists, loadChatView } from "@/lib/chat-view";
+import { conversationsForProfessional } from "@/lib/offers";
 import { hasPatientConversationAccess } from "@/lib/patient/access";
 import {
   formatEuros,
   listActivePackagesForProfessional,
 } from "@/lib/payments/packages";
+import { sortProChats, toProChatSummaries } from "@/lib/pro-chats";
+import { getWaitlistSignupForConversation } from "@/lib/waitlist-store";
 import { ChatRoom } from "./chat-room";
+import { ConversationAccessPanel } from "./conversation-access-panel";
 import { ConversationDeletedNotice } from "./conversation-deleted-notice";
 
 export const metadata: Metadata = {
@@ -41,7 +46,16 @@ export default async function ConversationPage({
       (await hasPatientConversationAccess(session.user.id, conversationId))
     )
       redirect(`/mi/mensajes/${encodeURIComponent(conversationId)}`);
-    notFound();
+    // Sin credencial en ESTE navegador: si la conversación existe, no es un 404
+    // (la página está, solo es privada) → pantalla de acceso con enlace mágico.
+    if (!(await conversationExists(conversationId))) notFound();
+    return (
+      <section className="section">
+        <div className="container">
+          <ConversationAccessPanel />
+        </div>
+      </section>
+    );
   }
 
   // Papelera: el hilo se borró pero se puede recuperar durante 7 días. No se
@@ -93,33 +107,72 @@ export default async function ConversationPage({
         )
         .limit(10)
     : [];
+  // Anotación de lista de espera nacida de esta conversación (si existe): la
+  // tarjeta del chat muestra "Anotado" a las dos partes en vez del formulario.
+  const waitlistSignup = await getWaitlistSignupForConversation(
+    view.conversationId,
+  );
+
+  // El profesional ve, junto a la sala, TODAS sus conversaciones con la
+  // actividad al día: cambiar de persona es un toque, sin volver al panel.
+  const proChats = view.professionalId
+    ? sortProChats(
+        toProChatSummaries(
+          await conversationsForProfessional(view.professionalId),
+        ),
+      )
+    : null;
+
+  const room = (
+    <>
+      {practiceSessions.length ? (
+        <nav className="panel-nav" aria-label="Tus sesiones">
+          {practiceSessions.map((s) => (
+            <Link
+              className="button secondary"
+              key={s.id}
+              href={`/sesion/${s.id}`}
+            >
+              Ver sesión · {s.startsAt.slice(0, 10)}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      {view.role === "seeker" ? <QuickExit /> : null}
+      <ChatRoom
+        key={`${view.conversationId}:${view.role}:${view.professionalId ?? "seeker"}`}
+        professionalId={view.professionalId}
+        conversationId={view.conversationId}
+        role={view.role}
+        otherName={view.otherName}
+        open={view.open}
+        canSwitchView={view.canSwitchView}
+        paymentLinks={paymentLinks}
+        proPublicKey={view.proPublicKey}
+        waitlistSignup={waitlistSignup}
+      />
+    </>
+  );
+
+  if (!proChats) {
+    return (
+      <section className="section">
+        <div className="container">{room}</div>
+      </section>
+    );
+  }
+
   return (
     <section className="section">
-      <div className="container">
-        {practiceSessions.length ? (
-          <nav className="panel-nav" aria-label="Tus sesiones">
-            {practiceSessions.map((s) => (
-              <Link
-                className="button secondary"
-                key={s.id}
-                href={`/sesion/${s.id}`}
-              >
-                Ver sesión · {s.startsAt.slice(0, 10)}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
-        {view.role === "seeker" ? <QuickExit /> : null}
-        <ChatRoom
-          key={`${view.conversationId}:${view.role}`}
-          conversationId={view.conversationId}
-          role={view.role}
-          otherName={view.otherName}
-          open={view.open}
-          canSwitchView={view.canSwitchView}
-          paymentLinks={paymentLinks}
-          proPublicKey={view.proPublicKey}
-        />
+      <div className="container panel-container">
+        <div className="chat-shell">
+          <ProChatList
+            key={view.professionalId}
+            initial={proChats}
+            activeId={view.conversationId}
+          />
+          <div className="chat-shell-main">{room}</div>
+        </div>
       </div>
     </section>
   );

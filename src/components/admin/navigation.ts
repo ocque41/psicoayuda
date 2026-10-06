@@ -39,6 +39,13 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Revisa perfiles, credenciales, visibilidad y capacidad de atención.",
   },
   {
+    id: "lista-espera",
+    label: "Lista general de espera",
+    href: "/admin/lista-de-espera",
+    description:
+      "Solicitudes de apoyo general y seguimiento, separadas de Ayuda Terremoto.",
+  },
+  {
     id: "admision",
     label: "Panel de Paola",
     href: "/admin/admision",

@@ -2,6 +2,220 @@
 
 All notable changes to Nido will be documented here.
 
+## 0.18.1 - 2026-09-15
+
+Ficha del profesional más simple y hora del chat sin saltos.
+
+- **"Contactar ahora" es un solo botón grande**: se quitó el desplegable con
+  formulario. El botón verde crea la conversación directo y, debajo, las demás
+  vías (WhatsApp, llamada y correo) quedan como enlaces pequeños. Si el
+  profesional no tiene cupo, el botón se muestra apagado con "Sin cupo ahora
+  mismo" para no prometer algo que el servidor va a rechazar.
+- **La hora del chat y de la lista del profesional va fija en la zona de
+  Venezuela**: antes el servidor pinta una hora (UTC) y el navegador otra, lo
+  que provocaba un desajuste de hidratación (error #418) y un salto visible en
+  la hora al cargar. Ahora ambas partes ven la misma hora, estén donde estén.
+
+## 0.18.0 - 2026-09-15
+
+Dos arreglos que evitan perder conversaciones y una vía de contacto más clara.
+
+- **El profesional ya no rota su clave al entrar desde otro navegador**: antes,
+  si este dispositivo no tenía su clave y la cuenta ya tenía una publicada, la
+  sala creaba y PUBLICABA una nueva en silencio. Eso cambiaba la clave de la
+  cuenta y dejaba ilegibles los mensajes anteriores en TODOS sus dispositivos
+  ("se me cifran los mensajes previos"). Ahora se pide el código (el mismo para
+  todas sus conversaciones) con la opción explícita de empezar de cero, que
+  avisa de que se pierde el historial. La primera vez (ni cuenta ni dispositivo
+  con clave) se sigue creando sin interrumpir.
+- **La persona mantiene la regla**: solo se le pide el código si este navegador
+  no tiene su clave y hay historial cifrado; si no hay nada cifrado, se crea su
+  clave y se le muestra el código una vez.
+- **"Contacta ahora" en la ficha de cada profesional**: el chat dentro de Nido
+  pasa a ser el botón principal (verde, arriba) y despliega el formulario con
+  el nombre y el correo opcionales; WhatsApp queda debajo como enlace sin fondo
+  (con su glifo) y después "llamar" y el correo. En las fichas sin teléfono, el
+  formulario se muestra directamente con el botón verde.
+
+## 0.17.0 - 2026-09-15
+
+La lista de conversaciones del profesional pasa a ser de verdad en tiempo real.
+
+- **Aviso en vivo por WebSocket**: además del sondeo de seguridad, la lista abre
+  un canal de SOLO LECTURA a cada conversación abierta del profesional (hasta 5,
+  sin la que está a la vista): quien escribe en otra sala la ve subir al tope con
+  su aviso de "sin leer" en menos de un segundo, sin recargar.
+- **El canal de avisos no toca la sala**: no recibe historial ni claves, no
+  anuncia presencia, no cuenta como "profesional en línea" (los avisos por correo
+  al profesional siguen saliendo) y no puede escribir (sus frames se ignoran).
+- **Autorización estricta**: cookie firmada de avisos (sin sala) + comprobación
+  en D1 de que la sala es suya, no está en papelera/anonimizada y su cuenta no
+  está suspendida. Sin D1 no se autoriza.
+- El sondeo baja a 5 s (red de seguridad: salas nuevas, cortes de red, cambios de
+  estado) y sigue activo solo con la pestaña visible.
+
+## 0.16.0 - 2026-09-15
+
+El profesional ve todas sus conversaciones sin salir del chat.
+
+- **Lista de conversaciones dentro de la sala** (solo profesionales): columna
+  fija en escritorio y cajón en móvil, con la necesidad, la urgencia, la última
+  actividad, la persona y el aviso de "sin leer". Cambiar de conversación es un
+  toque, sin volver al panel.
+- **Se mantiene al día sola**: cada pocos segundos y al volver a la pestaña, con
+  refresco al instante para la sala abierta (la lista se avisa al recibir,
+  enviar o confirmar un mensaje). Al abrir una sala, su "sin leer" se marca al
+  momento.
+- **Un solo código para todas las conversaciones**: la clave del profesional ya
+  era una sola por cuenta (una para todas sus salas); ahora se dice
+  explícitamente en su panel y en el panel de recuperación, para que nadie
+  piense que cada chat pide su propio código.
+- El cajón móvil es un componente compartido (`SideDrawer`) entre los paneles y
+  la lista de conversaciones: mismo comportamiento (Escape, fondo, foco, scroll
+  bloqueado) y un solo sitio donde mantenerlo.
+
+## 0.15.0 - 2026-09-15
+
+Navegación de los paneles y entrada sin rodeos.
+
+- **Menú lateral en el panel profesional y en el admin**: secciones de la
+  página (con la sección a la vista resaltada al hacer scroll), ajustes y
+  salidas a la web pública, con iconos y contadores de pendientes (chats sin
+  leer, contactos nuevos, lista de espera, solicitudes).
+- **En móvil el menú es un cajón**: botón flotante "Secciones", se desliza
+  desde la izquierda con fondo oscurecido, cierra con Escape, con el fondo o al
+  elegir una sección, bloquea el scroll de detrás y devuelve el foco al botón.
+  Respeta `prefers-reduced-motion` y el área segura del móvil.
+- **Con la sesión abierta, /pro ya no vuelve a pedir la contraseña**: cada rol
+  va a su sitio (profesional a su panel, admin al suyo, y quien no tiene perfil
+  todavía a completarlo).
+- **Entrar manda al panel; crear cuenta, al perfil**: el formulario de acceso
+  separa el destino de "Entrar" (panel) del de "Crear mi cuenta" (perfil), y
+  Google ya no arrastra a un profesional existente al formulario de edición.
+- Escala de movimiento compartida (`--duration-*`, `--ease-smooth-out`) para
+  las transiciones nuevas, y anclas de "Registros incompletos" y "Aliados" en
+  el admin.
+
+## 0.14.1 - 2026-09-15
+
+El profesional nunca queda bloqueado por el cifrado en una sala.
+
+- **Si este dispositivo no tiene su clave**, el chat la crea y publica
+  automáticamente para que pueda leer lo nuevo y escribir de inmediato. Los
+  mensajes anteriores (cifrados con la clave anterior) se muestran como no
+  disponibles y queda un aviso discreto, NO bloqueante, con el botón "Tengo mi
+  código de recuperación" para recuperarlos. Antes esta situación mostraba el
+  panel de código como muro y parecía que no podía atender.
+- **Si la cuenta tiene publicada otra clave** (otro dispositivo), este equipo
+  sigue funcionando con la suya y se le ofrece el código para unificar; nunca se
+  re-publica en silencio para no alternar claves entre dispositivos.
+- El compositor y el botón "Enviar" permanecen siempre visibles y habilitados en
+  cuanto hay clave y clave de la contraparte.
+- La persona mantiene la regla anterior: en un dispositivo nuevo y con
+  historial, el código es obligatorio para leer (panel).
+
+## 0.14.0 - 2026-09-15
+
+Volver a una conversación desde otro navegador ya funciona, y el cifrado del
+chat deja de interrumpir a quien no le toca.
+
+- **Enlace abierto en otro navegador**: `/c/<id>` sin credencial ya no responde
+  404. Si la conversación existe, se muestra una pantalla de acceso privado
+  ("Esta conversación es privada") con el correo para pedir el enlace mágico,
+  salida rápida y alternativa de contacto; el 404 queda reservado a
+  conversaciones inexistentes.
+- **El enlace mágico entra de verdad**: la sesión nueva que crea
+  `createSeekerAccessLink` (sid distinto al original) ahora autoriza la sala, las
+  Server Actions y el WebSocket — antes se comparaba contra `seekerSid` y el
+  acceso desde otro navegador quedaba en 404 o sin permisos. La regla es la
+  misma en `chat-view.ts`, `resolveActor`, `auth-gate.ts` y
+  `renewSeekerChatToken`: cualquier `seeker_sessions` vigente de ESA
+  conversación.
+- **`/acceso/[token]` valida la sesión**: si la fila está revocada, expirada,
+  purgada o es de otra conversación, redirige a `/ayuda?acceso=invalido` en vez
+  de dejar una cookie inservible.
+- **Código de recuperación solo cuando hace falta** (`src/shared/e2ee-gating.ts`,
+  regla pura con tests): si el dispositivo tiene la clave no se muestra ningún
+  aviso ni panel. En un dispositivo nuevo, la persona ve el panel ENCIMA de los
+  mensajes (el compositor sigue visible) — sin código no puede leer —, mientras
+  que el profesional no se bloquea nunca (ver 0.14.1). La vista "como la
+  persona" crea su clave en silencio (la clave real es de la persona y no se
+  puede pedir su código).
+- **El botón "Enviar" siempre visible**: el panel de recuperación ya no
+  sustituye al compositor (antes lo tapaba y parecía que faltaba el botón).
+- **Panel de admin**: la lista de espera de personas (casos ajenos al terremoto)
+  queda rotulada como "Lista de espera · personas", separada de la tabla de
+  profesionales, con contadores por estado (en espera / contactadas /
+  emparejadas / cerradas). La verificación E2E del alta pública y de la
+  tarjeta del chat mostró los registros en esa sección.
+
+## 0.13.0 - 2026-09-15
+
+Tarjeta de lista de espera dentro del chat: el profesional la envía cuando el
+caso es ajeno al terremoto y la persona deja su correo en el propio hilo, sin
+salir de la conversación.
+
+- **Botón del profesional** (`chat-room.tsx`): "Tarjeta de lista de espera" en el
+  compositor (junto al de link de pago, con la misma confirmación desplegable).
+  Si no aplica, el profesional simplemente no la envía.
+- **Mensaje-tarjeta**: va como mensaje cifrado E2EE cuyo texto plano es un JSON
+  marcado (`src/shared/waitlist-prompt.ts`); el Durable Object lo trata como
+  cualquier mensaje, así que no hay tipos nuevos en el protocolo ni cambios en
+  el DO. La persona lo ve como una tarjeta con input de correo; envía con Enter
+  o con la flecha.
+- **Registro real**: el correo viaja por HTTPS a una Server Action autenticada
+  por la cookie de sala (nunca por el chat) con el mismo límite antiabuso del
+  formulario público; se guarda en `waitlist_entries` con `source = 'chat'` y
+  `conversation_id` (migración aditiva `0028_waitlist_chat`), con confirmación
+  por correo a la persona y aviso interno sin PII. El título y la descripción
+  los deriva el servidor del caso (área y profesional), nunca el cliente.
+- **Estado para ambas partes**: la tarjeta muestra "Anotado: correo" (y la fecha
+  a la persona) en cuanto existe la anotación; el profesional la ve al recargar
+  el hilo. Si el chat directo no tenía correo, queda guardado en la conversación
+  para los avisos y el enlace mágico de re-entrada.
+- **Retención**: la anonimización a los 12 meses también borra el vínculo con la
+  conversación.
+- **Tests**: payload puro, Server Action del chat (credencial de sala, validación,
+  actualización sin reavisar, límite, conversaciones anonimizadas/en papelera,
+  correo que no se sobreescribe) y migración. E2E real con dos navegadores y el
+  DO: tarjeta enviada, correo anotado y estado visible en las dos vistas.
+
+## 0.12.0 - 2026-09-15
+
+Lista de espera para quienes necesitan apoyo psicológico por motivos ajenos al
+terremoto: la ayuda gratuita de la emergencia está reservada para las víctimas,
+así que las demás personas se anotan y se les avisa cuando haya un cupo.
+
+- **Aviso "Antes de contactar"** (`src/components/waitlist-panel.tsx`): sección
+  que explica que el acompañamiento es gratis solo para las víctimas del
+  terremoto y ofrece los dos caminos de quien no lo es: anotarse en la lista de
+  espera o encontrar ayuda en una de las asociaciones aliadas. Se muestra antes
+  del catálogo de `/profesionales`, en `/ayuda` y en la nueva página
+  `/lista-de-espera`; cada página menciona además un aviso compacto
+  (`waitlist-callout.tsx`) en la portada, la FAQ, cómo funciona, alianzas y
+  quiénes somos.
+- **Formulario** (`waitlist-form.tsx`): correo, título ("¿Con qué necesitas
+  ayuda?") y descripción, con honeypot antirrobots, límite de 3 anotaciones
+  nuevas por correo o conexión en una hora y guardado en una sola sentencia
+  SQLite (verificación y escritura atómicas). UNA fila por correo: si la persona
+  reenvía el formulario se actualiza su anotación, sin duplicados.
+- **Tabla `waitlist_entries`** (migración aditiva `0027_waitlist_entries.sql`):
+  correo, título, descripción, origen, estado, hash irreversible de la conexión
+  y `anonymized_at`. Sin tocar ninguna tabla existente.
+- **Correos** (`email-templates.ts`): confirmación a la persona ("Te anotamos en
+  la lista de espera", con asociaciones aliadas y líneas de emergencia) y aviso
+  interno SIN datos personales que enlaza a `/admin#lista-espera`.
+- **Panel admin**: sección "Lista de espera" con las anotaciones (correo,
+  título, descripción, origen, fecha) y cambio de estado (En espera, Contactada,
+  En acompañamiento, Cerrada) con auditoría en `audit_logs`.
+- **Retención** (`retention.ts`): las anotaciones con 12 meses sin actividad se
+  anonimizan (se borran correo, título y descripción) y quedan cerradas.
+- **Privacidad y SEO**: política de privacidad actualizada (datos y retención de
+  la lista), `/lista-de-espera` en el sitemap y en el pie del sitio, y nueva
+  pregunta frecuente "No soy víctima del terremoto, ¿pueden ayudarme?".
+- **Accesibilidad**: enlaces dentro de los avisos con verde de mayor contraste
+  (`--accent-strong`, AA) para eliminar un fallo de contraste preexistente.
+
 ## 0.11.0 - 2026-09-14
 
 Cifrado de extremo a extremo del chat, historial completo sin tope práctico y

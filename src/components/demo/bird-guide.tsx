@@ -179,11 +179,8 @@ export function BirdGuide({
     if (!active) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (
-        document.activeElement instanceof Element &&
-        document.activeElement.closest("dialog[open], [aria-modal='true']")
-      )
-        return;
+      // Escape pertenece al modal aunque el navegador esté entre destinos de foco.
+      if (document.querySelector("dialog[open], [aria-modal='true']")) return;
       event.preventDefault();
       setOpen(false);
     };
@@ -226,14 +223,15 @@ export function BirdGuide({
     let idleEndTimer = 0;
     let idleAnimations: Animation[] = [];
     let idleBeat = 0;
-    let idleSuspended = false;
+    // Un nuevo paso también conserva la pausa de una pestaña oculta.
+    let idleSuspended = document.hidden;
     let flight: Animation | null = null;
     let tilt: Animation | null = null;
     let flightStart = 0;
     let flightEnd = 0;
     let lastRetarget = 0;
     let flightDestination = { x: 0, y: 0 };
-    let arrived = false;
+    let arrived = document.hidden;
     let target: HTMLElement | null = null;
     let scrolled = false;
     let closed = false;
@@ -249,6 +247,8 @@ export function BirdGuide({
       bird.dataset.positioned = "true";
     }
 
+    const modalOpen = () =>
+      Boolean(document.querySelector("dialog[open], [aria-modal='true']"));
     const motionAllowed = () =>
       !document.hidden &&
       !reduced.matches &&
@@ -329,6 +329,10 @@ export function BirdGuide({
       idleTimer = window.setTimeout(
         () => {
           idleTimer = 0;
+          if (modalOpen()) {
+            rest();
+            return;
+          }
           if (!motionAllowed()) {
             rest(true);
             return;
@@ -583,6 +587,11 @@ export function BirdGuide({
     const measure = () => {
       frame = 0;
       if (closed) return;
+      // El formulario modal conserva su foco y su posición mientras se revisa.
+      if (modalOpen()) {
+        rest();
+        return;
+      }
       const nextTarget = document.getElementById(targetId);
       if (nextTarget !== target) {
         if (target) resize.unobserve(target);
@@ -596,7 +605,6 @@ export function BirdGuide({
       const top = viewport?.offsetTop ?? 0;
       const panelWidth = Math.min(352, width - 24);
       panel.style.width = `${panelWidth}px`;
-      const panelHeight = panel.getBoundingClientRect().height;
       const safeBottom =
         Number.parseFloat(
           getComputedStyle(panel).getPropertyValue("--guide-safe-bottom"),
@@ -614,12 +622,22 @@ export function BirdGuide({
           ? navigationRect.bottom + 12
           : top + 12,
       );
+      const contentBottom =
+        navigationRect &&
+        navigationRect.width > width * 0.75 &&
+        navigationRect.top > top + height / 2 &&
+        navigationRect.bottom <= top + height + 1
+          ? navigationRect.top - 12
+          : top + height - Math.max(12, safeBottom + 8);
+      // La barra fija al pie sigue disponible durante todo el recorrido.
+      panel.style.maxHeight = `${Math.max(0, contentBottom - contentTop)}px`;
+      const panelHeight = panel.getBoundingClientRect().height;
       const rect = target?.getBoundingClientRect();
       const available = Boolean(rect && rect.width > 0 && rect.height > 0);
       const tallMobileTarget = Boolean(
         width < 640 &&
           rect &&
-          rect.height > height - panelHeight - (contentTop - top) - 24,
+          rect.height > contentBottom - contentTop - panelHeight - 24,
       );
       setTargetVisible(available);
       highlight.style.opacity = available ? "1" : "0";
@@ -639,10 +657,12 @@ export function BirdGuide({
                 ),
               ),
             );
-        window.scrollTo({
-          top: Math.max(0, window.scrollY + rect.top - top - desiredTop),
-          behavior: reduced.matches ? "instant" : "smooth",
-        });
+        // La navegación fija o sticky no necesita desplazar su página.
+        if (target !== navigation)
+          window.scrollTo({
+            top: Math.max(0, window.scrollY + rect.top - top - desiredTop),
+            behavior: reduced.matches ? "instant" : "smooth",
+          });
         schedule();
       }
       const side =
@@ -655,10 +675,7 @@ export function BirdGuide({
         width < 640 || side === "left"
           ? left + 12
           : left + width - panelWidth - 12;
-      const bottomY = Math.max(
-        top + 12,
-        top + height - panelHeight - Math.max(12, safeBottom + 8),
-      );
+      const bottomY = Math.max(top + 12, contentBottom - panelHeight);
       const topY = Math.max(contentTop, top + Math.min(84, height / 5));
       const overlap = (y: number) =>
         rect
@@ -686,7 +703,7 @@ export function BirdGuide({
         Math.max(left + 10, rect ? rect.right - 60 : panelX),
       );
       let birdY = Math.min(
-        top + height - birdSize - 10,
+        contentBottom - birdSize,
         Math.max(contentTop, rect ? rect.top - 62 : panelY - 80),
       );
       const readingRects = readingIds.flatMap((readingId) => {
@@ -702,7 +719,7 @@ export function BirdGuide({
         return r.width > 0 &&
           r.height >= birdSize &&
           y >= contentTop &&
-          y + birdSize <= top + height - 10 &&
+          y + birdSize <= contentBottom &&
           !overlapsPanel
           ? [{ id: readingId, rect: r }]
           : [];
@@ -728,7 +745,7 @@ export function BirdGuide({
         birdY < panelY + panelHeight
       ) {
         if (panelY - 80 >= contentTop) birdY = panelY - 80;
-        else if (panelY + panelHeight + 80 <= top + height - 10)
+        else if (panelY + panelHeight + 80 <= contentBottom)
           birdY = panelY + panelHeight + 8;
         else birdFits = false;
       }
@@ -739,7 +756,7 @@ export function BirdGuide({
           left: left + 10,
           right: left + width - birdSize - 10,
           top: contentTop,
-          bottom: top + height - birdSize - 10,
+          bottom: contentBottom - birdSize,
         },
         available && birdFits,
       );
@@ -752,8 +769,15 @@ export function BirdGuide({
       }
     };
     function schedule() {
-      if (!frame && !closed && !document.hidden)
-        frame = requestAnimationFrame(measure);
+      if (closed || document.hidden) return;
+      // La apertura/cierre del modal invalida la medida sin mantener RAF detrás.
+      if (modalOpen()) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        rest();
+        return;
+      }
+      if (!frame) frame = requestAnimationFrame(measure);
     }
     function visibilityChanged() {
       if (!motionAllowed()) rest(true);
@@ -764,7 +788,12 @@ export function BirdGuide({
     if (navbar) resize.observe(navbar);
     if (navigation) resize.observe(navigation);
     const mutation = new MutationObserver(schedule);
-    mutation.observe(document.body, { childList: true, subtree: true });
+    mutation.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["open", "aria-modal"],
+    });
     window.addEventListener("resize", schedule, { passive: true });
     window.addEventListener("scroll", schedule, {
       passive: true,
@@ -779,7 +808,7 @@ export function BirdGuide({
     reduced.addEventListener("change", visibilityChanged);
     connection?.addEventListener?.("change", visibilityChanged);
     document.addEventListener("visibilitychange", visibilityChanged);
-    titleRef.current?.focus({ preventScroll: true });
+    if (!modalOpen()) titleRef.current?.focus({ preventScroll: true });
     schedule();
     return () => {
       closed = true;

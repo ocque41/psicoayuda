@@ -1,13 +1,22 @@
 import { chooseChatIdentity } from "@/lib/chat-identity";
 import {
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
+  verifyProfessionalInboxToken,
   verifyProfessionalToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
 import type { Env } from "./types";
 
-export type AuthDecision = { role: "seeker" | "professional"; id: string };
+export type AuthDecision = {
+  role: "seeker" | "professional";
+  id: string;
+  /** Conexión de SOLO LECTURA para avisos de la lista de conversaciones. */
+  informer?: boolean;
+  authSessionId?: string;
+  userId?: string;
+};
 
 type AuthGateEnv = Pick<Env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL"> & {
   DB?: Env["DB"];
@@ -48,11 +57,15 @@ export function authorizeConnection(
   const cookies = parseCookies(cookieHeader);
 
   let professionalId: string | null = null;
+  let authSessionId: string | undefined;
+  let userId: string | undefined;
   const proRaw = cookies[PRO_COOKIE];
   if (proRaw) {
     const pro = verifyProfessionalToken(proRaw, secret, nowMs);
     if (pro && pro.conversationId === conversationId) {
       professionalId = pro.professionalId;
+      authSessionId = pro.authSessionId;
+      userId = pro.userId;
     }
   }
 
@@ -70,7 +83,7 @@ export function authorizeConnection(
     preferPersona,
   );
   if (identity === "professional" && professionalId) {
-    return { role: "professional", id: professionalId };
+    return { role: "professional", id: professionalId, authSessionId, userId };
   }
   if (identity === "seeker" && seekerSid) {
     return { role: "seeker", id: seekerSid };
@@ -115,6 +128,7 @@ export function seekerCanSend(row: SeekerSessionRow | null): boolean {
 }
 
 export type ProfessionalSessionRow = {
+  auth_session_expires_at: number | null;
   conversation_status: string | null;
   professional_status: string | null;
   anonymized_at: number | null;
@@ -130,10 +144,16 @@ export type ProfessionalSessionRow = {
  */
 export function professionalConnectionAllows(
   row: ProfessionalSessionRow | null,
+  nowMs = Date.now(),
 ): boolean {
   if (!row) return false;
   if (row.anonymized_at != null) return false;
   if (row.deleted_at != null) return false;
+  if (
+    !Number.isFinite(row.auth_session_expires_at) ||
+    (row.auth_session_expires_at ?? 0) <= nowMs
+  )
+    return false;
   return (
     row.professional_status === "approved" &&
     (row.conversation_status === "open" || row.conversation_status === "closed")
@@ -143,9 +163,11 @@ export function professionalConnectionAllows(
 /** ¿Puede ESCRIBIR el profesional? Solo si la conversación sigue abierta. */
 export function professionalCanSend(
   row: ProfessionalSessionRow | null,
+  nowMs = Date.now(),
 ): boolean {
   return (
-    professionalConnectionAllows(row) && row?.conversation_status === "open"
+    professionalConnectionAllows(row, nowMs) &&
+    row?.conversation_status === "open"
   );
 }
 
@@ -179,7 +201,7 @@ async function seekerSessionActive(
       .first()) as SeekerSessionRow | null;
     if (!row) return { allowed: false, canSend: false };
     return {
-      allowed: seekerSessionAllows(row, nowMs),
+      allowed: seekerSessionAllows(row, Math.max(nowMs, Date.now())),
       canSend: seekerCanSend(row),
     };
   } catch {
@@ -196,24 +218,29 @@ async function professionalSessionActive(
   env: AuthGateEnv,
   professionalId: string,
   conversationId: string,
+  authSessionId: string | undefined,
+  userId: string | undefined,
+  nowMs: number,
 ): Promise<ConnectGate> {
+  if (!authSessionId || !userId) return { allowed: false, canSend: false };
   const database = env.DB;
   if (!database) return { allowed: false, canSend: false };
   try {
     const row = (await database
       .prepare(
-        `SELECT c.status AS conversation_status, c.anonymized_at AS anonymized_at, c.deleted_at AS deleted_at, p.status AS professional_status
+        `SELECT c.status AS conversation_status, c.anonymized_at AS anonymized_at, c.deleted_at AS deleted_at, p.status AS professional_status, a.expires_at AS auth_session_expires_at
          FROM conversations c
          JOIN professionals p ON p.id = c.professional_id
-         WHERE p.id = ? AND c.id = ?
+         JOIN session a ON a.user_id = p.user_id
+         WHERE p.id = ? AND c.id = ? AND a.id = ? AND a.user_id = ?
          LIMIT 1`,
       )
-      .bind(professionalId, conversationId)
+      .bind(professionalId, conversationId, authSessionId, userId)
       .first()) as ProfessionalSessionRow | null;
     if (!row) return { allowed: false, canSend: false };
     return {
-      allowed: professionalConnectionAllows(row),
-      canSend: professionalCanSend(row),
+      allowed: professionalConnectionAllows(row, Math.max(nowMs, Date.now())),
+      canSend: professionalCanSend(row, Math.max(nowMs, Date.now())),
     };
   } catch {
     return { allowed: false, canSend: false };
@@ -227,10 +254,56 @@ export async function currentConnectionGate(
   id: string,
   conversationId: string,
   nowMs: number,
+  authSessionId?: string,
+  userId?: string,
 ): Promise<ConnectGate> {
   return role === "seeker"
     ? seekerSessionActive(env, id, conversationId, nowMs)
-    : professionalSessionActive(env, id, conversationId);
+    : professionalSessionActive(
+        env,
+        id,
+        conversationId,
+        authSessionId,
+        userId,
+        nowMs,
+      );
+}
+
+/** Token de avisos del profesional (cookie sin sala) si la firma es válida. */
+function inboxTokenFrom(
+  cookieHeader: string | null,
+  secret: string,
+  nowMs: number,
+) {
+  const cookies = parseCookies(cookieHeader);
+  const raw = cookies[PRO_INBOX_COOKIE];
+  if (!raw) return null;
+  return verifyProfessionalInboxToken(raw, secret, nowMs);
+}
+
+/**
+ * Kill-switch de la conexión de AVISOS: solo salas del propio profesional, no
+ * anonimizadas ni en papelera, y cuenta no suspendida. Sin binding D1 (tests) se
+ * rechaza: una conexión de avisos sin comprobar la propiedad de la sala sería un
+ * agujero; con D1, se comprueba en la misma fila que el kill-switch normal.
+ */
+export async function informerSessionActive(
+  env: AuthGateEnv,
+  professionalId: string,
+  conversationId: string,
+  authSessionId?: string,
+  userId?: string,
+  nowMs = Date.now(),
+): Promise<ConnectGate> {
+  const gate = await professionalSessionActive(
+    env,
+    professionalId,
+    conversationId,
+    authSessionId,
+    userId,
+    nowMs,
+  );
+  return { allowed: gate.allowed, canSend: false };
 }
 
 function isAllowedOrigin(request: Request, env: AuthGateEnv): boolean {
@@ -281,15 +354,44 @@ export function makeOnBeforeConnect(env: AuthGateEnv) {
       return new Response("Server misconfigured", { status: 500 });
     }
     const now = Date.now();
-    // El profesional puede pedir la vista de la persona (`?como=persona` en la
-    // URL del WebSocket). Con la misma regla que la página, nunca por accidente.
-    let preferPersona = false;
+    let url: URL | null = null;
     try {
-      preferPersona =
-        new URL(request.url).searchParams.get("como") === "persona";
+      url = new URL(request.url);
     } catch {
       // URL mal formada: sin preferencia (gana la prelación por defecto).
     }
+
+    // Rama de AVISOS (lista de conversaciones del profesional en el chat): solo
+    // lectura, sin presencia y sin contar como "profesional en línea" (los
+    // avisos por correo al profesional siguen funcionando). Un token de avisos inválido se rechaza sin servir el canal de contenido.
+    if (url?.searchParams.get("avisos") === "1") {
+      const inbox = inboxTokenFrom(request.headers.get("Cookie"), secret, now);
+      if (!inbox) return new Response("Unauthorized", { status: 403 });
+      const gate = await informerSessionActive(
+        env,
+        inbox.professionalId,
+        lobby.name,
+        inbox.authSessionId,
+        inbox.userId,
+        now,
+      );
+      if (!gate.allowed) {
+        return new Response("Session revoked", { status: 403 });
+      }
+      const headers = new Headers(request.headers);
+      headers.set("x-nido-role", "professional");
+      headers.set("x-nido-id", inbox.professionalId);
+      headers.set("x-nido-auth-session-id", inbox.authSessionId);
+      headers.set("x-nido-user-id", inbox.userId);
+      headers.set("x-nido-informer", "1");
+      headers.set("x-nido-inbox-exp", String(inbox.exp));
+      headers.set("x-nido-can-send", "0");
+      return new Request(request, { headers });
+    }
+
+    // El profesional puede pedir la vista de la persona (`?como=persona` en la
+    // URL del WebSocket). Con la misma regla que la página, nunca por accidente.
+    const preferPersona = url?.searchParams.get("como") === "persona";
     const decision = authorizeConnection(
       request.headers.get("Cookie"),
       lobby.name,
@@ -311,11 +413,21 @@ export function makeOnBeforeConnect(env: AuthGateEnv) {
       decision.id,
       lobby.name,
       now,
+      decision.authSessionId,
+      decision.userId,
     );
     if (!gate.allowed) {
       return new Response("Session revoked", { status: 403 });
     }
     const headers = new Headers(request.headers);
+    headers.delete("x-nido-informer");
+    headers.delete("x-nido-inbox-exp");
+    headers.delete("x-nido-auth-session-id");
+    headers.delete("x-nido-user-id");
+    if (decision.authSessionId && decision.userId) {
+      headers.set("x-nido-auth-session-id", decision.authSessionId);
+      headers.set("x-nido-user-id", decision.userId);
+    }
     headers.set("x-nido-role", decision.role);
     headers.set("x-nido-id", decision.id);
     headers.set("x-nido-can-send", gate.canSend ? "1" : "0");

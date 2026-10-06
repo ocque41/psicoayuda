@@ -1,13 +1,28 @@
 import { getServerSession } from "@/lib/auth-server";
 import { patientExportChunks } from "@/lib/patient/export";
+import { withPatientPushExport } from "@/lib/push/export";
+import { authorizedPushActor } from "@/lib/push/preferences";
 export async function GET() {
   const session = await getServerSession();
-  if (!session?.user.id)
+  if (!session?.user.id || !session.user.emailVerified || !session.session.id)
     return new Response("Inicia sesión para descargar tus datos.", {
       status: 401,
       headers: { "cache-control": "no-store" },
     });
-  const chunks = patientExportChunks(session.user.id),
+  const actor = {
+    userId: session.user.id,
+    sessionId: session.session.id,
+    role: "patient" as const,
+  };
+  if (!(await authorizedPushActor(actor)))
+    return new Response("Tu espacio de paciente no está disponible.", {
+      status: 403,
+      headers: { "cache-control": "private, no-store" },
+    });
+  const chunks = withPatientPushExport(
+      actor,
+      patientExportChunks(session.user.id),
+    ),
     encoder = new TextEncoder();
   const body = new ReadableStream({
     async pull(controller) {

@@ -62,6 +62,7 @@
     // `wrangler secret put STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET`.
     "NIDO_PLATFORM_FEE_CENTS": "0",
     "NIDO_PRACTICE_ENABLED": "true",
+    "NIDO_PUSH_ENABLED": "false",
     "NIDO_MEMBERSHIP_BILLING_ENABLED": "false",
     "NIDO_CARE_BILLING_ENABLED": "false",
     "NIDO_CALL_CAPTURE_ENABLED": "false"

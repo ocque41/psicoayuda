@@ -18,3 +18,5 @@ google-cloud-sdk/
 .cloudflare-secret-*.txt
 # Contexto y operación privados: el repositorio remoto es público.
 docs/producto/
+# Artefactos de la automatización del navegador (Playwright MCP)
+.playwright-mcp/

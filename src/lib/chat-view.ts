@@ -5,14 +5,9 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { conversations, professionals, seekerSessions } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
 import { chooseChatIdentity } from "@/lib/chat-identity";
-import {
-  PRO_COOKIE,
-  SEEKER_COOKIE,
-  verifyProfessionalToken,
-  verifySeekerToken,
-} from "@/lib/seeker-token";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
+import { SEEKER_COOKIE, verifySeekerToken } from "@/lib/seeker-token";
 
 export type ChatRole = "seeker" | "professional";
 
@@ -43,8 +38,7 @@ export type ChatView = {
  * Autoriza quién puede VER la conversación y devuelve lo mínimo para pintar la
  * cabecera. Devuelve null si el visitante no es ni la persona (cookie HMAC de
  * esta sala, con sesión efímera vigente) ni el profesional dueño (sesión
- * better-auth O cookie HMAC de la sala, para que la vista y el WebSocket no se
- * contradigan cuando la sesión caducó).
+ * BetterAuth vigente; una cookie HMAC antigua exige volver a iniciar sesión).
  *
  * La prelación es la MISMA que la del `onBeforeConnect` del Worker y la de las
  * server actions (`chooseChatIdentity`, src/lib/chat-identity.ts): profesional
@@ -68,44 +62,19 @@ export async function loadChatView(
   const open = conversation.status === "open";
   const cookieStore = await cookies();
 
-  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
-  let isProfessional = false;
-  let professionalRow: typeof professionals.$inferSelect | null = null;
-  const session = await getServerSession();
-  if (session?.user?.id) {
-    const pro = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (
-      pro &&
-      pro.id === conversation.professionalId &&
-      pro.status === "approved"
-    ) {
-      isProfessional = true;
-      professionalRow = pro;
-    }
-  }
-  if (!isProfessional) {
-    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
-    if (proRaw) {
-      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
-      if (
-        pro &&
-        pro.conversationId === conversationId &&
-        pro.professionalId === conversation.professionalId
-      ) {
-        const row = await db.query.professionals.findFirst({
-          where: eq(professionals.id, conversation.professionalId),
-        });
-        if (row && row.status === "approved") {
-          isProfessional = true;
-          professionalRow = row;
-        }
-      }
-    }
-  }
+  // Profesional dueño: BetterAuth vigente. La cookie de sala sola no basta.
+  const live = await loadLiveChatProfessional(conversation.professionalId);
+  const isProfessional = !!live;
+  let professionalRow: typeof professionals.$inferSelect | null =
+    live?.professional ?? null;
 
   // Persona (seeker anónimo): cookie firmada para ESTA sala + sesión vigente.
+  // La sesión puede ser la ORIGINAL (creada al abrir el chat) o una nueva del
+  // enlace mágico (`createSeekerAccessLink` mintea un sid distinto): ambas son
+  // filas vigentes de ESTA conversación. Comparar contra `conversation.seekerSid`
+  // rompía el acceso desde otro navegador (la página respondía 404 tras abrir el
+  // enlace del correo). La regla es la misma que la del WebSocket
+  // (`auth-gate.ts`) y la de `renewSeekerChatToken`.
   let isSeeker = false;
   const seekerRaw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (seekerRaw) {
@@ -163,10 +132,28 @@ export async function loadChatView(
     conversationId,
     open,
     otherName,
+    // La vista "como la persona" del profesional también puede abrir la lista
+    // de sus conversaciones: solo en ese caso se expone su id.
+    professionalId: canSwitchView ? conversation.professionalId : undefined,
     canSwitchView,
     deleted,
     purgeAfter,
     deletedByRole: conversation.deletedByRole,
     proPublicKey: professionalRow?.cryptoPublicKey ?? null,
   };
+}
+
+/**
+ * ¿Existe la conversación? Se usa SOLO para decidir entre 404 y la pantalla de
+ * acceso privado cuando el visitante no trae credencial: un enlace abierto en
+ * otro navegador NO es una página rota, es una sala privada que pide el correo.
+ */
+export async function conversationExists(
+  conversationId: string,
+): Promise<boolean> {
+  const row = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+    columns: { id: true },
+  });
+  return Boolean(row);
 }

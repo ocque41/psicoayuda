@@ -18,6 +18,8 @@ export default defineConfig({
         durableObjects: {
           Conversation: { className: "Conversation", useSQLite: true },
         },
+        // Este harness comprueba DO/WebSocket con el D1 de transporte explícito.
+        // Las consultas y revocaciones reales usan SQLite en auth-gate-d1.test.
         bindings: {
           BETTER_AUTH_SECRET: "test-secret",
           BETTER_AUTH_URL: "https://internal.test",

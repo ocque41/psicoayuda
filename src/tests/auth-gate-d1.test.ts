@@ -3,15 +3,18 @@ import { eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
+  session as authSessions,
   conversations,
   professionals,
   seekerSessions,
   user,
 } from "@/db/schema";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
 } from "@/lib/seeker-token";
 import { makeOnBeforeConnect } from "@/server/auth-gate";
@@ -39,7 +42,7 @@ function request(role: "seeker" | "professional", pro = `${prefix}-pro`) {
   const now = Date.now();
   const cookie =
     role === "professional"
-      ? `${PRO_COOKIE}=${mintProfessionalToken({ professionalId: pro, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`
+      ? `${PRO_COOKIE}=${mintProfessionalToken({ professionalId: pro, authSessionId: `${prefix}-auth`, userId: `${prefix}-user`, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`
       : `${SEEKER_COOKIE}=${mintSeekerToken({ sid: `${prefix}-sid`, conversationId: `${prefix}-conv`, role, iat: now, exp: now + 3600000 }, secret)}`;
   return new Request("https://nido.example/parties/conversation/fixture", {
     headers: {
@@ -87,6 +90,12 @@ describe("chat: autorización D1 fail-closed y pertenencia actual", () => {
         updatedAt: timestamp,
       })),
     );
+    await db.insert(authSessions).values({
+      id: `${prefix}-auth`,
+      userId: `${prefix}-user`,
+      token: `${prefix}-token`,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
     await db.insert(conversations).values({
       id: `${prefix}-conv`,
       professionalId: `${prefix}-pro`,
@@ -201,5 +210,45 @@ describe("chat: autorización D1 fail-closed y pertenencia actual", () => {
     expect(
       await makeOnBeforeConnect(env)(request("seeker"), lobby),
     ).toBeInstanceOf(Response);
+  });
+  it("aviso de bandeja requiere dueño aprobado, token válido y no hereda headers públicos", async () => {
+    const now = Date.now();
+    const makeRequest = (pro: string, exp = now + 900000) =>
+      new Request(
+        "https://nido.example/parties/conversation/fixture?avisos=1",
+        {
+          headers: {
+            Cookie: `${PRO_INBOX_COOKIE}=${mintProfessionalInboxToken({ professionalId: pro, authSessionId: `${prefix}-auth`, userId: `${prefix}-user`, role: "inbox", iat: now, exp }, secret)}`,
+            Origin: "https://nido.example",
+          },
+        },
+      );
+    const result = await makeOnBeforeConnect(env)(
+      makeRequest(`${prefix}-pro`),
+      lobby,
+    );
+    expect(result).toBeInstanceOf(Request);
+    expect((result as Request).headers.get("x-nido-informer")).toBe("1");
+    expect((result as Request).headers.get("x-nido-can-send")).toBe("0");
+    expect(
+      await makeOnBeforeConnect(env)(makeRequest(`${prefix}-other`), lobby),
+    ).toBeInstanceOf(Response);
+    expect(
+      await makeOnBeforeConnect(env)(makeRequest(`${prefix}-pro`, now), lobby),
+    ).toBeInstanceOf(Response);
+    await db
+      .update(professionals)
+      .set({ status: "pending" })
+      .where(eq(professionals.id, `${prefix}-pro`));
+    try {
+      expect(
+        await makeOnBeforeConnect(env)(makeRequest(`${prefix}-pro`), lobby),
+      ).toBeInstanceOf(Response);
+    } finally {
+      await db
+        .update(professionals)
+        .set({ status: "approved" })
+        .where(eq(professionals.id, `${prefix}-pro`));
+    }
   });
 });

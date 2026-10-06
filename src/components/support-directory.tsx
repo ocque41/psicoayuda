@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useState } from "react";
 import { FeedProfessionalCard } from "@/app/profesionales/professional-card";
 import { CrisisResources } from "@/components/crisis-resources";
+import { DirectoryItemListJsonLd } from "@/components/structured-data";
 import { needSeekerLabels } from "@/lib/constants";
 import type { FeedProfessional } from "@/lib/feed";
 import {
@@ -71,10 +72,12 @@ export function SupportDirectory({
   professionals,
   organizations,
   initialFilters,
+  itemListPath,
 }: {
   professionals: FeedProfessional[];
   organizations: Organization[];
   initialFilters?: SupportInitialFilters;
+  itemListPath: "/profesionales" | "/ayuda";
 }) {
   // `input` controla la barra (inmediato); `query` es lo que filtra y va a la URL
   // (con debounce). Ambos arrancan del valor inicial que llega del servidor.
@@ -231,6 +234,15 @@ export function SupportDirectory({
 
   return (
     <>
+      {/* Comparte los resultados reales en SSR y al cambiar filtros en cliente.
+          Si no hay resultados, el helper omite ItemList. Sólo nombres públicos. */}
+      <DirectoryItemListJsonLd
+        path={itemListPath}
+        names={[
+          ...matchedPros.map((professional) => professional.name),
+          ...matchedOrgs.map((organization) => organization.name),
+        ]}
+      />
       <form
         aria-label="Buscar y filtrar apoyo"
         onSubmit={(event) => event.preventDefault()}

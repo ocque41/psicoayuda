@@ -63,8 +63,8 @@ const websiteNode: Json = {
   description: SITE_DESCRIPTION,
   inLanguage: "es",
   publisher: { "@id": `${SITE_URL}/#organization` },
-  // Habilita el Sitelinks Searchbox de Google: apunta al buscador real del
-  // directorio (/profesionales lee ?q= en el cliente).
+  // Describe el buscador real del directorio con la semántica de Schema.org.
+  // Google retiró Sitelinks Searchbox el 21/11/2024: este marcado no lo habilita.
   potentialAction: {
     "@type": "SearchAction",
     target: {
@@ -76,19 +76,18 @@ const websiteNode: Json = {
 };
 
 // Fechas de contenido del clúster de guías. `datePublished` = cuándo se publicó;
-// `dateModified` = última revisión de contenido (señal de frescura que Google usa
-// en contenido de salud/YMYL). Actualiza `dateModified` al reescribir una guía.
-// No usamos `lastReviewed`: implicaría revisión médica y aquí no la hay.
+// `dateModified` = última modificación de contenido. No cambies estas fechas
+// por un despliegue o por una expectativa de ranking.
+// No declaramos `lastReviewed`/`reviewedBy` sin una revisión documentada.
 const GUIDES_PUBLISHED = "2026-06-29";
 const GUIDES_MODIFIED = "2026-07-01";
 
 /**
  * Datos estructurados de una guía de salud (`MedicalWebPage`).
  *
- * Google recomienda marcar el contenido de salud (YMYL) como página médica.
- * Se enlaza al grafo del sitio (`#website` / `#organization`) por `@id` para
- * que Google una todo en una sola entidad. No declara revisor médico porque no
- * lo hay: solo afirmamos lo verificable.
+ * Schema.org define MedicalWebPage para páginas con información médica.
+ * Describe el contenido educativo; no acredita revisión clínica ni promete
+ * un resultado enriquecido. Publisher/isPartOf enlazan al grafo del sitio.
  */
 export function GuideJsonLd({
   path,
@@ -127,8 +126,8 @@ export function GuideJsonLd({
  * Datos estructurados del directorio público (`CollectionPage`).
  *
  * Es el `@type` correcto para una página que lista/colecciona recursos (aquí,
- * profesionales voluntarios). No enumera personas: la lista es pública pero los
- * voluntarios solo exponen nombre y datos mínimos, así que evitamos `Person`
+ * profesionales). No enumera personas: la lista es pública pero los
+ * perfiles solo exponen nombre y datos mínimos, así que evitamos `Person`
  * por privacidad. Se enlaza al grafo del sitio por `@id`.
  */
 export function DirectoryJsonLd() {
@@ -233,7 +232,10 @@ export function HomeJsonLd() {
     inLanguage: "es",
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#organization` },
-    primaryImageOfPage: absoluteUrl("/opengraph-image"),
+    primaryImageOfPage: {
+      "@type": "ImageObject",
+      url: absoluteUrl("/opengraph-image"),
+    },
   };
 
   const serviceNode: Json = {
@@ -241,7 +243,7 @@ export function HomeJsonLd() {
     "@id": `${SITE_URL}/#service`,
     name: "Ayuda Terremoto · Acompañamiento voluntario gratuito",
     serviceType: "Apoyo psicológico y emocional a distancia",
-    url: SITE_URL,
+    url: absoluteUrl("/ayuda"),
     provider: { "@id": `${SITE_URL}/#organization` },
     areaServed: { "@type": "Country", name: "Venezuela" },
     availableChannel: {
@@ -253,7 +255,6 @@ export function HomeJsonLd() {
       "@type": "Offer",
       price: 0,
       priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
     },
     audience: {
       "@type": "Audience",

@@ -10,35 +10,43 @@ import {
   seekerSessions,
 } from "@/db/schema";
 import { getAuthSecret } from "@/lib/auth-secret";
-import { getServerSession } from "@/lib/auth-server";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { chooseChatIdentity } from "@/lib/chat-identity";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
+import { needLabels } from "@/lib/constants";
 import { TRASH_GRACE_MS } from "@/lib/conversation-purge";
 import { newId, nowIso } from "@/lib/ids";
 import {
   conversationUrl,
+  notifyAdminWaitlistEntry,
   notifyConversationDeleted,
   notifyConversationReopened,
+  notifyWaitlistConfirmation,
 } from "@/lib/notifications";
+import { getRequesterHash } from "@/lib/requester-hash";
 import {
   createSeekerAccessLink,
   SEEKER_SESSION_TTL_MS,
 } from "@/lib/seeker-access";
 import {
+  mintProfessionalInboxToken,
   mintProfessionalToken,
   mintSeekerToken,
   PRO_COOKIE,
+  PRO_INBOX_COOKIE,
   SEEKER_COOKIE,
-  verifyProfessionalToken,
   verifySeekerToken,
 } from "@/lib/seeker-token";
+import { waitlistChatSignupSchema } from "@/lib/validation";
+import { waitlistSourceLabels } from "@/lib/waitlist";
+import { storeWaitlistEntry } from "@/lib/waitlist-store";
 
 const TTL_MS = 72 * 60 * 60 * 1000; // 72h, igual que el token del seeker.
 
 /**
  * Resuelve la identidad del actor de una acción sobre la sala con la MISMA
  * prelación que la página y el WebSocket (src/lib/chat-identity.ts): el
- * profesional (sesión o cookie de sala) gana por defecto; el seeker solo si no
+ * profesional con sesión vigente gana por defecto; el seeker solo si no
  * hay credencial profesional o si el profesional pide actuar como la persona
  * (`asPersona`, desde su vista de persona). Devuelve null si no hay ninguna.
  */
@@ -50,6 +58,8 @@ async function resolveActor(
   actorEmail: string | null;
   professionalId: string | null;
   userId: string | null;
+  authSessionId: string | null;
+  expiresAt: number;
   seekerSid: string | null;
 } | null> {
   if (
@@ -59,47 +69,21 @@ async function resolveActor(
     return null;
   const cookieStore = await cookies();
 
-  // Profesional dueño: sesión better-auth o cookie HMAC de la sala (72 h).
-  let isProfessional = false;
-  let actorEmail: string | null = null;
-  let professionalUserId: string | null = null;
-  const session = await getServerSession();
-  if (session?.user?.id) {
-    const pro = await db.query.professionals.findFirst({
-      where: eq(professionals.userId, session.user.id),
-    });
-    if (
-      pro &&
-      pro.id === conversation.professionalId &&
-      pro.status === "approved"
-    ) {
-      isProfessional = true;
-      actorEmail = session.user.email ?? null;
-      professionalUserId = session.user.id;
-    }
-  }
-  if (!isProfessional) {
-    const proRaw = cookieStore.get(PRO_COOKIE)?.value;
-    if (proRaw) {
-      const pro = verifyProfessionalToken(proRaw, getAuthSecret(), Date.now());
-      if (
-        pro &&
-        pro.conversationId === conversation.id &&
-        pro.professionalId === conversation.professionalId
-      ) {
-        const row = await db.query.professionals.findFirst({
-          where: eq(professionals.id, conversation.professionalId),
-        });
-        if (row && row.status === "approved") {
-          isProfessional = true;
-          actorEmail = row.email;
-        }
-      }
-    }
-  }
+  // El actor profesional exige la sesión autenticada vigente en DB.
+  const liveProfessional = await loadLiveChatProfessional(
+    conversation.professionalId,
+  );
+  const isProfessional = !!liveProfessional;
+  const actorEmail = liveProfessional?.professional.email ?? null;
+  const professionalUserId = liveProfessional?.userId ?? null;
 
-  // Persona (seeker).
+  // Persona (seeker): la sesión puede ser la original o una del enlace mágico
+  // (/acceso). Cualquier fila vigente de ESTA conversación vale — es la misma
+  // regla que la vista (`chat-view.ts`), el WebSocket (`auth-gate.ts`) y
+  // `renewSeekerChatToken`. (Antes se exigía el sid original y el enlace del
+  // correo abría la sala sin poder reabrir/borrar.)
   let seekerSid: string | null = null;
+  let seekerExpiresAt = 0;
   const raw = cookieStore.get(SEEKER_COOKIE)?.value;
   if (raw) {
     const payload = verifySeekerToken(raw, getAuthSecret(), Date.now());
@@ -113,7 +97,10 @@ async function resolveActor(
         sessionRow.role === "seeker" &&
         !sessionRow.revokedAt &&
         sessionRow.expiresAt.getTime() > Date.now();
-      if (valid) seekerSid = payload.sid;
+      if (valid) {
+        seekerSid = payload.sid;
+        seekerExpiresAt = Math.min(payload.exp, sessionRow.expiresAt.getTime());
+      }
     }
   }
 
@@ -128,6 +115,8 @@ async function resolveActor(
         actorEmail,
         professionalId: conversation.professionalId,
         userId: professionalUserId,
+        authSessionId: liveProfessional?.authSessionId ?? null,
+        expiresAt: liveProfessional?.expiresAt ?? 0,
         seekerSid: null,
       }
     : {
@@ -135,6 +124,8 @@ async function resolveActor(
         actorEmail: null,
         professionalId: null,
         userId: null,
+        authSessionId: null,
+        expiresAt: seekerExpiresAt,
         seekerSid,
       };
 }
@@ -148,11 +139,41 @@ function actorPermission(
   if (actor.role === "professional") {
     return sql`EXISTS(SELECT 1 FROM conversations owned JOIN professionals p ON p.id=owned.professional_id
       WHERE owned.id=${conversationId} AND p.id=${actor.professionalId} AND p.status='approved'
-        AND (${actor.userId} IS NULL OR p.user_id=${actor.userId}))`;
+        AND p.user_id=${actor.userId}
+        AND EXISTS(SELECT 1 FROM session a WHERE a.id=${actor.authSessionId}
+          AND a.user_id=p.user_id AND a.expires_at > (cast(unixepoch('subsecond') * 1000 as integer))))`;
   }
   return sql`EXISTS(SELECT 1 FROM seeker_sessions s WHERE s.sid=${actor.seekerSid}
     AND s.conversation_id=${conversationId} AND s.role='seeker' AND s.revoked_at IS NULL
-    AND s.expires_at > ${Date.now()})`;
+    AND s.expires_at > (cast(unixepoch('subsecond') * 1000 as integer)))`;
+}
+
+/** Guard fresco para revelar/exportar/restaurar E2EE en ESTA sala y rol. */
+export async function verifyConversationE2eeActor(
+  conversationId: string,
+  role: "professional" | "seeker",
+  expectedProfessionalId?: string,
+): Promise<{ ok: boolean; expiresAt?: number }> {
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+  });
+  if (!conversation || conversation.deletedAt || conversation.anonymizedAt)
+    return { ok: false };
+  const actor = await resolveActor(conversation, role === "seeker");
+  if (!actor || actor.role !== role || actor.expiresAt <= Date.now())
+    return { ok: false };
+  if (
+    role === "professional" &&
+    actor.professionalId !== expectedProfessionalId
+  )
+    return { ok: false };
+  const rows =
+    await db.all(sql`SELECT id FROM conversations WHERE id=${conversationId}
+    AND deleted_at IS NULL AND anonymized_at IS NULL AND status IN ('open','closed')
+    AND ${actorPermission(actor, conversationId)} LIMIT 1`);
+  return rows.length && actor.expiresAt > Date.now()
+    ? { ok: true, expiresAt: actor.expiresAt }
+    : { ok: false };
 }
 
 /**
@@ -164,13 +185,9 @@ function actorPermission(
 export async function ensureProChatToken(
   conversationId: string,
 ): Promise<{ ok: boolean }> {
-  const session = await getServerSession();
-  if (!session?.user?.id) return { ok: false };
-
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
-  });
-  if (pro?.status !== "approved") return { ok: false };
+  const live = await loadLiveChatProfessional();
+  if (!live) return { ok: false };
+  const pro = live.professional;
 
   const conversation = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -189,10 +206,12 @@ export async function ensureProChatToken(
   const token = mintProfessionalToken(
     {
       professionalId: pro.id,
+      authSessionId: live.authSessionId,
+      userId: live.userId,
       conversationId,
       role: "professional",
       iat: now,
-      exp: now + TTL_MS,
+      exp: Math.min(now + TTL_MS, live.expiresAt),
     },
     getAuthSecret(),
   );
@@ -251,6 +270,42 @@ export async function markProfessionalChatRead(
 }
 
 /**
+ * Token de AVISOS del profesional (cookie httpOnly, sin sala concreta): autoriza
+ * las conexiones de SOLO LECTURA que la lista de conversaciones del chat abre a
+ * sus salas para avisar al instante de mensajes nuevos. El Worker comprueba en
+ * D1 que cada sala pedida es suya; aquí solo se verifica que quien lo pide tiene
+ * sesión y ficha de profesional activa. Idempotente.
+ */
+export async function ensureProInboxToken(): Promise<{ ok: boolean }> {
+  const live = await loadLiveChatProfessional();
+  if (!live) return { ok: false };
+  const pro = live.professional;
+
+  const now = Date.now();
+  const token = mintProfessionalInboxToken(
+    {
+      professionalId: pro.id,
+      authSessionId: live.authSessionId,
+      userId: live.userId,
+      role: "inbox",
+      iat: now,
+      exp: Math.min(now + 15 * 60 * 1000, live.expiresAt),
+    },
+    getAuthSecret(),
+  );
+
+  const cookieStore = await cookies();
+  cookieStore.set(PRO_INBOX_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 15 * 60,
+  });
+  return { ok: true };
+}
+
+/**
  * Sesión DESLIZANTE del seeker: mientras la conversación siga viva (no
  * anonimizada) y su sesión no esté revocada, cada visita dentro de la sala
  * renueva cookie + fila de `seeker_sessions` hasta 90 días. Así el chat se puede
@@ -306,7 +361,7 @@ export async function renewSeekerChatToken(
         eq(seekerSessions.conversationId, conversationId),
         eq(seekerSessions.role, "seeker"),
         isNull(seekerSessions.revokedAt),
-        sql`${seekerSessions.expiresAt} > ${now}`,
+        sql`${seekerSessions.expiresAt} > (cast(unixepoch('subsecond') * 1000 as integer))`,
         sql`EXISTS(SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.anonymized_at IS NULL AND c.deleted_at IS NULL AND c.status IN ('open','closed'))`,
       ),
     )
@@ -653,4 +708,146 @@ export async function restoreConversation(
     };
 
   return { ok: true, role: actor.role };
+}
+
+export type JoinWaitlistState =
+  | { ok: true; email: string }
+  | { ok: false; message: string }
+  | null;
+
+/**
+ * La PERSONA deja su correo desde la tarjeta de lista de espera del chat.
+ *
+ * Solo puede hacerlo la persona de la conversación (cookie de sala vigente y
+ * misma prelación de identidad que la vista/WebSocket): el profesional dueño
+ * que esté viendo la sala como la persona también puede, porque actúa con su
+ * credencial. El correo NUNCA viaja por el chat: va por HTTPS a D1 con el mismo
+ * límite antiabuso del formulario público. El título y la descripción los
+ * deriva el servidor de la conversación (área del caso y profesional), nunca
+ * se aceptan del cliente.
+ */
+export async function joinWaitlistFromChat(
+  _previous: JoinWaitlistState,
+  formData: FormData,
+): Promise<JoinWaitlistState> {
+  const conversationId = String(formData.get("conversationId") ?? "").trim();
+  if (!conversationId) {
+    return { ok: false, message: "No pudimos identificar la conversación." };
+  }
+
+  const parsed = waitlistChatSignupSchema.safeParse({
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Revisa tu correo e inténtalo de nuevo.",
+    };
+  }
+  const email = parsed.data.email;
+
+  try {
+    const conversation = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
+    });
+    if (!conversation || conversation.deletedAt || conversation.anonymizedAt) {
+      return {
+        ok: false,
+        message: "Esta conversación ya no está disponible para anotarte.",
+      };
+    }
+
+    const asPersona = String(formData.get("asPersona") ?? "") === "1";
+    const actor = await resolveActor(conversation, asPersona);
+    if (actor?.role !== "seeker") {
+      return {
+        ok: false,
+        message: "Solo la persona de esta conversación puede anotar su correo.",
+      };
+    }
+
+    if (formData.get("generalReason") !== "1")
+      return {
+        ok: false,
+        message:
+          "Confirma que esta solicitud es por un motivo ajeno al terremoto.",
+      };
+    const authorization = sql`${actorPermission(actor, conversationId)} AND EXISTS(
+      SELECT 1 FROM conversations c WHERE c.id=${conversationId}
+        AND c.deleted_at IS NULL AND c.anonymized_at IS NULL
+    )`;
+    // Contexto para la ficha del admin: área del caso y nombre del profesional.
+    const [request, pro] = await Promise.all([
+      conversation.helpRequestId
+        ? db.query.helpRequests.findFirst({
+            where: eq(helpRequests.id, conversation.helpRequestId),
+            columns: { needCategory: true },
+          })
+        : null,
+      db.query.professionals.findFirst({
+        where: eq(professionals.id, conversation.professionalId),
+        columns: { displayName: true, fullName: true },
+      }),
+    ]);
+    const needCategory = request?.needCategory as
+      | keyof typeof needLabels
+      | undefined;
+    const needLabel = needCategory ? needLabels[needCategory] : undefined;
+    const proName =
+      pro?.displayName || pro?.fullName || "un profesional voluntario";
+
+    const requesterHash = await getRequesterHash("waitlist_entry");
+    const stored = await storeWaitlistEntry({
+      email,
+      title: needLabel ?? "Apoyo psicológico (desde el chat)",
+      description: `Anotación creada desde la tarjeta de lista de espera del chat con ${proName}. La persona busca apoyo por un motivo ajeno al terremoto y quiere que le avisemos cuando haya disponibilidad.`,
+      source: "chat",
+      conversationId,
+      requesterHash,
+      authorization,
+    });
+    if (!stored.ok) {
+      return {
+        ok: false,
+        message:
+          stored.reason === "rate_limited"
+            ? "Ya te anotamos hace poco. Espera un rato antes de intentarlo de nuevo."
+            : "No pudimos guardar tu anotación. Inténtalo de nuevo en unos minutos.",
+      };
+    }
+
+    // Un chat directo puede no tener correo (p. ej. sin solicitud de /ayuda):
+    // guardarlo habilita los avisos por correo y el enlace mágico de /acceso.
+    // Nunca sobreescribimos un correo ya existente con uno nuevo.
+    if (!conversation.seekerEmail) {
+      await db
+        .update(conversations)
+        .set({ seekerEmail: email, updatedAt: nowIso() })
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            sql`seeker_email IS NULL`,
+            authorization,
+          ),
+        );
+    }
+
+    // Solo la PRIMERA anotación dispara correos (actualizar no reenvía avisos).
+    if (stored.created) {
+      await notifyAdminWaitlistEntry({
+        sourceLabel: waitlistSourceLabels.chat,
+      }).catch(() => undefined);
+      await notifyWaitlistConfirmation({ email }).catch(() => undefined);
+    }
+
+    return { ok: true, email };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "No pudimos guardar tu anotación. Inténtalo de nuevo en unos minutos.",
+    };
+  }
 }

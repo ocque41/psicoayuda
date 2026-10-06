@@ -235,6 +235,8 @@ export async function upsertGoogleCalendarEvent(
       body,
       beforeRequest,
     );
+  // El evento también puede desaparecer durante INSERT o el PUT de un conflicto.
+  if (response.status === 410) throw new GoogleCalendarError("event_gone");
   if (response.status === 404)
     throw new GoogleCalendarError("calendar_missing");
   if (!response.ok) throw new GoogleCalendarError("provider");

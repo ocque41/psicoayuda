@@ -9,6 +9,7 @@ import { CredentialSettings } from "@/components/credential-settings";
 import { PracticeForm, TimeZoneSelect } from "@/components/practice/forms";
 import { PracticeNav } from "@/components/practice/nav";
 import { AppointmentRemindersPanel } from "@/components/practice/reminder-preferences-panel";
+import { PushPreferencesPanel } from "@/components/push/push-preferences-panel";
 import { PaymentConnections } from "@/components/workspace/payment-connections";
 import { SettingsPanel } from "@/components/workspace/settings-panel";
 import { db } from "@/db";
@@ -157,14 +158,19 @@ export default async function SettingsPage({
               label: "Avisos",
               icon: "message",
               description:
-                "Personaliza los correos de recordatorio de tus sesiones.",
-              anchors: ["reminders-professional"],
+                "Elige tus recordatorios por correo y los avisos de este dispositivo.",
+              anchors: ["reminders-professional", "push-professional"],
               content: (
-                <AppointmentRemindersPanel
-                  userId={pro.userId}
-                  audience="professional"
-                  timeZone={settings?.timeZone || "America/Caracas"}
-                />
+                <>
+                  <AppointmentRemindersPanel
+                    userId={pro.userId}
+                    audience="professional"
+                    timeZone={settings?.timeZone || "America/Caracas"}
+                  />
+                  <div id="push-professional">
+                    <PushPreferencesPanel audience="professional" />
+                  </div>
+                </>
               ),
             },
             {

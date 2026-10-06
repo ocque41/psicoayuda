@@ -40,7 +40,7 @@ const mint = (payload) => {
 const seekerCookie = (conv) =>
   `nido_seeker=${mint({ sid: "seek_1", conversationId: conv, role: "seeker", iat: Date.now(), exp: Date.now() + HOUR })}`;
 const proCookie = (conv) =>
-  `nido_pro=${mint({ professionalId: "pro_1", conversationId: conv, role: "professional", iat: Date.now(), exp: Date.now() + HOUR })}`;
+  `nido_pro=${mint({ professionalId: "pro_1", authSessionId: "auth_1", userId: "user_1", conversationId: conv, role: "professional", iat: Date.now(), exp: Date.now() + HOUR })}`;
 
 function statusOf(conv, cookie) {
   return new Promise((resolve, reject) => {

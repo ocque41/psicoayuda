@@ -14,7 +14,7 @@ import {
   serialize,
 } from "@/shared/chat-protocol";
 import { isEnvelope } from "@/shared/e2ee";
-import { currentConnectionGate } from "./auth-gate";
+import { currentConnectionGate, informerSessionActive } from "./auth-gate";
 import type { Env } from "./types";
 
 const HISTORY_PAGE = 30;
@@ -31,7 +31,17 @@ const FRAME_WINDOW_MS = 10_000;
 const FRAME_MAX_PER_WINDOW = 40;
 const MAX_MESSAGES_PER_CONVERSATION = 20000;
 
-type ConnState = { role: SenderRole; id: string; canSend: boolean };
+type ConnState = {
+  role: SenderRole;
+  id: string;
+  canSend: boolean;
+  authSessionId?: string;
+  userId?: string;
+  /** Conexión de avisos: solo recibe mensajes (nunca escribe ni cuenta como
+   *  presencia, para no silenciar los avisos por correo del profesional). */
+  informer?: boolean;
+  inboxExpiresAt?: number;
+};
 
 type MessageRow = {
   server_id: string;
@@ -73,6 +83,7 @@ export class Conversation extends Server<Env> {
   // despierto, así que la ventana persiste durante el ataque).
   private rate = new Map<string, { winStart: number; count: number }>();
   private frameQueues = new Map<string, Promise<void>>();
+  private recipientQueues = new Map<string, Promise<void>>();
 
   // Token-bucket por conexión: limita frames/ventana (anti-flood de mensajes,
   // typing, etc.). Devuelve false si la conexión excede el límite.
@@ -141,21 +152,62 @@ export class Conversation extends Server<Env> {
   // El rol viene de onBeforeConnect (header de confianza), nunca del cliente.
   getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
     const role = ctx.request.headers.get("x-nido-role");
-    return role === "professional" || role === "seeker" ? [role] : [];
+    const tags = role === "professional" || role === "seeker" ? [role] : [];
+    if (ctx.request.headers.get("x-nido-informer") === "1") {
+      tags.push("informer");
+    }
+    return tags;
   }
 
-  onConnect(connection: Connection, ctx: ConnectionContext) {
+  async onConnect(connection: Connection, ctx: ConnectionContext) {
     const header = ctx.request.headers.get("x-nido-role");
     const role: SenderRole =
       header === "professional" ? "professional" : "seeker";
     // `0` cuando la conversación está cerrada (o anonimizada): el historial se
     // sirve en solo lectura y el envío se rechaza hasta reabrir.
     const canSend = ctx.request.headers.get("x-nido-can-send") !== "0";
+
+    // Conexión de AVISOS (la lista de conversaciones del profesional): recibe los
+    // mensajes nuevos pero no historia, ni claves, ni presencia; y no cuenta como
+    // "profesional en línea". Así la bandeja se actualiza al instante sin
+    // cambiar lo que ven las personas ni silenciar los avisos por correo.
+    if (ctx.request.headers.get("x-nido-informer") === "1") {
+      connection.setState({
+        role,
+        id: ctx.request.headers.get("x-nido-id") ?? "",
+        authSessionId:
+          ctx.request.headers.get("x-nido-auth-session-id") ?? undefined,
+        userId: ctx.request.headers.get("x-nido-user-id") ?? undefined,
+        canSend: false,
+        informer: true,
+        inboxExpiresAt: Number(ctx.request.headers.get("x-nido-inbox-exp")),
+      } satisfies ConnState);
+      return;
+    }
+
     connection.setState({
       role,
       id: ctx.request.headers.get("x-nido-id") ?? "",
+      authSessionId:
+        ctx.request.headers.get("x-nido-auth-session-id") ?? undefined,
+      userId: ctx.request.headers.get("x-nido-user-id") ?? undefined,
       canSend,
     } satisfies ConnState);
+
+    const initialState = connection.state as ConnState;
+    const gate = await currentConnectionGate(
+      this.env,
+      initialState.role,
+      initialState.id,
+      this.name,
+      Date.now(),
+      initialState.authSessionId,
+      initialState.userId,
+    );
+    if (!gate.allowed) {
+      connection.close(4003, "Acceso no disponible");
+      return;
+    }
 
     const rows = this.ctx.storage.sql
       .exec(
@@ -188,11 +240,15 @@ export class Conversation extends Server<Env> {
 
   onClose(connection: Connection) {
     this.rate.delete(connection.id);
-    const role = (connection.state as ConnState | null)?.role ?? "seeker";
+    const state = connection.state as ConnState | null;
+    const role = state?.role ?? "seeker";
+    // Los avisos nunca anunciaron presencia: tampoco la retiran.
+    if (state?.informer) return;
     this.broadcastExcept(connection, { type: "presence", role, online: false });
   }
 
   async onMessage(connection: Connection, raw: WSMessage) {
+    if ((connection.state as ConnState | null)?.informer) return;
     if (typeof raw !== "string") return;
     const frame = parseClientFrame(raw);
     if (!frame) {
@@ -220,6 +276,7 @@ export class Conversation extends Server<Env> {
 
   private async processFrame(connection: Connection, frame: ClientFrame) {
     const state = connection.state as ConnState | null;
+    if (state?.informer) return;
     if (!state?.id) {
       connection.close(4003, "Acceso no disponible");
       return;
@@ -232,6 +289,8 @@ export class Conversation extends Server<Env> {
       state.id,
       this.name,
       Date.now(),
+      state.authSessionId,
+      state.userId,
     );
     if (!gate.allowed) {
       connection.close(4003, "Acceso no disponible");
@@ -354,6 +413,7 @@ export class Conversation extends Server<Env> {
       content,
     };
     this.broadcastExcept(connection, { type: "msg", message });
+    this.ctx.waitUntil(this.notifyInbox(role, serverTs));
 
     // Captura de tiempos para el algoritmo de respuesta del feed.
     if (role === "seeker" && this.firstSeekerMsgAt === null) {
@@ -374,7 +434,7 @@ export class Conversation extends Server<Env> {
 
     // PRIMERA PRIORIDAD: si el profesional no está conectado, avisarle por email
     // (con debounce para no spamear en una ráfaga de mensajes).
-    if (role === "seeker" && !this.isProfessionalOnline()) {
+    if (role === "seeker" && !(await this.isRoleOnline("professional"))) {
       const now = Date.now();
       if (now - this.lastNotifyAt >= NOTIFY_DEBOUNCE_MS) {
         this.lastNotifyAt = now;
@@ -393,7 +453,7 @@ export class Conversation extends Server<Env> {
 
     // Aviso a la PERSONA sin cuenta de que su acompañante respondió, con enlace
     // de acceso renovado (sin contenido). Cierra el ciclo asíncrono del chat.
-    if (role === "professional" && !this.isSeekerOnline()) {
+    if (role === "professional" && !(await this.isRoleOnline("seeker"))) {
       const now = Date.now();
       if (now - this.lastSeekerNotifyAt >= SEEKER_NOTIFY_DEBOUNCE_MS) {
         this.lastSeekerNotifyAt = now;
@@ -457,7 +517,7 @@ export class Conversation extends Server<Env> {
       publicKey,
       Date.now(),
     );
-    this.broadcast(serialize({ type: "keys", keys: this.keysSnapshot() }));
+    this.broadcastParticipants({ type: "keys", keys: this.keysSnapshot() });
   }
 
   private keysSnapshot(): { seeker?: string; professional?: string } {
@@ -498,26 +558,26 @@ export class Conversation extends Server<Env> {
     this.sendTo(connection, { type: "reencrypted", count });
   }
 
-  private isProfessionalOnline(): boolean {
+  private async isRoleOnline(role: SenderRole): Promise<boolean> {
     for (const connection of this.getConnections()) {
-      if ((connection.state as ConnState | null)?.role === "professional") {
-        return true;
-      }
+      const state = connection.state as ConnState | null;
+      // Una sesión revocada (o un observador) no debe silenciar los avisos.
+      if (state?.role !== role || state.informer) continue;
+      const gate = await currentConnectionGate(
+        this.env,
+        state.role,
+        state.id,
+        this.name,
+        Date.now(),
+        state.authSessionId,
+        state.userId,
+      );
+      if (gate.allowed) return true;
+      connection.close(4003, "Acceso no disponible");
     }
     return false;
   }
 
-  private isSeekerOnline(): boolean {
-    for (const connection of this.getConnections()) {
-      if ((connection.state as ConnState | null)?.role === "seeker") {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Solo llamadas internas de confianza (mismo Worker, vía binding del DO) con
-  // el secreto compartido. Hash a longitud fija => comparación constante.
   private internalAuthorized(request: Request): boolean {
     const provided = request.headers.get("x-nido-internal");
     const expected =
@@ -604,7 +664,75 @@ export class Conversation extends Server<Env> {
     connection.send(serialize(frame));
   }
 
+  private broadcastParticipants(frame: ServerFrame, excludedId?: string) {
+    for (const recipient of this.getConnections()) {
+      const state = recipient.state as ConnState | null;
+      if (recipient.id === excludedId || state?.informer) continue;
+      const previous =
+        this.recipientQueues.get(recipient.id) ?? Promise.resolve();
+      const queued = previous
+        .catch(() => {})
+        .then(async () => {
+          if (!state?.id) {
+            recipient.close(4003, "Acceso no disponible");
+            return;
+          }
+          const gate = await currentConnectionGate(
+            this.env,
+            state.role,
+            state.id,
+            this.name,
+            Date.now(),
+            state.authSessionId,
+            state.userId,
+          );
+          if (!gate.allowed) {
+            recipient.close(4003, "Acceso no disponible");
+            return;
+          }
+          try {
+            this.sendTo(recipient, frame);
+          } catch {
+            /* socket cerrado */
+          }
+        })
+        .finally(() => {
+          if (this.recipientQueues.get(recipient.id) === queued)
+            this.recipientQueues.delete(recipient.id);
+        });
+      this.recipientQueues.set(recipient.id, queued);
+      this.ctx.waitUntil(queued);
+    }
+  }
+
+  private async notifyInbox(role: SenderRole, at: number) {
+    for (const recipient of this.getConnections()) {
+      const state = recipient.state as ConnState | null;
+      if (!state?.informer) continue;
+      const gate = await informerSessionActive(
+        this.env,
+        state.id,
+        this.name,
+        state.authSessionId,
+        state.userId,
+      );
+      if (
+        !gate.allowed ||
+        !Number.isFinite(state.inboxExpiresAt) ||
+        (state.inboxExpiresAt ?? 0) <= Date.now()
+      ) {
+        recipient.close(4003, "Acceso no disponible");
+        continue;
+      }
+      try {
+        this.sendTo(recipient, { type: "activity", role, at });
+      } catch {
+        /* socket cerrado */
+      }
+    }
+  }
+
   private broadcastExcept(connection: Connection, frame: ServerFrame) {
-    this.broadcast(serialize(frame), [connection.id]);
+    this.broadcastParticipants(frame, connection.id);
   }
 }

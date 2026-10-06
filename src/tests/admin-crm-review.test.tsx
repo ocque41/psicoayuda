@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adminNavigation } from "@/components/admin/navigation";
+import {
+  adminNavigation,
+  admissionNavigation,
+} from "@/components/admin/navigation";
+import { AdminShell } from "@/components/admin/shell";
 import { WorkspaceNav } from "@/components/workspace/nav";
 import { db } from "@/db";
 import {
@@ -12,6 +16,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   admin: vi.fn(),
+  admission: vi.fn(),
   session: vi.fn(),
 }));
 vi.mock("@/lib/auth-server", () => ({ getServerSession: mocks.session }));
@@ -21,6 +26,9 @@ vi.mock("@/components/auth-panel", () => ({
   ),
 }));
 vi.mock("@/lib/admin", () => ({ requireAdmin: mocks.admin }));
+vi.mock("@/lib/admission/access", () => ({
+  requireAdmissionReviewer: mocks.admission,
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/crm",
   useSearchParams: () => new URLSearchParams("ventana=pacientes"),
@@ -35,6 +43,7 @@ vi.mock("@/components/admin/crm-review", () => ({
 }));
 
 import CrmReviewPage from "@/app/admin/crm/page";
+import { GET } from "@/app/api/admin/status/route";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -70,7 +79,7 @@ describe("revisión del CRM reservada a administradores", () => {
     );
     expect(html).toContain(`data-window="${window}"`);
     expect(html).toContain('href="/admin/consola"');
-    expect(html).toContain('href="/admin/profesionales"');
+    expect(html).toContain('href="/admin/admision"');
     expect(select).not.toHaveBeenCalled();
     expect(patients).not.toHaveBeenCalled();
   });
@@ -84,8 +93,33 @@ describe("revisión del CRM reservada a administradores", () => {
       reviewHref("agenda"),
     );
     expect(
-      adminNavigation.filter((item) => ["crm", "consola"].includes(item.id)),
-    ).toHaveLength(2);
+      adminNavigation.filter((item) =>
+        ["crm", "consola", "admision"].includes(item.id),
+      ),
+    ).toHaveLength(3);
+  });
+  it("la navegación de admisión no ofrece administración ni exportación", () => {
+    const html = renderToStaticMarkup(
+      <AdminShell
+        active="admision"
+        items={admissionNavigation}
+        accountEmail="admission-review@example.test"
+        accountLabel="Revisión de admisión"
+      >
+        Contenido de admisión
+      </AdminShell>,
+    );
+    expect(html).toContain("Revisión de admisión");
+    for (const path of [
+      "/admin/consola",
+      "/admin/crm",
+      "/admin/cuentas",
+      "/admin/metricas",
+      "/admin/export",
+      "/admin/operaciones",
+    ])
+      expect(html).not.toContain(`href="${path}"`);
+    expect(html).not.toContain("Cuenta administradora");
   });
   it("la revisión usa sus destinos propios y la consulta normal conserva los suyos", () => {
     const preview = renderToStaticMarkup(
@@ -100,5 +134,27 @@ describe("revisión del CRM reservada a administradores", () => {
     expect(preview).not.toContain('href="/pro/');
     expect(normal).toContain('href="/pro/pacientes"');
     expect(normal).not.toContain('href="/admin/crm');
+  });
+});
+
+describe("estado de navegación sin exponer listas de roles", () => {
+  it.each([
+    [false, false],
+    [false, true],
+    [true, true],
+  ])("admin=%s, admisión=%s son permisos distintos", async (admin, admission) => {
+    mocks.admin.mockResolvedValue(
+      admin ? { email: "admin-review@example.test" } : null,
+    );
+    mocks.admission.mockResolvedValue(
+      admission ? { email: "admission-review@example.test" } : null,
+    );
+    const response = await GET();
+    expect(await response.json()).toEqual({
+      isAdmin: admin,
+      isSuperAdmin: admin,
+      isAdmissionReviewer: admission,
+    });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 });

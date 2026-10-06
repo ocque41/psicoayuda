@@ -99,20 +99,75 @@ El chat es **E2EE real en el navegador** (`src/shared/e2ee.ts`,
 la clave para descifrarlos.
 
 - **Claves**: pares ECDH P-256. El profesional tiene UNA clave de identidad y
-  publica la pública en su ficha (`professionals.crypto_public_key`) al entrar a
-  su panel (`E2eeProSetupBanner`). La persona tiene una clave por conversación,
-  privada en su IndexedDB; su pública viaja en cada sobre y se publica al DO al
-  conectar (frame `key` → snapshot `keys`).
+  publica la pública en su ficha (`professionals.crypto_public_key`) desde la
+  sección "Cifrado" de su panel (`E2eeProSetupCard`). La persona tiene una clave
+  por conversación, privada en su IndexedDB; su pública viaja en cada sobre y se
+  publica al DO al conectar (frame `key` → snapshot `keys`).
 - **Clave de conversación**: `HKDF(ECDH(mi_priv, pub_contraparte))` con sal del
   `conversationId`. El sobre lleva las DOS públicas para que emisor y receptor
   puedan releer el historial; el AAD (`conversationId|senderRole`) ata cada
   mensaje a su sala y su autor.
 - **Respaldo**: código de recuperación de 128 bits (base32 Crockford, 26
-  caracteres). El keystore se cifra con AES-256-GCM bajo una clave derivada del
-  código y se guarda en `recovery_keystores` (id = derivado del código): el
-  servidor no puede descifrarlo. Sin el código, un dispositivo nuevo no puede
-  leer el historial (y nadie puede recuperarlo); hay un flujo explícito de
-  restauración/rotación en la sala.
+  caracteres). La copia de claves se cifra con AES-256-GCM bajo una clave
+  derivada del código y se guarda en `recovery_keystores` (id = derivado del
+  código): el servidor no puede descifrarla. En otro dispositivo, el permiso
+  para entrar en la sala y la recuperación de claves son pasos separados: el
+  enlace de acceso no descifra el historial. Para leer un mensaje cifrado hace
+  falta la clave privada correspondiente, ya presente o recuperada de un
+  respaldo que la contenga; el operador no puede reconstruirla.
+- **Cuándo se pide el código**: la regla de la sala está en
+  `src/shared/e2ee-gating.ts`. Si el profesional no tiene identidad local y la
+  cuenta ya tiene una clave publicada, se pide recuperar las claves; no se
+  publica una nueva en silencio. Si ni la cuenta ni el dispositivo tienen
+  clave, se crea la primera identidad. Una identidad local distinta de la
+  publicada produce un aviso para unificar. La persona ve el panel de
+  recuperación cuando faltan sus claves y hay mensajes cifrados. En la vista
+  autorizada del profesional "como la persona", la identidad seeker se usa si
+  está disponible; sólo puede restaurarse desde un respaldo que la incluya. La
+  opción explícita de empezar de cero no recupera los mensajes cifrados para
+  claves anteriores. Cambiar la clave publicada no vuelve a cifrar esos
+  mensajes: siguen necesitando su clave anterior, si se conserva.
+- **Alcance del código y compatibilidad**: los respaldos nuevos separan código
+  y entradas por cuenta profesional (`pro:${professionalId}`) o conversación
+  de la persona (`seek:${conversationId}`). El respaldo profesional requiere
+  su identidad y puede incluir claves seeker vinculadas con `ownerSlot` desde
+  vistas autorizadas en ese dispositivo. `exportKeystoreJson(scope)` selecciona
+  sólo las entradas del ámbito o vinculadas a él; `restoreFromBackup` importa
+  las entradas contenidas en la copia. **Un código no garantiza recuperar todas
+  las conversaciones**, otras cuentas o claves ausentes de ese respaldo. El
+  slot legado `pro` sólo se adopta para una cuenta si coincide con su clave
+  publicada, sin borrarlo ni rotarlo. Se pueden leer respaldos antiguos sin
+  `scope`/`ownerSlot`; su código sigue abriendo su copia antigua y no se reutiliza
+  automáticamente para sobrescribirla con un subconjunto. Crear un código nuevo
+  no cambia las claves privadas. Sólo se muestra tras guardar el respaldo con
+  respuesta positiva del servidor. Véanse `src/lib/e2ee-client.ts`,
+  `src/lib/e2ee-backup.ts` y [la integración vigente](CHAT_WAITLIST_INTEGRATION.md).
+- **Bandeja del profesional dentro del chat (v0.16/v0.17)**: la sala muestra a
+  su izquierda todas sus conversaciones (`ProChatList`, columna en escritorio y
+  cajón en móvil) con metadatos, no contenido: la vista y la ruta
+  `/api/pro/chats` usan `conversationsForProfessional` +
+  `src/lib/pro-chats.ts`. Los avisos llegan por WebSocket: `ProChatList` pide su
+  cookie firmada de avisos (`ensureProInboxToken`, sin sala) y abre una conexión
+  de SOLO LECTURA por sala abierta (`?avisos=1`, hasta 5, sin la que está a la
+  vista). El gate (`auth-gate.ts`) comprueba en D1 que la sala es del
+  profesional, no está en papelera/anonimizada y su cuenta no está suspendida, e
+  inyecta `x-nido-informer`; el DO no le manda historial ni claves, no lo trata
+  como presencia (los correos de respaldo siguen saliendo) y ignora sus frames.
+  Un sondeo ligero cada 5 s (solo con la pestaña visible) y el evento
+  `nido:chat-update` (sala abierta) ayudan a reconciliar la bandeja. Abrir una
+  sala sólo obtiene el permiso de conexión (`ensureProChatToken`), sin marcar
+  lectura. `acknowledgeVisibleMessages` envía el frame `read` cuando la pestaña
+  está visible, la vista sigue el final de la lista, hay identidad local, no
+  está abierto un diálogo ni el panel de recuperación/código, y hay un mensaje
+  recibido pendiente que se puede leer (descifrado si es un sobre E2EE). Tras
+  enviar el frame, la cola `createReadPersistence` solicita guardar su timestamp
+  mediante `markProfessionalChatRead`: el servidor revalida permisos y estado,
+  y actualiza `pro_last_read_at` de forma monotónica, sin contenido. Si D1 aún
+  no tiene los metadatos del mensaje, la cola conserva la marca pendiente y
+  permite dos reintentos automáticos; una caída de red la conserva para un
+  intento posterior. Recibir un mensaje con la sala abierta no basta por sí
+  solo para marcarlo leído. Véanse `chat-room.tsx`, `chat-read-persistence.ts`
+  y `actions.ts` en `src/app/c/[conversationId]/`.
 - **Migración del historial legado**: el cliente re-cifra los mensajes en claro
   por lotes (`frame reencrypt`, idempotente) en cuanto hay claves de ambos lados.
 - **Límites honestos**: no hay forward secrecy (el historial es eterno), los
@@ -121,6 +176,16 @@ la clave para descifrarlos.
   malicioso del propio operador.
 - **El servidor no descifra nunca** y ningún flujo (correos, panel, métricas,
   admin, retención) necesita el contenido.
+- **Tarjeta de lista de espera (v0.13.0)**: mensaje especial dentro del hilo. El
+  profesional la envía con un botón del compositor y el texto plano del sobre es
+  un JSON marcado (`src/shared/waitlist-prompt.ts`); el DO lo trata como
+  cualquier mensaje (no hay tipos nuevos en el protocolo). La persona ve la
+  tarjeta con un input de correo; al enviarlo (Enter o flecha) el correo viaja
+  por HTTPS a una Server Action autenticada por la cookie de sala — nunca por el
+  chat — y se guarda en `waitlist_entries` (`source = 'chat'`,
+  `conversation_id`), con confirmación por correo y aviso interno. La tarjeta
+  muestra "Anotado" a las dos partes (la página lee la anotación vigente de la
+  conversación) y el profesional que no aplica simplemente no envía la tarjeta.
 
 ## Plan por fases
 - **Fase 0** — ✅ Spike de integración DO+WS sobre OpenNext (custom-worker echo).
@@ -132,6 +197,7 @@ la clave para descifrarlos.
 - **Fase 6 (v0.8.0)** — ✅ Persistencia: retención 90/180, sesión deslizante, `/acceso`, aviso de respuesta a la persona, reapertura del mismo hilo, bandeja del profesional con no leídos y cupo del chat directo.
 - **Fase 7 (v0.10.0)** — ✅ Chats eternos + borrado definitivo por las partes (purga del DO), cupo liberable por inactividad y links de pago insertables en el chat (módulo `src/lib/payments`).
 - **Fase 8 (v0.11.0)** — ✅ E2EE del chat (claves en el navegador, código de recuperación, migración del historial legado), paginación hacia atrás del historial, tope de mensajes ampliado a 20.000 y papelera con deshacer de 7 días antes del borrado definitivo.
+- **Fase 9 (v0.13.0)** — ✅ Tarjeta de lista de espera en el chat (para casos ajenos al terremoto): el profesional la envía con un botón y la persona deja su correo en el propio hilo; se guarda en `waitlist_entries` con vínculo a la conversación y avisos, sin tocar el protocolo ni el DO.
 
 ## Notificaciones por email (PRIMERA PRIORIDAD)
 
