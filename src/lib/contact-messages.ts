@@ -1,3 +1,5 @@
+import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+
 export const contactSources = [
   "public_contact",
   "professional_dashboard",
@@ -36,22 +38,65 @@ export const contactStatusLabels: Record<ContactStatus, string> = {
   resolved: "Resuelto",
 };
 
-export function buildProfessionalReferralWhatsAppUrl(siteUrl: string) {
-  const registrationUrl = new URL("/pro", siteUrl);
+export type ProfessionalInvitationSource = "admission" | "professional";
+export type ProfessionalInvitation = {
+  registrationUrl: string;
+  message: string;
+  whatsappUrl: string;
+  emailUrl: string;
+};
+
+function professionalInvitation(
+  {
+    siteUrl,
+    source,
+  }: { siteUrl: string; source: ProfessionalInvitationSource },
+  campaignSource: "nido" | "whatsapp",
+): ProfessionalInvitation {
+  const site = new URL(siteUrl);
+  if (
+    !["https:", "http:"].includes(site.protocol) ||
+    !["admission", "professional"].includes(source)
+  )
+    throw new Error("No se pudo preparar el enlace de invitación.");
+  // La invitación nunca hereda credenciales, parámetros ni fragmentos del sitio.
+  const registrationUrl = new URL("/pro", site.origin);
   registrationUrl.searchParams.set("modo", "registro");
-  registrationUrl.searchParams.set("utm_source", "whatsapp");
+  registrationUrl.searchParams.set("utm_source", campaignSource);
   registrationUrl.searchParams.set("utm_medium", "referral");
   registrationUrl.searchParams.set("utm_campaign", "referidos_profesionales");
-  registrationUrl.searchParams.set("utm_content", "panel_profesional");
+  registrationUrl.searchParams.set(
+    "utm_content",
+    source === "admission" ? "panel_admision" : "panel_profesional",
+  );
 
   const message = [
-    "Hola. Formo parte de Nido, una red de apoyo psicológico voluntario.",
-    "Estamos sumando psicólogas y psicólogos que quieran acompañar gratis y a distancia a personas en Venezuela.",
-    "Si te interesa conocer el proyecto y registrarte, puedes hacerlo aquí:",
-    registrationUrl.toString(),
+    "Hola. Te invito a conocer Nido, un CRM para psicólogas y psicólogos: agenda, fichas de pacientes, notas por sesión, conversaciones y seguimiento de cobros externos en un solo lugar.",
+    `Tras la aprobación de tu perfil, puedes activar una prueba del software de ${TRIAL_DAYS} días gratis, sin tarjeta y sin cobro automático. Después, el plan del software es de ${MEMBERSHIP_PLAN.priceLabel} al mes, sólo si decides contratarlo.`,
+    "El registro sigue la revisión profesional habitual de identidad, credenciales y ámbito de atención antes de publicar tu perfil. Las sesiones y sus pagos se acuerdan por separado con cada paciente. Ayuda Terremoto mantiene su apoyo psicológico gratuito por separado.",
+    `Si quieres conocerlo y registrarte, empieza aquí:\n${registrationUrl.toString()}`,
   ].join("\n\n");
 
-  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+  return {
+    registrationUrl: registrationUrl.toString(),
+    message,
+    whatsappUrl: `https://wa.me/?text=${encodeURIComponent(message)}`,
+    emailUrl: buildPreparedEmailUrl("", "Te invito a probar Nido", message),
+  };
+}
+
+/** Contenido público constante: no incluye la identidad de quien invita. */
+export function buildProfessionalInvitation(input: {
+  siteUrl: string;
+  source: ProfessionalInvitationSource;
+}): ProfessionalInvitation {
+  return professionalInvitation(input, "nido");
+}
+
+/** Conserva la campaña de los enlaces compartidos desde el panel anterior. */
+export function buildProfessionalReferralWhatsAppUrl(siteUrl: string) {
+  return professionalInvitation({ siteUrl, source: "professional" }, "whatsapp")
+    .whatsappUrl;
 }
 
 /**

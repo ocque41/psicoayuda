@@ -200,13 +200,15 @@ describe("panel de Paola y cuenta real del administrador", () => {
 });
 
 describe("navegación de la interfaz de admisión", () => {
-  it("ofrece únicamente admisión y consulta propia en el rol limitado", () => {
+  it("ofrece admisión, invitaciones y consulta propia en el rol limitado", () => {
     expect(admissionNavigation.map((item) => item.id)).toEqual([
       "admision",
+      "invitaciones",
       "mi-consulta",
     ]);
     expect(paolaPreviewNavigation.map((item) => item.id)).toEqual([
       "admision",
+      "invitaciones",
       "mi-consulta",
     ]);
     expect(

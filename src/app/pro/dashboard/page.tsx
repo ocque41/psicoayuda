@@ -35,6 +35,7 @@ import {
   refreshStripeAccountStatus,
 } from "@/lib/payments/connect";
 import { listPackagesForProfessional } from "@/lib/payments/packages";
+import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
 import { getTurnstileConfig } from "@/lib/turnstile";
 
@@ -571,17 +572,30 @@ export default async function ProDashboardPage({
           </table>
         </div>
 
-        <h2 id="compartir">Cadena de confianza</h2>
+        <h2 id="compartir">Invita a tus colegas</h2>
         <div className="card referral-card">
           <div>
-            <p className="eyebrow">Ayúdanos a sumar más manos</p>
-            <h3>Invita a otro profesional</h3>
+            <p className="eyebrow">Comparte una consulta más organizada</p>
+            <h3>Un lugar para su agenda, pacientes y seguimiento</h3>
             <p>
-              Las recomendaciones entre colegas nos ayudan a encontrar personas
-              voluntarias comprometidas. Compartiremos un mensaje preparado; tú
-              eliges a quién enviarlo.
+              Invita a otro profesional a probar el CRM de Nido durante{" "}
+              {TRIAL_DAYS} días sin tarjeta. Tras la aprobación de su perfil,
+              puede activar su prueba gratuita. Después,{" "}
+              {MEMBERSHIP_PLAN.priceLabel}
+              /mes al contratar.
             </p>
           </div>
+          {!professional.nonClinicalHelper ? (
+            <Link
+              className="button secondary"
+              href="/pro/invitaciones"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Preparar una invitación (se abre en otra pestaña)"
+            >
+              Preparar invitación ↗
+            </Link>
+          ) : null}
           <a
             className="button human"
             data-track="professional_referral_share"

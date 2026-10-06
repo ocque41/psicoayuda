@@ -31,6 +31,7 @@ export default function robots(): MetadataRoute.Robots {
         "/pro/ajustes",
         "/pro/soporte",
         "/pro/plan",
+        "/pro/invitaciones",
         "/sesion/",
         "/acompanamiento/",
         "/c/",

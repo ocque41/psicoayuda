@@ -66,7 +66,11 @@ describe("enlaces de contacto y crecimiento", () => {
     const message = new URL(href).searchParams.get("text") ?? "";
 
     expect(href.startsWith("https://wa.me/?text=")).toBe(true);
-    expect(message).toContain("Formo parte de Nido");
+    expect(message).toContain("Te invito a conocer Nido, un CRM");
+    expect(message).toContain(
+      "90 días gratis, sin tarjeta y sin cobro automático",
+    );
+    expect(message).toContain("10 USD al mes, sólo si decides contratarlo");
     expect(message).toContain("/pro?modo=registro");
     expect(message).toContain("utm_source=whatsapp");
     expect(message).toContain("utm_campaign=referidos_profesionales");

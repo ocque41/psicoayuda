@@ -36,6 +36,7 @@ const professionalLinks: NavItem[] = [
   { href: "/pro/ajustes", label: "Ajustes", icon: "settings" },
   { href: "/pro/soporte", label: "Soporte", icon: "help" },
   { href: "/pro/plan", label: "Mi plan", icon: "payment" },
+  { href: "/pro/invitaciones", label: "Invitar colegas", icon: "people" },
   { href: "/pro/dashboard", label: "Mi perfil", icon: "profile" },
 ];
 
@@ -50,7 +51,12 @@ export function WorkspaceNav({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const items = audience === "patient" ? patientLinks : professionalLinks;
+  const items =
+    audience === "patient"
+      ? patientLinks
+      : adminReview
+        ? professionalLinks.filter((item) => item.href !== "/pro/invitaciones")
+        : professionalLinks;
   return (
     <aside className={`workspace-rail ${className}`}>
       <div className="workspace-rail-inner">

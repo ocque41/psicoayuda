@@ -53,6 +53,12 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Admisión de nuevos profesionales: identidad, credenciales, entrevista y publicación.",
   },
   {
+    id: "invitaciones",
+    label: "Invitaciones",
+    href: "/admin/invitaciones",
+    description: "Invita a otros profesionales a probar la consulta de Nido.",
+  },
+  {
     id: "crm",
     label: "CRM profesional",
     href: "/admin/crm",
@@ -115,13 +121,19 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
   },
 ];
 
-/** Admisión y consulta propia; ninguna sección de administración general. */
+/** Admisión, invitaciones y consulta propia; sin administración general. */
 export const admissionNavigation: readonly AdminNavigationItem[] = [
   {
     id: "admision",
     label: "Admisión",
     href: "/admin/admision",
     description: "Revisa nuevas candidaturas profesionales por etapas.",
+  },
+  {
+    id: "invitaciones",
+    label: "Invitar colegas",
+    href: "/admin/invitaciones",
+    description: "Comparte el enlace y un mensaje para probar el CRM.",
   },
   {
     id: "mi-consulta",
@@ -132,10 +144,16 @@ export const admissionNavigation: readonly AdminNavigationItem[] = [
 ];
 
 /** La vista de la interfaz conserva la cuenta administradora y no abre otro CRM. */
+const paolaPreviewHrefs: Readonly<Record<string, string>> = {
+  admision: "/admin/admision?vista=paola",
+  invitaciones: "/admin/invitaciones?vista=paola",
+  "mi-consulta": "/admin/crm",
+};
+
 export const paolaPreviewNavigation: readonly AdminNavigationItem[] =
   admissionNavigation.map((item) => ({
     ...item,
-    href: item.id === "admision" ? "/admin/admision?vista=paola" : "/admin/crm",
+    href: paolaPreviewHrefs[item.id] ?? item.href,
   }));
 
 export function isAdminView(value: string): value is AdminView {
