@@ -415,19 +415,6 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
         </Link>
         <div className={styles.headerActions}>
           <span className={styles.demoBadge}>Demo · datos de ejemplo</span>
-          <BirdGuide
-            steps={guideSteps}
-            stepId={guideStep}
-            onStepChange={(step) => {
-              navigate(
-                step.id.startsWith("recordatorios-")
-                  ? "recordatorios"
-                  : step.id,
-                false,
-              );
-              setGuideStep(step.id);
-            }}
-          />
         </div>
       </header>
       <div className={styles.layout}>
@@ -487,7 +474,7 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
           <div className={styles.windowHeading}>
             <div>
               <p className="eyebrow">Tu consulta · demo</p>
-              <h1 ref={viewTitle} tabIndex={-1}>
+              <h1 id="demo-window-title" ref={viewTitle} tabIndex={-1}>
                 {labels[active]}
               </h1>
             </div>
@@ -513,6 +500,24 @@ export function PracticeDemo({ initialMonth }: { initialMonth: string }) {
                 Tu agenda, las personas y sus conversaciones tienen su propio
                 lugar. Elige una ventana o deja que nuestro pajarito te
                 acompañe.
+              </p>
+              <BirdGuide
+                steps={guideSteps}
+                stepId={guideStep}
+                fallbackFocusId="demo-window-title"
+                onStepChange={(step) => {
+                  navigate(
+                    step.id.startsWith("recordatorios-")
+                      ? "recordatorios"
+                      : step.id,
+                    false,
+                  );
+                  setGuideStep(step.id);
+                }}
+              />
+              <p className="hint">
+                Un recorrido completo por agenda, pacientes, notas, mensajes,
+                cobros y recordatorios.
               </p>
               <div className={styles.overview}>
                 <div>

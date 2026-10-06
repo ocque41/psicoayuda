@@ -18,6 +18,7 @@ type BirdGuideProps = {
   onStepChange?: (step: BirdGuideStep, index: number) => void;
   triggerLabel?: string;
   guideLabel?: string;
+  fallbackFocusId?: string;
 };
 
 type GuideConnection = EventTarget & {
@@ -115,6 +116,7 @@ export function BirdGuide({
   onStepChange,
   triggerLabel = "Conocer mi consulta",
   guideLabel = "Tu consulta",
+  fallbackFocusId,
 }: BirdGuideProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -187,10 +189,16 @@ export function BirdGuide({
     document.addEventListener("keydown", handleEscape);
     return () => {
       document.removeEventListener("keydown", handleEscape);
-      if (returnFocusRef.current?.isConnected)
-        returnFocusRef.current.focus({ preventScroll: true });
+      const origin = returnFocusRef.current;
+      const destination =
+        origin?.isConnected && origin.getClientRects().length
+          ? origin
+          : fallbackFocusId
+            ? document.getElementById(fallbackFocusId)
+            : null;
+      destination?.focus({ preventScroll: true });
     };
-  }, [active]);
+  }, [active, fallbackFocusId]);
 
   useEffect(() => {
     if (!active || !targetId) return;
@@ -630,7 +638,12 @@ export function BirdGuide({
           ? navigationRect.top - 12
           : top + height - Math.max(12, safeBottom + 8);
       // La barra fija al pie sigue disponible durante todo el recorrido.
-      panel.style.maxHeight = `${Math.max(0, contentBottom - contentTop)}px`;
+      const availableHeight = Math.max(0, contentBottom - contentTop);
+      panel.style.maxHeight = `${availableHeight}px`;
+      // El dock y sus acciones conservan su posición al cambiar de destino.
+      panel.style.height = collapsed
+        ? "auto"
+        : `${Math.min(300, availableHeight)}px`;
       const panelHeight = panel.getBoundingClientRect().height;
       const rect = target?.getBoundingClientRect();
       const available = Boolean(rect && rect.width > 0 && rect.height > 0);
@@ -665,37 +678,8 @@ export function BirdGuide({
           });
         schedule();
       }
-      const side =
-        !readingIds.length &&
-        rect &&
-        rect.left + rect.width / 2 > left + width / 2
-          ? "left"
-          : "right";
-      const panelX =
-        width < 640 || side === "left"
-          ? left + 12
-          : left + width - panelWidth - 12;
-      const bottomY = Math.max(top + 12, contentBottom - panelHeight);
-      const topY = Math.max(contentTop, top + Math.min(84, height / 5));
-      const overlap = (y: number) =>
-        rect
-          ? Math.max(
-              0,
-              Math.min(rect.right, panelX + panelWidth) -
-                Math.max(rect.left, panelX),
-            ) *
-            Math.max(
-              0,
-              Math.min(rect.bottom, y + panelHeight) - Math.max(rect.top, y),
-            )
-          : 0;
-      // Una tarjeta alta puede intersectar ambos docks: en móvil proteger su cabecera.
-      const panelY =
-        readingIds.length || tallMobileTarget
-          ? bottomY
-          : overlap(topY) < overlap(bottomY)
-            ? topY
-            : bottomY;
+      const panelX = left + width - panelWidth - 12;
+      const panelY = Math.max(contentTop, contentBottom - panelHeight);
       panel.style.transform = `translate3d(${panelX}px, ${panelY}px, 0)`;
       panel.dataset.ready = "true";
       let birdX = Math.min(
@@ -829,7 +813,7 @@ export function BirdGuide({
       connection?.removeEventListener?.("change", visibilityChanged);
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
-  }, [active, targetId, stepId, readingKey]);
+  }, [active, targetId, stepId, readingKey, collapsed]);
 
   if (!step) return null;
 
@@ -837,6 +821,7 @@ export function BirdGuide({
     <>
       <button
         ref={triggerRef}
+        data-guide-trigger
         type="button"
         className={styles.start}
         onClick={start}
@@ -941,16 +926,22 @@ export function BirdGuide({
                 >
                   {step.title}
                 </h2>
-                <div id={`${id}-content`} hidden={collapsed}>
-                  <p id={`${id}-description`} className={styles.description}>
-                    {step.description}
-                  </p>
-                  {!targetVisible ? (
-                    <p className={styles.unavailable}>
-                      Esta sección no está visible. Puedes seguir con el próximo
-                      paso.
+                <div
+                  id={`${id}-content`}
+                  className={styles.content}
+                  hidden={collapsed}
+                >
+                  <div key={step.id} className={styles.descriptionRegion}>
+                    <p id={`${id}-description`} className={styles.description}>
+                      {step.description}
                     </p>
-                  ) : null}
+                    {!targetVisible ? (
+                      <p className={styles.unavailable}>
+                        Esta sección no está visible. Puedes seguir con el
+                        próximo paso.
+                      </p>
+                    ) : null}
+                  </div>
                   <div className={styles.navigation}>
                     <button
                       type="button"

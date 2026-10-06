@@ -64,6 +64,73 @@ async function settled() {
     "document.querySelector('span[data-step]')?.dataset.readingTarget && ['rest','idle'].includes(document.querySelector('span[data-step]').dataset.phase)",
   );
 }
+const tourSteps = [
+  "inicio",
+  "agenda",
+  "pacientes",
+  "notas",
+  "mensajes",
+  "cobros",
+  "recordatorios",
+  "recordatorios-consentimiento",
+  "recordatorios-anticipaciones",
+  "recordatorios-zona",
+  "recordatorios-privacidad",
+  "recordatorios-desactivar",
+  "cierre",
+];
+async function continuousTour() {
+  let initial;
+  for (const [index, step] of tourSteps.entries()) {
+    await until(
+      `document.querySelector('span[data-step]')?.dataset.step===${JSON.stringify(step)} && document.querySelector('[role=dialog]')?.dataset.ready==='true'`,
+    );
+    await evaluate(
+      "return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))));",
+    );
+    const position = await evaluate(`
+      const panel=document.querySelector('[role=dialog]');
+      const button=[...panel.querySelectorAll('button')].find(b=>/Siguiente|Terminar/.test(b.textContent));
+      const r=button.getBoundingClientRect();
+      const trigger=document.querySelector('#demo-home button[aria-expanded]');
+      return {x:r.x,y:r.y,width:r.width,height:r.height,hit:button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),triggerVisible:trigger.getClientRects().length>0,count:panel.textContent.includes('${index + 1}/${tourSteps.length}'),inside:r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight};
+    `);
+    assert.equal(position.triggerVisible, index === 0, `Disparador en ${step}`);
+    assert.ok(
+      position.hit && position.inside && position.count,
+      `${step}: ${JSON.stringify(position)}`,
+    );
+    if (!initial) initial = position;
+    for (const key of ["x", "y", "width", "height"])
+      assert.ok(
+        Math.abs(position[key] - initial[key]) <= 1,
+        `${step} desplaza ${key}: ${position[key]} frente a ${initial[key]}`,
+      );
+    await cli(
+      "find",
+      "role",
+      "button",
+      "click",
+      "--name",
+      index === tourSteps.length - 1 ? "Terminar" : "Siguiente",
+      "--exact",
+    );
+  }
+  await until("!document.querySelector('[role=dialog]')");
+  assert.equal(
+    await evaluate("return document.activeElement.id;"),
+    "demo-window-title",
+  );
+  assert.equal(
+    await evaluate(
+      "return window.demoPreview.motion.active===0&&window.demoPreview.pendingTimers()===0;",
+    ),
+    true,
+  );
+  await cli("click", "nav a[href='#demo-home']");
+  await cli("click", "#demo-home button[aria-expanded=false]");
+  await settled();
+}
 async function geometry() {
   return evaluate(
     `const b=document.querySelector('span[data-step]'),r=document.getElementById(b.dataset.readingTarget),p=document.querySelector('[role=dialog]');const br=b.getBoundingClientRect(),rr=r.getBoundingClientRect(),pr=p.getBoundingClientRect();const intersects=br.right>pr.left&&br.left<pr.right&&br.bottom>pr.top&&br.top<pr.bottom;return {target:r.id,inside:br.left>=0&&br.right<=innerWidth&&br.top>=0&&br.bottom<=innerHeight,gutter:br.right<=rr.left+parseFloat(getComputedStyle(r).paddingInlineStart),panelClear:!intersects,overflow:document.documentElement.scrollWidth>innerWidth};`,
@@ -131,6 +198,10 @@ try {
       await settled();
       await capture("02-segunda-lectura");
     },
+  );
+  await check(
+    "un solo inicio recorre los trece pasos con Siguiente estable en escritorio",
+    continuousTour,
   );
   await check(
     "todas las secciones y los temas de recordatorios tienen lecturas alcanzables",
@@ -257,6 +328,20 @@ try {
     },
   );
   await check(
+    "un solo inicio recorre los trece pasos con Siguiente estable en móvil",
+    continuousTour,
+  );
+  await check(
+    "en 320px el avance sigue fijo y el inicio sólo aparece en Mi consulta",
+    async () => {
+      await cli("set", "viewport", "320", "700");
+      await cli("open", url);
+      await cli("click", "#demo-home button[aria-expanded=false]");
+      await continuousTour();
+      await capture("05-recorrido-320");
+    },
+  );
+  await check(
     "movimiento reducido conserva la guía sin viajes ni gestos",
     async () => {
       await cli("set", "media", "light", "reduced-motion");
@@ -307,6 +392,20 @@ try {
       `${JSON.stringify(result, null, 2)}\n`,
     );
   console.log(JSON.stringify(result, null, 2));
+} catch (error) {
+  await capture("fallo-recorrido").catch(() => {});
+  if (artifacts)
+    await writeFile(
+      join(artifacts, "failure.json"),
+      JSON.stringify(
+        await evaluate(
+          `const b=document.querySelector('span[data-step]'),p=document.querySelector('[role=dialog]');return {bird:b?.dataset,panel:p?.getBoundingClientRect().toJSON(),scroll:scrollY,viewport:{width:innerWidth,height:innerHeight},reading:[...document.querySelectorAll('[id]')].filter(e=>e.id.includes('title')||e.id.includes('text')||e.id.includes('context')).map(e=>({id:e.id,rect:e.getBoundingClientRect().toJSON()}))};`,
+        ),
+        null,
+        2,
+      ),
+    ).catch(() => {});
+  throw error;
 } finally {
   await cli("close").catch(() => {});
   server.kill("SIGTERM");

@@ -32,12 +32,15 @@
   overflow: clip;
 }
 .panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   position: absolute;
   top: 0;
   left: 0;
   width: min(352px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0.7rem 1rem 0.85rem;
   border: 1px solid #d4ddcf;
   border-radius: 22px;
@@ -52,6 +55,7 @@
   opacity: 1;
 }
 .top {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -80,6 +84,7 @@
 }
 .title,
 .compactTitle {
+  flex-shrink: 0;
   margin: 0.3rem 0 0.5rem;
   font-size: 1.15rem;
   line-height: 1.25;
@@ -90,6 +95,21 @@
 .compactTitle {
   font-size: 0.9rem;
   margin: 0 0 0.2rem;
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.content[hidden] {
+  display: none;
+}
+.descriptionRegion {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 .description {
   margin: 0;
@@ -103,6 +123,7 @@
   font-size: 0.78rem;
 }
 .navigation {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -115,6 +136,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  width: 124px;
   min-height: 44px;
   padding: 0.55rem 0.75rem;
   border: 1px solid #d4ddcf;
@@ -138,6 +160,7 @@
   background: var(--accent-strong, #245f47);
 }
 .keyboard {
+  flex-shrink: 0;
   margin: 0.7rem 0 0;
   font-size: 0.69rem;
   line-height: 1.4;

@@ -707,3 +707,8 @@
     animation: none;
   }
 }
+
+/* El dock fijo deja margen para alcanzar también las últimas lecturas. */
+.demo:has([data-guide-trigger][aria-expanded="true"]) {
+  padding-bottom: 324px;
+}
