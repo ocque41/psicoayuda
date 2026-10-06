@@ -21,7 +21,6 @@ export {
 } from "./calendar-schema";
 export { practiceNotes } from "./notes-schema";
 export { practicePatientProfiles } from "./patient-profile-schema";
-export { waitlistEntries } from "./waitlist-schema";
 export {
   accountOnboardingDrafts,
   accountRolePreferences,
@@ -34,6 +33,7 @@ export {
   appointmentReminderDeliveries,
   appointmentReminderPreferences,
 } from "./reminder-schema";
+export { waitlistEntries } from "./waitlist-schema";
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -587,52 +587,6 @@ export const contactMessages = sqliteTable(
       table.updatedAt,
       table.id,
     ),
-  ],
-);
-
-// Lista de espera para personas que necesitan apoyo psicológico por motivos
-// AJENOS al terremoto. La ayuda gratuita de la emergencia está reservada para
-// las víctimas, así que aquí guardamos lo mínimo para avisarles cuando se libere
-// un cupo voluntario: correo, un título breve y una descripción de lo que
-// necesitan. Una fila por correo (índice único). Repetir el formulario público
-// no modifica una anotación previa sólo por conocer su correo. Las anotaciones
-// desde el chat exigen confirmación explícita y autorización seeker vigente.
-// El contenido es sensible: solo lo ve el equipo de coordinación y se anonimiza
-// por retención.
-export const waitlistEntries = sqliteTable(
-  "waitlist_entries",
-  {
-    id: text("id").primaryKey(),
-    email: text("email").notNull(),
-    // Título breve ("Ansiedad por el trabajo") y descripción de lo que necesita.
-    title: text("title").notNull(),
-    description: text("description").notNull(),
-    // Página/componente desde el que se anotó (ej. 'profesionales', 'chat').
-    // Sirve para medir qué punto de la web convierte; nunca es PII.
-    source: text("source").notNull(),
-    // Conversación de origen cuando la anotación nace de la tarjeta del chat
-    // (source = 'chat'). Permite mostrar al profesional si la persona ya se
-    // anotó y da contexto al equipo. Se limpia al anonimizar por retención.
-    conversationId: text("conversation_id"),
-    // 'waiting' | 'contacted' | 'matched' | 'closed'
-    status: text("status").default("waiting").notNull(),
-    // Hash irreversible de la conexión para limitar abuso; nunca guardamos IP.
-    requesterHash: text("requester_hash"),
-    anonymizedAt: text("anonymized_at"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    uniqueIndex("waitlist_entries_email_unique").on(table.email),
-    index("waitlist_entries_status_created_idx").on(
-      table.status,
-      table.createdAt,
-    ),
-    index("waitlist_entries_requester_created_idx").on(
-      table.requesterHash,
-      table.createdAt,
-    ),
-    index("waitlist_entries_conversation_idx").on(table.conversationId),
   ],
 );
 

@@ -32,6 +32,13 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Ayuda Terremoto: revisar, asignar y dar seguimiento al apoyo gratuito.",
   },
   {
+    id: "lista-espera",
+    label: "Lista de espera",
+    href: "/admin/lista-de-espera",
+    description:
+      "Apoyo general y Ayuda Terremoto, con seguimiento independiente.",
+  },
+  {
     id: "profesionales",
     label: "Profesionales",
     href: "/admin/profesionales",

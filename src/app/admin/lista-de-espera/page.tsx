@@ -1,112 +1,65 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { adminUpdateWaitlistStatus } from "@/app/actions-waitlist";
+import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/shell";
-import { db } from "@/db";
-import { waitlistEntries } from "@/db/schema";
-import { requireAdmin } from "@/lib/admin";
-import {
-  type WaitlistSource,
-  type WaitlistStatus,
-  waitlistSourceLabels,
-  waitlistStatuses,
-  waitlistStatusLabels,
-} from "@/lib/waitlist";
+import { AdminWaitlistBoard } from "@/components/admin/waitlist/board";
+import { AuthPanel } from "@/components/auth-panel";
+import { requireWaitlistAdmin } from "@/lib/admin-waitlist/access";
+import { readAdminWaitlistData } from "@/lib/admin-waitlist/queries";
+import type { AdminWaitlistQuery } from "@/lib/admin-waitlist/types";
+import { getServerSession } from "@/lib/auth-server";
+
 export const dynamic = "force-dynamic";
-export default async function WaitlistAdminPage({
+export const metadata: Metadata = {
+  title: "Lista de espera · Administración",
+  robots: { index: false, follow: false },
+};
+
+export default async function AdminWaitlistPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; pagina?: string }>;
+  searchParams: Promise<AdminWaitlistQuery>;
 }) {
-  if (!(await requireAdmin())) redirect("/entrar");
-  const params = await searchParams;
-  const status = waitlistStatuses.includes(params.estado as WaitlistStatus)
-    ? (params.estado as WaitlistStatus)
-    : "waiting";
-  const page = Math.max(
-    1,
-    Math.min(10000, Number.parseInt(params.pagina ?? "1", 10) || 1),
-  );
-  const entries = await db
-    .select()
-    .from(waitlistEntries)
-    .where(
-      and(
-        eq(waitlistEntries.status, status),
-        isNull(waitlistEntries.anonymizedAt),
-      ),
-    )
-    .orderBy(desc(waitlistEntries.createdAt), desc(waitlistEntries.id))
-    .limit(51)
-    .offset((page - 1) * 50);
+  const actor = await requireWaitlistAdmin();
+  if (!actor) {
+    const session = await getServerSession();
+    return (
+      <section className="section">
+        <div className="container">
+          <h1>Lista de espera</h1>
+          {session?.user ? (
+            <div className="card">
+              <p>
+                Esta cuenta no tiene acceso a la lista de espera. Se requiere
+                una cuenta verificada de Superadmin.
+              </p>
+            </div>
+          ) : (
+            <div className="signin">
+              <p>
+                Entra con tu cuenta de Superadmin para consultar las listas de
+                espera.
+              </p>
+              <AuthPanel
+                callbackURL="/admin/lista-de-espera"
+                googleEnabled={Boolean(
+                  process.env.GOOGLE_CLIENT_ID?.trim() &&
+                    process.env.GOOGLE_CLIENT_SECRET?.trim(),
+                )}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+  const data = await readAdminWaitlistData(actor, await searchParams);
   return (
     <AdminShell
       active="lista-espera"
-      title="Lista de espera general"
-      description="Solicitudes de apoyo general, separadas de las solicitudes y cupos de Ayuda Terremoto."
+      accountEmail={actor.email}
+      accountLabel="Superadmin"
+      badges={{ "lista-espera": data.failed ? 0 : data.sourceCounts.general }}
     >
-      <nav aria-label="Estado de la lista de espera">
-        {waitlistStatuses.map((value) => (
-          <Link
-            key={value}
-            href={`/admin/lista-de-espera?estado=${value}`}
-            aria-current={value === status ? "page" : undefined}
-          >
-            {waitlistStatusLabels[value]} ·{" "}
-          </Link>
-        ))}
-      </nav>
-      {entries.length ? (
-        <ul>
-          {entries.slice(0, 50).map((entry) => (
-            <li key={entry.id} className="card">
-              <h2>{entry.title}</h2>
-              <p>{entry.description}</p>
-              <p>{entry.email}</p>
-              <p>
-                {waitlistSourceLabels[entry.source as WaitlistSource] ??
-                  "Formulario"}{" "}
-                · {entry.createdAt.slice(0, 10)}
-              </p>
-              <form action={adminUpdateWaitlistStatus}>
-                <input type="hidden" name="waitlistId" value={entry.id} />
-                <label htmlFor={`status-${entry.id}`}>Estado</label>
-                <select
-                  id={`status-${entry.id}`}
-                  name="status"
-                  defaultValue={entry.status}
-                >
-                  {waitlistStatuses.map((value) => (
-                    <option key={value} value={value}>
-                      {waitlistStatusLabels[value]}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="button secondary">
-                  Guardar estado
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No hay solicitudes en este estado.</p>
-      )}
-      {page > 1 ? (
-        <Link
-          href={`/admin/lista-de-espera?estado=${status}&pagina=${page - 1}`}
-        >
-          Anterior
-        </Link>
-      ) : null}
-      {entries.length > 50 ? (
-        <Link
-          href={`/admin/lista-de-espera?estado=${status}&pagina=${page + 1}`}
-        >
-          Siguiente
-        </Link>
-      ) : null}
+      <AdminWaitlistBoard data={data} />
     </AdminShell>
   );
 }
