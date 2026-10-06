@@ -8,14 +8,13 @@ import { absoluteUrl } from "@/lib/site";
  * profesional, página de gracias) que además se bloquean en robots.ts.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  // Fecha de última actualización relevante del sitio (guías, buscador, etc.).
-  // Actualízala cuando cambie contenido: es señal de frescura para Google.
-  const lastModified = new Date("2026-10-02");
-
+  // Sólo declarar fechas comprobadas por URL. Un despliegue o la edición de
+  // otra página no cambia la fecha del resto; omitir las que no conocemos.
   const routes: Array<{
     path: string;
     priority: number;
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
+    lastModified?: string;
   }> = [
     { path: "/", priority: 1, changeFrequency: "weekly" },
     { path: "/orientacion", priority: 0.8, changeFrequency: "monthly" },
@@ -26,7 +25,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/emergencia", priority: 0.8, changeFrequency: "monthly" },
     { path: "/situacion", priority: 0.7, changeFrequency: "weekly" },
     { path: "/alianzas", priority: 0.6, changeFrequency: "monthly" },
-    { path: "/recursos", priority: 0.8, changeFrequency: "weekly" },
+    {
+      path: "/recursos",
+      priority: 0.8,
+      changeFrequency: "weekly",
+      lastModified: "2026-10-06",
+    },
+    {
+      path: "/recursos/organizar-agenda-consulta-psicologica",
+      priority: 0.6,
+      changeFrequency: "monthly",
+      lastModified: "2026-10-06",
+    },
     {
       path: "/recursos/psicologo-online-gratis-venezuela",
       priority: 0.7,
@@ -119,9 +129,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/terminos", priority: 0.3, changeFrequency: "yearly" },
   ];
 
-  return routes.map(({ path, priority, changeFrequency }) => ({
+  return routes.map(({ path, priority, changeFrequency, lastModified }) => ({
     url: absoluteUrl(path),
-    lastModified,
+    ...(lastModified ? { lastModified } : {}),
     changeFrequency,
     priority,
     alternates: {

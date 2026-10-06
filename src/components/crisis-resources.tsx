@@ -107,8 +107,7 @@ export function CrisisResources({
         Si estás en peligro ahora mismo
       </h2>
       <p style={{ marginTop: 0 }}>
-        Nido es apoyo de acompañamiento gratuito y a distancia, pero{" "}
-        <strong>no es un servicio de emergencia</strong> y no responde al
+        Nido <strong>no es un servicio de emergencia</strong> y no responde al
         instante. Si tu vida o la de otra persona corre peligro en este momento,
         busca ayuda inmediata:
       </p>

@@ -12,12 +12,12 @@ import { getAbuseContactEmail } from "@/lib/contact";
 export const metadata: Metadata = {
   title: "Recursos de salud mental en Venezuela",
   description:
-    "Recursos de salud mental y apoyo emocional para Venezuela, e información sobre cómo funciona el acompañamiento psicológico voluntario y gratuito de Nido.",
+    "Guías de apoyo psicológico para Venezuela y venezolanos en el exterior, recursos para organizar la consulta y el programa separado Ayuda Terremoto.",
   alternates: { canonical: "/recursos" },
   openGraph: {
     title: "Recursos de salud mental en Venezuela | Nido",
     description:
-      "Recursos de salud mental para Venezuela y cómo funciona el acompañamiento psicológico voluntario y gratuito de Nido.",
+      "Guías para buscar apoyo y organizar la consulta. La atención se acuerda con cada profesional; Ayuda Terremoto mantiene su recorrido gratuito separado.",
     url: "/recursos",
   },
 };
@@ -32,31 +32,36 @@ export default function ResourcesPage() {
         <Breadcrumbs trail={[{ name: "Recursos", path: "/recursos" }]} />
         <h1>Recursos de salud mental y apoyo psicológico en Venezuela</h1>
         <p className="lead">
-          Aquí reunimos cómo conseguir apoyo psicológico gratuito a distancia en
-          Venezuela y qué tener en cuenta antes de empezar.
+          Lecturas para personas que buscan apoyo en Venezuela o desde el
+          exterior, y recursos para profesionales que quieren organizar su
+          consulta.
         </p>
 
         <EmergencyPriorityBar />
         <EmergencyResourcesDirectory />
 
         <div className="card">
-          <h2>Cómo recibir apoyo psicológico gratis con Nido</h2>
+          <h2>Cómo encontrar apoyo con Nido</h2>
           <p>
-            Cuéntanos cómo estás en un formulario breve. No necesitas crear
-            cuenta ni dar tu ubicación. Una persona voluntaria verificada
-            revisará tu mensaje y te escribirá a tu correo para acompañarte a
-            distancia, sin coste. Si prefieres, también puedes{" "}
-            <Link href="/profesionales">
-              ver a las psicólogas y psicólogos voluntarios
-            </Link>{" "}
-            y elegir tú con quién hablar.
+            Puedes{" "}
+            <Link href="/profesionales">explorar perfiles revisados</Link> y
+            contactar a un profesional sin crear una cuenta. Antes de reservar,
+            acuerda con esa persona la modalidad, la disponibilidad, el precio y
+            las condiciones de atención. Confirma que puede atenderte en el país
+            desde el que recibirás atención, también si estás de viaje.
           </p>
           <p>
-            <Link className="button human" href="/ayuda">
-              Pedir apoyo ahora
+            Ayuda Terremoto es un programa separado de acompañamiento voluntario
+            gratuito para personas afectadas por el terremoto, según
+            disponibilidad. La gratuidad del programa no describe todas las
+            consultas del catálogo.
+          </p>
+          <p>
+            <Link className="button human" href="/profesionales">
+              Explorar profesionales
             </Link>{" "}
-            <Link className="button secondary" href="/profesionales">
-              Ver psicólogos voluntarios
+            <Link className="button secondary" href="/ayuda">
+              Solicitar Ayuda Terremoto
             </Link>
           </p>
         </div>
@@ -77,10 +82,10 @@ export default function ResourcesPage() {
         <div className="card">
           <h2>Qué hace Nido</h2>
           <p>
-            Nido ayuda a conectar solicitudes con profesionales voluntarios
-            verificados. No atiende emergencias en tiempo real y no reemplaza
-            atención médica presencial. ¿Eres profesional de la salud mental?{" "}
-            <Link href="/pro">Únete como voluntario/a</Link>.
+            Nido facilita encontrar profesionales y ofrece un espacio para
+            organizar la consulta. No atiende emergencias en tiempo real. ¿Eres
+            profesional de psicología?{" "}
+            <Link href="/para-psicologos">Conoce el espacio profesional</Link>.
           </p>
         </div>
 
@@ -199,6 +204,24 @@ export default function ResourcesPage() {
               </Link>
             </li>
           </ul>
+        </div>
+
+        <div className="card">
+          <h2>Organizar tu práctica profesional</h2>
+          <p>
+            Guías administrativas para aclarar la agenda y las condiciones de
+            cada encuentro.
+          </p>
+          <ul>
+            <li>
+              <Link href="/recursos/organizar-agenda-consulta-psicologica">
+                Cómo organizar la agenda de una consulta psicológica
+              </Link>
+            </li>
+          </ul>
+          <p>
+            <Link href="/para-psicologos">Conocer Nido para psicólogos</Link>
+          </p>
         </div>
 
         <div className="card">
