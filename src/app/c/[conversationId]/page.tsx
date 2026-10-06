@@ -7,6 +7,7 @@ import { QuickExit } from "@/components/quick-exit";
 import { db } from "@/db";
 import { practiceAppointments, practicePatients } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { conversationExists, loadChatView } from "@/lib/chat-view";
 import { conversationsForProfessional } from "@/lib/offers";
 import { hasPatientConversationAccess } from "@/lib/patient/access";
@@ -115,10 +116,18 @@ export default async function ConversationPage({
 
   // El profesional ve, junto a la sala, TODAS sus conversaciones con la
   // actividad al día: cambiar de persona es un toque, sin volver al panel.
+  const liveChatActor = view.professionalId
+    ? await loadLiveChatProfessional(view.professionalId)
+    : null;
   const proChats = view.professionalId
     ? sortProChats(
         toProChatSummaries(
-          await conversationsForProfessional(view.professionalId),
+          liveChatActor
+            ? await conversationsForProfessional(
+                view.professionalId,
+                liveChatActor,
+              )
+            : [],
         ),
       )
     : null;
@@ -166,11 +175,14 @@ export default async function ConversationPage({
     <section className="section">
       <div className="container panel-container">
         <div className="chat-shell">
-          <ProChatList
-            key={view.professionalId}
-            initial={proChats}
-            activeId={view.conversationId}
-          />
+          {view.professionalId ? (
+            <ProChatList
+              professionalId={view.professionalId}
+              key={view.professionalId}
+              initial={proChats}
+              activeId={view.conversationId}
+            />
+          ) : null}
           <div className="chat-shell-main">{room}</div>
         </div>
       </div>

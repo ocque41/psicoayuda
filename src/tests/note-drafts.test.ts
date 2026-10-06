@@ -30,6 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   drafts.clearNoteDrafts();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 describe("borradores sólo en memoria del documento", () => {
   it("recupera el ID estable de una nota nueva sin exponer texto en su metadata", () => {
@@ -148,6 +149,25 @@ describe("borradores sólo en memoria del documento", () => {
     drafts.clearNoteDrafts();
     expect(drafts.readNoteDraft(scope, epoch)).toBeNull();
     expect(drafts.rememberNoteDraft(scope, note, epoch)).toBe(false);
+  });
+  it("un login retira la presentación y conserva el scope sólo para autorización fresca", async () => {
+    vi.resetModules();
+    const surface = new EventTarget();
+    vi.stubGlobal("window", surface);
+    const isolated = await import("@/lib/practice/note-drafts");
+    const notice = vi.fn();
+    const stop = isolated.subscribeNoteDrafts(notice);
+    const epoch = isolated.noteDraftGeneration();
+    expect(isolated.rememberNoteDraft(scope, note, epoch)).toBe(true);
+    surface.dispatchEvent(new Event("nido:account-session-changed"));
+    expect(notice).toHaveBeenCalledWith({ type: "session" });
+    expect(isolated.readNoteDraft(scope, epoch)).toBeNull();
+    expect(isolated.rememberNoteDraft(scope, note, epoch)).toBe(false);
+    expect(
+      isolated.readNoteDraft(scope, isolated.noteDraftGeneration()),
+    ).toEqual(note);
+    isolated.clearNoteDrafts();
+    stop();
   });
   it("rechaza ámbitos o tamaños inválidos", () => {
     expect(

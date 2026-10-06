@@ -310,11 +310,29 @@ export async function restoreFromBackup(
     ((scope && file.scope !== scope) ||
       file.entries.some(
         (entry) =>
-          (entry.slot !== file.scope && entry.ownerSlot !== file.scope) ||
-          (entry.ownerSlot !== undefined && entry.ownerSlot !== file.scope),
+          (entry.ownerSlot !== undefined && entry.ownerSlot !== file.scope) ||
+          (entry.slot !== file.scope &&
+            (!file.scope?.startsWith("pro:") ||
+              !entry.slot.startsWith("seek:") ||
+              entry.ownerSlot !== file.scope)),
       ))
   )
     return { ok: false, restored: 0 };
+  if (file.scope?.startsWith("pro:")) {
+    // La etiqueta de dueño viene del respaldo. Nunca basta para sustituir una
+    // clave local de otra cuenta o una clave seeker propia todavía sin dueño.
+    for (const entry of file.entries) {
+      if (entry.slot === file.scope) continue;
+      const existing = await getStoredKey(entry.slot);
+      if (!current()) return { ok: false, restored: 0 };
+      if (
+        existing &&
+        ((existing.ownerSlot && existing.ownerSlot !== file.scope) ||
+          (!existing.ownerSlot && existing.publicKey !== entry.publicKey))
+      )
+        return { ok: false, restored: 0 };
+    }
+  }
   const restored = await importKeystoreJson(json, current);
   if (!current()) return { ok: false, restored };
   if (restored === 0) return { ok: false, restored: 0 };

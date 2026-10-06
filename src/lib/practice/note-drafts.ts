@@ -1,3 +1,7 @@
+import {
+  ACCOUNT_SESSION_CHANGED_EVENT,
+  SESSION_CHANGED_EVENT,
+} from "@/lib/chat-session-end";
 import { setRetainedNoteKeys } from "./note-navigation";
 
 // RAM del documento únicamente. Nunca escribir texto en storage/history/URLs.
@@ -62,7 +66,11 @@ function prune() {
 function connect() {
   if (connected || typeof window === "undefined") return;
   connected = true;
-  window.addEventListener("nido:session-changed", clearNoteDrafts);
+  window.addEventListener(SESSION_CHANGED_EVENT, clearNoteDrafts);
+  window.addEventListener(
+    ACCOUNT_SESSION_CHANGED_EVENT,
+    invalidateNoteDraftSession,
+  );
   window.addEventListener("pagehide", clearNoteDrafts);
 }
 export function noteDraftGeneration() {
@@ -80,6 +88,12 @@ export function clearNoteDrafts() {
   entries.clear();
   generation++;
   sync();
+  notify({ type: "session" });
+}
+// Un login puede ser del mismo dueño: retirar presentación/respuestas tardías,
+// conservando cada scope en RAM hasta su TTL y nueva autorización del servidor.
+export function invalidateNoteDraftSession() {
+  generation++;
   notify({ type: "session" });
 }
 export function forgetNoteDraft(scope: NoteDraftScope, expected?: NoteDraft) {

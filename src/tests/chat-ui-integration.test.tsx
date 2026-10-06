@@ -47,7 +47,11 @@ describe("integración de UI de chat/lista", () => {
   });
   it("la bandeja monta icono y cajón accesible sin depender del admin-shell", () => {
     const html = renderToStaticMarkup(
-      <ProChatList initial={[]} activeId="fictional-chat" />,
+      <ProChatList
+        initial={[]}
+        activeId="fictional-chat"
+        professionalId="fictional-pro"
+      />,
     );
     expect(html).toContain('role="dialog"');
     expect(html).toContain('inert=""');

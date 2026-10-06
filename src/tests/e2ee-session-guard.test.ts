@@ -12,6 +12,7 @@ afterEach(() => {
 describe("invalidación de recuperación E2EE", () => {
   it.each([
     "nido:session-changed",
+    "nido:account-session-changed",
     "nido:chat-session-ended",
     "storage",
   ])("retira el código abierto y rechaza respuestas pendientes tras %s", async (event) => {

@@ -274,12 +274,15 @@ describe("ruta /acceso/[token]", () => {
       first.payload.sid,
     );
     const original = db.values.bind(db);
-    vi.spyOn(db, "values").mockImplementationOnce(async (query) => {
-      await db
-        .update(seekerSessions)
-        .set({ revokedAt: new Date() })
-        .where(eq(seekerSessions.sid, first.payload.sid));
-      return original(query);
+    vi.spyOn(db, "values").mockImplementationOnce((query) => {
+      const pending = (async () => {
+        await db
+          .update(seekerSessions)
+          .set({ revokedAt: new Date() })
+          .where(eq(seekerSessions.sid, first.payload.sid));
+        return original(query);
+      })();
+      return pending as unknown as ReturnType<typeof db.values>;
     });
     const denied = await get(link.token, first.token);
     expect(denied.headers.get("set-cookie")).toBeNull();
@@ -308,35 +311,40 @@ describe("ruta /acceso/[token]", () => {
       })
     ).length;
     const original = db.values.bind(db);
-    vi.spyOn(db, "values").mockImplementationOnce(async (query) => {
-      if (kind === "revoked")
-        await db
-          .update(seekerSessions)
-          .set({ revokedAt: new Date() })
-          .where(eq(seekerSessions.sid, link.sid));
-      if (kind === "expired")
-        await db
-          .update(seekerSessions)
-          .set({ expiresAt: new Date(Date.now() - 1) })
-          .where(eq(seekerSessions.sid, link.sid));
-      if (kind === "purged")
-        await db.delete(seekerSessions).where(eq(seekerSessions.sid, link.sid));
-      if (kind === "deleted")
-        await db
-          .update(conversations)
-          .set({ deletedAt: new Date() })
-          .where(eq(conversations.id, id.conv));
-      if (kind === "anonymized")
-        await db
-          .update(conversations)
-          .set({ anonymizedAt: new Date().toISOString() })
-          .where(eq(conversations.id, id.conv));
-      if (kind === "status")
-        await db
-          .update(conversations)
-          .set({ status: "unknown" })
-          .where(eq(conversations.id, id.conv));
-      return original(query);
+    vi.spyOn(db, "values").mockImplementationOnce((query) => {
+      const pending = (async () => {
+        if (kind === "revoked")
+          await db
+            .update(seekerSessions)
+            .set({ revokedAt: new Date() })
+            .where(eq(seekerSessions.sid, link.sid));
+        if (kind === "expired")
+          await db
+            .update(seekerSessions)
+            .set({ expiresAt: new Date(Date.now() - 1) })
+            .where(eq(seekerSessions.sid, link.sid));
+        if (kind === "purged")
+          await db
+            .delete(seekerSessions)
+            .where(eq(seekerSessions.sid, link.sid));
+        if (kind === "deleted")
+          await db
+            .update(conversations)
+            .set({ deletedAt: new Date() })
+            .where(eq(conversations.id, id.conv));
+        if (kind === "anonymized")
+          await db
+            .update(conversations)
+            .set({ anonymizedAt: new Date().toISOString() })
+            .where(eq(conversations.id, id.conv));
+        if (kind === "status")
+          await db
+            .update(conversations)
+            .set({ status: "unknown" })
+            .where(eq(conversations.id, id.conv));
+        return original(query);
+      })();
+      return pending as unknown as ReturnType<typeof db.values>;
     });
     try {
       const response = await get(link.token);
@@ -404,11 +412,14 @@ describe("ruta /acceso/[token]", () => {
       ttlMs: 500,
     });
     const original = db.values.bind(db);
-    vi.spyOn(db, "values").mockImplementationOnce(async (query) => {
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.max(0, link.expiresAt - Date.now() + 5)),
-      );
-      return original(query);
+    vi.spyOn(db, "values").mockImplementationOnce((query) => {
+      const pending = (async () => {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, link.expiresAt - Date.now() + 5)),
+        );
+        return original(query);
+      })();
+      return pending as unknown as ReturnType<typeof db.values>;
     });
     const response = await get(link.token);
     expect(response.headers.get("set-cookie")).toBeNull();

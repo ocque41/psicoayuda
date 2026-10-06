@@ -4,8 +4,13 @@ import { ChatRoom } from "../../../src/app/c/[conversationId]/chat-room";
 import { E2eeRestorePanel } from "../../../src/app/c/[conversationId]/e2ee-restore-panel";
 import { E2eeBackupModal } from "../../../src/components/e2ee-backup-modal";
 import { E2eeProSetupCard } from "../../../src/components/e2ee-pro-setup";
+import { ProChatList } from "../../../src/components/pro-chat-list";
 import { loadChatDraft } from "../../../src/lib/chat-draft-storage";
-import { completeChatSignOut } from "../../../src/lib/chat-session-end";
+import {
+  announceAccountSessionChange as announceFixtureAccountChange,
+  bridgeChatSessionEnd as bridgeFixtureAccountChange,
+  completeChatSignOut,
+} from "../../../src/lib/chat-session-end";
 import * as client from "../../../src/lib/e2ee-client";
 import { openEnvelope } from "../../../src/shared/e2ee";
 import { verifyProfessionalE2eeActor } from "./actions";
@@ -14,7 +19,31 @@ import type { Fixture } from "./types";
 const container = document.getElementById("root");
 if (!container) throw new Error("Sin raíz de fixture");
 const root = createRoot(container);
+bridgeFixtureAccountChange();
 const f: Fixture = {
+  announceAccountChange: announceFixtureAccountChange,
+  inboxRequests: [],
+  mountInbox() {
+    root.render(
+      <ProChatList
+        professionalId="fictional-peer"
+        activeId="fictional-room-a"
+        initial={[
+          {
+            id: "fictional-room-a",
+            need: null,
+            urgency: null,
+            seekerName: "Alias privado ficticio A",
+            lastActivityAt: Date.now(),
+            lastMessageRole: null,
+            status: "open",
+            closedReason: null,
+            unread: false,
+          },
+        ]}
+      />,
+    );
+  },
   actor: "fictional-pro-a",
   expiresAt: Date.now() + 900_000,
   backups: new Map(),
@@ -173,6 +202,40 @@ const f: Fixture = {
   },
 };
 window.fixture = f;
+const realFetch = window.fetch.bind(window);
+window.fetch = async (input, options) => {
+  const url = new URL(
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url,
+    location.href,
+  );
+  if (url.pathname !== "/api/pro/chats") return realFetch(input, options);
+  f.inboxRequests.push(url.searchParams.get("professionalId"));
+  return new Promise<Response>((resolve) => {
+    f.releaseInbox = () =>
+      resolve(
+        Response.json({
+          professionalId: "fictional-other-pro",
+          chats: [
+            {
+              id: "fictional-room-b",
+              seekerName: "Alias privado ficticio B",
+              status: "open",
+              closedReason: null,
+              need: null,
+              urgency: null,
+              lastActivityAt: Date.now(),
+              lastMessageRole: null,
+              unread: false,
+            },
+          ],
+        }),
+      );
+  });
+};
 Object.defineProperty(navigator, "clipboard", {
   configurable: true,
   value: {

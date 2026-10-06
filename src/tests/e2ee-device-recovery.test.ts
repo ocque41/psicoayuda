@@ -81,6 +81,61 @@ it("rechaza entradas ajenas dentro de un respaldo moderno antes de importar", as
   expect(await client.getStoredRecoveryCode(slotA)).toBe(backup.code);
   expect(await client.getStoredRecoveryCode(slotB)).toBeNull();
 });
+
+it("la etiqueta ownerSlot no autoriza importar la identidad de otro profesional", async () => {
+  const client = await import("@/lib/e2ee-client");
+  const slotA = client.professionalSlot("fixture-spoof-owner-a");
+  const slotB = client.professionalSlot("fixture-spoof-owner-b");
+  const a = await client.getOrCreateIdentity(slotA);
+  const b = await client.getOrCreateIdentity(slotB);
+  const backup = await client.createRecoveryBackup(slotA);
+  if (!backup) throw new Error("Sin respaldo ficticio");
+  const wrapped = await wrapKeystore(
+    JSON.stringify({
+      v: 1,
+      scope: slotA,
+      entries: [a.entry, { ...b.entry, ownerSlot: slotA }],
+    }),
+    backup.code,
+  );
+  await client.replaceIdentity(slotB);
+  const before = await client.exportKeystoreJson();
+  expect(await client.restoreFromBackup(backup.code, wrapped, slotA)).toEqual({
+    ok: false,
+    restored: 0,
+  });
+  expect(await client.exportKeystoreJson()).toBe(before);
+});
+
+it.each([
+  false,
+  true,
+])("un respaldo profesional no sustituye una clave seeker ajena (con dueño: %s)", async (owned) => {
+  const client = await import("@/lib/e2ee-client");
+  const slotA = client.professionalSlot(`fixture-owned-seeker-a-${owned}`);
+  const slotB = client.professionalSlot(`fixture-owned-seeker-b-${owned}`);
+  const slot = client.seekerSlot(`fixture-owned-room-${owned}`);
+  const a = await client.getOrCreateIdentity(slotA);
+  const seeker = await client.getOrCreateIdentity(slot);
+  const backup = await client.createRecoveryBackup(slotA);
+  if (!backup) throw new Error("Sin respaldo ficticio");
+  const wrapped = await wrapKeystore(
+    JSON.stringify({
+      v: 1,
+      scope: slotA,
+      entries: [a.entry, { ...seeker.entry, ownerSlot: slotA }],
+    }),
+    backup.code,
+  );
+  await client.replaceIdentity(slot);
+  if (owned) await client.registerIdentityOwner(slot, slotB);
+  const before = await client.exportKeystoreJson();
+  expect(await client.restoreFromBackup(backup.code, wrapped, slotA)).toEqual({
+    ok: false,
+    restored: 0,
+  });
+  expect(await client.exportKeystoreJson()).toBe(before);
+});
 describe("recuperación E2EE entre dispositivos", () => {
   it("restaura la misma identidad y lee un sobre anterior con el respaldo confirmado", async () => {
     const first = await import("@/lib/e2ee-client");

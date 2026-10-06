@@ -1,4 +1,8 @@
-import { onChatSessionEnd, SESSION_CHANGED_EVENT } from "./chat-session-end";
+import {
+  ACCOUNT_SESSION_CHANGED_EVENT,
+  onChatSessionEnd,
+  SESSION_CHANGED_EVENT,
+} from "./chat-session-end";
 
 export type E2eeActorCheck = () => Promise<{
   ok: boolean;
@@ -74,8 +78,10 @@ export function createE2eeSessionGuard(
 export function listenE2eeSessionInvalidation(invalidate: () => void) {
   const stop = onChatSessionEnd(invalidate);
   window.addEventListener(SESSION_CHANGED_EVENT, invalidate);
+  window.addEventListener(ACCOUNT_SESSION_CHANGED_EVENT, invalidate);
   return () => {
     stop();
     window.removeEventListener(SESSION_CHANGED_EVENT, invalidate);
+    window.removeEventListener(ACCOUNT_SESSION_CHANGED_EVENT, invalidate);
   };
 }

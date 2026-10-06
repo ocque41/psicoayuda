@@ -420,10 +420,13 @@ export async function missedOffersForProfessional(professionalId: string) {
 /**
  * Conversaciones del profesional (su bandeja de chats), ordenadas por ÚLTIMA
  * ACTIVIDAD (no por creación): lo que espera respuesta queda arriba. Incluye
- * metadatos no sensibles para el badge de no leído (`lastMessageRole` +
+ * metadatos limitados para el badge de no leído (`lastMessageRole` +
  * `proLastReadAt`); el contenido sigue solo en el Durable Object.
  */
-export async function conversationsForProfessional(professionalId: string) {
+export async function conversationsForProfessional(
+  professionalId: string,
+  liveActor?: { authSessionId: string; userId: string },
+) {
   return db
     .select({
       conversationId: conversations.id,
@@ -440,7 +443,17 @@ export async function conversationsForProfessional(professionalId: string) {
     })
     .from(conversations)
     .leftJoin(helpRequests, eq(conversations.helpRequestId, helpRequests.id))
-    .where(eq(conversations.professionalId, professionalId))
+    .where(
+      and(
+        eq(conversations.professionalId, professionalId),
+        liveActor
+          ? sql`EXISTS(SELECT 1 FROM professionals owner JOIN session live_session ON live_session.user_id=owner.user_id
+              WHERE owner.id=${professionalId} AND owner.user_id=${liveActor.userId} AND owner.status='approved'
+              AND live_session.id=${liveActor.authSessionId}
+              AND live_session.expires_at > cast(unixepoch('subsecond')*1000 AS integer))`
+          : undefined,
+      ),
+    )
     .orderBy(
       desc(
         sql`coalesce(${conversations.lastMessageAt}, cast(strftime('%s', ${conversations.createdAt}) as integer) * 1000)`,

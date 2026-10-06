@@ -57,7 +57,8 @@ describe("cambio de sesión confirmado sin logout", () => {
     });
     announceAccountSessionChange();
     expect(revalidate).toHaveBeenCalledOnce();
-    expect(readNoteDraft(scope, generation)).toEqual(note);
+    expect(readNoteDraft(scope, generation)).toBeNull();
+    expect(readNoteDraft(scope, noteDraftGeneration())).toEqual(note);
     expect(end).not.toHaveBeenCalled();
     expect(stored.get(KEY)).toMatch(/^\d+:[a-z0-9]+$/);
     expect(stored.get("fixture-draft")).toBe(draft);

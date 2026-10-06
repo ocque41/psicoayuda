@@ -192,6 +192,72 @@ try {
     },
   );
   await scenario(
+    "login real en otra pestaña retira el código A sin alterar claves ni respaldo",
+    async (page, context) => {
+      await open(page);
+      const code = await page.locator("dialog code").textContent();
+      const other = await context.newPage();
+      await other.goto(url);
+      await other.evaluate(() => window.ready);
+      const before = await page.evaluate(() => window.fixture.snapshotBackup());
+      await page.evaluate(() => {
+        window.fixture.actor = "fictional-pro-b";
+      });
+      await other.evaluate(() => window.fixture.announceAccountChange());
+      await closed(page);
+      assert.equal(
+        await page.evaluate(
+          (value) => document.body.textContent.includes(value),
+          code,
+        ),
+        false,
+      );
+      assert.equal(
+        await page.evaluate(() => window.fixture.snapshotBackup()),
+        before,
+      );
+    },
+  );
+  await scenario(
+    "login real B retira el compositor A y conserva sólo su borrador cifrado",
+    async (page, context) => {
+      await page.evaluate(() => window.fixture.mountComposer("professional"));
+      const input = page.getByRole("textbox", {
+        name: "Escribe un mensaje",
+        exact: true,
+      });
+      await input.waitFor();
+      await page.waitForFunction(
+        () => !document.querySelector("textarea")?.disabled,
+      );
+      const draft = "Borrador ficticio privado de cuenta A";
+      await input.fill(draft);
+      await page.waitForFunction(
+        async (text) => (await window.fixture.readDraft()) === text,
+        draft,
+      );
+      const other = await context.newPage();
+      await other.goto(url);
+      await other.evaluate(() => window.ready);
+      await page.evaluate(() => {
+        window.fixture.actor = "fictional-pro-b";
+      });
+      await other.evaluate(() => window.fixture.announceAccountChange());
+      await page.waitForFunction(() => !document.querySelector("textarea"));
+      assert.equal(
+        await page.evaluate(() => window.fixture.readDraft()),
+        draft,
+      );
+      assert.equal(
+        await page.evaluate(
+          (text) => JSON.stringify(Object.entries(localStorage)).includes(text),
+          draft,
+        ),
+        false,
+      );
+    },
+  );
+  await scenario(
     "actor fresco deniega descarga sin evento al caducar sesión",
     async (page) => {
       await open(page);
@@ -203,6 +269,65 @@ try {
         .click();
       await closed(page);
       assert.equal(await page.evaluate(() => window.fixture.downloads), 0);
+    },
+  );
+  await scenario(
+    "la bandeja pide su dueño A y rechaza metadatos de B",
+    async (page) => {
+      await page.evaluate(() => window.fixture.mountInbox());
+      await page
+        .getByText("Alias privado ficticio A", { exact: false })
+        .first()
+        .waitFor();
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event("visibilitychange")),
+      );
+      await page.waitForFunction(() => Boolean(window.fixture.releaseInbox));
+      await page.evaluate(() => window.fixture.releaseInbox());
+      await page.waitForTimeout(100);
+      assert.deepEqual(
+        await page.evaluate(() => window.fixture.inboxRequests),
+        ["fictional-peer"],
+      );
+      assert.equal(
+        await page
+          .getByText("Alias privado ficticio B", { exact: false })
+          .count(),
+        0,
+      );
+      assert.ok(
+        await page
+          .getByText("Alias privado ficticio A", { exact: false })
+          .count(),
+      );
+    },
+  );
+  await scenario(
+    "la señal de login retira la bandeja A y descarta respuesta tardía B",
+    async (page) => {
+      await page.evaluate(() => window.fixture.mountInbox());
+      await page
+        .getByText("Alias privado ficticio A", { exact: false })
+        .first()
+        .waitFor();
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event("visibilitychange")),
+      );
+      await page.waitForFunction(() => Boolean(window.fixture.releaseInbox));
+      await page.evaluate(() => {
+        window.fixture.announceAccountChange();
+        window.fixture.releaseInbox();
+      });
+      await page.waitForFunction(
+        () => !document.body.textContent.includes("Alias privado ficticio A"),
+      );
+      await page.waitForTimeout(100);
+      assert.equal(
+        await page
+          .getByText("Alias privado ficticio B", { exact: false })
+          .count(),
+        0,
+      );
     },
   );
   await scenario(

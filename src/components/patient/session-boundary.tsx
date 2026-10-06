@@ -15,9 +15,11 @@ import {
 export function PatientSessionBoundary({
   ownerId,
   children,
+  audience = "patient",
 }: {
   ownerId: string;
   children: ReactNode;
+  audience?: "patient" | "professional";
 }) {
   const [state, setState] = useState<PatientSessionState>({
     status: "checking",
@@ -119,7 +121,9 @@ export function PatientSessionBoundary({
             <div className="card">
               <h1 ref={notice} tabIndex={-1}>
                 {state.status === "checking"
-                  ? "Comprobando tu sesión"
+                  ? audience === "professional"
+                    ? "Preparando tu consulta"
+                    : "Comprobando tu sesión"
                   : state.status === "unavailable"
                     ? "No pudimos comprobar tu sesión"
                     : "Tu sesión cambió"}
@@ -148,8 +152,13 @@ export function PatientSessionBoundary({
                       : "Vuelve a abrir tu espacio con la cuenta actual."}
                   </p>
                   {/* Navegación de documento: no restaura RSC de otra cuenta. */}
-                  <a className="button human" href="/mi">
-                    Volver a abrir mi espacio
+                  <a
+                    className="button human"
+                    href={audience === "professional" ? "/pro/consulta" : "/mi"}
+                  >
+                    {audience === "professional"
+                      ? "Volver a abrir mi consulta"
+                      : "Volver a abrir mi espacio"}
                   </a>
                 </>
               )}

@@ -1,5 +1,9 @@
 import type { ClientFrame } from "../../../src/shared/chat-protocol";
 export interface Fixture {
+  announceAccountChange: () => void;
+  inboxRequests: Array<string | null>;
+  mountInbox: () => void;
+  releaseInbox?: () => void;
   frames: ClientFrame[];
   encryptionPending: number;
   encryptCalls: number;

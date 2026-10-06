@@ -14,6 +14,7 @@ import { PaymentSettings } from "@/components/payment-settings";
 import { db } from "@/db";
 import { account, assignments, helpRequests, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { languageLabels, needLabels, urgencyLabels } from "@/lib/constants";
 import { getPublicContactEmails } from "@/lib/contact";
 import {
@@ -221,6 +222,7 @@ export default async function ProDashboardPage({
 
   // Todas las secciones del panel dependen solo de professional.id y no entre
   // sí: en paralelo para no encadenar ~5 round-trips D1 al TTFB.
+  const liveChatActor = await loadLiveChatProfessional(professional.id);
   const [assigned, offers, missed, chats, paymentPackages] = await Promise.all([
     db
       .select({
@@ -239,7 +241,9 @@ export default async function ProDashboardPage({
       ),
     pendingOffersForProfessional(professional.id),
     missedOffersForProfessional(professional.id),
-    conversationsForProfessional(professional.id),
+    liveChatActor
+      ? conversationsForProfessional(professional.id, liveChatActor)
+      : Promise.resolve([]),
     listPackagesForProfessional(professional.id),
   ]);
   const unreadCount = chats.filter(isUnread).length;

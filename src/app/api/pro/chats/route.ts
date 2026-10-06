@@ -1,8 +1,6 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
+import { loadLiveChatProfessional } from "@/lib/chat-professional-session";
 import { conversationsForProfessional } from "@/lib/offers";
 import { sortProChats, toProChatSummaries } from "@/lib/pro-chats";
 
@@ -11,28 +9,34 @@ import { sortProChats, toProChatSummaries } from "@/lib/pro-chats";
 // lista se sienta en tiempo real.
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<Response> {
+const headers = { "cache-control": "private, no-store", Vary: "Cookie" };
+export async function GET(request?: Request): Promise<Response> {
   const session = await getServerSession();
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { chats: [] },
-      { status: 401, headers: { "cache-control": "no-store" } },
-    );
+  if (!session?.user?.id || !session.session?.id) {
+    return NextResponse.json({ chats: [] }, { status: 401, headers });
   }
 
-  const pro = await db.query.professionals.findFirst({
-    where: eq(professionals.userId, session.user.id),
+  const expectedProfessionalId = request
+    ? new URL(request.url).searchParams.get("professionalId") || undefined
+    : undefined;
+  const live = await loadLiveChatProfessional(expectedProfessionalId);
+  if (
+    !live ||
+    live.userId !== session.user.id ||
+    live.authSessionId !== session.session.id
+  ) {
+    return NextResponse.json({ chats: [] }, { status: 403, headers });
+  }
+
+  const rows = await conversationsForProfessional(live.professional.id, {
+    userId: live.userId,
+    authSessionId: live.authSessionId,
   });
-  if (pro?.status !== "approved") {
-    return NextResponse.json(
-      { chats: [] },
-      { status: 403, headers: { "cache-control": "no-store" } },
-    );
-  }
-
-  const rows = await conversationsForProfessional(pro.id);
   return NextResponse.json(
-    { chats: sortProChats(toProChatSummaries(rows)) },
-    { headers: { "cache-control": "no-store" } },
+    {
+      professionalId: live.professional.id,
+      chats: sortProChats(toProChatSummaries(rows)),
+    },
+    { headers },
   );
 }

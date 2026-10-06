@@ -346,10 +346,15 @@ describe("lista de conversaciones del chat (profesional)", () => {
   it("la sala pinta la lista del pro y la ruta de refresco existe", () => {
     const page = read("src/app/c/[conversationId]/page.tsx");
     expect(page).toContain("<ProChatList");
-    expect(page).toContain("conversationsForProfessional(view.professionalId)");
+    expect(page).toContain("loadLiveChatProfessional(view.professionalId)");
+    expect(page).toContain("conversationsForProfessional(");
+    expect(page).toContain("liveChatActor");
 
     const route = read("src/app/api/pro/chats/route.ts");
-    expect(route).toContain("conversationsForProfessional(pro.id)");
+    expect(route).toContain(
+      "conversationsForProfessional(live.professional.id,",
+    );
+    expect(route).toContain("authSessionId: live.authSessionId");
     expect(route).toContain("cache-control");
     expect(route).toContain("no-store");
 

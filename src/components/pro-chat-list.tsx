@@ -6,8 +6,8 @@ import { ensureProInboxToken } from "@/app/c/[conversationId]/actions";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import "./pro-chat-list.css";
 import { SideDrawer } from "@/components/side-drawer";
-import { onChatSessionEnd } from "@/lib/chat-session-end";
 import { needLabels, urgencyLabels } from "@/lib/constants";
+import { listenE2eeSessionInvalidation } from "@/lib/e2ee-session-guard";
 import {
   applyProChatActivity,
   type ProChatSummary,
@@ -66,9 +66,11 @@ function chatTitle(chat: ProChatSummary): string {
 export function ProChatList({
   initial,
   activeId,
+  professionalId,
 }: {
   initial: ProChatSummary[];
   activeId: string;
+  professionalId: string;
 }) {
   const [chats, setChats] = useState<ProChatSummary[]>(() =>
     sortProChats(initial),
@@ -78,10 +80,11 @@ export function ProChatList({
   const loggedOutRef = useRef(false);
   useEffect(
     () =>
-      onChatSessionEnd(() => {
+      listenE2eeSessionInvalidation(() => {
         loggedOutRef.current = true;
         setChats([]);
         setInboxReady(false);
+        setDrawerOpen(false);
         requestRef.current?.abort();
       }),
     [],
@@ -106,6 +109,7 @@ export function ProChatList({
 
   // Aplica una lista nueva solo si cambió de verdad (la huella evita repintados).
   const commit = useCallback((next: ProChatSummary[]) => {
+    if (loggedOutRef.current) return;
     const fingerprint = proChatsFingerprint(next);
     if (fingerprint === fingerprintRef.current) return;
     fingerprintRef.current = fingerprint;
@@ -118,22 +122,35 @@ export function ProChatList({
       requestRef.current?.abort();
       const controller = new AbortController();
       requestRef.current = controller;
-      const res = await fetch("/api/pro/chats", {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: { accept: "application/json" },
-      });
-      if (!aliveRef.current || controller.signal.aborted) return;
+      const res = await fetch(
+        `/api/pro/chats?professionalId=${encodeURIComponent(professionalId)}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+          headers: { accept: "application/json" },
+        },
+      );
+      if (
+        !aliveRef.current ||
+        loggedOutRef.current ||
+        controller.signal.aborted
+      )
+        return;
       if (res.status === 401 || res.status === 403) {
         commit([]);
         setInboxReady(false);
         return;
       }
       if (!res.ok) return;
-      const data = (await res.json()) as { chats?: ProChatSummary[] };
+      const data = (await res.json()) as {
+        professionalId?: string;
+        chats?: ProChatSummary[];
+      };
       if (
         !aliveRef.current ||
+        loggedOutRef.current ||
         controller.signal.aborted ||
+        data.professionalId !== professionalId ||
         !Array.isArray(data.chats)
       )
         return;
@@ -141,7 +158,7 @@ export function ProChatList({
     } catch {
       // Sin conexión: el siguiente intento reintenta; la lista sigue usable.
     }
-  }, [commit]);
+  }, [commit, professionalId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,7 +188,8 @@ export function ProChatList({
   // lectura a las demás salas. Si falla, la lista sigue con el sondeo.
   useEffect(() => {
     let cancelled = false;
-    const renew = () =>
+    const renew = () => {
+      if (loggedOutRef.current) return;
       void ensureProInboxToken()
         .then((res) => {
           if (!cancelled && !loggedOutRef.current) setInboxReady(res.ok);
@@ -179,6 +197,7 @@ export function ProChatList({
         .catch(() => {
           if (!cancelled) setInboxReady(false);
         });
+    };
     renew();
     const timer = setInterval(renew, 10 * 60 * 1000);
     return () => {
@@ -202,7 +221,7 @@ export function ProChatList({
     const retries = new Map<string, ReturnType<typeof setTimeout>>();
 
     const connect = (conversationId: string) => {
-      if (cancelled) return;
+      if (cancelled || loggedOutRef.current) return;
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
       let socket: WebSocket;
       try {
@@ -214,6 +233,7 @@ export function ProChatList({
       }
       sockets.set(conversationId, socket);
       socket.onmessage = (event) => {
+        if (cancelled || loggedOutRef.current) return;
         if (typeof event.data !== "string") return;
         let frame: {
           type?: string;

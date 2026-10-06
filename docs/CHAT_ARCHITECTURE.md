@@ -132,8 +132,10 @@ la clave para descifrarlos.
   de la persona (`seek:${conversationId}`). El respaldo profesional requiere
   su identidad y puede incluir claves seeker vinculadas con `ownerSlot` desde
   vistas autorizadas en ese dispositivo. `exportKeystoreJson(scope)` selecciona
-  sólo las entradas del ámbito o vinculadas a él; `restoreFromBackup` importa
-  las entradas contenidas en la copia. **Un código no garantiza recuperar todas
+  sólo las entradas del ámbito o vinculadas a él; `restoreFromBackup` valida
+  el dueño y todas las entradas antes de importar una copia moderna. Una etiqueta
+  `ownerSlot` nunca autoriza otra identidad profesional ni sustituye una clave
+  seeker local de otro dueño. **Un código no garantiza recuperar todas
   las conversaciones**, otras cuentas o claves ausentes de ese respaldo. El
   slot legado `pro` sólo se adopta para una cuenta si coincide con su clave
   publicada, sin borrarlo ni rotarlo. Se pueden leer respaldos antiguos sin

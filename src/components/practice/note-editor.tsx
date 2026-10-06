@@ -109,13 +109,15 @@ function ScopedNoteEditor({
       subscribeNoteDrafts((notice) => {
         if (notice.type === "session") {
           authorizationGeneration.current = -1;
+          leaveDialog.current?.close();
+          setConfirmDelete(false);
           setContent("");
           setSaved("");
           setAuthorized(false);
           setReady(true);
           setState(null);
           setDraftNotice(
-            "El acceso de tu cuenta cambió. Los borradores temporales se retiraron de esta ventana. Actualiza la ficha para volver a entrar.",
+            "El acceso de tu cuenta cambió. Retiramos los textos de esta ventana. Comprueba el acceso para recuperar tu borrador temporal con su cuenta.",
           );
         } else if (notice.key === draftKey)
           setDraftNotice(
