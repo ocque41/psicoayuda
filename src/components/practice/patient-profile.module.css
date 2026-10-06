@@ -1,0 +1,147 @@
+.panel {
+  margin: 20px 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.panel > summary:first-of-type {
+  min-height: 64px;
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary strong {
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+.summary small {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.body {
+  padding: 0 20px 20px;
+}
+
+.fields {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.row > label {
+  min-width: 0;
+}
+
+.fields :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.fields textarea {
+  resize: vertical;
+}
+
+.help {
+  margin: -8px 0 0;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.optional {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.optional > summary {
+  min-height: 44px;
+}
+
+.optional:not([open]) > summary::after {
+  transform: none;
+}
+
+.optional > .fields {
+  margin-top: 16px;
+}
+
+.state {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.consent {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.unavailable {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.unavailable h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px;
+  color: var(--foreground);
+  background: var(--surface);
+}
+
+.dialog::backdrop {
+  background: rgb(27 38 32 / 35%);
+}
+
+.dialog button {
+  min-height: 44px;
+}
+
+@media (max-width: 560px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel > summary:first-of-type {
+    padding: 14px 16px;
+  }
+
+  .body {
+    padding: 0 16px 16px;
+  }
+
+  .optional {
+    padding: 12px;
+  }
+}

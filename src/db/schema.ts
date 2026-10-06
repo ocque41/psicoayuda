@@ -14,6 +14,7 @@ export {
   googleCalendarOAuthStates,
 } from "./calendar-schema";
 export { practiceNotes } from "./notes-schema";
+export { practicePatientProfiles } from "./patient-profile-schema";
 export {
   accountOnboardingDrafts,
   accountRolePreferences,

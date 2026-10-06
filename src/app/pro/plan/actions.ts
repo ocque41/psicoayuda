@@ -11,9 +11,11 @@ import {
   requirePracticeProfessional,
 } from "@/lib/practice/access";
 import {
+  MembershipCheckoutError,
   membershipCheckout,
   startMembershipTrial,
 } from "@/lib/practice/billing";
+import { MEMBERSHIP_PLAN } from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
 export async function activateTrial(
   _prev: PracticeFormState,
@@ -35,7 +37,15 @@ export async function subscribeSoftware(
   form: FormData,
 ): Promise<PracticeFormState> {
   const pro = await requirePracticeProfessional();
-  const plan = form.get("plan") === "year" ? "year" : "month";
+  if (
+    form.get("plan") !== MEMBERSHIP_PLAN.interval ||
+    form.get("pricePolicy") !== MEMBERSHIP_PLAN.policyVersion
+  )
+    return {
+      ok: false,
+      message:
+        "El plan disponible es de 10 USD al mes. Recarga la página y confirma las condiciones actuales.",
+    };
   if (form.get("accept") !== "on")
     return {
       ok: false,
@@ -43,12 +53,14 @@ export async function subscribeSoftware(
     };
   let url: string;
   try {
-    url = await membershipCheckout(pro, plan);
+    url = await membershipCheckout(pro, MEMBERSHIP_PLAN.interval);
   } catch (error) {
     return {
       ok: false,
       message:
-        error instanceof Error ? error.message : "No pudimos preparar tu pago.",
+        error instanceof MembershipCheckoutError
+          ? error.message
+          : "No pudimos preparar tu pago. Comprueba tu plan y reintenta en un momento.",
     };
   }
   redirect(url);

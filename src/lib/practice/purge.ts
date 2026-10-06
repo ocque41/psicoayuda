@@ -13,6 +13,7 @@ import {
   practiceCallRooms,
   practiceCredentials,
   practiceNotes,
+  practicePatientProfiles,
   practicePatients,
   practiceReceiptCorrections,
   practiceReceipts,
@@ -89,6 +90,9 @@ export function practiceDeleteStatements(professionalId: string) {
     .from(carePlans)
     .where(eq(carePlans.professionalId, professionalId));
   return [
+    db
+      .delete(practicePatientProfiles)
+      .where(eq(practicePatientProfiles.professionalId, professionalId)),
     db
       .delete(appointmentReminderDeliveries)
       .where(

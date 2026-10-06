@@ -18,9 +18,14 @@ async function key() {
     "decrypt",
   ]);
 }
-function binding(professionalId: string, patientId: string, noteId: string) {
+function binding(
+  professionalId: string,
+  patientId: string,
+  noteId: string,
+  namespace: string,
+) {
   return encoder.encode(
-    JSON.stringify(["nido-notes-v1", professionalId, patientId, noteId]),
+    JSON.stringify([namespace, professionalId, patientId, noteId]),
   );
 }
 export function notesConfigured() {
@@ -33,13 +38,14 @@ export async function encryptNote(
   professionalId: string,
   patientId: string,
   noteId: string,
+  namespace = "nido-notes-v1",
 ) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const bytes = await crypto.subtle.encrypt(
     {
       name: "AES-GCM",
       iv,
-      additionalData: binding(professionalId, patientId, noteId),
+      additionalData: binding(professionalId, patientId, noteId, namespace),
     },
     await key(),
     encoder.encode(content),
@@ -51,6 +57,7 @@ export async function decryptNote(
   professionalId: string,
   patientId: string,
   noteId: string,
+  namespace = "nido-notes-v1",
 ) {
   const [version, rawIv, rawData, extra] = envelope.split(".");
   const iv = Buffer.from(rawIv || "", "base64");
@@ -61,7 +68,7 @@ export async function decryptNote(
     {
       name: "AES-GCM",
       iv: new Uint8Array(iv),
-      additionalData: binding(professionalId, patientId, noteId),
+      additionalData: binding(professionalId, patientId, noteId, namespace),
     },
     await key(),
     new Uint8Array(data),

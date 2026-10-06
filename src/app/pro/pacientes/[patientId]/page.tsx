@@ -32,6 +32,7 @@ import {
 import { PracticeNav } from "@/components/practice/nav";
 import { PracticePagination } from "@/components/practice/pagination";
 import { PatientNotes } from "@/components/practice/patient-notes";
+import { PatientProfileEditor } from "@/components/practice/patient-profile-editor";
 import { receiptStatusLabels } from "@/components/practice/receipt-history";
 import { db } from "@/db";
 import {
@@ -55,6 +56,7 @@ import {
   patientStateLabels,
   paymentMethodLabels,
 } from "@/lib/practice/domain";
+import { readPatientProfile } from "@/lib/practice/patient-profile";
 import { PRACTICE_PAGE_SIZE, pageNumber } from "@/lib/practice/queries";
 import { effectiveReceiptFields } from "@/lib/practice/receipt-queries";
 import { receiptDateLabel, receiptLocalInput } from "@/lib/practice/receipts";
@@ -118,6 +120,7 @@ export default async function PatientPage({
     plans,
     cycles,
     availableChats,
+    profile,
   ] = await Promise.all([
     db
       .select()
@@ -219,6 +222,7 @@ export default async function PatientPage({
           )
           .orderBy(desc(conversations.updatedAt))
           .limit(100),
+    readPatientProfile(patient.id, pro.id),
   ]);
   function historyHref(key: keyof typeof page, number: number) {
     const params = new URLSearchParams(
@@ -243,7 +247,8 @@ export default async function PatientPage({
         </p>
         <PracticeNav />
         <nav className="panel-nav" aria-label="Ficha">
-          <a href="#sesiones">Sesiones</a>
+          <a href="#ficha-privada">Ficha privada</a>
+          <a href="#sesiones">Sesiones y llamadas</a>
           <a href="#cobros">Cobros</a>
           <a href="#notas">Notas privadas</a>
           <a href="#seguimiento">Seguimiento</a>
@@ -256,6 +261,12 @@ export default async function PatientPage({
             </Link>
           ) : null}
         </nav>
+        <PatientProfileEditor
+          key={patient.id}
+          patientId={patient.id}
+          profile={profile}
+          timeZone={patient.timeZone}
+        />
         <PatientNotes
           patientId={patient.id}
           professionalId={pro.id}

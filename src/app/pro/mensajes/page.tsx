@@ -8,6 +8,7 @@ import { PracticeForm, TimeZoneSelect } from "@/components/practice/forms";
 import { InboxNotifier } from "@/components/practice/inbox-notifier";
 import { PracticeNav } from "@/components/practice/nav";
 import { PracticePagination } from "@/components/practice/pagination";
+import { PatientProfileFields } from "@/components/practice/patient-profile-fields";
 import { requirePracticeProfessional } from "@/lib/practice/access";
 import { messageListHref } from "@/lib/practice/navigation";
 import { chatList, inboxSummary } from "@/lib/practice/queries";
@@ -111,9 +112,11 @@ export default async function PracticeMessagesPage({
                         />
                       </label>
                       <TimeZoneSelect />
+                      <PatientProfileFields collapsible />
                       <label className="practice-check">
                         <input type="checkbox" name="consent" required />
-                        Tengo autorización para crear la ficha.
+                        Tengo autorización para guardar el contacto y los datos
+                        que he añadido a esta ficha privada.
                       </label>
                     </PracticeForm>
                   </details>

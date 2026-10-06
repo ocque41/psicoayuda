@@ -25,13 +25,18 @@ import {
   practiceSettings,
   professionalMemberships,
   professionals,
+  session,
   user,
 } from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
   session: vi.fn(
-    async (): Promise<{ user: { id: string; email: string } } | null> => ({
+    async (): Promise<{
+      user: { id: string; email: string };
+      session: { id: string };
+    } | null> => ({
       user: { id: "test-practice-user", email: "test-practice@test.local" },
+      session: { id: "test-practice-auth-session" },
     }),
   ),
   cookie: vi.fn(),
@@ -106,6 +111,7 @@ async function cleanup() {
     .where(like(practiceCredentials.id, `${P}%`));
   await db.delete(helpRequests).where(like(helpRequests.id, `${P}%`));
   await db.delete(professionals).where(like(professionals.id, `${P}%`));
+  await db.delete(session).where(like(session.id, `${P}%`));
   await db.delete(user).where(like(user.id, `${P}%`));
 }
 describe("CRM con aislamiento y datos persistidos", () => {
@@ -116,6 +122,12 @@ describe("CRM con aislamiento y datos persistidos", () => {
         id: `${P}-user${suffix}`,
         name: "Profesional ficticio",
         email: `${P}${suffix}@test.local`,
+      });
+      await db.insert(session).values({
+        id: `${P}-auth-session${suffix}`,
+        userId: `${P}-user${suffix}`,
+        token: `${P}-auth-token${suffix}`,
+        expiresAt: new Date(Date.now() + 86400000),
       });
       await db.insert(professionals).values({
         id: `${P}-pro${suffix}`,

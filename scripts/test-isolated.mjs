@@ -19,7 +19,14 @@ const env = {
   NIDO_PRACTICE_ENABLED: "false",
 };
 function run(args) {
-  const result = spawnSync("pnpm", args, { env, stdio: "inherit" });
+  const result = spawnSync(
+    "pnpm",
+    ["--config.verifyDepsBeforeRun=false", ...args],
+    {
+      env,
+      stdio: "inherit",
+    },
+  );
   if (result.error) throw result.error;
   if (result.status !== 0)
     throw new Error(
@@ -36,6 +43,7 @@ try {
     "0032_support_continuity.sql",
     "0033_receipt_corrections.sql",
     "0036_session_notes.sql",
+    "0041_patient_profile.sql",
   ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),

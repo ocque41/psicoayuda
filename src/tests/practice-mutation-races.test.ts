@@ -21,11 +21,13 @@ import {
   practiceServices,
   practiceSettings,
   professionals,
+  session,
   user,
 } from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
   session: vi.fn(async () => ({
+    session: { id: "test-practice-race-auth-session" },
     user: {
       id: "test-practice-race-user",
       email: "test-practice-race@test.local",
@@ -138,6 +140,7 @@ async function cleanup() {
   await db.delete(helpRequests).where(like(helpRequests.id, `${P}%`));
   await db.delete(auditLogs).where(like(auditLogs.actorEmail, `${P}%`));
   await db.delete(professionals).where(like(professionals.id, `${P}%`));
+  await db.delete(session).where(like(session.id, `${P}%`));
   await db.delete(user).where(like(user.id, `${P}%`));
 }
 async function seed() {
@@ -147,6 +150,12 @@ async function seed() {
       id: `${P}-user${suffix}`,
       name: "Cuenta ficticia",
       email: `${P}${suffix}@test.local`,
+    });
+    await db.insert(session).values({
+      id: `${P}-auth-session${suffix}`,
+      userId: `${P}-user${suffix}`,
+      token: `${P}-auth-token${suffix}`,
+      expiresAt: new Date(Date.now() + 86400000),
     });
     await db.insert(professionals).values({
       id: `${proId}${suffix}`,

@@ -4,6 +4,7 @@ import { createPatient } from "@/app/pro/consulta/actions";
 import { PracticeForm, TimeZoneSelect } from "@/components/practice/forms";
 import { PracticeNav } from "@/components/practice/nav";
 import { PracticePagination } from "@/components/practice/pagination";
+import { PatientProfileFields } from "@/components/practice/patient-profile-fields";
 import { requirePracticeProfessional } from "@/lib/practice/access";
 import { patientStateLabels } from "@/lib/practice/domain";
 import { patientListHref } from "@/lib/practice/navigation";
@@ -130,7 +131,8 @@ export default async function PracticePatientsPage({
         >
           <h2 id="patient-create-title">Crear ficha de paciente</h2>
           <p className="hint">
-            Guarda los datos de contacto con autorización de la persona.
+            Guarda el contacto y los datos opcionales de la ficha con
+            autorización de la persona.
           </p>
           <PracticeForm
             action={createPatient}
@@ -155,6 +157,7 @@ export default async function PracticePatientsPage({
               />
             </label>
             <TimeZoneSelect />
+            <PatientProfileFields collapsible />
             <label>
               Programa
               <select name="program">
@@ -166,7 +169,8 @@ export default async function PracticePatientsPage({
             </label>
             <label className="practice-check">
               <input type="checkbox" name="consent" required />
-              Tengo autorización para guardar estos datos de contacto.
+              Tengo autorización para guardar el contacto y los datos que he
+              añadido a esta ficha privada.
             </label>
           </PracticeForm>
         </section>

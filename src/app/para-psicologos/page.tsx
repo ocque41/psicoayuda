@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { ProductPreview } from "@/components/workspace/product-preview";
+import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
 
 export const metadata: Metadata = {
   title: "Nido para psicólogos",
@@ -48,7 +49,7 @@ export default function ProfessionalLanding() {
             <div className="marketing-trust">
               <span>
                 <WorkspaceIcon name="calendar" />
-                Prueba de 90 días
+                Prueba de {TRIAL_DAYS} días
               </span>
               <span>
                 <WorkspaceIcon name="payment" />
@@ -208,7 +209,11 @@ export default function ProfessionalLanding() {
             <br />
             tu forma de trabajar.
           </h2>
-          <p>Empieza con 90 días del software. Sin tarjeta para probar.</p>
+          <p>
+            Empieza con {TRIAL_DAYS} días del software sin tarjeta. Después,{" "}
+            {MEMBERSHIP_PLAN.priceLabel} al mes si decides suscribirte. La
+            prueba no inicia cobros automáticamente.
+          </p>
           <Link className="button" href="/entrar?modo=registro&rol=profesional">
             Crear mi perfil profesional<span aria-hidden="true">↗</span>
           </Link>

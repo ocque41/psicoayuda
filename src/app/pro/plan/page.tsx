@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { professionalMemberships } from "@/db/schema";
 import { requirePracticeBillingProfessional } from "@/lib/practice/access";
 import { membershipBillingReady, TRIAL_DAYS } from "@/lib/practice/billing";
+import { MEMBERSHIP_PLAN } from "@/lib/practice/membership-plan";
 export const metadata: Metadata = {
   title: "Tu plan de Nido",
   robots: { index: false, follow: false },
@@ -37,6 +38,10 @@ export default async function PlanPage({
   });
   const ready = membershipBillingReady();
   const trialExpired = member && Date.parse(member.trialEndsAt) <= Date.now();
+  const subscriptionCurrent = Boolean(
+    member?.stripeSubscriptionId &&
+      !["canceled", "incomplete_expired"].includes(member.status),
+  );
   return (
     <section className="section">
       <div className="container practice-shell">
@@ -95,38 +100,55 @@ export default async function PlanPage({
           <article className="card">
             <h2>Un solo plan profesional</h2>
             <p>
-              <strong>19 USD al mes</strong> o <strong>99 USD al año</strong>.
+              <strong>{MEMBERSHIP_PLAN.priceLabel} al mes</strong>. Una única
+              suscripción mensual para nuevas contrataciones.
             </p>
             <p>
               Agenda, fichas de pacientes, servicios y seguimiento de cobros. El
               uso de llamadas, grabaciones y transcripción tendrá condiciones e
               integración propias.
             </p>
-            {ready && member && pro.status === "approved" ? (
+            {member?.stripeSubscriptionId ? (
+              <p className="hint">
+                Tu suscripción existente conserva las condiciones que
+                contrataste. Consulta sus importes y renovación en el portal de
+                facturación; este precio no cambia los cobros anteriores.
+              </p>
+            ) : null}
+            {ready &&
+            member &&
+            !subscriptionCurrent &&
+            pro.status === "approved" ? (
               <PracticeForm
                 action={subscribeSoftware}
                 submit="Continuar al pago seguro"
               >
-                <label>
-                  Frecuencia
-                  <select name="plan">
-                    <option value="month">19 USD cada mes</option>
-                    <option value="year">99 USD cada año</option>
-                  </select>
-                </label>
+                <input
+                  type="hidden"
+                  name="plan"
+                  value={MEMBERSHIP_PLAN.interval}
+                />
+                <input
+                  type="hidden"
+                  name="pricePolicy"
+                  value={MEMBERSHIP_PLAN.policyVersion}
+                />
                 <label className="practice-check">
                   <input type="checkbox" name="accept" required />
-                  Acepto el precio elegido y su renovación hasta que cancele
-                  desde el portal.
+                  Acepto {MEMBERSHIP_PLAN.priceLabel} cada mes, con renovación
+                  mensual hasta que cancele desde el portal. Si mi prueba sigue
+                  activa, el primer cobro se realiza al finalizarla.
                 </label>
               </PracticeForm>
             ) : (
               <p className="hint">
                 {!ready
                   ? "Los cobros del software aún no están abiertos. Puedes usar la consulta durante la beta."
-                  : pro.status !== "approved"
-                    ? "Tu perfil necesita aprobación antes de contratar el software."
-                    : "Activa primero tu prueba gratuita para elegir un plan."}
+                  : subscriptionCurrent
+                    ? "Gestiona tu suscripción existente desde el portal de facturación."
+                    : pro.status !== "approved"
+                      ? "Tu perfil necesita aprobación antes de contratar el software."
+                      : "Activa primero tu prueba gratuita para elegir un plan."}
               </p>
             )}
             {member?.stripeCustomerId ? (

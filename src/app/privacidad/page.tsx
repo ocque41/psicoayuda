@@ -16,7 +16,7 @@ export default function PrivacyPage() {
     <section className="section">
       <div className="container legal">
         <h1>Política de Privacidad</h1>
-        <p className="muted">Última actualización: 2 de octubre de 2026</p>
+        <p className="muted">Última actualización: 6 de octubre de 2026</p>
         <p>
           Nido conecta a personas que buscan apoyo psicológico con profesionales
           y ofrece herramientas para organizar su consulta. Ayuda Terremoto
@@ -190,6 +190,15 @@ export default function PrivacyPage() {
             a extremo de los mensajes del chat. El acceso operativo se limita al
             profesional de la consulta; el equipo de soporte no recibe acceso a
             sus fichas clínicas desde su panel.
+          </p>
+          <p>
+            Con tu conocimiento y autorización, el profesional también puede
+            añadir sexo, fecha de nacimiento, motivo de consulta y notas
+            generales a tu ficha. Son datos opcionales, se almacenan cifrados y
+            solo el profesional de esa consulta puede abrirlos desde su cuenta.
+            Las notas generales de la ficha se mantienen separadas de las notas
+            de cada sesión. Este cifrado de almacenamiento es distinto del
+            cifrado de extremo a extremo del chat.
           </p>
           <p>
             El orientador procesa el texto en tu navegador para sugerir áreas y

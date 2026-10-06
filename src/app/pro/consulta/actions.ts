@@ -10,12 +10,14 @@ import {
   carePlans,
   conversations,
   practiceAppointments,
+  practicePatientProfiles,
   practicePatients,
   practiceReceipts,
   practiceServices,
   practiceSettings,
   professionals,
 } from "@/db/schema";
+import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
 import {
   ownedPatient,
@@ -35,6 +37,15 @@ import {
   currentPracticeActor,
   nextPracticeTimestamp,
 } from "@/lib/practice/mutation-guard";
+import { encryptPatientProfile } from "@/lib/practice/patient-profile-crypto";
+import {
+  hasPatientProfileContent,
+  patientProfileSchema,
+} from "@/lib/practice/patient-profile-domain";
+import {
+  currentPatientProfileActor,
+  currentPatientProfileSession,
+} from "@/lib/practice/patient-profile-guard";
 import { receiptReceivedAt } from "@/lib/practice/receipts";
 
 export type PracticeFormState = { ok: boolean; message: string } | null;
@@ -85,6 +96,15 @@ export async function createPatient(
   const pro = await requirePracticeProfessional();
   const parsed = patientSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return invalid(parsed.error.issues[0]?.message);
+  const profile = patientProfileSchema(parsed.data.timeZone).safeParse(
+    Object.fromEntries(form),
+  );
+  if (!profile.success) return invalid(profile.error.issues[0]?.message);
+  const auth = await getServerSession();
+  if (!auth?.session?.id || auth.user.id !== pro.userId)
+    return invalid(
+      "Tu sesión cambió. Conserva los datos y vuelve a entrar antes de guardarlos.",
+    );
   const conversationId = String(form.get("conversationId") || "");
   let program = parsed.data.program;
   let linkedHelpRequestId: string | null = null;
@@ -107,6 +127,10 @@ export async function createPatient(
   const id = newId("patient");
   const timestamp = nowIso();
   try {
+    // El cifrado se completa antes de crear contacto, auditoría o ficha ampliada.
+    const profileCiphertext = hasPatientProfileContent(profile.data)
+      ? await encryptPatientProfile(profile.data, pro.id, id)
+      : null;
     const [saved] = await db.batch([
       db
         .insert(practicePatients)
@@ -136,12 +160,29 @@ export async function createPatient(
               and(
                 eq(professionals.id, pro.id),
                 currentPracticeActor(pro.id, pro.userId),
+                currentPatientProfileSession(
+                  pro.id,
+                  pro.userId,
+                  auth.session.id,
+                ),
                 sql`(${conversationId}='' OR EXISTS (SELECT 1 FROM conversations c WHERE c.id=${conversationId} AND c.professional_id=${pro.id} AND c.status='open' AND c.closed_at IS NULL AND c.deleted_at IS NULL AND c.anonymized_at IS NULL AND c.help_request_id IS ${linkedHelpRequestId}))`,
               ),
             ),
         )
         .returning({ id: practicePatients.id }),
       audit(pro, "patient_created", id),
+      ...(profileCiphertext
+        ? [
+            db.insert(practicePatientProfiles).values({
+              patientId: id,
+              professionalId: pro.id,
+              // Un guard rechazado produce NOT NULL y revierte TODO el batch.
+              contentCiphertext: sql<string>`CASE WHEN ${currentPatientProfileActor(pro.id, pro.userId, id, auth.session.id)} THEN ${profileCiphertext} ELSE NULL END`,
+              revision: 1,
+              updatedAt: timestamp,
+            }),
+          ]
+        : []),
     ]);
     if (!saved.length)
       return invalid(
