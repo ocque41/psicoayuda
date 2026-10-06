@@ -5428,8 +5428,13 @@ a.professional-carousel-link:focus-visible {
   font-size: clamp(2.45rem, 1.75rem + 3.15vw, 4.55rem);
 }
 .leave-note-dialog {
+  /* Preflight elimina el margen nativo del diálogo: repón el centrado. */
+  margin: auto;
+  inset: 0;
   width: min(100% - 32px, 38rem);
   max-width: 38rem;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   border: 1px solid #dce3d2;
   border-radius: 25px;
   background: var(--surface-raised);

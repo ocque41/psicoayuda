@@ -110,6 +110,8 @@
 }
 
 .dialog {
+  margin: auto;
+  inset: 0;
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
