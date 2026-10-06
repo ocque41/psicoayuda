@@ -176,12 +176,12 @@ export default function ResourcesPage() {
           <ul>
             <li>
               <Link href="/recursos/psicologo-online-gratis-venezuela">
-                Psicólogo online gratis en Venezuela: cómo empezar
+                Apoyo psicológico gratuito en Venezuela: opciones y límites
               </Link>
             </li>
             <li>
               <Link href="/recursos/apoyo-emocional-anonimo">
-                Apoyo emocional gratis y anónimo, sin dar tu nombre
+                Contactar sin cuenta en Nido: privacidad y datos
               </Link>
             </li>
           </ul>

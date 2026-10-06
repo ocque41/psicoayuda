@@ -41,6 +41,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       path: "/recursos/psicologo-online-gratis-venezuela",
       priority: 0.7,
       changeFrequency: "monthly",
+      lastModified: "2026-10-06",
     },
     {
       path: "/recursos/ansiedad-despues-del-terremoto",
@@ -101,6 +102,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       path: "/recursos/apoyo-emocional-anonimo",
       priority: 0.6,
       changeFrequency: "monthly",
+      lastModified: "2026-10-06",
     },
     {
       path: "/recursos/ayuda-psicologica-para-ninos",
@@ -111,6 +113,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       path: "/recursos/venezolanos-en-el-exterior",
       priority: 0.6,
       changeFrequency: "monthly",
+      lastModified: "2026-10-06",
     },
     { path: "/como-funciona", priority: 0.7, changeFrequency: "monthly" },
     {

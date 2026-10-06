@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FaqJsonLd } from "@/components/structured-data";
-import { HOME_FAQ } from "@/lib/site";
+import { HOME_FAQ, SITE_LOCALE, SITE_NAME } from "@/lib/site";
+
+const title = "Preguntas frecuentes";
+const description =
+  "Cómo encontrar un profesional, volver a tu conversación y solicitar Ayuda Terremoto en Nido.";
 export const metadata: Metadata = {
-  title: "Preguntas frecuentes",
-  description:
-    "Cómo encontrar un profesional, volver a tu conversación y solicitar Ayuda Terremoto en Nido.",
+  title,
+  description,
   alternates: { canonical: "/preguntas-frecuentes" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/preguntas-frecuentes",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 const professionalFaq = [
   {

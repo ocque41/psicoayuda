@@ -83,7 +83,7 @@ const GUIDES_PUBLISHED = "2026-06-29";
 const GUIDES_MODIFIED = "2026-07-01";
 
 /**
- * Datos estructurados de una guía de salud (`MedicalWebPage`).
+ * Datos estructurados de una guía de salud o de acceso al servicio.
  *
  * Schema.org define MedicalWebPage para páginas con información médica.
  * Describe el contenido educativo; no acredita revisión clínica ni promete
@@ -93,30 +93,41 @@ export function GuideJsonLd({
   path,
   name,
   description,
+  contentType = "MedicalWebPage",
+  modifiedAt,
 }: {
   path: string;
   name: string;
   description: string;
+  contentType?: "MedicalWebPage" | "WebPage";
+  modifiedAt?: string;
 }) {
   return (
     <JsonLd
       data={{
         "@context": "https://schema.org",
-        "@type": "MedicalWebPage",
+        "@type": contentType,
         "@id": `${SITE_URL}${path}#webpage`,
         url: absoluteUrl(path),
         name,
         description,
         inLanguage: "es",
-        datePublished: GUIDES_PUBLISHED,
-        dateModified: GUIDES_MODIFIED,
+        // Las revisiones de acceso no tienen una primera publicación trazada.
+        datePublished:
+          contentType === "MedicalWebPage" ? GUIDES_PUBLISHED : undefined,
+        dateModified:
+          modifiedAt ||
+          (contentType === "MedicalWebPage" ? GUIDES_MODIFIED : undefined),
         isPartOf: { "@id": `${SITE_URL}/#website` },
         about: { "@id": `${SITE_URL}/#organization` },
         publisher: { "@id": `${SITE_URL}/#organization` },
-        audience: {
-          "@type": "MedicalAudience",
-          geographicArea: { "@type": "Country", name: "Venezuela" },
-        },
+        audience:
+          contentType === "MedicalWebPage"
+            ? {
+                "@type": "MedicalAudience",
+                geographicArea: { "@type": "Country", name: "Venezuela" },
+              }
+            : undefined,
       }}
     />
   );

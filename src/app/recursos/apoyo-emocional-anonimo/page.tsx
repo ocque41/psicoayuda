@@ -1,201 +1,151 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CrisisResources } from "@/components/crisis-resources";
 import { GuideJsonLd } from "@/components/structured-data";
 
+const title = "Contactar sin cuenta en Nido: privacidad y datos";
+const description =
+  "Qué datos se piden al contactar a un profesional, qué implica usar un alias y cuáles son los límites de privacidad y recuperación del acceso en Nido.";
+const path = "/recursos/apoyo-emocional-anonimo";
+
 export const metadata: Metadata = {
-  title: "Apoyo emocional gratis y anónimo, sin dar tu nombre",
-  description:
-    "Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno.",
-  alternates: { canonical: "/recursos/apoyo-emocional-anonimo" },
-  openGraph: {
-    title: "Apoyo emocional gratis y anónimo, sin dar tu nombre | Nido",
-    description:
-      "Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno.",
-    url: "/recursos/apoyo-emocional-anonimo",
+  title,
+  description,
+  alternates: { canonical: path },
+  openGraph: { title: `${title} | Nido`, description, url: path },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | Nido`,
+    description,
   },
 };
 
 export default function Page() {
   return (
     <section className="section">
-      <div className="container">
+      <article className="container" style={{ maxWidth: "760px" }}>
         <GuideJsonLd
-          path="/recursos/apoyo-emocional-anonimo"
-          name="Apoyo emocional gratis y anónimo, sin dar tu nombre"
-          description="Pide apoyo psicológico gratis en Venezuela sin crear cuenta, sin dar tu nombre, cédula ni ubicación exacta. Solo un correo de contacto. Confidencial y digno."
+          path={path}
+          name={title}
+          description={description}
+          contentType="WebPage"
+          modifiedAt="2026-10-06"
         />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },
-            {
-              name: "Apoyo emocional anónimo",
-              path: "/recursos/apoyo-emocional-anonimo",
-            },
+            { name: "Contacto y privacidad", path },
           ]}
         />
-        <h1>Apoyo emocional gratis y anónimo, sin dar tu nombre</h1>
-        <p className="lead">
-          Si te frena la vergüenza o el miedo a que te identifiquen, respira:
-          para pedir apoyo en Nido no necesitas dar tu nombre, tu cédula ni
-          decir dónde vives. Pedir ayuda no te expone.
-        </p>
-
-        <CrisisResources variant="callout" />
-
-        <p>
-          Muchas personas en Venezuela quieren hablar con alguien, pero algo las
-          detiene: el qué dirán, el temor a que se sepa, la idea de que pedir
-          ayuda es de débiles. Nada de eso es cierto. Buscar apoyo cuando la
-          tristeza, la angustia o el estrés te pesan es un acto de valentía y de
-          cuidado hacia ti. Y se puede hacer de forma reservada.
-        </p>
-
-        <ul className="trust-strip" aria-label="Lo esencial">
-          <li>Gratis</li>
-          <li>Sin cuenta</li>
-          <li>Confidencial</li>
-          <li>A distancia</li>
-        </ul>
-
-        <div className="card">
-          <h2>Pedir apoyo sin crear cuenta ni dar tu nombre</h2>
-          <p>
-            En Nido, quien necesita ayuda no crea ningún usuario ni contraseña.
-            No te pedimos tu nombre real, ni tu cédula, ni tu dirección, ni una
-            ubicación exacta. Llenas un formulario breve para contarnos cómo
-            estás, dejas un correo donde podamos escribirte, y listo. Una
-            persona voluntaria verificada te responde por ahí para acompañarte a
-            distancia, sin coste.
-          </p>
-          <p>
-            Puedes usar un correo que no lleve tu nombre completo si así te
-            sientes más tranquilo o tranquila. Lo importante es que sea uno que
-            revises, para no perder la respuesta.
-          </p>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Pedir apoyo
-            </Link>{" "}
-            <Link className="button secondary" href="/profesionales">
-              Ver psicólogos voluntarios
-            </Link>
-          </p>
-        </div>
-
-        <div className="card">
-          <h2>Qué datos te pedimos y por qué</h2>
-          <p>Pedimos lo mínimo, y cada cosa tiene un motivo claro:</p>
-          <ul>
-            <li>
-              <strong>Un correo de contacto:</strong> es la única forma de que
-              la persona voluntaria pueda escribirte y empezar el
-              acompañamiento. Sin un correo no hay manera de responderte.
-            </li>
-            <li>
-              <strong>Cómo te sientes:</strong> nos cuentas con tus palabras qué
-              te trae aquí, para orientar el apoyo. Comparte solo lo que
-              quieras; no tienes que dar detalles que te incomoden.
-            </li>
-          </ul>
-          <p>
-            No te pedimos nombre legal, cédula, número de teléfono ni ubicación
-            precisa. No necesitamos saber dónde estás para acompañarte.
-          </p>
-        </div>
-
-        <div className="card">
-          <h2>Confidencialidad: tu historia es tuya</h2>
-          <p>
-            Lo que escribes lo lee la persona voluntaria que te acompaña, que es
-            profesional verificado y trata tu caso con reserva. Nido no es un
-            servicio que publica, califica ni comparte tu mensaje, y no usamos
-            chats públicos ni reseñas. Tampoco hay videollamadas ni inteligencia
-            artificial atendiéndote: detrás siempre hay una persona real.
-          </p>
-          <p>
-            Si en algún momento prefieres no seguir, no tienes que dar
-            explicaciones. El paso lo marcas tú.
-          </p>
-        </div>
-
-        <div className="card">
-          <h2>Cómo empezar, paso a paso</h2>
-          <ol className="steps">
-            <li>
-              <span>
-                Entra a <Link href="/ayuda">pedir apoyo</Link> y cuéntanos
-                brevemente cómo estás.
-              </span>
-            </li>
-            <li>
-              <span>
-                Deja un correo donde puedas recibir la respuesta. No hace falta
-                nada más.
-              </span>
-            </li>
-            <li>
-              <span>
-                Una persona voluntaria verificada revisa tu mensaje y te escribe
-                para acompañarte a distancia, sin coste.
-              </span>
-            </li>
-          </ol>
-          <p className="reassurance">
-            Detrás de Nido hay psicólogas y psicólogos voluntarios reales que
-            donan su tiempo. La respuesta no es inmediata, pero llega con
-            cuidado y respeto.
-          </p>
-        </div>
-
-        <div className="notice">
-          <p>
-            Nido es acompañamiento gratuito a distancia, no un servicio de
-            emergencia ni terapia dentro de la app. Si necesitas ayuda
-            inmediata, revisa las{" "}
-            <Link href="/emergencia">líneas de ayuda y qué hacer ahora</Link>.
-            Puedes ver más orientación en nuestros{" "}
-            <Link href="/recursos">recursos de salud mental</Link>.
-          </p>
-        </div>
-
-        <div className="faq">
-          <article className="card">
-            <h3>¿Tengo que decir mi nombre verdadero?</h3>
-            <p>
-              No. Para pedir apoyo no pedimos tu nombre real ni tu cédula. Solo
-              un correo de contacto y, si quieres, lo que desees contarnos.
-            </p>
-          </article>
-          <article className="card">
-            <h3>¿Pedir ayuda me mete en problemas?</h3>
-            <p>
-              No. Pedir apoyo es algo privado entre tú y la persona que te
-              acompaña. No te expone ni te compromete a nada.
-            </p>
-          </article>
-          <article className="card">
-            <h3>¿Tiene algún costo?</h3>
-            <p>
-              No. Nido es gratis. Nunca te pediremos pagos ni datos bancarios.
-            </p>
-          </article>
-        </div>
-
+        <h1>{title}</h1>
         <p className="hint">
-          ¿Quieres saber más antes de escribir? Lee las{" "}
-          <Link href="/preguntas-frecuentes">preguntas frecuentes</Link>,
-          entérate de <Link href="/como-funciona">cómo funciona Nido</Link> y
-          conoce a <Link href="/quienes-somos">quiénes somos</Link>.
+          Equipo editorial Nido · Elaboración asistida por IA. Información de
+          acceso verificada el{" "}
+          <time dateTime="2026-10-06">6 de octubre de 2026</time>.
+        </p>
+        <p className="lead">
+          Puedes contactar a un profesional desde su perfil en Nido sin crear
+          una cuenta. El alias y el correo son opcionales en ese primer
+          contacto. Esto no equivale a anonimato completo: el contenido de un
+          mensaje, un correo o el uso de un dispositivo compartido pueden
+          identificarte.
         </p>
 
+        <h2>Qué pide el contacto desde un perfil</h2>
         <p>
-          <Link className="button human" href="/ayuda">
-            Pedir apoyo
-          </Link>
+          Empieza en el{" "}
+          <Link href="/profesionales">directorio de profesionales</Link>. Revisa
+          el perfil y utiliza su opción de contacto. Puedes elegir un alias o
+          dejarlo sin completar; el correo tampoco es obligatorio para iniciar
+          este recorrido. Indica el país desde el que recibirás atención para
+          que el profesional pueda confirmar si puede atenderte allí.
         </p>
-      </div>
+        <p>
+          No necesitas incluir tu cédula ni tu dirección exacta en el primer
+          mensaje. Comparte sólo la información que quieras comunicar para ese
+          contacto. Si después acuerdas una consulta, pregunta qué datos
+          adicionales necesitará el profesional y para qué.
+        </p>
+
+        <h2>Alias, confidencialidad y anonimato son cosas distintas</h2>
+        <p>
+          Usar un alias permite no mostrar tu nombre en el primer contacto. No
+          oculta por sí solo la información que escribes, los datos técnicos
+          necesarios para el servicio ni la identidad que pueda revelar tu
+          correo. Tampoco determina qué documentación necesitará una consulta
+          posterior.
+        </p>
+        <p>
+          La <Link href="/privacidad">política de privacidad de Nido</Link>{" "}
+          distingue los mensajes del chat, los metadatos y los formularios. El
+          chat utiliza cifrado de extremo a extremo; esto no significa que toda
+          la información de Nido tenga ese mismo cifrado. Datos como
+          participantes, fechas y tamaño de mensajes son metadatos, y los
+          formularios de solicitud o coordinación no son el chat cifrado.
+        </p>
+        <p>
+          Antes de enviar información, revisa qué recorrido estás usando y qué
+          datos solicita. Ayuda Terremoto y el contacto directo desde un perfil
+          tienen formularios y condiciones distintos.
+        </p>
+
+        <h2>Cómo volver al contacto</h2>
+        <p>
+          El acceso sin cuenta depende de una sesión del navegador. Guardar la
+          dirección de la página no sustituye esa sesión ni garantiza que puedas
+          entrar desde otro dispositivo. Borrar las cookies, cambiar de
+          navegador o dejar vencer la sesión puede interrumpir el acceso.
+        </p>
+        <p>
+          Si has dejado un correo, el recorrido de{" "}
+          <Link href="/acceso">recuperar acceso</Link> puede utilizarlo para
+          enviarte un enlace privado de entrada. Ese enlace permite recuperar el
+          acceso, pero no sustituye el código de recuperación del chat: guarda
+          ese código por separado para poder leer el historial cifrado en otro
+          dispositivo. Sin un correo guardado, no debes contar con la
+          recuperación por correo.
+        </p>
+        <p>
+          Mantén privados los enlaces de entrada y el código de recuperación.
+          Quien obtenga los medios de acceso necesarios podría entrar a tu
+          consulta. Si pierdes el código, no debes contar con que un correo o un
+          enlace permitan recuperar los mensajes cifrados.
+        </p>
+        <p>
+          En un dispositivo compartido, considera quién puede ver el navegador,
+          el historial y el correo. No hay una garantía de que el uso del
+          servicio pase inadvertido.
+        </p>
+
+        <h2>Contactar sin cuenta no fija el precio</h2>
+        <p>
+          Acuerda con el profesional la disponibilidad, la modalidad, el precio
+          y las condiciones antes de reservar. El programa{" "}
+          <Link href="/ayuda">Ayuda Terremoto</Link> ofrece acompañamiento
+          voluntario gratuito por un recorrido separado. Puedes consultar las{" "}
+          <Link href="/recursos/psicologo-online-gratis-venezuela">
+            opciones gratuitas y sus límites
+          </Link>
+          .
+        </p>
+        <p className="notice">
+          Nido no es un servicio de emergencia. Si hay peligro inmediato,
+          contacta los servicios de emergencia del lugar donde estás.
+        </p>
+
+        <h2>Fuentes del funcionamiento descrito</h2>
+        <p>
+          <Link href="/como-funciona">Cómo funciona Nido</Link>,{" "}
+          <Link href="/preguntas-frecuentes">preguntas frecuentes</Link> y{" "}
+          <Link href="/privacidad">política de privacidad</Link>. Información
+          contrastada con el funcionamiento del producto el 6 de octubre de
+          2026; puede cambiar si se actualiza el servicio.
+        </p>
+        <p className="hint">
+          Esta página explica acceso y privacidad del producto. No ofrece una
+          garantía de anonimato ni una evaluación clínica.
+        </p>
+      </article>
     </section>
   );
 }

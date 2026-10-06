@@ -1,210 +1,169 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CrisisResources } from "@/components/crisis-resources";
 import { GuideJsonLd } from "@/components/structured-data";
 
+const title = "Apoyo psicológico para venezolanos en el exterior";
+const description =
+  "Qué confirmar para contactar a un profesional desde el exterior: país de atención, disponibilidad, horarios, costos y privacidad. Sin prometer cobertura mundial.";
+const path = "/recursos/venezolanos-en-el-exterior";
+
 export const metadata: Metadata = {
-  title: "Apoyo psicológico para venezolanos en el exterior",
-  description:
-    "Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español.",
-  alternates: { canonical: "/recursos/venezolanos-en-el-exterior" },
-  openGraph: {
-    title: "Apoyo psicológico para venezolanos en el exterior | Nido",
-    description:
-      "Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español.",
-    url: "/recursos/venezolanos-en-el-exterior",
+  title,
+  description,
+  alternates: { canonical: path },
+  openGraph: { title: `${title} | Nido`, description, url: path },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | Nido`,
+    description,
   },
 };
 
 export default function Page() {
   return (
     <section className="section">
-      <div className="container">
+      <article className="container" style={{ maxWidth: "760px" }}>
         <GuideJsonLd
-          path="/recursos/venezolanos-en-el-exterior"
-          name="Apoyo psicológico para venezolanos en el exterior"
-          description="Si eres venezolano migrante y sientes duelo, soledad o estrés de adaptación, Nido te conecta gratis con un psicólogo voluntario, a distancia y en español."
+          path={path}
+          name={title}
+          description={description}
+          contentType="WebPage"
+          modifiedAt="2026-10-06"
         />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },
-            {
-              name: "Venezolanos en el exterior",
-              path: "/recursos/venezolanos-en-el-exterior",
-            },
+            { name: "Venezolanos en el exterior", path },
           ]}
         />
-        <h1>Apoyo psicológico para venezolanos en el exterior</h1>
-
-        <p className="lead">
-          Irte de Venezuela no siempre se siente como empezar de cero: a veces
-          se siente como cargar dos vidas a la vez. Si estás lejos y te pesa la
-          distancia, la soledad o la sensación de no terminar de adaptarte, no
-          estás solo. Aquí te contamos qué te puede estar pasando y cómo Nido te
-          conecta, sin costo, con un psicólogo voluntario venezolano que te
-          atiende a distancia y en tu mismo español.
-        </p>
-
-        <CrisisResources variant="callout" />
-
-        <h2>El duelo migratorio es real (aunque nadie lo nombre)</h2>
-        <p>
-          Migrar también es despedirse: de tu casa, de tu gente, de las calles
-          que conocías, del tú que eras allá. A eso se le llama duelo
-          migratorio, y es normal sentirlo aunque hayas tomado la mejor decisión
-          de tu vida. Puede aparecer como tristeza que va y viene, rabia,
-          cansancio, o esa nostalgia que te agarra con una canción o un olor.
-          Sentirlo no significa que estés mal ni que seas malagradecido:
-          significa que querías lo que dejaste.
-        </p>
-
-        <h2>Señales de que vale la pena buscar apoyo</h2>
-        <ul>
-          <li>Te sientes solo o aislado, aunque estés rodeado de gente.</li>
-          <li>
-            Te cuesta dormir, comer o concentrarte por la preocupación
-            constante.
-          </li>
-          <li>
-            La distancia de tu familia te genera culpa, angustia o tristeza que
-            no baja.
-          </li>
-          <li>
-            Sientes que el estrés de adaptarte (idioma, papeles, trabajo) te
-            sobrepasa.
-          </li>
-          <li>
-            Tienes ganas de hablar con alguien que de verdad entienda de dónde
-            vienes.
-          </li>
-        </ul>
-
-        <h2>Cosas que ayudan en el día a día</h2>
-        <p>
-          Mientras decides pedir acompañamiento, hay gestos pequeños que
-          sostienen:
-        </p>
-        <ul>
-          <li>
-            Mantén rituales que te conecten con casa: una comida, una llamada
-            fija, tu música.
-          </li>
-          <li>
-            Pon en palabras lo que sientes. Escribirlo o contárselo a alguien de
-            confianza alivia.
-          </li>
-          <li>
-            Cuida lo básico: dormir, moverte y salir un rato, aunque sea
-            poquito.
-          </li>
-          <li>
-            Date permiso de extrañar sin castigarte. Adaptarse toma tiempo y no
-            es una carrera.
-          </li>
-        </ul>
-        <p className="reassurance">
-          Pedir ayuda no es debilidad. Es una forma de cuidarte para poder
-          seguir.
-        </p>
-
-        <h2>Te atendemos a distancia, en español, desde cualquier país</h2>
-        <p>
-          En Nido todo el acompañamiento es en remoto y en español, así que no
-          importa en qué país estés viviendo ahora: si tienes conexión, podemos
-          conectarte con un psicólogo voluntario. No necesitas crear una cuenta
-          ni pagar nada. Nido no cobra y no da terapia dentro de una app: lo que
-          hacemos es ponerte en contacto con un profesional verificado que
-          decide contigo cómo seguir.
-        </p>
-        <p>
-          Si quieres,{" "}
-          <Link href="/profesionales">
-            mira a las psicólogas y psicólogos voluntarios
-          </Link>{" "}
-          y elige tú con quién hablar, estés donde estés.
-        </p>
-        <p className="muted">
-          Nido no es un servicio de emergencia. Si estás en tu país de
-          residencia y atraviesas una crisis o sientes que tu vida corre
-          peligro, usa los servicios de emergencia locales de donde vives ahora.
-          Puedes ver más en <Link href="/emergencia">emergencia</Link>.
-        </p>
-
-        <h2>Cómo pedir apoyo</h2>
-        <ol className="steps">
-          <li>
-            Entras a la página de apoyo y nos cuentas brevemente cómo estás.
-          </li>
-          <li>
-            Revisamos tu solicitud para conectarte con un psicólogo voluntario
-            verificado.
-          </li>
-          <li>
-            El profesional te contacta y juntos acuerdan cómo continuar el
-            acompañamiento.
-          </li>
-        </ol>
-
-        <div className="trust-strip">
-          <p>
-            Gratis · Psicólogos voluntarios verificados · A distancia y en
-            español · Sin crear cuenta
-          </p>
-        </div>
-
+        <h1>{title}</h1>
         <p className="hint">
-          Da el primer paso cuando te sientas listo. Estamos para acompañarte.
+          Equipo editorial Nido · Elaboración asistida por IA. Información de
+          acceso verificada el{" "}
+          <time dateTime="2026-10-06">6 de octubre de 2026</time>.
+        </p>
+        <p className="lead">
+          Si estás fuera de Venezuela y buscas atención en español, indica el
+          país desde el que recibirás la consulta y confirma con el profesional
+          si puede atenderte allí. Encontrar un perfil o una hora disponible no
+          garantiza cobertura en cualquier país, una consulta gratuita ni una
+          cita confirmada.
         </p>
 
+        <h2>Empieza por el país donde estarás</h2>
         <p>
-          <Link className="button human" href="/ayuda">
-            Pedir apoyo
-          </Link>
+          Puedes explorar el{" "}
+          <Link href="/profesionales">directorio de Nido</Link> y contactar
+          desde un perfil sin crear una cuenta. En el mensaje inicial, menciona
+          el país donde estarás durante la atención, incluso si estás de viaje.
+          La disponibilidad y las condiciones deben confirmarse con el
+          profesional antes de reservar.
+        </p>
+        <p>
+          Si cambias de país entre encuentros, comunícalo antes de la siguiente
+          cita. No basta con que ambos hablen español o con que el profesional
+          tenga un perfil revisado en Nido para dar por confirmada la atención
+          desde tu ubicación.
         </p>
 
-        <div className="notice">
-          <p>
-            ¿Quieres saber más antes de escribirnos? Mira{" "}
-            <Link href="/como-funciona">cómo funciona</Link>, resuelve dudas en{" "}
-            <Link href="/preguntas-frecuentes">preguntas frecuentes</Link>,
-            conoce a <Link href="/quienes-somos">quiénes somos</Link> o explora
-            otros <Link href="/recursos">recursos</Link>.
-          </p>
-        </div>
+        <h2>Qué acordar antes de una consulta</h2>
+        <ul>
+          <li>
+            <strong>Disponibilidad:</strong> pregunta si el profesional recibe
+            nuevas consultas y desde qué países puede atender.
+          </li>
+          <li>
+            <strong>Modalidad:</strong> confirma cómo será el encuentro y qué
+            conexión o dispositivo necesitas.
+          </li>
+          <li>
+            <strong>Fecha y hora:</strong> deja por escrito la fecha y la zona
+            horaria de ambos. Una diferencia horaria puede cambiar en otra
+            fecha.
+          </li>
+          <li>
+            <strong>Importe y moneda:</strong> pide el precio de la consulta, el
+            método acordado y las condiciones de cambio o cancelación.
+          </li>
+          <li>
+            <strong>Datos y privacidad:</strong> pregunta qué información se
+            necesita para empezar y cómo se gestionará.
+          </li>
+        </ul>
+        <p>
+          Puedes escribir: «Estaré en [país] durante la consulta. ¿Puedes
+          atenderme desde allí? ¿Qué modalidad, horario, precio y condiciones
+          debemos confirmar?».
+        </p>
 
-        <h2 className="faq">Preguntas frecuentes</h2>
-        <div className="grid grid-2">
-          <div className="card">
-            <h3>¿Sirve si vivo fuera de Venezuela?</h3>
-            <p>
-              Sí. La atención es a distancia y en español, así que puedes pedir
-              apoyo desde el país donde estés viviendo.
-            </p>
-          </div>
-          <div className="card">
-            <h3>¿Tiene algún costo?</h3>
-            <p>
-              No. Nido es una ONG sin fines de lucro y el acompañamiento es
-              completamente gratuito.
-            </p>
-          </div>
-          <div className="card">
-            <h3>¿Tengo que crear una cuenta?</h3>
-            <p>
-              No. Quien pide ayuda no crea cuenta. Solo nos cuentas cómo estás
-              para poder conectarte.
-            </p>
-          </div>
-          <div className="card">
-            <h3>¿Y si es una emergencia?</h3>
-            <p>
-              Nido no atiende emergencias. Usa los servicios locales de tu país
-              de residencia y revisa <Link href="/emergencia">emergencia</Link>.
-            </p>
-          </div>
-        </div>
-      </div>
+        <h2>Costos y programa gratuito</h2>
+        <p>
+          La consulta se acuerda con cada profesional. El plan de software de
+          Nido para organizar la práctica tiene un precio distinto y no
+          establece el precio que paga quien consulta. Revisa las condiciones en{" "}
+          <Link href="/como-funciona">cómo funciona Nido</Link>.
+        </p>
+        <p>
+          <Link href="/ayuda">Ayuda Terremoto</Link> es el programa separado de
+          acompañamiento voluntario gratuito para personas afectadas por el
+          terremoto. Pregunta por sus condiciones y disponibilidad; no supongas
+          que cubre cualquier solicitud desde el exterior.
+        </p>
+
+        <h2>Otras fuentes según tu situación</h2>
+        <p>
+          Si buscas información relacionada con desplazamiento, refugio o asilo,{" "}
+          <a href="https://help.unhcr.org/global/es/buscando-ayuda-con-acnur/">
+            ACNUR Help permite consultar información y contactos por país
+          </a>
+          . Comprueba la página del lugar donde estás y los requisitos del
+          servicio correspondiente. Este enlace no garantiza una consulta
+          psicológica ni que cualquier persona pueda acceder a todos los
+          programas.
+        </p>
+        <p>
+          Para información de acceso al sistema local de salud, consulta los
+          canales oficiales del país donde resides. Las condiciones y los
+          servicios disponibles cambian entre lugares.
+        </p>
+
+        <h2>Cuida el acceso al contacto</h2>
+        <p>
+          Contactar sin cuenta no equivale a anonimato completo ni garantiza
+          acceso permanente. Revisa la{" "}
+          <Link href="/recursos/apoyo-emocional-anonimo">
+            guía de contacto, privacidad y recuperación
+          </Link>{" "}
+          antes de cambiar de navegador o dispositivo. Guarda de forma privada
+          cualquier enlace o código de acceso.
+        </p>
+        <p className="notice">
+          Nido no es un servicio de emergencia. Si hay peligro inmediato,
+          contacta los servicios de emergencia del país donde estás; una línea
+          de otro país puede no servir desde tu ubicación.
+        </p>
+
+        <h2>Fuentes y fecha de verificación</h2>
+        <ul>
+          <li>
+            <Link href="/como-funciona">Cómo funciona Nido</Link>,{" "}
+            <Link href="/preguntas-frecuentes">preguntas frecuentes</Link> y{" "}
+            <Link href="/privacidad">privacidad</Link>.
+          </li>
+          <li>
+            <a href="https://help.unhcr.org/global/es/buscando-ayuda-con-acnur/">
+              ACNUR: buscando ayuda y contactos por país
+            </a>
+            .
+          </li>
+        </ul>
+        <p className="hint">
+          Fuentes comprobadas el 6 de octubre de 2026. Esta guía trata de acceso
+          y coordinación; no evalúa necesidades clínicas ni certifica
+          habilitación profesional para un país.
+        </p>
+      </article>
     </section>
   );
 }

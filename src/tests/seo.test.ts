@@ -175,7 +175,7 @@ describe("SEO — contenido y datos estructurados de la portada", () => {
     expect(structured).toContain('"@type": "WebSite"');
     expect(structured).toContain('"@type": "Service"');
     expect(structured).toContain('"@type": "FAQPage"');
-    expect(structured).toContain('"@type": "MedicalWebPage"');
+    // La semántica de guías se verifica renderizada en public-marketing.test.
   });
 });
 

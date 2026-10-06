@@ -1,10 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
+
+const title = "Cómo funciona Nido";
+const description =
+  "Encuentra un profesional de psicología, inicia una conversación y acuerda el siguiente paso a tu ritmo.";
 export const metadata: Metadata = {
-  title: "Cómo funciona Nido",
-  description:
-    "Encuentra un profesional de psicología, inicia una conversación y acuerda el siguiente paso a tu ritmo.",
+  title,
+  description,
   alternates: { canonical: "/como-funciona" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/como-funciona",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 export default function Page() {
   return (

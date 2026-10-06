@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { NIDO_LOGO_DATA_URL } from "./_og-assets";
 
 // Metadatos de la imagen (Open Graph / redes sociales)
-export const alt = "Nido — Encuentra apoyo psicológico en Venezuela";
+export const alt = "Nido — Consulta psicológica y práctica profesional";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -33,22 +33,20 @@ export default async function OpengraphImage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <span style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.1 }}>
-          Apoyo psicológico en Venezuela
+          Consulta psicológica y práctica profesional
         </span>
         <span style={{ fontSize: 34, color: "#6e655b", lineHeight: 1.3 }}>
-          Conecta a distancia con psicólogos voluntarios verificados. Sin coste
-          y sin crear cuenta.
+          Encuentra profesionales y coordina tu consulta. Herramientas para
+          organizar la práctica profesional.
         </span>
       </div>
 
       <div style={{ display: "flex", gap: 16, fontSize: 26, color: "#2f7a5b" }}>
-        <span>Gratis</span>
+        <span>Profesionales</span>
         <span>·</span>
-        <span>Confidencial</span>
+        <span>Consulta</span>
         <span>·</span>
-        <span>A distancia</span>
-        <span>·</span>
-        <span>Voluntarios verificados</span>
+        <span>Práctica</span>
       </div>
     </div>,
     { ...size },

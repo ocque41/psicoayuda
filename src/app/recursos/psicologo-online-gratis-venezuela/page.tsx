@@ -1,181 +1,161 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CrisisResources } from "@/components/crisis-resources";
 import { GuideJsonLd } from "@/components/structured-data";
 
+const title = "Apoyo psicológico gratuito en Venezuela: opciones y límites";
+const description =
+  "Dónde buscar opciones gratuitas o de bajo costo, qué confirmar antes de solicitar atención y cómo distinguir las consultas de Nido de Ayuda Terremoto.";
+const path = "/recursos/psicologo-online-gratis-venezuela";
+
 export const metadata: Metadata = {
-  title: "Psicólogo online gratis en Venezuela: cómo empezar",
-  description:
-    "Habla gratis con un psicólogo voluntario online en Venezuela, a distancia y en español. Sin crear cuenta, confidencial y sin costo. Aquí te explicamos cómo.",
-  alternates: { canonical: "/recursos/psicologo-online-gratis-venezuela" },
-  openGraph: {
-    title: "Psicólogo online gratis en Venezuela | Nido",
-    description:
-      "Cómo hablar gratis con un psicólogo voluntario online en Venezuela, a distancia, confidencial y sin crear cuenta.",
-    url: "/recursos/psicologo-online-gratis-venezuela",
+  title,
+  description,
+  alternates: { canonical: path },
+  openGraph: { title: `${title} | Nido`, description, url: path },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | Nido`,
+    description,
   },
 };
 
 export default function Page() {
   return (
     <section className="section">
-      <div className="container">
+      <article className="container" style={{ maxWidth: "760px" }}>
         <GuideJsonLd
-          path="/recursos/psicologo-online-gratis-venezuela"
-          name="Psicólogo online gratis en Venezuela: cómo empezar"
-          description="Habla gratis con un psicólogo voluntario online en Venezuela, a distancia y en español. Sin crear cuenta, confidencial y sin costo. Aquí te explicamos cómo."
+          path={path}
+          name={title}
+          description={description}
+          contentType="WebPage"
+          modifiedAt="2026-10-06"
         />
         <Breadcrumbs
           trail={[
             { name: "Recursos", path: "/recursos" },
-            {
-              name: "Psicólogo online gratis",
-              path: "/recursos/psicologo-online-gratis-venezuela",
-            },
+            { name: "Opciones gratuitas", path },
           ]}
         />
-        <h1>
-          Psicólogo online gratis en Venezuela: cómo hablar con uno a distancia
-        </h1>
+        <h1>{title}</h1>
+        <p className="hint">
+          Equipo editorial Nido · Elaboración asistida por IA. Información de
+          acceso verificada el{" "}
+          <time dateTime="2026-10-06">6 de octubre de 2026</time>.
+        </p>
         <p className="lead">
-          Si buscas un psicólogo o psicóloga en Venezuela pero no puedes pagar
-          una consulta, no estás sin opciones. En Nido, profesionales
-          voluntarios verificados acompañan en línea, en español y sin coste, a
-          personas que están pasando por un momento difícil. Aquí te contamos
-          qué es la atención psicológica online, para quién sirve y cómo
-          empezar.
+          Si buscas un psicólogo online gratis en Venezuela, comprueba qué
+          servicio ofrece cada organización, a quién está dirigido y si tiene
+          cupos. En Nido, las condiciones de una consulta se acuerdan con el
+          profesional. Ayuda Terremoto mantiene un recorrido gratuito separado,
+          sujeto a disponibilidad voluntaria.
         </p>
 
-        <CrisisResources variant="callout" />
-
-        <h2>¿Qué es la atención psicológica online?</h2>
+        <h2>Dónde buscar opciones gratuitas o de bajo costo</h2>
         <p>
-          Es recibir apoyo de una persona profesional de la psicología a
-          distancia, por internet, sin tener que ir a un consultorio. Funciona
-          desde un teléfono o una computadora con conexión, y por eso llega a
-          cualquier estado del país —Caracas, Maracaibo, Valencia, Barquisimeto,
-          Maracay y el resto— e incluso a personas venezolanas en el exterior.
-          La cercanía no la da la distancia física, sino que alguien te escuche
-          con atención y sin juzgar.
+          La UCAB presentó{" "}
+          <a href="https://elucabista.com/2025/05/27/psicomapa-la-nueva-herramienta-de-psicodata-para-encontrar-servicios-de-salud-mental-en-venezuela/">
+            PsicoMapa, un directorio de servicios de salud mental en Venezuela
+          </a>
+          , con opciones gratuitas o de bajo costo. La publicación institucional
+          está fechada en mayo de 2025. En la verificación de esta guía no
+          pudimos acceder al mapa; consulta a la institución para comprobar su
+          disponibilidad actual. Contacta al centro elegido para confirmar sus
+          condiciones actuales; aparecer en un directorio no garantiza
+          gratuidad, modalidad online ni una cita disponible.
+        </p>
+        <p>
+          Cuando revises un servicio, busca su canal oficial y pregunta si
+          atiende en tu localidad o a distancia. La información de una
+          publicación o un resultado de búsqueda puede haber cambiado.
         </p>
 
-        <h2>¿Para quién es?</h2>
-        <p>
-          No hace falta estar en crisis para pedir apoyo. Hablar con un
-          profesional puede ayudarte si te reconoces en algo de esto:
-        </p>
+        <h2>Qué significa «gratis» en cada opción</h2>
         <ul>
-          <li>Tristeza, angustia o un vacío que no se va.</li>
-          <li>Ansiedad, estrés o insomnio que te superan.</li>
-          <li>Un duelo, una pérdida o un cambio difícil de sostener.</li>
           <li>
-            Miedo o malestar después de una situación dura, como un terremoto.
+            Pregunta si la gratuidad cubre el primer contacto, una orientación
+            puntual o todas las sesiones acordadas.
           </li>
           <li>
-            La sensación de no poder con todo y de no tener con quién hablar.
+            Confirma los requisitos de acceso, los cupos y el tiempo de espera.
+            No des por hecho que una solicitud será aceptada o respondida de
+            inmediato.
+          </li>
+          <li>
+            Comprueba si el servicio es presencial, por mensajes o por
+            videollamada, y qué necesitas para utilizarlo.
+          </li>
+          <li>
+            Si tiene un costo reducido, pide el importe, la moneda y las
+            condiciones de cancelación antes de reservar.
           </li>
         </ul>
 
-        <h2>Cómo hablar con un psicólogo gratis, paso a paso</h2>
-        <ol className="steps">
-          <li>
-            <strong>Cuéntanos cómo estás.</strong> Completas un formulario breve
-            en menos de un minuto. No necesitas crear cuenta, ni dar tu nombre,
-            cédula o ubicación exacta: solo un correo para que puedan
-            escribirte.
-          </li>
-          <li>
-            <strong>Una persona voluntaria te lee.</strong> Un psicólogo o
-            psicóloga voluntaria verificada revisa tu solicitud dentro de sus
-            áreas de competencia.
-          </li>
-          <li>
-            <strong>Te escriben a tu correo.</strong> Te acompañan a distancia,
-            de forma gratuita y confidencial.
-          </li>
-        </ol>
+        <h2>Cómo se distinguen las opciones de Nido</h2>
         <p>
-          <Link className="button human" href="/ayuda">
-            Pedir apoyo ahora
-          </Link>
+          En el <Link href="/profesionales">directorio de Nido</Link> puedes
+          consultar perfiles revisados y contactar sin crear una cuenta. Esa
+          revisión del perfil no garantiza un resultado ni reemplaza la
+          confirmación de las condiciones de atención. Acuerda modalidad,
+          disponibilidad y precio con la persona profesional antes de reservar.
+        </p>
+        <p>
+          <Link href="/ayuda">Ayuda Terremoto</Link> es el programa separado de
+          acompañamiento voluntario gratuito para personas afectadas por el
+          terremoto. Su disponibilidad depende de los profesionales voluntarios.
+          Solicitarlo no equivale a tener una consulta confirmada.
+        </p>
+        <p>
+          El{" "}
+          <Link href="/para-psicologos">
+            software para organizar la práctica profesional
+          </Link>{" "}
+          tiene un plan de 10 USD al mes y una prueba de 90 días sin tarjeta,
+          que comienza tras la aprobación del perfil. Ese plan corresponde a las
+          herramientas del profesional; no establece el precio de sus consultas
+          ni convierte toda la atención en gratuita.
         </p>
 
-        <h2>Qué esperar (y qué no)</h2>
+        <h2>Una pregunta útil antes de reservar</h2>
+        <blockquote>
+          «¿El servicio tiene costo? ¿Qué incluye, qué disponibilidad hay y
+          cuáles son las condiciones para confirmar o cambiar una cita?»
+        </blockquote>
         <p>
-          Nido es apoyo emocional de acompañamiento: una persona profesional que
-          escucha, ordena lo que sientes y te ayuda a dar los siguientes pasos.
-          Es importante que sepas también lo que <em>no</em> es, para que
-          busques la ayuda correcta cuando haga falta:
-        </p>
-        <ul>
-          <li>
-            No es un servicio de emergencias en tiempo real. Si tú o alguien
-            está en peligro inmediato, mira las{" "}
-            <Link href="/emergencia">líneas de ayuda y qué hacer ahora</Link>.
-          </li>
-          <li>
-            No sustituye una psicoterapia formal ni la atención médica
-            presencial cuando se necesitan.
-          </li>
-          <li>
-            No se cobra ni se piden datos de pago: la atención la donan personas
-            voluntarias.
-          </li>
-        </ul>
-
-        <h2>Es confidencial y puedes ser anónimo</h2>
-        <p>
-          Para pedir apoyo no necesitas dar tu identidad. Pedimos la mínima
-          información necesaria y tu mensaje solo lo ven el equipo de
-          coordinación y, si corresponde, la persona voluntaria que te acompañe.
-          Si te frena la vergüenza o el miedo a que te identifiquen, lee cómo
-          funciona el{" "}
-          <Link href="/recursos/apoyo-emocional-anonimo">
-            apoyo emocional anónimo
+          Puedes añadir el país desde el que recibirás atención, especialmente
+          si estás de viaje o en el exterior. Para revisar ese caso, consulta la{" "}
+          <Link href="/recursos/venezolanos-en-el-exterior">
+            guía de acceso desde el exterior
           </Link>
           .
         </p>
-
-        <h2>Elige con quién hablar</h2>
-        <p>
-          Puedes ver a las personas voluntarias disponibles y elegir a quien
-          sientas más afín por su área de apoyo, o dejar tu mensaje y que le
-          llegue a todo el equipo.
+        <p className="notice">
+          Nido no es un servicio de emergencia. Si hay peligro inmediato,
+          contacta los servicios de emergencia del lugar donde estás. La página
+          de <Link href="/emergencia">ayuda inmediata</Link> reúne información
+          adicional.
         </p>
+
+        <h2>Fuentes y condiciones vigentes</h2>
         <ul>
           <li>
-            <Link href="/profesionales">
-              Ver psicólogas y psicólogos voluntarios disponibles
-            </Link>
-            .
+            <a href="https://elucabista.com/2025/05/27/psicomapa-la-nueva-herramienta-de-psicodata-para-encontrar-servicios-de-salud-mental-en-venezuela/">
+              UCAB: presentación de PsicoMapa
+            </a>
+            , publicada el 27 de mayo de 2025.
           </li>
           <li>
-            <Link href="/como-funciona">Cómo funciona Nido paso a paso</Link>.
-          </li>
-          <li>
-            <Link href="/preguntas-frecuentes">Preguntas frecuentes</Link>.
+            <Link href="/como-funciona">Cómo funciona Nido</Link>,{" "}
+            <Link href="/para-psicologos">plan profesional</Link> y{" "}
+            <Link href="/ayuda">Ayuda Terremoto</Link>, comprobados el 6 de
+            octubre de 2026.
           </li>
         </ul>
-
-        <div className="reassurance">
-          <p>
-            Dar el primer paso cuesta, y aun así puede cambiar mucho. No tienes
-            que poder con todo tú solo/a.
-          </p>
-          <p>
-            <Link className="button human" href="/ayuda">
-              Hablar con un psicólogo gratis
-            </Link>
-          </p>
-        </div>
-
         <p className="hint">
-          Nido no atiende emergencias ni ofrece terapia dentro de la web. Es un
-          puente gratuito hacia el acompañamiento de personas voluntarias
-          verificadas en Venezuela.
+          Esta página describe acceso y condiciones de servicios. No determina
+          qué atención clínica necesita una persona.
         </p>
-      </div>
+      </article>
     </section>
   );
 }

@@ -4,6 +4,9 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PsychologistsLandingPage from "@/app/psicologos/page";
+import PrivacyAccessGuide from "@/app/recursos/apoyo-emocional-anonimo/page";
+import FreeAccessGuide from "@/app/recursos/psicologo-online-gratis-venezuela/page";
+import AbroadAccessGuide from "@/app/recursos/venezolanos-en-el-exterior/page";
 import {
   GuideJsonLd,
   HomeJsonLd,
@@ -88,6 +91,28 @@ function json(element: ReactElement) {
 }
 
 describe("semántica del sitio público", () => {
+  it.each([
+    ["/recursos/psicologo-online-gratis-venezuela", FreeAccessGuide],
+    ["/recursos/apoyo-emocional-anonimo", PrivacyAccessGuide],
+    ["/recursos/venezolanos-en-el-exterior", AbroadAccessGuide],
+  ])("presenta %s como acceso sin revisión médica ni publicación inventada", (path, Page) => {
+    const node = json(<Page />);
+    expect(node["@type"]).toBe("WebPage");
+    expect(node.url).toBe(absoluteUrl(path));
+    expect(node.dateModified).toBe("2026-10-06");
+    for (const property of [
+      "datePublished",
+      "reviewedBy",
+      "lastReviewed",
+      "audience",
+    ]) {
+      expect(node).not.toHaveProperty(property);
+    }
+    expect(renderToStaticMarkup(<Page />)).toContain(
+      "Elaboración asistida por IA",
+    );
+  });
+
   it("describe la organización y el buscador sin acreditaciones inventadas", () => {
     const nodes: JsonNode[] = json(<SiteJsonLd />)["@graph"];
     const organization = nodes.find((node) => node["@type"] === "Organization");

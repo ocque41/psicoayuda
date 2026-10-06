@@ -3,12 +3,28 @@ import Link from "next/link";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { ProductPreview } from "@/components/workspace/product-preview";
 import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
+const title = "Nido para psicólogos";
+const description =
+  "Agenda, pacientes, notas, mensajes y servicios en un espacio para tu consulta. Crea tu perfil y empieza con Nido.";
 export const metadata: Metadata = {
-  title: "Nido para psicólogos",
-  description:
-    "Agenda, pacientes, notas, mensajes y servicios en un espacio para tu consulta. Crea tu perfil y empieza con Nido.",
+  title,
+  description,
   alternates: { canonical: "/para-psicologos" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/para-psicologos",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 export default function ProfessionalLanding() {
   return (
