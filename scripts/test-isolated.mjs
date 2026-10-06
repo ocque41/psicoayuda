@@ -43,6 +43,7 @@ try {
     "0032_support_continuity.sql",
     "0033_receipt_corrections.sql",
     "0036_session_notes.sql",
+    "0040_professional_admission_pipeline.sql",
     "0041_patient_profile.sql",
   ]) {
     const migration = await readFile(

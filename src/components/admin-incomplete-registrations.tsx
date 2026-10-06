@@ -52,6 +52,13 @@ export function IncompleteRegistrationsSection({
     <>
       <h2>Registros incompletos</h2>
       <p className="muted">Total: {registrations.length}</p>
+      {approveAction ? (
+        <p className="hint">
+          Iniciar Admisión crea un borrador clínico para completar el perfil y
+          su revisión. No publica al profesional ni confirma documentos o
+          condiciones en su nombre.
+        </p>
+      ) : null}
 
       {registrations.length > 0 ? (
         <div className="table-wrap">
@@ -103,7 +110,7 @@ export function IncompleteRegistrationsSection({
                             name="kind"
                             value="certified"
                           >
-                            Aprobar (certificado)
+                            Iniciar Admisión
                           </button>{" "}
                           <button
                             className="button secondary"

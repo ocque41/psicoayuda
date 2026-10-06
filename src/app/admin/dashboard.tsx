@@ -647,6 +647,18 @@ export async function AdminDashboard({
                     </form>
                   </td>
                   <td data-label="Acción">
+                    {professional.status === "pending_verification" &&
+                    !professional.nonClinicalHelper ? (
+                      <p>
+                        <Link
+                          className="button secondary"
+                          href={`/admin/admision?candidato=${encodeURIComponent(professional.id)}`}
+                          prefetch={false}
+                        >
+                          Revisar en Admisión
+                        </Link>
+                      </p>
+                    ) : null}
                     <form action={adminUpdateProfessionalStatus}>
                       <input
                         name="professionalId"
@@ -665,7 +677,10 @@ export async function AdminDashboard({
                           </option>
                         ) : null}
                         <option value="pending_verification">Pendiente</option>
-                        <option value="approved">Aprobar</option>
+                        {professional.status !== "pending_verification" ||
+                        professional.nonClinicalHelper ? (
+                          <option value="approved">Aprobar</option>
+                        ) : null}
                         <option value="rejected">Rechazar</option>
                         <option value="suspended">Suspender</option>
                       </select>{" "}

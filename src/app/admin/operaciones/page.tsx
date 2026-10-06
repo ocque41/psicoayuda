@@ -157,6 +157,11 @@ export default async function OperationsPage({
       {reviewer && view === "credenciales" ? (
         <section>
           <h2>Credenciales y seguimiento</h2>
+          <p className="hint">
+            Los nuevos perfiles clínicos se publican desde Admisión, tras
+            revisar identidad, credenciales, ámbito de atención y entrevista.
+            Este apartado conserva el seguimiento de perfiles ya publicados.
+          </p>
           {pros
             .filter((p) => !p.nonClinical)
             .map((p) => (
@@ -208,6 +213,21 @@ export default async function OperationsPage({
                 ) : (
                   <p>Sin comprobante adjunto.</p>
                 )}
+                {p.status === "pending_verification" ? (
+                  <p>
+                    {administrator ? (
+                      <Link
+                        className="button secondary"
+                        href={`/admin/admision?candidato=${encodeURIComponent(p.id)}`}
+                        prefetch={false}
+                      >
+                        Revisar en Admisión
+                      </Link>
+                    ) : (
+                      "El equipo de Admisión debe completar la revisión de este perfil antes de publicarlo."
+                    )}
+                  </p>
+                ) : null}
                 {p.status === "deleting" ? (
                   <p role="status">
                     Esta cuenta está en proceso de eliminación. Conserva sus
@@ -223,7 +243,9 @@ export default async function OperationsPage({
                     <label>
                       Decisión
                       <select name="status">
-                        <option value="approved">Aprobar</option>
+                        {p.status !== "pending_verification" ? (
+                          <option value="approved">Aprobar</option>
+                        ) : null}
                         <option value="pending_verification">
                           Solicitar revisión
                         </option>

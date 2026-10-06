@@ -39,6 +39,13 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Revisa perfiles, credenciales, visibilidad y capacidad de atención.",
   },
   {
+    id: "admision",
+    label: "Panel de Paola",
+    href: "/admin/admision",
+    description:
+      "Admisión de nuevos profesionales: identidad, credenciales, entrevista y publicación.",
+  },
+  {
     id: "crm",
     label: "CRM profesional",
     href: "/admin/crm",
@@ -100,6 +107,29 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Consulta el registro profesional para apoyar la revisión documental.",
   },
 ];
+
+/** Admisión y consulta propia; ninguna sección de administración general. */
+export const admissionNavigation: readonly AdminNavigationItem[] = [
+  {
+    id: "admision",
+    label: "Admisión",
+    href: "/admin/admision",
+    description: "Revisa nuevas candidaturas profesionales por etapas.",
+  },
+  {
+    id: "mi-consulta",
+    label: "Mi consulta",
+    href: "/pro/consulta",
+    description: "Tu agenda, tus pacientes y tus conversaciones profesionales.",
+  },
+];
+
+/** La vista de la interfaz conserva la cuenta administradora y no abre otro CRM. */
+export const paolaPreviewNavigation: readonly AdminNavigationItem[] =
+  admissionNavigation.map((item) => ({
+    ...item,
+    href: item.id === "admision" ? "/admin/admision?vista=paola" : "/admin/crm",
+  }));
 
 export function isAdminView(value: string): value is AdminView {
   return adminViews.includes(value as AdminView);

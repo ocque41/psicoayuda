@@ -623,9 +623,16 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   const status = professionalStatusSchema.parse(formData.get("status"));
   const existing = await db.query.professionals.findFirst({
     where: eq(professionals.id, professionalId),
-    columns: { id: true, status: true },
+    columns: { id: true, status: true, nonClinicalHelper: true },
   });
   if (!existing || existing.status === "deleting") redirect("/admin");
+  if (
+    status === "approved" &&
+    existing.status === "pending_verification" &&
+    !existing.nonClinicalHelper
+  ) {
+    redirect(`/admin/admision?candidato=${encodeURIComponent(existing.id)}`);
+  }
   const timestamp = nowIso();
   const actionByStatus = {
     pending_verification: "professional_pending_verification",
@@ -656,6 +663,12 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
         and(
           eq(professionals.id, professionalId),
           ne(professionals.status, "deleting"),
+          status === "approved"
+            ? or(
+                ne(professionals.status, "pending_verification"),
+                eq(professionals.nonClinicalHelper, true),
+              )
+            : undefined,
         ),
       )
       .returning({ id: professionals.id }),
@@ -692,9 +705,9 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   revalidateDirectoryViews();
 }
 
-// Reclasifica el tipo de un profesional ya dado de alta: certificado (con
-// credencial) ↔ auxiliar no clínico. El admin lo usa para corregir la elección
-// del onboarding antes o después de aprobar. Solo toca la etiqueta de tipo.
+// Reclasifica perfiles existentes. Pasar de auxiliar a clínico inicia Admisión
+// y retira sus ámbitos anteriores; no convierte una aprobación auxiliar en
+// acreditación clínica. Repetir el mismo tipo no altera el perfil.
 export async function adminSetProfessionalKind(formData: FormData) {
   const admin = await requireAdmin();
   if (!admin) redirect("/pro");
@@ -702,26 +715,63 @@ export async function adminSetProfessionalKind(formData: FormData) {
   const professionalId = String(formData.get("professionalId") ?? "");
   if (!professionalId) return;
   const nonClinicalHelper = formData.get("kind") === "non_clinical";
-  const timestamp = nowIso();
-
-  await db
-    .update(professionals)
-    .set({ nonClinicalHelper, updatedAt: timestamp })
-    .where(eq(professionals.id, professionalId));
-
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: admin.email,
-    action: nonClinicalHelper
-      ? "professional_kind_non_clinical"
-      : "professional_kind_certified",
-    entityType: "professional",
-    entityId: professionalId,
-    createdAt: timestamp,
+  const existing = await db.query.professionals.findFirst({
+    where: eq(professionals.id, professionalId),
+    columns: { id: true, status: true, nonClinicalHelper: true },
   });
+  if (!existing || existing.status === "deleting") redirect("/admin");
+  if (existing.nonClinicalHelper === nonClinicalHelper) return;
+  const timestamp = nowIso();
+  const auditId = newId("log");
+  const results = await db.batch([
+    db
+      .update(professionals)
+      .set(
+        nonClinicalHelper
+          ? { nonClinicalHelper, updatedAt: timestamp }
+          : {
+              nonClinicalHelper,
+              status: "pending_verification",
+              credentialConfirmed: false,
+              acceptingRequests: false,
+              updatedAt: timestamp,
+            },
+      )
+      .where(
+        and(
+          eq(professionals.id, professionalId),
+          ne(professionals.status, "deleting"),
+          eq(professionals.nonClinicalHelper, existing.nonClinicalHelper),
+        ),
+      )
+      .returning({ id: professionals.id }),
+    db
+      .insert(auditLogs)
+      .select(
+        sql`SELECT ${auditId},${admin.email},${nonClinicalHelper ? "professional_kind_non_clinical" : "professional_kind_certified"},'professional',${professionalId},NULL,${timestamp} WHERE changes()=1`,
+      ),
+    ...(!nonClinicalHelper
+      ? [
+          db
+            .update(practiceCredentials)
+            .set({ expiresAt: timestamp })
+            .where(
+              and(
+                eq(practiceCredentials.professionalId, professionalId),
+                sql`${practiceCredentials.expiresAt} > ${timestamp}`,
+                sql`EXISTS(SELECT 1 FROM audit_logs WHERE id=${auditId})`,
+              ),
+            ),
+        ]
+      : []),
+  ]);
+  if (!results[0].length) redirect("/admin");
+  if (!nonClinicalHelper) await releaseProfessionalAssignments(professionalId);
 
   revalidatePath("/admin", "layout");
   revalidateDirectoryViews();
+  if (!nonClinicalHelper)
+    redirect(`/admin/admision?candidato=${encodeURIComponent(existing.id)}`);
 }
 
 // Muestra u oculta a un profesional del directorio público (remoteAvailable).
@@ -755,13 +805,6 @@ export async function adminSetProfessionalVisibility(formData: FormData) {
   revalidateDirectoryViews();
 }
 
-// Alta manual desde /admin de una cuenta que se registró pero no completó el
-// onboarding. Crea un perfil aprobado con el tipo elegido (certificado o
-// auxiliar no clínico), VISIBLE en el directorio y aceptando contacto desde el
-// alta (desde 4541b16; antes quedaba oculto). La ficha empieza mínima —sin
-// áreas, bio ni credencial— y se enriquece cuando la persona complete
-// /pro/onboarding (saveProfessionalOnboarding no toca el status, así que sigue
-// aprobado). El admin puede retirarla con el botón Ocultar.
 // Confirma (o revierte) MANUALMENTE la credencial de un profesional sin
 // verificación automática (fuera de Venezuela, donde no hay FPV). El admin la
 // marca tras cotejar su nº de colegiado / cédula profesional con el registro
@@ -793,6 +836,9 @@ export async function adminSetCredentialConfirmed(formData: FormData) {
   revalidatePath("/admin", "layout");
 }
 
+// Alta manual desde /admin: una cuenta clínica incompleta inicia Admisión,
+// sin aprobación ni aceptación de condiciones inventadas. El auxiliar conserva
+// su alta no clínica. La ficha mínima debe completar el onboarding.
 export async function adminApproveIncompleteRegistration(formData: FormData) {
   const admin = await requireAdmin();
   if (!admin) redirect("/pro");
@@ -822,37 +868,47 @@ export async function adminApproveIncompleteRegistration(formData: FormData) {
   }
 
   const timestamp = nowIso();
-  await db.insert(professionals).values({
-    id: newId("pro"),
-    userId,
-    email: account.email,
-    fullName: account.name?.trim() || account.email,
-    contactEmail: account.email,
-    languages: JSON.stringify(["es"]),
-    supportAreas: JSON.stringify([]),
-    nonClinicalHelper,
-    status: "approved",
-    // Visible en el directorio y aceptando contacto desde el alta: el admin lo
-    // aprueba para que ayude ya. La ficha empieza mínima (sin áreas ni bio); al
-    // completar su perfil en /pro/onboarding se enriquece y entra en el matching.
-    remoteAvailable: true,
-    acceptingRequests: true,
-    currentActiveRequests: 0,
-    conductAcceptedAt: timestamp,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  });
+  const professionalId = newId("pro");
+  const results = await db.batch([
+    db
+      .insert(professionals)
+      .values({
+        id: professionalId,
+        userId,
+        email: account.email,
+        fullName: account.name?.trim() || account.email,
+        contactEmail: account.email,
+        languages: JSON.stringify(["es"]),
+        supportAreas: JSON.stringify([]),
+        nonClinicalHelper,
+        // El alta mínima clínica inicia Admisión; no declara cotejos,
+        // entrevista ni aceptación del candidato que no se han realizado.
+        status: nonClinicalHelper ? "approved" : "pending_verification",
+        remoteAvailable: true,
+        acceptingRequests: nonClinicalHelper,
+        currentActiveRequests: 0,
+        conductAcceptedAt: nonClinicalHelper ? timestamp : null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .onConflictDoNothing()
+      .returning({ id: professionals.id }),
+    db
+      .insert(auditLogs)
+      .select(
+        sql`SELECT ${newId("log")},${admin.email},${nonClinicalHelper ? "professional_manual_approval_non_clinical" : "professional_manual_draft_for_admission"},'professional',${userId},NULL,${timestamp} WHERE changes()=1`,
+      ),
+  ]);
+  if (!results[0].length) {
+    revalidatePath("/admin", "layout");
+    return;
+  }
 
-  await db.insert(auditLogs).values({
-    id: newId("log"),
-    actorEmail: admin.email,
-    action: nonClinicalHelper
-      ? "professional_manual_approval_non_clinical"
-      : "professional_manual_approval_certified",
-    entityType: "professional",
-    entityId: userId,
-    createdAt: timestamp,
-  });
+  if (!nonClinicalHelper) {
+    revalidatePath("/admin", "layout");
+    revalidateDirectoryViews();
+    redirect(`/admin/admision?candidato=${encodeURIComponent(professionalId)}`);
+  }
 
   await notifyProfessionalApproved({
     professionalEmail: account.email,

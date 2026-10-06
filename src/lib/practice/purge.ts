@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
+import { admissionCases, admissionEvents } from "@/db/admission-schema";
 import {
   appointmentReminderDeliveries,
   appointmentReminderPreferences,
@@ -90,6 +91,12 @@ export function practiceDeleteStatements(professionalId: string) {
     .from(carePlans)
     .where(eq(carePlans.professionalId, professionalId));
   return [
+    db
+      .delete(admissionEvents)
+      .where(eq(admissionEvents.professionalId, professionalId)),
+    db
+      .delete(admissionCases)
+      .where(eq(admissionCases.professionalId, professionalId)),
     db
       .delete(practicePatientProfiles)
       .where(eq(practicePatientProfiles.professionalId, professionalId)),

@@ -30,7 +30,9 @@ export function SiteNav({
     pathname.startsWith("/sesion/") ||
     pathname.startsWith("/acompanamiento/");
   const [session, setSession] = useState<SessionUser | null>(null);
+  const [sessionRevision, setSessionRevision] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmissionReviewer, setIsAdmissionReviewer] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState("");
@@ -62,6 +64,7 @@ export function SiteNav({
         const data = (await response.json()) as { user?: SessionUser } | null;
         if (!abort.signal.aborted && version === sessionVersion.current) {
           setSession(data?.user ?? null);
+          setSessionRevision((revision) => revision + 1);
           try {
             if (data?.user)
               localStorage.setItem("nido:account:present:v1", "1");
@@ -88,8 +91,13 @@ export function SiteNav({
   }, [needsSession]);
 
   const checkAdmin = Boolean(session) && (professionalArea || adminArea);
+  const checkedAccount = session
+    ? `${session.id}:${sessionRevision}`
+    : undefined;
   useEffect(() => {
-    if (!checkAdmin) return;
+    setIsAdmin(false);
+    setIsAdmissionReviewer(false);
+    if (!checkAdmin || !checkedAccount) return;
     const abort = new AbortController();
     void fetch("/api/admin/status", {
       headers: { accept: "application/json" },
@@ -98,15 +106,21 @@ export function SiteNav({
     })
       .then((response) =>
         response.ok
-          ? (response.json() as Promise<{ isAdmin?: boolean }>)
+          ? (response.json() as Promise<{
+              isAdmin?: boolean;
+              isAdmissionReviewer?: boolean;
+            }>)
           : { isAdmin: false },
       )
       .then((data) => {
-        if (!abort.signal.aborted) setIsAdmin(Boolean(data.isAdmin));
+        if (!abort.signal.aborted) {
+          setIsAdmin(Boolean(data.isAdmin));
+          setIsAdmissionReviewer(Boolean(data.isAdmissionReviewer));
+        }
       })
       .catch(() => {});
     return () => abort.abort();
-  }, [checkAdmin]);
+  }, [checkAdmin, checkedAccount]);
 
   async function signOut() {
     setSigningOut(true);
@@ -203,6 +217,14 @@ export function SiteNav({
             onClick={() => setMenuOpen(false)}
           >
             Administración
+          </Link>
+        ) : isAdmissionReviewer && checkAdmin ? (
+          <Link
+            href="/admin/admision"
+            className="site-admin-link"
+            onClick={() => setMenuOpen(false)}
+          >
+            Admisión de psicólogos
           </Link>
         ) : null}
         {session ? (

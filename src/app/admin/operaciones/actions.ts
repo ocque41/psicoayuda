@@ -169,6 +169,15 @@ export async function reviewProfessional(
       message:
         "Este perfil está en proceso de eliminación y no admite nuevas decisiones. Reintenta su eliminación desde la cuenta.",
     };
+  if (
+    parsed.data.status === "approved" &&
+    pro.status === "pending_verification"
+  )
+    return {
+      ok: false,
+      message:
+        "Completa Admisión para publicar este perfil: identidad, credenciales, ámbito vigente y entrevista.",
+    };
   const timestamp = nowIso();
   const results = await db.batch([
     db
@@ -183,6 +192,9 @@ export async function reviewProfessional(
           eq(professionals.id, pro.id),
           ne(professionals.status, "deleting"),
           eq(professionals.nonClinicalHelper, false),
+          parsed.data.status === "approved"
+            ? ne(professionals.status, "pending_verification")
+            : undefined,
         ),
       )
       .returning({ id: professionals.id }),
