@@ -13,7 +13,7 @@ export default async function PushManagementPage({
   searchParams,
 }: {
   searchParams?: Promise<{ role?: string }>;
-} = {}) {
+}) {
   const role =
     (await searchParams)?.role === "patient" ? "patient" : "professional";
   const session = await getServerSession();

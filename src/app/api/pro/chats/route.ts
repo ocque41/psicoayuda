@@ -10,15 +10,14 @@ import { sortProChats, toProChatSummaries } from "@/lib/pro-chats";
 export const dynamic = "force-dynamic";
 
 const headers = { "cache-control": "private, no-store", Vary: "Cookie" };
-export async function GET(request?: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   const session = await getServerSession();
   if (!session?.user?.id || !session.session?.id) {
     return NextResponse.json({ chats: [] }, { status: 401, headers });
   }
 
-  const expectedProfessionalId = request
-    ? new URL(request.url).searchParams.get("professionalId") || undefined
-    : undefined;
+  const expectedProfessionalId =
+    new URL(request.url).searchParams.get("professionalId") || undefined;
   const live = await loadLiveChatProfessional(expectedProfessionalId);
   if (
     !live ||

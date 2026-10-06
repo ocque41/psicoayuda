@@ -548,7 +548,7 @@ describe("Push integration in an independent memory database", () => {
       .update(schema.professionals)
       .set({ status: status as "pending" });
     expect((await GET(request("GET"))).status).toBe(403);
-    expect(await ManagementPage()).toBeTruthy();
+    expect(await ManagementPage({})).toBeTruthy();
     const result = await GET(request("GET", "professional", undefined, true));
     expect(await result.json()).toEqual({
       devices: [{ id: own, revokedAt: null }],

@@ -124,6 +124,17 @@ describe("API de metadatos con SID y dueño vigentes dentro del SQL", () => {
     expect(body).not.toContain("private-contact");
     expect(body).not.toContain("token");
   });
+  it("sin parámetro de dueño conserva la consulta del actor vigente", async () => {
+    const response = await GET(
+      new Request("https://nido.example.invalid/api/pro/chats"),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      professionalId: fixture.pros[0],
+      chats: [{ id: fixture.rooms[0], seekerName: "Alias ficticio 0" }],
+    });
+    expect(mocks.live).toHaveBeenCalledWith(undefined);
+  });
   it("revocar SID entre cargar actor y leer lista no devuelve metadatos", async () => {
     mocks.live.mockImplementation(async (expected?: string) => {
       const actor = await real.loadLiveChatProfessional(expected);
