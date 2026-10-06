@@ -19,7 +19,7 @@ export function PatientSessionBoundary({
 }: {
   ownerId: string;
   children: ReactNode;
-  audience?: "patient" | "professional";
+  audience?: "patient" | "professional" | "administration";
 }) {
   const [state, setState] = useState<PatientSessionState>({
     status: "checking",
@@ -31,6 +31,24 @@ export function PatientSessionBoundary({
   const guard = useRef<ReturnType<typeof createPatientSessionBoundary>>(null);
 
   useEffect(() => {
+    const suspendedDialogs = new Set<HTMLDialogElement>();
+    const suspendedCloses = new Map<HTMLDialogElement, number>();
+    // close() libera la capa modal; ese cierre técnico no debe disparar los
+    // handlers de descarte/navegación de un editor que sigue montado.
+    const swallowSuspendedClose = (event: Event) => {
+      if (!(event.target instanceof HTMLDialogElement)) return;
+      const pending = suspendedCloses.get(event.target) ?? 0;
+      if (pending > 0) {
+        if (pending === 1) suspendedCloses.delete(event.target);
+        else suspendedCloses.set(event.target, pending - 1);
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("close", swallowSuspendedClose, true);
+    const closeForSuspension = (dialog: HTMLDialogElement) => {
+      suspendedCloses.set(dialog, (suspendedCloses.get(dialog) ?? 0) + 1);
+      dialog.close();
+    };
     const boundary = createPatientSessionBoundary(
       ownerId,
       readCurrentPatientSession,
@@ -42,18 +60,44 @@ export function PatientSessionBoundary({
             previousFocus.current = active;
           content.current.hidden = true;
           content.current.inert = true;
+          for (const dialog of content.current.querySelectorAll<HTMLDialogElement>(
+            "dialog[open]",
+          )) {
+            if (!dialog.matches(":modal")) continue;
+            suspendedDialogs.add(dialog);
+            closeForSuspension(dialog);
+            // Mantener open sin capa modal permite que un editor cierre por
+            // su propia invalidación. Un cierre así nunca se restaura.
+            if (next.status !== "revoked") dialog.show();
+          }
         }
         if (next.status === "authorized") {
           if (content.current) {
             content.current.hidden = false;
             content.current.inert = false;
+            for (const dialog of suspendedDialogs) {
+              if (
+                dialog.isConnected &&
+                content.current.contains(dialog) &&
+                dialog.open &&
+                !dialog.matches(":modal")
+              ) {
+                closeForSuspension(dialog);
+                dialog.showModal();
+              }
+            }
+            suspendedDialogs.clear();
             if (previousFocus.current?.isConnected)
               previousFocus.current.focus({ preventScroll: true });
             previousFocus.current = null;
           }
           setMounted(true);
         }
-        if (next.status === "revoked") setMounted(false);
+        if (next.status === "revoked") {
+          suspendedDialogs.clear();
+          previousFocus.current = null;
+          setMounted(false);
+        }
         setState(next);
       },
     );
@@ -82,6 +126,9 @@ export function PatientSessionBoundary({
     void boundary.check();
     return () => {
       stop();
+      window.removeEventListener("close", swallowSuspendedClose, true);
+      suspendedDialogs.clear();
+      suspendedCloses.clear();
       window.removeEventListener(SESSION_CHANGED_EVENT, revalidate);
       window.removeEventListener(ACCOUNT_SESSION_CHANGED_EVENT, revalidate);
       window.removeEventListener("focus", resume);
@@ -123,7 +170,9 @@ export function PatientSessionBoundary({
                 {state.status === "checking"
                   ? audience === "professional"
                     ? "Preparando tu consulta"
-                    : "Comprobando tu sesión"
+                    : audience === "administration"
+                      ? "Preparando tu administración"
+                      : "Comprobando tu sesión"
                   : state.status === "unavailable"
                     ? "No pudimos comprobar tu sesión"
                     : "Tu sesión cambió"}
@@ -154,11 +203,19 @@ export function PatientSessionBoundary({
                   {/* Navegación de documento: no restaura RSC de otra cuenta. */}
                   <a
                     className="button human"
-                    href={audience === "professional" ? "/pro/consulta" : "/mi"}
+                    href={
+                      audience === "professional"
+                        ? "/pro/consulta"
+                        : audience === "administration"
+                          ? "/admin"
+                          : "/mi"
+                    }
                   >
                     {audience === "professional"
                       ? "Volver a abrir mi consulta"
-                      : "Volver a abrir mi espacio"}
+                      : audience === "administration"
+                        ? "Volver a abrir administración"
+                        : "Volver a abrir mi espacio"}
                   </a>
                 </>
               )}
