@@ -137,7 +137,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     { path: "/pacto-voluntario", priority: 0.5, changeFrequency: "monthly" },
     { path: "/transparencia", priority: 0.4, changeFrequency: "monthly" },
-    { path: "/contacto", priority: 0.4, changeFrequency: "yearly" },
+    {
+      path: "/contacto",
+      priority: 0.4,
+      changeFrequency: "yearly",
+      lastModified: "2026-10-07",
+    },
     { path: "/privacidad", priority: 0.3, changeFrequency: "yearly" },
     { path: "/terminos", priority: 0.3, changeFrequency: "yearly" },
   ];
