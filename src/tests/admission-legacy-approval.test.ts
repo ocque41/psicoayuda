@@ -427,11 +427,12 @@ describe("las aprobaciones antiguas respetan Admisión", () => {
     expect(await audits()).toMatchObject([
       { action: "professional_kind_certified" },
     ]);
-    expect(mocks.release).toHaveBeenCalledExactlyOnceWith(auxiliaryId);
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(changed?.currentActiveRequests).toBe(0);
     await adminSetProfessionalKind(form);
     expect((await profile(auxiliaryId))?.updatedAt).toBe(changed?.updatedAt);
     expect(await audits()).toHaveLength(1);
-    expect(mocks.release).toHaveBeenCalledTimes(1);
+    expect(mocks.release).not.toHaveBeenCalled();
     expect(mocks.approval).not.toHaveBeenCalled();
   });
   it("mantener el tipo clínico no invalida la versión ni crea auditoría", async () => {
@@ -483,7 +484,7 @@ describe("las aprobaciones antiguas respetan Admisión", () => {
       return original(queries);
     }) as typeof db.batch);
     await expect(adminSetProfessionalKind(form)).rejects.toThrow(
-      "REDIRECT:/admin",
+      "Vuelve a intentarlo",
     );
     expect(await profile(auxiliaryId)).toMatchObject({
       status: "deleting",

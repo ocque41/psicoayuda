@@ -342,7 +342,14 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
     });
     expect((await profile())?.status).toBe("suspended");
     expect(await audits()).toHaveLength(1);
-    expect(mocks.release).toHaveBeenCalledExactlyOnceWith(PRO);
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, PRO),
+        })
+      )?.currentActiveRequests,
+    ).toBe(0);
   });
   it("reactivar desde el panel anterior conserva visibilidad, correo y una auditoría", async () => {
     await db

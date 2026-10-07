@@ -19,7 +19,6 @@ import { requireAdmin } from "@/lib/admin";
 import {
   assignRequestToProfessional,
   closeAdministrativeAssignments,
-  releaseProfessionalAssignments,
 } from "@/lib/assignment";
 import { getServerSession } from "@/lib/auth-server";
 import { getFeedProfessionals } from "@/lib/feed";
@@ -742,10 +741,34 @@ export async function adminSetProfessionalKind(formData: FormData) {
   const nonClinicalHelper = formData.get("kind") === "non_clinical";
   const existing = await db.query.professionals.findFirst({
     where: eq(professionals.id, professionalId),
-    columns: { id: true, status: true, nonClinicalHelper: true },
+    columns: {
+      id: true,
+      status: true,
+      nonClinicalHelper: true,
+      credentialConfirmed: true,
+      userId: true,
+      updatedAt: true,
+      currentActiveRequests: true,
+    },
   });
   if (!existing || existing.status === "deleting") redirect("/admin");
   if (existing.nonClinicalHelper === nonClinicalHelper) return;
+  if (!nonClinicalHelper) {
+    if (!admin.session?.session?.id) redirect("/pro");
+    await closeAdministrativeAssignments({
+      kind: "professional_kind",
+      id: professionalId,
+      expected: existing,
+      actor: {
+        userId: admin.session.user.id,
+        email: admin.email,
+        sessionId: admin.session.session.id,
+      },
+    });
+    revalidatePath("/admin", "layout");
+    revalidateDirectoryViews();
+    redirect(`/admin/admision?candidato=${encodeURIComponent(existing.id)}`);
+  }
   const timestamp = nowIso();
   const auditId = newId("log");
   const results = await db.batch([
@@ -791,7 +814,6 @@ export async function adminSetProfessionalKind(formData: FormData) {
       : []),
   ]);
   if (!results[0].length) redirect("/admin");
-  if (!nonClinicalHelper) await releaseProfessionalAssignments(professionalId);
 
   revalidatePath("/admin", "layout");
   revalidateDirectoryViews();

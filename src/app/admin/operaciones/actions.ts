@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { PracticeFormState } from "@/app/pro/consulta/actions";
 import { db } from "@/db";
 import { auditLogs, practiceCredentials, professionals } from "@/db/schema";
-import { releaseProfessionalAssignments } from "@/lib/assignment";
+import { closeAdministrativeAssignments } from "@/lib/assignment";
 import { countries } from "@/lib/constants";
 import { newId, nowIso } from "@/lib/ids";
 import { requirePracticeStaff } from "@/lib/practice/staff";
@@ -15,6 +15,7 @@ import {
   writeSupportReply,
   writeSupportStatus,
 } from "@/lib/practice/support";
+import { getVerifiedServerSession } from "@/lib/privileged-session";
 export async function replySupport(
   _prev: PracticeFormState,
   form: FormData,
@@ -178,6 +179,48 @@ export async function reviewProfessional(
       message:
         "Completa Admisión para publicar este perfil: identidad, credenciales, ámbito vigente y entrevista.",
     };
+  if (parsed.data.status !== "approved") {
+    const session = await getVerifiedServerSession();
+    if (
+      !session?.session?.id ||
+      session.user.email.toLowerCase() !== staff.email
+    ) {
+      return {
+        ok: false,
+        message:
+          "Tu sesión cambió. Vuelve a iniciar sesión y reintenta la revisión.",
+      };
+    }
+    try {
+      await closeAdministrativeAssignments({
+        kind: "credential_review",
+        id: pro.id,
+        expected: pro,
+        status: parsed.data.status,
+        reference: parsed.data.reference,
+        actor: {
+          userId: session.user.id,
+          email: staff.email,
+          sessionId: session.session.id,
+        },
+      });
+    } catch {
+      return {
+        ok: false,
+        message:
+          "No pudimos confirmar la decisión y el cierre. Actualiza la revisión y vuelve a intentarlo.",
+      };
+    }
+    revalidateTag("professionals", { expire: 0 });
+    revalidatePath("/admin", "layout");
+    revalidatePath("/profesionales");
+    revalidatePath("/orientacion");
+    return {
+      ok: true,
+      message:
+        "Decisión guardada. Revisa también los ámbitos por país y sus fechas de vigencia.",
+    };
+  }
   const timestamp = nowIso();
   const results = await db.batch([
     db
@@ -215,8 +258,6 @@ export async function reviewProfessional(
       message:
         "El perfil cambió o inició su eliminación antes de guardar. Actualiza la revisión para comprobar su estado.",
     };
-  if (parsed.data.status !== "approved")
-    await releaseProfessionalAssignments(pro.id);
   revalidateTag("professionals", { expire: 0 });
   revalidatePath("/admin", "layout");
   revalidatePath("/profesionales");

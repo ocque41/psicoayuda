@@ -9,9 +9,11 @@ import {
   auditLogs,
   conversations,
   helpRequests,
+  practiceCredentials,
   professionals,
   seekerSessions,
 } from "@/db/schema";
+import { isAdminEmail } from "@/lib/admin";
 import { currentWaitlistAdmin } from "@/lib/admin-waitlist/access";
 import type { WaitlistAdmin } from "@/lib/admin-waitlist/types";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
@@ -66,7 +68,7 @@ function roomVersion(room: RoomSnapshot) {
 function snapshotMatches(
   table: SQLiteTable,
   columns: (SQLiteColumn | SQL)[],
-  rows: (string | number | Date | null)[][],
+  rows: (string | number | boolean | Date | null)[][],
 ) {
   const snapshot = JSON.stringify(
     rows.map((row) =>
@@ -88,19 +90,55 @@ function snapshotMatches(
  * confirma ninguna escritura propia. No se relee/reautoriza automáticamente.
  * Los helpers de retención/cuenta conservan sus contratos independientes.
  */
+type ProfessionalClosureSnapshot = Pick<
+  typeof professionals.$inferSelect,
+  "id" | "status" | "userId" | "updatedAt" | "currentActiveRequests"
+>;
+type ClinicalClosureSnapshot = ProfessionalClosureSnapshot &
+  Pick<
+    typeof professionals.$inferSelect,
+    "nonClinicalHelper" | "credentialConfirmed"
+  >;
+
+// Mismo scope que requirePracticeStaff("credentials"): admin O lista de
+// revisores, nunca soporte/Admisión por inferencia. La identidad y SID vivos
+// se repiten dentro de SQL; no se cambia la política compartida de otros flujos.
+function currentCredentialReviewer(actor: WaitlistAdmin) {
+  const allowed = (process.env.CREDENTIAL_REVIEWER_EMAILS || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (
+    !actor.sessionId ||
+    !(isAdminEmail(actor.email) || allowed.includes(actor.email))
+  )
+    return sql`0`;
+  return sql`EXISTS (SELECT 1 FROM user account JOIN session live_session ON live_session.user_id=account.id
+    WHERE account.id=${actor.userId} AND lower(account.email)=${actor.email}
+      AND account.email_verified=1 AND live_session.id=${actor.sessionId}
+      AND live_session.expires_at > cast(unixepoch('subsecond') * 1000 as integer))`;
+}
+
 export async function closeAdministrativeAssignments(
-  input: {
-    actor: WaitlistAdmin;
-  } & (
+  input: { actor: WaitlistAdmin } & (
     | { kind: "request"; id: string }
     | {
         kind: "professional";
         id: string;
         status: "suspended" | "rejected";
-        expected: Pick<
-          typeof professionals.$inferSelect,
-          "id" | "status" | "userId" | "updatedAt" | "currentActiveRequests"
-        >;
+        expected: ProfessionalClosureSnapshot;
+      }
+    | {
+        kind: "credential_review";
+        id: string;
+        status: "suspended" | "rejected" | "pending_verification";
+        reference: string;
+        expected: ClinicalClosureSnapshot;
+      }
+    | {
+        kind: "professional_kind";
+        id: string;
+        expected: ClinicalClosureSnapshot;
       }
   ),
 ) {
@@ -122,7 +160,7 @@ export async function closeAdministrativeAssignments(
   ];
   const proIds = [
     ...new Set([
-      ...(input.kind === "professional" ? [input.id] : []),
+      ...(input.kind !== "request" ? [input.id] : []),
       ...active.map((row) => row.professionalId),
     ]),
   ];
@@ -140,18 +178,29 @@ export async function closeAdministrativeAssignments(
     requests.length !== requestIds.length ||
     pros.length !== proIds.length ||
     pros.some((row) => row.status === "deleting") ||
-    (input.kind === "professional" &&
+    (input.kind !== "request" &&
       !pros.some(
         (row) =>
           row.id === input.expected.id &&
           row.status === input.expected.status &&
           row.userId === input.expected.userId &&
           row.updatedAt === input.expected.updatedAt &&
-          row.currentActiveRequests === input.expected.currentActiveRequests,
+          row.currentActiveRequests === input.expected.currentActiveRequests &&
+          ((input.kind !== "credential_review" &&
+            input.kind !== "professional_kind") ||
+            (row.nonClinicalHelper === input.expected.nonClinicalHelper &&
+              row.credentialConfirmed === input.expected.credentialConfirmed &&
+              row.nonClinicalHelper === (input.kind === "professional_kind"))),
       ))
   ) {
     throw new Error("El caso o la cuenta cambió. Vuelve a intentarlo.");
   }
+  const scopes =
+    input.kind === "professional_kind"
+      ? await db.query.practiceCredentials.findMany({
+          where: eq(practiceCredentials.professionalId, input.id),
+        })
+      : [];
   const roomScope =
     input.kind === "request"
       ? eq(conversations.helpRequestId, input.id)
@@ -161,7 +210,9 @@ export async function closeAdministrativeAssignments(
     extras: { reopeningId: reopeningVersion().as("reopening_id") },
   });
   const guards = [
-    currentWaitlistAdmin(input.actor),
+    input.kind === "credential_review"
+      ? currentCredentialReviewer(input.actor)
+      : currentWaitlistAdmin(input.actor),
     sql`(SELECT count(*) FROM ${assignments} WHERE ${scope} AND ${assignments.status} IN ('assigned','accepted'))=${active.length}`,
     sql`(SELECT count(*) FROM ${conversations} WHERE ${roomScope} AND ${conversations.status}='open')=${rooms.length}`,
     snapshotMatches(
@@ -204,6 +255,8 @@ export async function closeAdministrativeAssignments(
         professionals.status,
         professionals.updatedAt,
         professionals.currentActiveRequests,
+        professionals.nonClinicalHelper,
+        professionals.credentialConfirmed,
       ],
       pros.map((row) => [
         row.id,
@@ -211,6 +264,8 @@ export async function closeAdministrativeAssignments(
         row.status,
         row.updatedAt,
         row.currentActiveRequests,
+        row.nonClinicalHelper,
+        row.credentialConfirmed,
       ]),
     ),
     snapshotMatches(
@@ -241,19 +296,53 @@ export async function closeAdministrativeAssignments(
       ]),
     ),
   ];
+  if (input.kind === "professional_kind") {
+    guards.push(
+      sql`(SELECT count(*) FROM ${practiceCredentials} WHERE ${practiceCredentials.professionalId}=${input.id})=${scopes.length}`,
+      snapshotMatches(
+        practiceCredentials,
+        [
+          practiceCredentials.id,
+          practiceCredentials.professionalId,
+          practiceCredentials.patientCountry,
+          practiceCredentials.registryReference,
+          practiceCredentials.reviewedBy,
+          practiceCredentials.reviewedAt,
+          practiceCredentials.expiresAt,
+        ],
+        scopes.map((row) => [
+          row.id,
+          row.professionalId,
+          row.patientCountry,
+          row.registryReference,
+          row.reviewedBy,
+          row.reviewedAt,
+          row.expiresAt,
+        ]),
+      ),
+    );
+  }
   const timestamp = nowIso();
   const auditId = newId("log");
   const action =
     input.kind === "request"
       ? "request_closure"
-      : input.status === "suspended"
-        ? "professional_suspension"
-        : "professional_rejection";
+      : input.kind === "credential_review"
+        ? "practice_credential_decision"
+        : input.kind === "professional_kind"
+          ? "professional_kind_certified"
+          : input.status === "suspended"
+            ? "professional_suspension"
+            : "professional_rejection";
+  const metadata =
+    input.kind === "credential_review"
+      ? JSON.stringify({ status: input.status, reference: input.reference })
+      : null;
   const admitted = sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${auditId})`;
   const claim = db
     .insert(auditLogs)
     .select(
-      sql`SELECT ${auditId},${input.actor.email},${action},${input.kind === "request" ? "help_request" : "professional"},${input.id},NULL,${timestamp} WHERE ${and(...guards)}`,
+      sql`SELECT ${auditId},${input.actor.email},${action},${input.kind === "request" ? "help_request" : "professional"},${input.id},${metadata},${timestamp} WHERE ${and(...guards)}`,
     )
     .returning({ id: auditLogs.id });
   const writes: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]] = [claim];
@@ -343,17 +432,48 @@ export async function closeAdministrativeAssignments(
             ),
         );
     }
+    const updates =
+      input.kind === "credential_review"
+        ? {
+            status: input.status,
+            credentialConfirmed: false,
+            currentActiveRequests: 0,
+            updatedAt: timestamp,
+          }
+        : input.kind === "professional_kind"
+          ? {
+              status: "pending_verification",
+              nonClinicalHelper: false,
+              credentialConfirmed: false,
+              acceptingRequests: false,
+              currentActiveRequests: 0,
+              updatedAt: timestamp,
+            }
+          : {
+              status: input.status,
+              acceptingRequests: false,
+              currentActiveRequests: 0,
+              updatedAt: timestamp,
+            };
     writes.push(
       db
         .update(professionals)
-        .set({
-          status: input.status,
-          acceptingRequests: false,
-          currentActiveRequests: 0,
-          updatedAt: timestamp,
-        })
+        .set(updates)
         .where(and(admitted, eq(professionals.id, input.id))),
     );
+    if (input.kind === "professional_kind")
+      writes.push(
+        db
+          .update(practiceCredentials)
+          .set({ expiresAt: timestamp })
+          .where(
+            and(
+              admitted,
+              eq(practiceCredentials.professionalId, input.id),
+              sql`${practiceCredentials.expiresAt} > ${timestamp}`,
+            ),
+          ),
+      );
   }
   const results = await db.batch(writes);
   if (!Array.isArray(results[0]) || results[0].length !== 1) {
