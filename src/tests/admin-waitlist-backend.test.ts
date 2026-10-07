@@ -373,7 +373,7 @@ describe("Ayuda Terremoto: sólo lectura de pendientes y relaciones", () => {
     "accepted",
     "assigned",
   ])("una relación %s ocupa una plaza y sale de espera", async (status) => {
-    const row = await help(status, "offered");
+    const row = await help(status, "assigned");
     await relation(row.id, status);
     const waiting = await readAdminWaitlistData(actor, { fuente: "terremoto" });
     const assigned = await readAdminWaitlistData(actor, {
@@ -386,7 +386,79 @@ describe("Ayuda Terremoto: sólo lectura de pendientes y relaciones", () => {
     });
     expect(assigned.items[0]).toMatchObject({
       activeAssignments: 1,
+      requiresReview: false,
+    });
+  });
+  it.each(
+    ["new", "offered", "contacted", "legacy"].flatMap((requestStatus) =>
+      ["accepted", "assigned"].map((assignmentStatus) => ({
+        requestStatus,
+        assignmentStatus,
+      })),
+    ),
+  )("encuentra $requestStatus con relación $assignmentStatus en revisión sin alterar cupos", async ({
+    requestStatus,
+    assignmentStatus,
+  }) => {
+    const row = await help("desfasada", requestStatus);
+    await relation(row.id, assignmentStatus);
+    await db
+      .update(professionals)
+      .set({ currentActiveRequests: 1 })
+      .where(eq(professionals.id, `${P}-pro-a`));
+    const before = await Promise.all([
+      db.query.helpRequests.findFirst({ where: eq(helpRequests.id, row.id) }),
+      db.query.assignments.findMany({
+        where: eq(assignments.helpRequestId, row.id),
+      }),
+      db.query.professionals.findFirst({
+        where: eq(professionals.id, `${P}-pro-a`),
+      }),
+    ]);
+    const review = await readAdminWaitlistData(actor, {
+      fuente: "terremoto",
+      estado: "review",
+      persona: row.id,
+    });
+    expect(review).toMatchObject({
+      failed: false,
+      total: 1,
+      sourceCounts: { general: 1, terremoto: 1 },
+      counts: { all: 1, review: 1, assigned: 0, waiting: 0, closed: 0 },
+    });
+    expect(review.items[0]).toMatchObject({
+      id: row.id,
+      status: requestStatus,
+      activeAssignments: 1,
       requiresReview: true,
+    });
+    expect(review.selected).toMatchObject({
+      id: row.id,
+      status: requestStatus,
+      activeAssignments: 1,
+      requiresReview: true,
+      assignments: [{ status: assignmentStatus }],
+    });
+    for (const estado of ["waiting", "assigned"])
+      expect(
+        (await readAdminWaitlistData(actor, { fuente: "terremoto", estado }))
+          .total,
+      ).toBe(0);
+    expect(
+      await Promise.all([
+        db.query.helpRequests.findFirst({ where: eq(helpRequests.id, row.id) }),
+        db.query.assignments.findMany({
+          where: eq(assignments.helpRequestId, row.id),
+        }),
+        db.query.professionals.findFirst({
+          where: eq(professionals.id, `${P}-pro-a`),
+        }),
+      ]),
+    ).toEqual(before);
+    expect(await logs()).toEqual([]);
+    expect(await record()).toMatchObject({
+      status: "waiting",
+      updatedAt: timestamp,
     });
   });
   it.each([

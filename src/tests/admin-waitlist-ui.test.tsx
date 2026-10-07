@@ -255,6 +255,42 @@ describe("ventanas independientes y detalle de espera", () => {
     expect(html).toContain("Asignaciones activas</dt><dd>0</dd>");
   });
 
+  it("muestra un desfase en revisión conservando la asignación y el detalle privado", () => {
+    const detail = helpDetail();
+    detail.status = "offered";
+    detail.statusLabel = "Esperando aceptación";
+    detail.activeAssignments = 1;
+    detail.offeredAssignments = 0;
+    detail.requiresReview = true;
+    detail.assignments[0].status = "accepted";
+    detail.assignments[0].statusLabel = "Aceptada";
+    const data: AdminWaitlistData = {
+      ...fixture(),
+      tab: "terremoto",
+      status: "review",
+      items: [detail],
+      total: 1,
+      pages: 1,
+      counts: { all: 1, waiting: 0, assigned: 0, review: 1, closed: 0 },
+      sourceCounts: { general: 39, terremoto: 1 },
+    };
+    const board = renderToStaticMarkup(<AdminWaitlistBoard data={data} />);
+    expect(board).toContain('value="review" selected=""');
+    expect(board).toContain("Revisar seguimiento (1)");
+    expect(board).toContain("1 asignaciones activas");
+    expect(board).toContain("revisar seguimiento");
+    expect(board).not.toContain(detail.email);
+    expect(board).not.toContain(detail.assignments[0].professionalName);
+    const selected = renderToStaticMarkup(
+      <WaitlistDetailDialog data={data} detail={detail} />,
+    );
+    expect(selected).toContain("Ayuda Terremoto · $0");
+    expect(selected).toContain("Asignaciones activas</dt><dd>1</dd>");
+    expect(selected).toContain("Aceptada");
+    expect(selected).toContain('href="/admin/solicitudes"');
+    expect(selected).not.toContain("<form");
+  });
+
   it("el fallo conserva la vía de reintento y no se representa como cero registros", () => {
     const html = renderToStaticMarkup(
       <AdminWaitlistBoard

@@ -59,11 +59,12 @@ function literalLike(value: string) {
 }
 const activeCount = sql<number>`(SELECT count(*) FROM assignments a WHERE a.help_request_id=help_requests.id AND a.status IN ('accepted','assigned'))`;
 const offeredCount = sql<number>`(SELECT count(*) FROM assignments a WHERE a.help_request_id=help_requests.id AND a.status='offered')`;
-// Invitations do not occupy a place. An assigned record without an active
-// relationship needs review; reading this queue never reopens it.
+// Una invitación no ocupa plaza. El filtro de revisión incluye los mismos
+// desfases que el aviso requiresReview: estado assigned sin relación activa,
+// relación activa con otro estado o estado anterior. Consultar no los corrige.
 const helpGroup = sql<string>`CASE WHEN help_requests.status='closed' THEN 'closed'
-  WHEN ${activeCount}>0 THEN 'assigned'
-  WHEN help_requests.status IN ('new','offered','contacted') THEN 'waiting'
+  WHEN help_requests.status='assigned' AND ${activeCount}>0 THEN 'assigned'
+  WHEN help_requests.status IN ('new','offered','contacted') AND ${activeCount}=0 THEN 'waiting'
   ELSE 'review' END`;
 const helpListFields = {
   id: helpRequests.id,
