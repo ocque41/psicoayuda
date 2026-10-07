@@ -272,7 +272,7 @@ describe("catálogo: resultados visibles y JSON-LD", () => {
       );
       expect(result.itemList?.url).toBe(absoluteUrl("/ayuda"));
     }
-    expect(result.html).toContain("Gratis");
+    expect(result.html).toContain("Ayuda Terremoto gratuita");
   });
 });
 
