@@ -432,6 +432,7 @@ export function ProfessionalOnboardingForm({
   const editing = Boolean(existing);
   const formId = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const clientErrorRef = useRef<HTMLParagraphElement>(null);
   const [answers, setAnswers] = useState<ProfessionalAnswers>(() => ({
     fullName: existing?.fullName ?? String(draft.fullName ?? name ?? ""),
     displayName: existing?.displayName ?? String(draft.displayName ?? ""),
@@ -489,6 +490,9 @@ export function ProfessionalOnboardingForm({
     editing ? 0 : Math.min(6, Number(draft.step) || 0),
   );
   const [clientError, setClientError] = useState("");
+  useEffect(() => {
+    if (clientError) clientErrorRef.current?.focus();
+  }, [clientError]);
   const [serverErrorVisible, setServerErrorVisible] = useState(false);
   const [filePending, setFilePending] = useState(false);
   const [proofName, setProofName] = useState("");
@@ -612,7 +616,7 @@ export function ProfessionalOnboardingForm({
     setAnswers(current);
     if (!formRef.current?.reportValidity()) return;
     if (question.field === "supportAreas" && !current.supportAreas.length) {
-      setClientError("Elige al menos un área de acompañamiento.");
+      reportClientError("Elige al menos un área de acompañamiento.");
       return;
     }
     if (
@@ -620,7 +624,7 @@ export function ProfessionalOnboardingForm({
       !current.remoteAvailable &&
       !current.inPersonAvailable
     ) {
-      setClientError("Elige al menos una modalidad para tu perfil.");
+      reportClientError("Elige al menos una modalidad para tu perfil.");
       return;
     }
     if (
@@ -639,13 +643,18 @@ export function ProfessionalOnboardingForm({
       !current.phone.trim() &&
       !current.landline.trim()
     ) {
-      setClientError(
+      reportClientError(
         "Elige al menos una vía de contacto: correo, WhatsApp o teléfono.",
       );
       return;
     }
     setClientError("");
     setStep(Math.min(questions.length - 1, activeStep + 1));
+  }
+  function reportClientError(message: string) {
+    setClientError(message);
+    // También devuelve el foco si el mismo error ya está renderizado.
+    clientErrorRef.current?.focus();
   }
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -1147,7 +1156,12 @@ export function ProfessionalOnboardingForm({
           ) : null}
         </div>
         {clientError || (serverErrorVisible && state?.message) ? (
-          <p className="form-error" role="alert">
+          <p
+            className="form-error"
+            role="alert"
+            ref={clientErrorRef}
+            tabIndex={-1}
+          >
             {clientError || (serverErrorVisible && state?.message)}
           </p>
         ) : null}
