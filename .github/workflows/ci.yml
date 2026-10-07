@@ -43,6 +43,13 @@ jobs:
       - name: Test (isolated database and triggers)
         run: pnpm test:isolated
 
+      - name: Verify test isolation (causal)
+        shell: bash
+        run: |
+          report_directory="$(mktemp -d "${RUNNER_TEMP}/nido-isolation-report.XXXXXX")"
+          trap 'rm -rf -- "$report_directory"' EXIT
+          node scripts/check-test-isolation.mjs "$report_directory"
+
       - name: Test chat Durable Object (Workers runtime)
         run: pnpm test:workers
 
