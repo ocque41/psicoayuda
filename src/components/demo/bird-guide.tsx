@@ -931,7 +931,14 @@ export function BirdGuide({
                   className={styles.content}
                   hidden={collapsed}
                 >
-                  <div key={step.id} className={styles.descriptionRegion}>
+                  <section
+                    key={step.id}
+                    className={styles.descriptionRegion}
+                    aria-labelledby={`${id}-title`}
+                    aria-describedby={`${id}-keyboard`}
+                    // biome-ignore lint/a11y/noNoninteractiveTabindex: La región desplazable necesita foco para leer toda la explicación con teclado.
+                    tabIndex={0}
+                  >
                     <p id={`${id}-description`} className={styles.description}>
                       {step.description}
                     </p>
@@ -941,7 +948,7 @@ export function BirdGuide({
                         próximo paso.
                       </p>
                     ) : null}
-                  </div>
+                  </section>
                   <div className={styles.navigation}>
                     <button
                       type="button"
@@ -966,8 +973,9 @@ export function BirdGuide({
                       <Arrow />
                     </button>
                   </div>
-                  <p className={styles.keyboard}>
-                    Explora a tu ritmo. Puedes usar las flechas y Escape.
+                  <p id={`${id}-keyboard`} className={styles.keyboard}>
+                    Tab para leer; ↑/↓ desplazan el texto. ←/→ cambian el paso.
+                    Escape cierra.
                   </p>
                 </div>
               </section>
