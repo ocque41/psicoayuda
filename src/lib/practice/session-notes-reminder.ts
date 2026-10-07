@@ -18,6 +18,7 @@ import {
   professionals,
 } from "@/db/schema";
 import { notesConfigured } from "./note-crypto";
+import { sessionNoteEntryHref } from "./note-entry";
 
 export type SessionNotesReminderView = {
   appointmentId: string;
@@ -129,7 +130,7 @@ export async function sessionNotesReminders({
         appointmentId: row.appointmentId,
         patientId: row.patientId,
         endsAt: row.endsAt,
-        href: `/pro/pacientes/${encodeURIComponent(row.patientId)}?notaSesion=${encodeURIComponent(row.appointmentId)}#notas`,
+        href: sessionNoteEntryHref(row.patientId, row.appointmentId),
         title:
           row.status === "completed"
             ? "Tu sesión terminó"

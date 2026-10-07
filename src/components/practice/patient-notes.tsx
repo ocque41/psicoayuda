@@ -23,6 +23,7 @@ import { pageNumber } from "@/lib/practice/queries";
 import { sessionNotesReminders } from "@/lib/practice/session-notes-reminder";
 import { NoteEditor } from "./note-editor";
 import { PracticePagination } from "./pagination";
+import { SessionNoteEntry } from "./session-note-entry";
 import { SessionNotesReminder } from "./session-notes-reminder";
 
 type NotesQuery = {
@@ -317,15 +318,15 @@ export async function PatientNotes({
           aquí cuando esté disponible.
         </p>
       ) : appointment ? (
-        <details key={`new-${appointment.id}`}>
-          <summary>Escribir una nota para esta sesión</summary>
+        <SessionNoteEntry key={`new-${appointment.id}`}>
           <NoteEditor
             accountId={currentSession?.user.id || ""}
             professionalId={professionalId}
             patientId={patientId}
             appointmentId={appointment.id}
+            focusOnEntry
           />
-        </details>
+        </SessionNoteEntry>
       ) : (
         <p className="hint">Elige una sesión para escribir una nota nueva.</p>
       )}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { NoteEditor } from "@/components/practice/note-editor";
+import { SessionNoteEntry } from "@/components/practice/session-note-entry";
 import { SessionNotesReminder } from "@/components/practice/session-notes-reminder";
 
 type Fixture = {
@@ -21,7 +22,7 @@ declare global {
 }
 const fixture: Fixture = {
   mode: "success",
-  existing: true,
+  existing: window.location.hash !== "#nota-nueva",
   enabled: true,
   count: 1,
   calls: [],
@@ -52,7 +53,7 @@ function App() {
           appointmentId: "fixture-session",
           patientId: "fixture-patient",
           endsAt: "2026-10-04T12:00:00.000Z",
-          href: "/pro/pacientes/fixture-patient?notaSesion=fixture-session#notas",
+          href: "/pro/pacientes/fixture-patient?notaSesion=fixture-session#nota-nueva",
           title: "Tu sesión terminó",
           body: "¿Quieres dejar tus apuntes? Las notas de este encuentro tienen su propio espacio privado.",
         }}
@@ -62,28 +63,36 @@ function App() {
         {Array.from(
           { length: fixture.count },
           (_, index) => `fixture-note-${index}`,
-        ).map((noteId, index) => (
-          <NoteEditor
-            key={noteId}
-            accountId="fixture-account"
-            professionalId="fixture-professional"
-            patientId="fixture-patient"
-            appointmentId="fixture-session"
-            enabled={fixture.enabled}
-            note={
-              fixture.existing
-                ? {
-                    id: noteId,
-                    content: index
-                      ? "Segundo apunte ficticio inicial"
-                      : "Apunte ficticio inicial",
-                    revision: 1,
-                    updatedAt: "2026-10-04T12:00:00.000Z",
-                  }
-                : undefined
-            }
-          />
-        ))}
+        ).map((noteId, index) => {
+          const editor = (
+            <NoteEditor
+              key={noteId}
+              accountId="fixture-account"
+              professionalId="fixture-professional"
+              patientId="fixture-patient"
+              appointmentId="fixture-session"
+              enabled={fixture.enabled}
+              focusOnEntry={!fixture.existing}
+              note={
+                fixture.existing
+                  ? {
+                      id: noteId,
+                      content: index
+                        ? "Segundo apunte ficticio inicial"
+                        : "Apunte ficticio inicial",
+                      revision: 1,
+                      updatedAt: "2026-10-04T12:00:00.000Z",
+                    }
+                  : undefined
+              }
+            />
+          );
+          return fixture.existing ? (
+            editor
+          ) : (
+            <SessionNoteEntry key={noteId}>{editor}</SessionNoteEntry>
+          );
+        })}
       </section>
       <a href="/otra-ficha">Otra ficha ficticia</a>
       <form action="/" data-note-navigation>

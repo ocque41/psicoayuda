@@ -155,6 +155,34 @@ async function browserChecks(page) {
       "siguiente edición utiliza revisión confirmada",
     );
 
+    // Cuenta igual, nueva sesión: no volver al texto inicial tras guardar.
+    await fixture(() =>
+      window.dispatchEvent(new Event("nido:account-session-changed")),
+    );
+    await idle();
+    ok(
+      (await text().inputValue()) === "" && (await text().isDisabled()),
+      "revalidación retira el texto confirmado hasta nueva autorización",
+    );
+    await page
+      .getByRole("button", { name: "Volver a comprobar acceso" })
+      .click();
+    await idle();
+    ok(
+      (await text().inputValue()) === "Siguiente cambio ficticio" &&
+        (await save().isDisabled()),
+      "revalidación de la misma cuenta conserva el último guardado confirmado",
+    );
+    await text().fill("Edición ficticia tras revalidar");
+    await save().click();
+    await idle();
+    ok(
+      await fixture(
+        () => window.nidoNotesFixture.calls.at(-1).input.revision === 3,
+      ),
+      "edición tras revalidar usa la última revisión confirmada",
+    );
+
     await reset();
     await page.getByText("Eliminar esta nota", { exact: true }).click();
     await text().fill("Borrador ficticio pendiente");
@@ -317,6 +345,9 @@ async function browserChecks(page) {
       "sin permiso no se invoca guardar",
     );
     await reset({ existing: false });
+    await page
+      .getByText("Escribir una nota para esta sesión", { exact: true })
+      .click();
     await text().fill("Nota nueva ficticia");
     await save().click();
     await idle();
@@ -327,6 +358,27 @@ async function browserChecks(page) {
       (await text().inputValue()) === "" &&
         (await text().evaluate((el) => el === document.activeElement)),
       "otra nota inicia vacía y con foco",
+    );
+
+    await fixture(() =>
+      window.dispatchEvent(new Event("nido:account-session-changed")),
+    );
+    await page
+      .getByRole("button", { name: "Volver a comprobar acceso" })
+      .click();
+    await idle();
+    await text().fill("Otra nota ficticia tras nueva autorización");
+    await save().click();
+    await idle();
+    ok(
+      await fixture(() => {
+        const calls = window.nidoNotesFixture.calls;
+        return (
+          calls.at(-1).input.id !== calls[0].input.id &&
+          calls.at(-1).input.revision === 0
+        );
+      }),
+      "otra nota conserva UUID nuevo y revisión cero al revalidar",
     );
 
     await reset();
@@ -465,15 +517,22 @@ async function browserChecks(page) {
     const cta = page.getByRole("link", { name: "Abrir notas de esta sesión" });
     ok(
       (await cta.getAttribute("href")) ===
-        "/pro/pacientes/fixture-patient?notaSesion=fixture-session#notas",
+        "/pro/pacientes/fixture-patient?notaSesion=fixture-session#nota-nueva",
       "CTA identifica encuentro y ficha exactos",
     );
     await cta.focus();
     await page.keyboard.press("Enter");
-    await page.waitForURL(/notaSesion=fixture-session#notas/);
+    await page.waitForURL(/notaSesion=fixture-session#nota-nueva/);
     ok(
       new URL(page.url()).pathname === "/pro/pacientes/fixture-patient",
       "CTA funciona con teclado",
+    );
+    await text().waitFor();
+    await idle();
+    ok(
+      (await page.locator("#nota-nueva").evaluate((el) => el.open)) &&
+        (await text().evaluate((el) => el === document.activeElement)),
+      "destino pos-sesión abre y enfoca sólo el editor nuevo autorizado",
     );
     ok(
       await fixture(

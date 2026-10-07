@@ -274,6 +274,93 @@ async function reproduce(page) {
       !(await inputs().nth(0).inputValue()).includes("con TTL"),
       "draft caducado no se restaura en navegador",
     );
+    // Destino del recordatorio sin abrir el envío: editor real y auth retenida.
+    await control("hold");
+    await page.goto(new URL("/entry#nota-nueva", page.url()).href);
+    await page
+      .getByRole("heading", { name: "Entrada ficticia por sesión" })
+      .waitFor();
+    await page.waitForFunction(
+      () => document.querySelector("#nota-nueva")?.open,
+    );
+    ok(
+      (await inputs().nth(0).isDisabled()) &&
+        (await inputs().nth(0).inputValue()) === "",
+      "enlace profundo abre la entrada sin texto antes de autorización fresca",
+    );
+    await control("release");
+    await settled();
+    ok(
+      (await inputs()
+        .nth(0)
+        .evaluate((el) => el === document.activeElement)) &&
+        (await inputs().nth(0).inputValue()) === "",
+      "autorización confirmada enfoca sólo la nota nueva de esa cita",
+    );
+    await page.getByRole("link", { name: "Otra sección ficticia" }).click();
+    await page
+      .getByText("Escribir una nota para esta sesión", { exact: true })
+      .click();
+    await page
+      .getByRole("link", { name: "Volver al editor de sesión" })
+      .click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#nota-nueva")?.open &&
+        document.activeElement ===
+          document.querySelector("#nota-nueva textarea"),
+    );
+    ok(
+      await inputs()
+        .nth(0)
+        .evaluate((el) => el === document.activeElement),
+      "navegación Next sólo por fragmento vuelve a abrir y enfocar el editor exacto",
+    );
+    await inputs()
+      .nth(1)
+      .fill("Guardado ficticio más reciente antes de revalidar");
+    await page
+      .locator("form.note-editor")
+      .nth(1)
+      .getByRole("button", { name: "Guardar nota", exact: true })
+      .click();
+    await settled();
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("nido:account-session-changed")),
+    );
+    ok(
+      await blank(),
+      "cambio de sesión retira también el último texto guardado hasta verificar cuenta",
+    );
+    for (let index = 0; index < 2; index++) {
+      await page
+        .locator("form.note-editor")
+        .nth(index)
+        .getByRole("button", { name: "Volver a comprobar acceso" })
+        .click();
+    }
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("form.note-editor textarea")].every(
+        (el) => !el.disabled,
+      ),
+    );
+    ok(
+      (await inputs().nth(1).inputValue()) ===
+        "Guardado ficticio más reciente antes de revalidar" &&
+        (await page
+          .locator("form.note-editor")
+          .nth(1)
+          .getByRole("button", { name: "Guardar nota", exact: true })
+          .isDisabled()),
+      "AppRouter recupera el último guardado confirmado tras autorización de la misma cuenta",
+    );
+    await control("expire", true);
+    await page.reload();
+    await settled();
+    ok(
+      await blank(),
+      "enlace profundo con sesión expirada no revela ni habilita notas",
+    );
     ok(
       !storageWrites.some((record) => record.clinical || record.kind === "idb"),
       "ningún borrador escrito en web storage o IndexedDB",

@@ -196,7 +196,7 @@ describe("pajarito pos-sesión: elegibilidad, CTA privada y límites", () => {
     const url = new URL(reminder.href, "https://nido.example.test");
     expect(url.pathname).toBe(`/pro/pacientes/${id("patient")}`);
     expect(url.searchParams.get("notaSesion")).toBe(id("done"));
-    expect(url.hash).toBe("#notas");
+    expect(url.hash).toBe("#nota-nueva");
     expect(JSON.stringify(reminder)).not.toContain("Alias de fixture");
     expect(JSON.stringify(reminder)).not.toContain("example.test");
   });
@@ -214,6 +214,8 @@ describe("pajarito pos-sesión: elegibilidad, CTA privada y límites", () => {
     expect(before).toContain("Tu pajarito de Nido");
     expect(before).toContain("Abrir notas de esta sesión");
     expect(before).toContain("Horario terminado el");
+    expect(before).toContain('id="nota-nueva"');
+    expect(before).toContain("Escribir una nota para esta sesión");
     const noteId = id("saved-note");
     await db.insert(practiceNotes).values({
       id: noteId,

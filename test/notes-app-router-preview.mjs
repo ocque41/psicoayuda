@@ -12,6 +12,7 @@ const port = Number(process.env.NIDO_NOTES_ROUTER_PORT || 8839);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Puerto inválido");
 await mkdir(join(directory, "app/notes"), { recursive: true });
+await mkdir(join(directory, "app/entry"), { recursive: true });
 await mkdir(join(directory, "app/api/control"), { recursive: true });
 await writeFile(
   join(directory, "package.json"),
@@ -42,6 +43,27 @@ await writeFile(
 await writeFile(
   join(directory, "app/notes/page.tsx"),
   'import {NoteEditor} from "../../editor";import {fixtureState} from "../../fixture-state";export const dynamic="force-dynamic";export default function Page(){const s=fixtureState();return <main><h1>Notas ficticias · App Router</h1>{[0,1].map(index=><NoteEditor key={"fixture-note-"+index} accountId={s.actor} professionalId={s.actor+"-professional"} patientId="fixture-patient" appointmentId="fixture-session" note={{id:"fixture-note-"+index,content:s.notes[s.actor][index].content,revision:s.notes[s.actor][index].revision,updatedAt:"2026-10-04T12:00:00.000Z"}} />)}</main>;}',
+);
+await writeFile(
+  join(directory, "app/entry/page.tsx"),
+  'import Link from "next/link";import {NoteEditor} from "../../editor";import {SessionNoteEntry} from "../../session-note-entry";import {fixtureState} from "../../fixture-state";export const dynamic="force-dynamic";export default function Page(){const s=fixtureState();return <main><h1>Entrada ficticia por sesión</h1><SessionNoteEntry><NoteEditor accountId={s.actor} professionalId={s.actor+"-professional"} patientId="fixture-patient" appointmentId="fixture-session" focusOnEntry /></SessionNoteEntry><NoteEditor accountId={s.actor} professionalId={s.actor+"-professional"} patientId="fixture-patient" appointmentId="fixture-session" note={{id:"fixture-note-1",content:s.notes[s.actor][1].content,revision:s.notes[s.actor][1].revision,updatedAt:"2026-10-04T12:00:00Z"}} /><Link href="/entry#otro">Otra sección ficticia</Link><Link href="/entry#nota-nueva">Volver al editor de sesión</Link></main>;}',
+);
+await writeFile(
+  join(directory, "session-note-entry.tsx"),
+  (
+    await readFile(
+      join(root, "src/components/practice/session-note-entry.tsx"),
+      "utf8",
+    )
+  ).replace('"@/lib/practice/note-entry"', '"./note-entry"'),
+);
+await writeFile(
+  join(directory, "note-entry.ts"),
+  await readFile(join(root, "src/lib/practice/note-entry.ts"), "utf8"),
+);
+await writeFile(
+  join(directory, "chat-session-end.ts"),
+  await readFile(join(root, "src/lib/chat-session-end.ts"), "utf8"),
 );
 await writeFile(
   join(directory, "fixture-state.ts"),
@@ -78,7 +100,8 @@ await writeFile(
       '"./actions"',
     )
     .replace('"@/lib/practice/note-navigation"', '"./note-navigation"')
-    .replace('"@/lib/practice/note-drafts"', '"./note-drafts"'),
+    .replace('"@/lib/practice/note-drafts"', '"./note-drafts"')
+    .replace('"@/lib/practice/note-entry"', '"./note-entry"'),
 );
 await writeFile(
   join(directory, "note-navigation.ts"),
@@ -86,7 +109,9 @@ await writeFile(
 );
 await writeFile(
   join(directory, "note-drafts.ts"),
-  await readFile(join(root, "src/lib/practice/note-drafts.ts"), "utf8"),
+  (
+    await readFile(join(root, "src/lib/practice/note-drafts.ts"), "utf8")
+  ).replace('"@/lib/chat-session-end"', '"./chat-session-end"'),
 );
 await writeFile(
   join(directory, "actions.ts"),

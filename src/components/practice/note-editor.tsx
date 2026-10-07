@@ -23,6 +23,7 @@ import {
   rememberNoteDraft,
   subscribeNoteDrafts,
 } from "@/lib/practice/note-drafts";
+import { SESSION_NOTE_ENTRY_ID } from "@/lib/practice/note-entry";
 import {
   leaveWithUnsavedNotes,
   registerNoteNavigation,
@@ -35,6 +36,7 @@ type NoteEditorProps = {
   appointmentId: string | null;
   note?: { id: string; content: string; revision: number; updatedAt: string };
   enabled?: boolean;
+  focusOnEntry?: boolean;
 };
 export function NoteEditor(props: NoteEditorProps) {
   return (
@@ -57,6 +59,7 @@ function ScopedNoteEditor({
   appointmentId,
   note,
   enabled = true,
+  focusOnEntry = false,
 }: NoteEditorProps) {
   const scope = useMemo(
     () => ({
@@ -104,6 +107,20 @@ function ScopedNoteEditor({
   const [attempt, setAttempt] = useState(0);
   const [draftNotice, setDraftNotice] = useState("");
   const canEdit = enabled && ready && authorized;
+  useEffect(() => {
+    if (!focusOnEntry || !canEdit) return;
+    function focusLinkedEntry() {
+      if (window.location.hash !== `#${SESSION_NOTE_ENTRY_ID}`) return;
+      const text = textarea.current;
+      const panel = text?.closest("details");
+      if (!text || !panel) return;
+      panel.open = true;
+      text.focus();
+    }
+    focusLinkedEntry();
+    window.addEventListener("hashchange", focusLinkedEntry);
+    return () => window.removeEventListener("hashchange", focusLinkedEntry);
+  }, [canEdit, focusOnEntry]);
   useEffect(
     () =>
       subscribeNoteDrafts((notice) => {
@@ -215,10 +232,15 @@ function ScopedNoteEditor({
       if (result.ok) {
         forgetNoteDraft(scope, { ...identity, content, saved });
         setDraftNotice("");
-        setIdentity({
+        const confirmed = {
           id: result.id || identity.id,
           revision: result.revision || identity.revision,
-        });
+          content,
+          saved: content,
+        };
+        // La autorización posterior no puede volver al snapshot inicial de RSC.
+        baseline.current = confirmed;
+        setIdentity({ id: confirmed.id, revision: confirmed.revision });
         setSaved(content);
       }
     } catch {
@@ -327,7 +349,14 @@ function ScopedNoteEditor({
           className="button secondary"
           disabled={!canEdit || pending || dirty}
           onClick={() => {
-            setIdentity({ id: crypto.randomUUID(), revision: 0 });
+            const fresh = {
+              id: crypto.randomUUID(),
+              revision: 0,
+              content: "",
+              saved: "",
+            };
+            baseline.current = fresh;
+            setIdentity({ id: fresh.id, revision: fresh.revision });
             setContent("");
             setSaved("");
             setState(null);
