@@ -23,7 +23,8 @@ const ACTIVE_ASSIGNMENT_STATES = ["assigned", "accepted"] as const;
 // que `db.transaction()` del sqlite-proxy LANZA en producción. Estos flujos se
 // escriben como sentencias secuenciales: la reserva de cupo es un UPDATE…WHERE
 // guardado (atómico por sentencia, evita sobre-reservar) y se compensa a mano si
-// un paso posterior falla.
+// un paso posterior falla. La liberación de solicitudes usa db.batch() para
+// confirmar el cierre de cada relación y su descuento de cupo juntos.
 
 /**
  * Cierra las conversaciones ABIERTAS indicadas y revoca la sesión del seeker
@@ -210,29 +211,38 @@ export async function releaseAssignmentsForRequest(
   });
 
   const timestamp = nowIso();
+  let released = 0;
   for (const assignment of active) {
-    // Cierra la asignación SOLO si sigue activa, y libera cupo SOLO si este
-    // llamador la cerró de verdad: evita el doble decremento de cupo cuando dos
-    // liberaciones concurrentes (p.ej. cerrar + anonimizar) pisan la misma fila.
-    const closed = await db
-      .update(assignments)
-      .set({ status: "closed", updatedAt: timestamp })
-      .where(
-        and(
-          eq(assignments.id, assignment.id),
-          inArray(assignments.status, [...ACTIVE_ASSIGNMENT_STATES]),
-        ),
-      )
-      .returning({ id: assignments.id });
-    if (closed.length > 0) {
-      await db
+    // Cierre y descuento van juntos: si falla el contador, la relación sigue
+    // activa y un reintento puede reclamarla, incluso con la solicitud cerrada.
+    // changes() se evalúa dentro del batch; sólo el ganador del CAS descuenta.
+    const [closed] = await db.batch([
+      db
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(
+          and(
+            eq(assignments.id, assignment.id),
+            eq(assignments.helpRequestId, helpRequestId),
+            eq(assignments.professionalId, assignment.professionalId),
+            inArray(assignments.status, [...ACTIVE_ASSIGNMENT_STATES]),
+          ),
+        )
+        .returning({ id: assignments.id }),
+      db
         .update(professionals)
         .set({
           currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
           updatedAt: timestamp,
         })
-        .where(eq(professionals.id, assignment.professionalId));
-    }
+        .where(
+          and(
+            eq(professionals.id, assignment.professionalId),
+            sql`changes()=1`,
+          ),
+        ),
+    ]);
+    released += closed.length;
   }
 
   const openConversations = await db
@@ -248,7 +258,7 @@ export async function releaseAssignmentsForRequest(
     await closeConversations(openConversations, timestamp, new Date(), reason);
   }
 
-  return active.length;
+  return released;
 }
 
 /**
