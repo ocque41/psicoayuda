@@ -91,7 +91,10 @@ try {
     );
     await cli("open", url);
     await cli("click", "#demo-home button[aria-expanded=false]");
-    for (let i = 0; i < 10; i++)
+    for (let i = 0; i < 10; i++) {
+      const before = await evaluate(
+        "return document.querySelector('span[data-step]')?.dataset.step;",
+      );
       await cli(
         "find",
         "role",
@@ -101,6 +104,10 @@ try {
         "Siguiente",
         "--exact",
       );
+      await until(
+        `document.querySelector('span[data-step]')?.dataset.step && document.querySelector('span[data-step]')?.dataset.step!==${JSON.stringify(before)}`,
+      );
+    }
     await until(
       "document.querySelector('span[data-step]')?.dataset.step==='recordatorios-privacidad'",
     );
@@ -131,6 +138,28 @@ try {
           ),
           true,
         );
+        const colors = await evaluate(
+          `return {focus:getComputedStyle(document.activeElement).outlineColor,background:getComputedStyle(document.querySelector('[role=dialog]')).backgroundColor};`,
+        );
+        const luminance = (color) => {
+          const channels = color
+            .match(/[\d.]+/g)
+            .slice(0, 3)
+            .map(Number);
+          const linear = channels.map((channel) => {
+            const value = channel / 255;
+            return value <= 0.04045
+              ? value / 12.92
+              : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+        };
+        const focus = luminance(colors.focus);
+        const background = luminance(colors.background);
+        const contrast =
+          (Math.max(focus, background) + 0.05) /
+          (Math.min(focus, background) + 0.05);
+        assert.ok(contrast >= 3, `Contraste del foco: ${contrast}`);
       },
     );
     await check(
