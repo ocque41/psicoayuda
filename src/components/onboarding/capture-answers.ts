@@ -6,12 +6,12 @@ export function captureOnboardingAnswers<T extends object>(
   answers: T,
 ): T {
   let captured = answers;
-  const controls = form?.querySelectorAll<
-    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  >("[data-onboarding-answer]");
+  const controls = form?.querySelectorAll("[data-onboarding-answer]");
   for (const control of controls ?? []) {
     const key = control.getAttribute("data-onboarding-answer") as keyof T;
     if (
+      !("value" in control) ||
+      typeof control.value !== "string" ||
       !Object.hasOwn(answers, key) ||
       typeof answers[key] !== "string" ||
       control.matches(
