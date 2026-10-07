@@ -7,6 +7,7 @@ import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { tapFixture } from "./bird-guide-entry.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const browser = process.env.NIDO_GUIDE_BROWSER || "agent-browser";
@@ -16,6 +17,9 @@ const artifacts = process.env.NIDO_GUIDE_ARTIFACT_DIR;
 const checks = [];
 const evidence = [];
 const focusSamples = [];
+const entryInput = process.env.NIDO_GUIDE_ENTRY_INPUT || "keyboard";
+assert.ok(["keyboard", "click", "touch"].includes(entryInput));
+const openingSamples = [];
 const extension = await mkdtemp(join(tmpdir(), "nido-guide-zoom-"));
 const server = spawn(
   process.execPath,
@@ -92,6 +96,11 @@ async function keyboardAction(label) {
 async function geometry() {
   return evaluate(
     `const panel=document.querySelector('[role=dialog]'),pr=panel.getBoundingClientRect(),buttons=[...panel.querySelectorAll('button')],region=panel.querySelector('section[tabindex]');const header=document.querySelector('[data-workspace-header]'),navigation=document.querySelector('[data-workspace-navigation]');return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,zoom:Number(document.documentElement.dataset.browserZoom),panel:pr.toJSON(),region:region?.getBoundingClientRect().toJSON(),headerBottom:header.getBoundingClientRect().bottom,navigationBottom:navigation.getBoundingClientRect().bottom,buttons:buttons.map(b=>{const r=b.getBoundingClientRect();return {name:b.getAttribute('aria-label')||b.textContent.trim(),x:r.x,y:r.y,width:r.width,height:r.height,inside:r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight&&r.top>=pr.top&&r.bottom<=pr.bottom,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};}),overflow:document.documentElement.scrollWidth>innerWidth};`,
+  );
+}
+async function openingGeometry() {
+  return evaluate(
+    "const b=document.querySelector('#demo-home [data-guide-trigger]');if(!b)return null;const r=b.getBoundingClientRect(),nav=document.querySelector('[data-workspace-navigation]').getBoundingClientRect();return {rect:r.toJSON(),navigation:nav.toJSON(),hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),inside:r.left>=0&&r.right<=innerWidth&&r.top>=nav.bottom&&r.bottom<=innerHeight,margin:getComputedStyle(b).scrollMarginTop,width:innerWidth,height:innerHeight,scroll:scrollY,zoom:Number(document.documentElement.dataset.browserZoom)};",
   );
 }
 function contrast(first, second) {
@@ -256,14 +265,58 @@ try {
     await evaluate(
       "return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))));",
     );
-    await cli("focus", "#demo-home button[aria-expanded=false]");
-    assert.equal(
+    if (entryInput === "keyboard") {
+      await cli("focus", "#demo-home button[aria-expanded=false]");
+      assert.equal(
+        await evaluate(
+          "return document.activeElement.matches('#demo-home button[aria-expanded=false]');",
+        ),
+        true,
+      );
+      await cli("press", "Enter");
+    } else {
       await evaluate(
-        "return document.activeElement.matches('#demo-home button[aria-expanded=false]');",
-      ),
-      true,
-    );
-    await cli("press", "Enter");
+        "window.demoEntryEvents=[];document.addEventListener('pointerdown',e=>window.demoEntryEvents.push({type:e.pointerType,trusted:e.isTrusted,onTrigger:Boolean(e.target.closest('[data-guide-trigger]'))}),{capture:true});return true;",
+      );
+      await cli("scrollintoview", "#demo-home [data-guide-trigger]");
+      await settlePageScroll();
+      await check(
+        `${mode}: disparador accesible por ${entryInput} bajo la navegación`,
+        async () => {
+          const g = await openingGeometry();
+          openingSamples.push({ mode, input: entryInput, before: g });
+          await capture(`${mode}-disparador`);
+          if (entryInput === "click")
+            await cli("click", "#demo-home [data-guide-trigger]");
+          else
+            await tapFixture(cli, url, {
+              x: g.rect.x + g.rect.width / 2,
+              y: g.rect.y + g.rect.height / 2,
+            });
+          const events = await evaluate("return window.demoEntryEvents;");
+          openingSamples.at(-1).events = events;
+          assert.ok(g.inside && g.hit, JSON.stringify(g));
+          assert.ok(
+            events.some(
+              (e) =>
+                e.trusted &&
+                e.onTrigger &&
+                e.type === (entryInput === "click" ? "mouse" : "touch"),
+            ),
+            JSON.stringify(events),
+          );
+          await until(
+            "document.querySelector('[role=dialog]')?.dataset.ready==='true'",
+          );
+          assert.equal(
+            await evaluate(
+              "return document.querySelector('[data-workspace-navigation] [aria-current=page]').getAttribute('href');",
+            ),
+            "#demo-home",
+          );
+        },
+      );
+    }
     await until(
       "document.querySelector('[role=dialog]')?.dataset.ready==='true'",
     );
@@ -391,6 +444,8 @@ try {
     passed: checks,
     evidence,
     focusSamples,
+    entryInput,
+    openingSamples,
     zoom: "chrome.tabs.setZoom y getZoom en extensión temporal propia,viewport yDPR reales",
     environment:
       "BirdGuide/PracticeDemo reales,loopback,ejemplos ficticios,sin DB/proveedores",
@@ -402,7 +457,13 @@ try {
     await writeFile(
       join(artifacts, "failure.json"),
       JSON.stringify(
-        { evidence, focusSamples, current: await geometry().catch(() => null) },
+        {
+          evidence,
+          focusSamples,
+          openingSamples,
+          opening: await openingGeometry().catch(() => null),
+          current: await geometry().catch(() => null),
+        },
         null,
         2,
       ),

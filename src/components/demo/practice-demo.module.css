@@ -688,6 +688,10 @@
   .panel {
     scroll-margin-top: 10rem;
   }
+  /* El botón también reserva las dos barras al desplazarse para abrir la guía. */
+  .home [data-guide-trigger] {
+    scroll-margin-top: 10rem;
+  }
   .demo {
     padding-bottom: 2rem;
   }
