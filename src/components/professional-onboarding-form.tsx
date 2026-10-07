@@ -2,6 +2,7 @@
 
 import {
   type ChangeEvent,
+  type SyntheticEvent,
   useActionState,
   useCallback,
   useEffect,
@@ -664,6 +665,11 @@ export function ProfessionalOnboardingForm({
     // También devuelve el foco si el mismo error ya está renderizado.
     clientErrorRef.current?.focus();
   }
+  function handleFileCancel(event: SyntheticEvent<HTMLInputElement>) {
+    // Cancelar/repetir la selección no debe cerrar el recorrido.
+    event.stopPropagation();
+    clientErrorRef.current?.focus();
+  }
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -671,14 +677,14 @@ export function ProfessionalOnboardingForm({
       !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
       file.size > 12_000_000
     ) {
-      setClientError("Elige una imagen JPG, PNG o WebP de hasta 12 MB.");
+      reportClientError("Elige una imagen JPG, PNG o WebP de hasta 12 MB.");
       return;
     }
     setFilePending(true);
     try {
       update("photo", await resizeImageToDataUrl(file));
     } catch {
-      setClientError("No se pudo procesar la imagen. Prueba con otra.");
+      reportClientError("No se pudo procesar la imagen. Prueba con otra.");
     } finally {
       setFilePending(false);
     }
@@ -692,7 +698,7 @@ export function ProfessionalOnboardingForm({
         !["image/jpeg", "image/png", "image/webp"].includes(file.type)) ||
       file.size > 12_000_000
     ) {
-      setClientError(
+      reportClientError(
         "Elige una imagen JPG, PNG o WebP, o un PDF. El archivo original puede tener hasta 12 MB.",
       );
       return;
@@ -703,7 +709,7 @@ export function ProfessionalOnboardingForm({
         ? await readFileAsDataUrl(file)
         : await resizeDocumentToDataUrl(file);
       if (dataUrl.length > DOC_MAX_BYTES) {
-        setClientError(
+        reportClientError(
           "El comprobante supera 1 MB. Elige una versión más ligera.",
         );
         return;
@@ -711,7 +717,7 @@ export function ProfessionalOnboardingForm({
       update("registrationProofDoc", dataUrl);
       setProofName(file.name);
     } catch {
-      setClientError(
+      reportClientError(
         "No se pudo procesar el documento. Prueba con otro archivo.",
       );
     } finally {
@@ -914,6 +920,7 @@ export function ProfessionalOnboardingForm({
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={handlePhotoChange}
+                onCancel={handleFileCancel}
                 disabled={filePending}
               />
             </>
@@ -998,6 +1005,7 @@ export function ProfessionalOnboardingForm({
                 type="file"
                 accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={handleProofChange}
+                onCancel={handleFileCancel}
                 disabled={filePending}
                 required={
                   !answers.registrationProofDoc &&
