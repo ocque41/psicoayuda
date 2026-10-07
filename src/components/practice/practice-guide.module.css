@@ -26,3 +26,10 @@
   min-height: 44px;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 800px) {
+  /* Reservar el header y la navegación inferior al enfocar/desplazar el botón. */
+  .guide > button {
+    scroll-margin-block: 72px 108px;
+  }
+}
