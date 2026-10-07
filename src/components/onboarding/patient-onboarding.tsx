@@ -179,6 +179,7 @@ export function PatientOnboarding({
         }
       }}
     >
+      <input type="hidden" name="expectedOwnerId" value={ownerId} />
       {Object.entries(answers).map(([key, value]) => (
         <input
           key={key}

@@ -341,6 +341,12 @@ export async function saveProfessionalOnboarding(
   if (!session?.user?.id || !session.user.email) {
     redirect("/pro");
   }
+  if (formData.get("expectedOwnerId") !== session.user.id)
+    return {
+      ok: false as const,
+      message:
+        "Tu sesión cambió. Vuelve a abrir este recorrido para continuar.",
+    };
 
   const raw = formEntries(formData);
   const existing = await db.query.professionals.findFirst({

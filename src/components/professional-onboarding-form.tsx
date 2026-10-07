@@ -735,6 +735,7 @@ export function ProfessionalOnboardingForm({
         }
       }}
     >
+      <input type="hidden" name="expectedOwnerId" value={ownerId} />
       {Object.entries(answers).flatMap(([key, value]) =>
         key === "credentialPath"
           ? []

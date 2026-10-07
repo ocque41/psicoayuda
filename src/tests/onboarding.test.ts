@@ -51,12 +51,14 @@ import {
   readOnboardingDraft,
   safeOnboardingDraft,
 } from "@/lib/onboarding/drafts";
+import { completePatientOnboarding } from "@/lib/patient/accounts";
 
 const ID = "test-onboarding-user";
 const OTHER = "test-onboarding-other";
 const timestamp = () => new Date().toISOString();
 function form(values: Record<string, string>) {
   const data = new FormData();
+  data.set("expectedOwnerId", ID);
   for (const [key, value] of Object.entries(values)) data.set(key, value);
   return data;
 }
@@ -259,6 +261,143 @@ describe("Onboarding privado, persistente y con revisión humana", () => {
         .where(eq(patientAccounts.userId, ID)),
     ).toHaveLength(0);
   });
+  describe.each([
+    "patient",
+    "pro",
+  ] as const)("finalización %s ligada al dueño", (role) => {
+    it.each([
+      "missing",
+      "foreign",
+    ])("rechaza dueño %s sin completar perfiles ni borrar borradores", async (kind) => {
+      await persistOnboardingDraft(ID, role, {
+        displayName: "Borrador ficticio A",
+        fullName: "Borrador ficticio A",
+      });
+      const data = form(
+        role === "patient"
+          ? {
+              displayName: "Cuenta ficticia A",
+              country: "JP",
+              timezone: "Asia/Tokyo",
+              preferredLanguage: "es",
+              ageBand: "adult",
+              privacyAccepted: "on",
+            }
+          : baseProfessional,
+      );
+      if (kind === "missing") data.delete("expectedOwnerId");
+      else data.set("expectedOwnerId", OTHER);
+      const result =
+        role === "patient"
+          ? await finishPatientOnboarding(null, data)
+          : await saveProfessionalOnboarding(null, data);
+      expect(result).toMatchObject({
+        ok: false,
+        message: expect.stringContaining("sesión cambió"),
+      });
+      expect(
+        await db
+          .select()
+          .from(patientAccounts)
+          .where(inArray(patientAccounts.userId, [ID, OTHER])),
+      ).toHaveLength(0);
+      expect(
+        await db
+          .select()
+          .from(professionals)
+          .where(inArray(professionals.userId, [ID, OTHER])),
+      ).toHaveLength(0);
+      expect(await readOnboardingDraft(ID, role)).not.toEqual({});
+      expect(
+        await db
+          .select()
+          .from(accountRolePreferences)
+          .where(inArray(accountRolePreferences.userId, [ID, OTHER])),
+      ).toHaveLength(0);
+    });
+
+    it("un guardado confirmado de A no autoriza su FormData final bajo B", async () => {
+      await completePatientOnboarding(OTHER, {
+        displayName: "Paciente existente B",
+        country: "ES",
+        timezone: "Europe/Madrid",
+        ageBand: "adult",
+      });
+      await seedApproved({
+        userId: OTHER,
+        email: "test-onboarding-other@example.test",
+        fullName: "Profesional existente B",
+        licenseNumber: "LICENCIA-B",
+      });
+      await persistOnboardingDraft(OTHER, role, {
+        displayName: "Borrador B",
+        fullName: "Borrador B",
+      });
+      const patientBefore = await db
+        .select()
+        .from(patientAccounts)
+        .where(eq(patientAccounts.userId, OTHER));
+      const professionalBefore = await db
+        .select()
+        .from(professionals)
+        .where(eq(professionals.userId, OTHER));
+      const draftBefore = await readOnboardingDraft(OTHER, role);
+      // Simula el límite después de flush ok:true y antes del segundo POST.
+      expect(
+        (
+          await saveOnboardingDraft(
+            role,
+            { displayName: "Guardado A", fullName: "Guardado A" },
+            ID,
+          )
+        )?.ok,
+      ).toBe(true);
+      const oldForm = form(
+        role === "patient"
+          ? {
+              displayName: "Paciente A",
+              country: "JP",
+              timezone: "Asia/Tokyo",
+              preferredLanguage: "es",
+              ageBand: "adult",
+              privacyAccepted: "on",
+            }
+          : baseProfessional,
+      );
+      fixture.session = {
+        user: { id: OTHER, email: "test-onboarding-other@example.test" },
+      };
+      const result =
+        role === "patient"
+          ? await finishPatientOnboarding(null, oldForm)
+          : await saveProfessionalOnboarding(null, oldForm);
+      expect(result).toMatchObject({
+        ok: false,
+        message: expect.stringContaining("sesión cambió"),
+      });
+      expect(
+        await db
+          .select()
+          .from(patientAccounts)
+          .where(eq(patientAccounts.userId, OTHER)),
+      ).toEqual(patientBefore);
+      expect(
+        await db
+          .select()
+          .from(professionals)
+          .where(eq(professionals.userId, OTHER)),
+      ).toEqual(professionalBefore);
+      expect(await readOnboardingDraft(OTHER, role)).toEqual(draftBefore);
+      expect(await readOnboardingDraft(ID, role)).not.toEqual({});
+      expect(
+        await db
+          .select()
+          .from(accountRolePreferences)
+          .where(inArray(accountRolePreferences.userId, [ID, OTHER])),
+      ).toHaveLength(0);
+    });
+  });
+
   it("completa países fuera de Venezuela sin tocar el borrador del otro recorrido", async () => {
     await persistOnboardingDraft(ID, "patient", {
       displayName: "Cuenta ficticia",

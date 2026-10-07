@@ -87,6 +87,7 @@ function form(status = "approved", professionalId = PRO) {
 }
 function onboardingForm() {
   const data = new FormData();
+  data.set("expectedOwnerId", `${P}-owner`);
   const values = {
     fullName: "Profesional ficticio",
     country: "Canadá",

@@ -84,6 +84,12 @@ export async function finishPatientOnboarding(
       ok: false,
       message: "Tu sesión terminó. Entra de nuevo para continuar.",
     };
+  if (form.get("expectedOwnerId") !== session.user.id)
+    return {
+      ok: false,
+      message:
+        "Tu sesión cambió. Vuelve a abrir este recorrido para continuar.",
+    };
   if (form.get("privacyAccepted") !== "on")
     return {
       ok: false,
