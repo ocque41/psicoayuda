@@ -51,10 +51,13 @@ export default function Page() {
           <article className="card">
             <h2>2. Conversa</h2>
             <p>
-              Inicia el contacto desde un perfil sin crear una cuenta. Guarda el
-              enlace privado para regresar al chat y pregunta lo que necesites
-              para decidir.
+              Inicia el contacto desde un perfil sin crear una cuenta y pregunta
+              lo que necesites para decidir. Guarda el enlace privado y el
+              código de recuperación, cuando se muestre, en un lugar seguro.
             </p>
+            <Link href="/preguntas-frecuentes">
+              Ver cómo volver a mi conversación
+            </Link>
           </article>
           <article className="card">
             <h2>3. Continúa</h2>

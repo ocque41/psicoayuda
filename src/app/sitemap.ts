@@ -16,7 +16,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
     lastModified?: string;
   }> = [
-    { path: "/", priority: 1, changeFrequency: "weekly" },
+    {
+      path: "/",
+      priority: 1,
+      changeFrequency: "weekly",
+      lastModified: "2026-10-07",
+    },
     { path: "/orientacion", priority: 0.8, changeFrequency: "monthly" },
     { path: "/para-psicologos", priority: 0.8, changeFrequency: "monthly" },
     {
@@ -120,11 +125,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       lastModified: "2026-10-06",
     },
-    { path: "/como-funciona", priority: 0.7, changeFrequency: "monthly" },
+    {
+      path: "/como-funciona",
+      priority: 0.7,
+      changeFrequency: "monthly",
+      lastModified: "2026-10-07",
+    },
     {
       path: "/preguntas-frecuentes",
       priority: 0.7,
       changeFrequency: "monthly",
+      lastModified: "2026-10-07",
     },
     { path: "/pro", priority: 0.7, changeFrequency: "monthly" },
     { path: "/psicologos", priority: 0.7, changeFrequency: "monthly" },

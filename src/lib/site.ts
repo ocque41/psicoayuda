@@ -111,7 +111,7 @@ export const HOME_FAQ: ReadonlyArray<{ question: string; answer: string }> = [
   {
     question: "¿Necesito crear una cuenta para contactar?",
     answer:
-      "No. Puedes iniciar el contacto desde el perfil del profesional. Guarda tu enlace de acceso para volver a la conversación.",
+      "No. Puedes iniciar el contacto desde el perfil del profesional. Guarda el enlace privado y vuelve desde el mismo navegador mientras conserves la sesión.",
   },
   {
     question: "¿Cómo funciona Ayuda Terremoto?",
