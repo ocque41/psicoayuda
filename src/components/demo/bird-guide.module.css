@@ -195,6 +195,11 @@
   padding: 2px 6px;
   border-radius: 12px;
 }
+.panel[data-constrained="true"][data-dense="true"] {
+  row-gap: 0;
+  padding-block: 1px;
+  box-shadow: none;
+}
 .panel[data-constrained="true"] .top,
 .panel[data-constrained="true"] .content:not([hidden]),
 .panel[data-constrained="true"] .navigation {

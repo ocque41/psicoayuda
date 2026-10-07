@@ -636,9 +636,17 @@ export function BirdGuide({
           navigationRect.top > top + height / 2 &&
           navigationRect.bottom <= top + height + 1,
       );
+      const navigationRail =
+        navigation?.closest<HTMLElement>(".workspace-rail");
+      const navigationBoundary =
+        bottomNavigation &&
+        navigationRail &&
+        getComputedStyle(navigationRail).position === "fixed"
+          ? navigationRail.getBoundingClientRect()
+          : navigationRect;
       let contentBottom =
-        bottomNavigation && navigationRect
-          ? navigationRect.top - 12
+        bottomNavigation && navigationBoundary
+          ? navigationBoundary.top - 12
           : top + height - Math.max(12, safeBottom + 8);
       // Con zoom o poca altura, una sola fila conserva las cuatro acciones.
       const constrained = contentBottom - contentTop < 240;
@@ -646,9 +654,24 @@ export function BirdGuide({
       if (constrained) {
         contentTop = Math.max(top + 6, contentTop - 6);
         contentBottom =
-          bottomNavigation && navigationRect
-            ? navigationRect.top - 6
+          bottomNavigation && navigationBoundary
+            ? navigationBoundary.top - 6
             : top + height - Math.max(6, safeBottom + 6);
+      }
+      // Reservar también el marco del menú, sin comprimir sus controles.
+      const dense =
+        constrained && bottomNavigation && contentBottom - contentTop < 72;
+      panel.dataset.dense = String(dense);
+      if (dense) {
+        const rawTop = contentTop - 6;
+        const rawBottom = contentBottom + 6;
+        // 44px de acciones + 22px de lectura + 2px de borde + 2px de padding.
+        const margin = Math.min(
+          6,
+          Math.max(0, Math.floor((rawBottom - rawTop - 70) / 2)),
+        );
+        contentTop = rawTop + margin;
+        contentBottom = rawBottom - margin;
       }
       // La barra fija al pie sigue disponible durante todo el recorrido.
       const availableHeight = Math.max(0, contentBottom - contentTop);
