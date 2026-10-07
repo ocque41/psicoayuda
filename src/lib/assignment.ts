@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   assignments,
@@ -27,10 +27,10 @@ const ACTIVE_ASSIGNMENT_STATES = ["assigned", "accepted"] as const;
 // confirmar el cierre de cada relación y su descuento de cupo juntos.
 
 /**
- * Cierra las conversaciones ABIERTAS indicadas y revoca la sesión del seeker
- * (kill-switch real: corta también el acceso por WebSocket, que solo mira el
- * token HMAC). Devuelve cuántas conversaciones cerró. `reason` deja rastro del
- * porqué (fin de caso, inactividad, admin…).
+ * Cierre interno de filas seleccionadas por un caller autorizado. Confirma el
+ * estado y la pertenencia leídos aquí; un ID solo no conserva la versión de la
+ * selección previa del caller. Cierre y revocación son atómicos por sala.
+ * Devuelve las transiciones ganadas; no reescribe cierres ya confirmados.
  */
 export async function closeConversations(
   rows: Array<{ id: string }>,
@@ -38,32 +38,81 @@ export async function closeConversations(
   revokedAt: Date,
   reason = "case_closed",
 ) {
-  for (const conversation of rows) {
-    await db
+  let count = 0;
+  for (const row of rows) {
+    const current = await db.query.conversations.findFirst({
+      where: eq(conversations.id, row.id),
+    });
+    if (current?.status !== "open") continue;
+
+    // El caller puede haber creado timestamp antes de la última actividad.
+    // La versión del cierre avanza siempre respecto a la que se reclama.
+    const closedAt = new Date(
+      Math.max(Date.parse(timestamp), Date.parse(current.updatedAt) + 1),
+    ).toISOString();
+    const close = db
       .update(conversations)
       .set({
         status: "closed",
-        closedAt: timestamp,
+        closedAt,
         closedReason: reason,
-        updatedAt: timestamp,
+        updatedAt: closedAt,
       })
-      .where(eq(conversations.id, conversation.id));
-    // El cierre por INACTIVIDAD es limpieza, no un evento de seguridad: se
-    // conserva la sesión para que la persona pueda leer y reabrir. Los cierres
-    // de caso/cuenta sí revocan (kill-switch).
-    if (reason !== "inactivity") {
-      await db
-        .update(seekerSessions)
-        .set({ revokedAt })
-        .where(eq(seekerSessions.conversationId, conversation.id));
+      .where(
+        and(
+          eq(conversations.id, current.id),
+          eq(conversations.status, "open"),
+          eq(conversations.updatedAt, current.updatedAt),
+          eq(conversations.professionalId, current.professionalId),
+          eq(conversations.seekerSid, current.seekerSid),
+          current.helpRequestId === null
+            ? isNull(conversations.helpRequestId)
+            : eq(conversations.helpRequestId, current.helpRequestId),
+          current.deletedAt === null
+            ? isNull(conversations.deletedAt)
+            : eq(conversations.deletedAt, current.deletedAt),
+          current.anonymizedAt === null
+            ? isNull(conversations.anonymizedAt)
+            : eq(conversations.anonymizedAt, current.anonymizedAt),
+        ),
+      )
+      .returning({ id: conversations.id });
+    // La inactividad permite leer/reabrir con el permiso existente. Los cierres
+    // de caso/cuenta revocan todos los grants de la sala, incluido su enlace.
+    const [closed] =
+      reason === "inactivity"
+        ? await db.batch([close])
+        : await db.batch([
+            close,
+            db
+              .update(seekerSessions)
+              .set({ revokedAt })
+              .where(
+                and(
+                  eq(seekerSessions.conversationId, current.id),
+                  isNull(seekerSessions.revokedAt),
+                  sql`changes()=1`,
+                ),
+              ),
+          ]);
+    if (!closed.length) {
+      const latest = await db.query.conversations.findFirst({
+        where: eq(conversations.id, current.id),
+      });
+      // Otro cierre o borrado ya resolvió la sala. Si sigue abierta con otra
+      // versión/parte, no dar el cierre por terminado ni revocar sus permisos.
+      if (latest?.status === "open")
+        throw new Error(
+          "El chat cambió mientras se cerraba. Vuelve a intentarlo.",
+        );
+      continue;
     }
-    // Corta el WebSocket vivo en el Durable Object. El kill-switch de D1 solo se
-    // evalúa al CONECTAR y, con hibernación, un socket ya abierto sobrevivía a
-    // cerrar/suspender (seguía pudiendo chatear). Best-effort (no rompe el cierre
-    // en local/sin binding del DO).
-    await disconnectConversationSockets(conversation.id);
+    count += closed.length;
+    // El corte del DO es posterior al commit y best-effort; no borra mensajes.
+    // Los gates de D1 también comprueban permiso/estado en cada frame.
+    await disconnectConversationSockets(current.id);
   }
-  return rows.length;
+  return count;
 }
 
 export async function assignRequestToProfessional(input: {
