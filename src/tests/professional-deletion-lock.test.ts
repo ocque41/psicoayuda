@@ -13,6 +13,7 @@ import { db } from "@/db";
 import {
   accountOnboardingDrafts,
   auditLogs,
+  session as authSessions,
   practiceCredentials,
   practiceSettings,
   professionals,
@@ -35,7 +36,8 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${path}`);
   },
 }));
-vi.mock("@/lib/assignment", () => ({
+vi.mock("@/lib/assignment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/assignment")>()),
   assignRequestToProfessional: vi.fn(),
   releaseAssignmentsForRequest: vi.fn(),
   releaseProfessionalAssignments: mocks.release,
@@ -75,6 +77,7 @@ const decisions = [
 function session(role: keyof typeof emails, declaredEmail = emails[role]) {
   mocks.session.mockResolvedValue({
     user: { id: `${P}-${role}`, email: declaredEmail, emailVerified: true },
+    session: { id: `${P}-${role}-session`, expiresAt: new Date("2099-01-01") },
   });
 }
 function form(status = "approved", professionalId = PRO) {
@@ -168,6 +171,7 @@ async function expectDeletionPreserved() {
 describe("una baja profesional no se puede reabrir desde decisiones ni onboarding", () => {
   beforeAll(async () => {
     await cleanupProfile();
+    await db.delete(authSessions).where(like(authSessions.id, `${P}%`));
     await db.delete(user).where(like(user.id, `${P}%`));
     await db.insert(user).values(
       Object.entries(emails).map(([role, email]) => ({
@@ -177,6 +181,12 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
         name: "Cuenta ficticia",
       })),
     );
+    await db.insert(authSessions).values({
+      id: `${P}-admin-session`,
+      userId: `${P}-admin`,
+      token: `${P}-fake-admin-token`,
+      expiresAt: new Date("2099-01-01"),
+    });
   });
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -213,6 +223,7 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
   });
   afterAll(async () => {
     await cleanupProfile();
+    await db.delete(authSessions).where(like(authSessions.id, `${P}%`));
     await db.delete(user).where(like(user.id, `${P}%`));
   });
 
@@ -264,7 +275,9 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
         .where(eq(professionals.id, PRO));
     deletionBeforeBatch();
     await expect(adminUpdateProfessionalStatus(form(decision))).rejects.toThrow(
-      "REDIRECT:/admin",
+      decision === "suspended" || decision === "rejected"
+        ? "Vuelve a intentarlo"
+        : "REDIRECT:/admin",
     );
     await expectDeletionPreserved();
   });
@@ -358,7 +371,14 @@ describe("una baja profesional no se puede reabrir desde decisiones ni onboardin
     expect(await audits()).toMatchObject([
       { action: "professional_rejection" },
     ]);
-    expect(mocks.release).toHaveBeenCalledExactlyOnceWith(PRO);
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, PRO),
+        })
+      )?.currentActiveRequests,
+    ).toBe(0);
     expect(mocks.approval).not.toHaveBeenCalled();
   });
   it("ningún panel audita ni notifica un perfil inexistente", async () => {

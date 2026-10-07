@@ -18,7 +18,7 @@ import {
 import { requireAdmin } from "@/lib/admin";
 import {
   assignRequestToProfessional,
-  releaseAssignmentsForRequest,
+  closeAdministrativeAssignments,
   releaseProfessionalAssignments,
 } from "@/lib/assignment";
 import { getServerSession } from "@/lib/auth-server";
@@ -629,7 +629,14 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
   const status = professionalStatusSchema.parse(formData.get("status"));
   const existing = await db.query.professionals.findFirst({
     where: eq(professionals.id, professionalId),
-    columns: { id: true, status: true, nonClinicalHelper: true },
+    columns: {
+      id: true,
+      status: true,
+      nonClinicalHelper: true,
+      userId: true,
+      updatedAt: true,
+      currentActiveRequests: true,
+    },
   });
   if (!existing || existing.status === "deleting") redirect("/admin");
   if (
@@ -661,6 +668,24 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
         }
       : { status, acceptingRequests: false, updatedAt: timestamp };
 
+  if (status === "suspended" || status === "rejected") {
+    if (!admin.session?.session?.id) redirect("/pro");
+    await closeAdministrativeAssignments({
+      kind: "professional",
+      id: professionalId,
+      status,
+      expected: existing,
+      actor: {
+        userId: admin.session.user.id,
+        email: admin.email,
+        sessionId: admin.session.session.id,
+      },
+    });
+    revalidatePath("/admin", "layout");
+    revalidateDirectoryViews();
+    return;
+  }
+
   const results = await db.batch([
     db
       .update(professionals)
@@ -685,12 +710,6 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
       ),
   ]);
   if (!results[0].length) redirect("/admin");
-
-  // Al suspender/rechazar, libera capacidad y devuelve sus solicitudes a la
-  // cola para reasignación: nadie queda huérfano y los cupos no se pierden.
-  if (status === "suspended" || status === "rejected") {
-    await releaseProfessionalAssignments(professionalId);
-  }
 
   // Al aprobar, avisamos al profesional por correo (best-effort) — el panel ya
   // le prometía "te avisaremos por correo".
@@ -933,22 +952,22 @@ export async function adminUpdateHelpRequestStatus(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
   const status = statusSchema.parse(formData.get("status"));
   const timestamp = nowIso();
-  await db
-    .update(helpRequests)
-    .set({ status, updatedAt: timestamp })
-    .where(eq(helpRequests.id, requestId));
-
   if (status === "closed") {
-    // Cerrar libera la capacidad consumida del profesional asignado.
-    await releaseAssignmentsForRequest(requestId);
-    await db.insert(auditLogs).values({
-      id: newId("log"),
-      actorEmail: admin.email,
-      action: "request_closure",
-      entityType: "help_request",
-      entityId: requestId,
-      createdAt: timestamp,
+    if (!admin.session?.session?.id) redirect("/pro");
+    await closeAdministrativeAssignments({
+      kind: "request",
+      id: requestId,
+      actor: {
+        userId: admin.session.user.id,
+        email: admin.email,
+        sessionId: admin.session.session.id,
+      },
     });
+  } else {
+    await db
+      .update(helpRequests)
+      .set({ status, updatedAt: timestamp })
+      .where(eq(helpRequests.id, requestId));
   }
 
   revalidatePath("/admin", "layout");

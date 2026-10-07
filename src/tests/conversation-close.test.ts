@@ -63,6 +63,7 @@ beforeAll(async () => {
     "user",
     "professionals",
     "help_requests",
+    "audit_logs",
     "conversations",
     "seeker_sessions",
   ];

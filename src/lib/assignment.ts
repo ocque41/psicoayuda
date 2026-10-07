@@ -1,6 +1,8 @@
 import "server-only";
 
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
+import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { db } from "@/db";
 import {
   assignments,
@@ -10,6 +12,8 @@ import {
   professionals,
   seekerSessions,
 } from "@/db/schema";
+import { currentWaitlistAdmin } from "@/lib/admin-waitlist/access";
+import type { WaitlistAdmin } from "@/lib/admin-waitlist/types";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
 
@@ -17,6 +21,350 @@ import { newId, nowIso } from "@/lib/ids";
 // flujo de ofertas (offers.ts); "assigned" lo crea la asignación del admin. Las
 // rutinas de liberación DEBEN contemplar ambos o el cupo se queda pegado.
 const ACTIVE_ASSIGNMENT_STATES = ["assigned", "accepted"] as const;
+
+type RoomSnapshot = typeof conversations.$inferSelect & {
+  reopeningId: string | null;
+};
+// La reapertura real confirma esta auditoría en el mismo batch. Su ID distingue
+// generaciones aun si el reloj reutiliza updatedAt Y reopenedAt. Se lee en la
+// misma sentencia que la sala, nunca después sobre una versión nueva.
+function reopeningVersion() {
+  // La referencia cualificada evita que extras de Drizzle elimine la tabla y
+  // resuelva accidentalmente «id» contra audit_logs dentro de la subconsulta.
+  return sql<
+    string | null
+  >`(SELECT id FROM audit_logs WHERE action='conversation_reopened'
+    AND entity_type='conversation' AND entity_id="conversations"."id" ORDER BY rowid DESC LIMIT 1)`;
+}
+
+function roomVersion(room: RoomSnapshot) {
+  return and(
+    eq(conversations.id, room.id),
+    eq(conversations.status, "open"),
+    eq(conversations.updatedAt, room.updatedAt),
+    sql`${reopeningVersion()} IS ${room.reopeningId}`,
+    eq(conversations.professionalId, room.professionalId),
+    eq(conversations.seekerSid, room.seekerSid),
+    room.helpRequestId === null
+      ? isNull(conversations.helpRequestId)
+      : eq(conversations.helpRequestId, room.helpRequestId),
+    room.deletedAt === null
+      ? isNull(conversations.deletedAt)
+      : eq(conversations.deletedAt, room.deletedAt),
+    room.anonymizedAt === null
+      ? isNull(conversations.anonymizedAt)
+      : eq(conversations.anonymizedAt, room.anonymizedAt),
+    room.reopenedAt === null
+      ? isNull(conversations.reopenedAt)
+      : eq(conversations.reopenedAt, room.reopenedAt),
+  );
+}
+
+// Una lista parametrizada evita superar los 100 bindings por sentencia de D1
+// cuando un profesional conserva muchas salas. Sólo versiones/IDs/estados;
+// nunca se persiste este snapshot ni contiene mensajes o claves.
+function snapshotMatches(
+  table: SQLiteTable,
+  columns: (SQLiteColumn | SQL)[],
+  rows: (string | number | Date | null)[][],
+) {
+  const snapshot = JSON.stringify(
+    rows.map((row) =>
+      row.map((value) => (value instanceof Date ? value.getTime() : value)),
+    ),
+  );
+  const fields = columns.map(
+    (column, index) =>
+      sql`${column} IS json_extract(snapshot.value, ${sql.raw(`'$[${index}]'`)})`,
+  );
+  return sql`NOT EXISTS (SELECT 1 FROM json_each(${snapshot}) snapshot WHERE NOT EXISTS
+    (SELECT 1 FROM ${table} WHERE ${sql.join(fields, sql` AND `)}))`;
+}
+
+/**
+ * La decisión administrativa y su revocación son un único intento. La auditoría
+ * reclama TODAS las versiones y la sesión vigente antes de escribir; su ID
+ * nuevo guarda cada sentencia del mismo batch D1/libSQL. Un conflicto no
+ * confirma ninguna escritura propia. No se relee/reautoriza automáticamente.
+ * Los helpers de retención/cuenta conservan sus contratos independientes.
+ */
+export async function closeAdministrativeAssignments(
+  input: {
+    actor: WaitlistAdmin;
+  } & (
+    | { kind: "request"; id: string }
+    | {
+        kind: "professional";
+        id: string;
+        status: "suspended" | "rejected";
+        expected: Pick<
+          typeof professionals.$inferSelect,
+          "id" | "status" | "userId" | "updatedAt" | "currentActiveRequests"
+        >;
+      }
+  ),
+) {
+  const scope =
+    input.kind === "request"
+      ? eq(assignments.helpRequestId, input.id)
+      : eq(assignments.professionalId, input.id);
+  const active = await db.query.assignments.findMany({
+    where: and(
+      scope,
+      inArray(assignments.status, [...ACTIVE_ASSIGNMENT_STATES]),
+    ),
+  });
+  const requestIds = [
+    ...new Set([
+      ...(input.kind === "request" ? [input.id] : []),
+      ...active.map((row) => row.helpRequestId),
+    ]),
+  ];
+  const proIds = [
+    ...new Set([
+      ...(input.kind === "professional" ? [input.id] : []),
+      ...active.map((row) => row.professionalId),
+    ]),
+  ];
+  const requests = requestIds.length
+    ? await db.query.helpRequests.findMany({
+        where: inArray(helpRequests.id, requestIds),
+      })
+    : [];
+  const pros = proIds.length
+    ? await db.query.professionals.findMany({
+        where: inArray(professionals.id, proIds),
+      })
+    : [];
+  if (
+    requests.length !== requestIds.length ||
+    pros.length !== proIds.length ||
+    pros.some((row) => row.status === "deleting") ||
+    (input.kind === "professional" &&
+      !pros.some(
+        (row) =>
+          row.id === input.expected.id &&
+          row.status === input.expected.status &&
+          row.userId === input.expected.userId &&
+          row.updatedAt === input.expected.updatedAt &&
+          row.currentActiveRequests === input.expected.currentActiveRequests,
+      ))
+  ) {
+    throw new Error("El caso o la cuenta cambió. Vuelve a intentarlo.");
+  }
+  const roomScope =
+    input.kind === "request"
+      ? eq(conversations.helpRequestId, input.id)
+      : eq(conversations.professionalId, input.id);
+  const rooms = await db.query.conversations.findMany({
+    where: and(roomScope, eq(conversations.status, "open")),
+    extras: { reopeningId: reopeningVersion().as("reopening_id") },
+  });
+  const guards = [
+    currentWaitlistAdmin(input.actor),
+    sql`(SELECT count(*) FROM ${assignments} WHERE ${scope} AND ${assignments.status} IN ('assigned','accepted'))=${active.length}`,
+    sql`(SELECT count(*) FROM ${conversations} WHERE ${roomScope} AND ${conversations.status}='open')=${rooms.length}`,
+    snapshotMatches(
+      assignments,
+      [
+        assignments.id,
+        assignments.helpRequestId,
+        assignments.professionalId,
+        assignments.status,
+        assignments.updatedAt,
+      ],
+      active.map((row) => [
+        row.id,
+        row.helpRequestId,
+        row.professionalId,
+        row.status,
+        row.updatedAt,
+      ]),
+    ),
+    snapshotMatches(
+      helpRequests,
+      [
+        helpRequests.id,
+        helpRequests.status,
+        helpRequests.updatedAt,
+        helpRequests.anonymizedAt,
+      ],
+      requests.map((row) => [
+        row.id,
+        row.status,
+        row.updatedAt,
+        row.anonymizedAt,
+      ]),
+    ),
+    snapshotMatches(
+      professionals,
+      [
+        professionals.id,
+        professionals.userId,
+        professionals.status,
+        professionals.updatedAt,
+        professionals.currentActiveRequests,
+      ],
+      pros.map((row) => [
+        row.id,
+        row.userId,
+        row.status,
+        row.updatedAt,
+        row.currentActiveRequests,
+      ]),
+    ),
+    snapshotMatches(
+      conversations,
+      [
+        conversations.id,
+        conversations.status,
+        conversations.updatedAt,
+        conversations.professionalId,
+        conversations.seekerSid,
+        conversations.helpRequestId,
+        conversations.deletedAt,
+        conversations.anonymizedAt,
+        conversations.reopenedAt,
+        reopeningVersion(),
+      ],
+      rooms.map((room) => [
+        room.id,
+        room.status,
+        room.updatedAt,
+        room.professionalId,
+        room.seekerSid,
+        room.helpRequestId,
+        room.deletedAt,
+        room.anonymizedAt,
+        room.reopenedAt,
+        room.reopeningId,
+      ]),
+    ),
+  ];
+  const timestamp = nowIso();
+  const auditId = newId("log");
+  const action =
+    input.kind === "request"
+      ? "request_closure"
+      : input.status === "suspended"
+        ? "professional_suspension"
+        : "professional_rejection";
+  const admitted = sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${auditId})`;
+  const claim = db
+    .insert(auditLogs)
+    .select(
+      sql`SELECT ${auditId},${input.actor.email},${action},${input.kind === "request" ? "help_request" : "professional"},${input.id},NULL,${timestamp} WHERE ${and(...guards)}`,
+    )
+    .returning({ id: auditLogs.id });
+  const writes: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]] = [claim];
+  for (const room of rooms) {
+    const closedAt = new Date(
+      Math.max(Date.parse(timestamp), Date.parse(room.updatedAt) + 1),
+    ).toISOString();
+    writes.push(
+      db
+        .update(conversations)
+        .set({
+          status: "closed",
+          closedAt,
+          closedReason: "case_closed",
+          updatedAt: closedAt,
+        })
+        .where(and(admitted, roomVersion(room)))
+        .returning({ id: conversations.id }),
+      db
+        .update(seekerSessions)
+        .set({ revokedAt: new Date(closedAt) })
+        .where(
+          and(
+            admitted,
+            eq(seekerSessions.conversationId, room.id),
+            isNull(seekerSessions.revokedAt),
+            sql`changes()=1`,
+          ),
+        ),
+    );
+  }
+  for (const row of active) {
+    writes.push(
+      db
+        .update(assignments)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(
+          and(
+            admitted,
+            eq(assignments.id, row.id),
+            eq(assignments.status, row.status),
+            eq(assignments.updatedAt, row.updatedAt),
+            eq(assignments.helpRequestId, row.helpRequestId),
+            eq(assignments.professionalId, row.professionalId),
+          ),
+        )
+        .returning({ id: assignments.id }),
+    );
+    if (input.kind === "request") {
+      writes.push(
+        db
+          .update(professionals)
+          .set({
+            currentActiveRequests: sql`max(0, ${professionals.currentActiveRequests} - 1)`,
+            updatedAt: timestamp,
+          })
+          .where(
+            and(
+              admitted,
+              eq(professionals.id, row.professionalId),
+              sql`changes()=1`,
+            ),
+          ),
+      );
+    }
+  }
+  if (input.kind === "request") {
+    writes.push(
+      db
+        .update(helpRequests)
+        .set({ status: "closed", updatedAt: timestamp })
+        .where(and(admitted, eq(helpRequests.id, input.id))),
+    );
+  } else {
+    for (const request of requests) {
+      if (request.status === "assigned")
+        writes.push(
+          db
+            .update(helpRequests)
+            .set({ status: "new", updatedAt: timestamp })
+            .where(
+              and(
+                admitted,
+                eq(helpRequests.id, request.id),
+                eq(helpRequests.status, "assigned"),
+              ),
+            ),
+        );
+    }
+    writes.push(
+      db
+        .update(professionals)
+        .set({
+          status: input.status,
+          acceptingRequests: false,
+          currentActiveRequests: 0,
+          updatedAt: timestamp,
+        })
+        .where(and(admitted, eq(professionals.id, input.id))),
+    );
+  }
+  const results = await db.batch(writes);
+  if (!Array.isArray(results[0]) || results[0].length !== 1) {
+    throw new Error(
+      "El caso, el chat o tu sesión cambió. Vuelve a intentarlo.",
+    );
+  }
+  // Sólo después del commit: los gates consultan estado/grants por frame.
+  for (const room of rooms) await disconnectConversationSockets(room.id);
+  return active.length;
+}
 
 // IMPORTANTE (Cloudflare D1): D1 NO soporta `BEGIN/COMMIT` por sentencia
 // preparada (responde "please use the storage.transaction() API instead"), así
@@ -42,6 +390,7 @@ export async function closeConversations(
   for (const row of rows) {
     const current = await db.query.conversations.findFirst({
       where: eq(conversations.id, row.id),
+      extras: { reopeningId: reopeningVersion().as("reopening_id") },
     });
     if (current?.status !== "open") continue;
 
@@ -58,24 +407,7 @@ export async function closeConversations(
         closedReason: reason,
         updatedAt: closedAt,
       })
-      .where(
-        and(
-          eq(conversations.id, current.id),
-          eq(conversations.status, "open"),
-          eq(conversations.updatedAt, current.updatedAt),
-          eq(conversations.professionalId, current.professionalId),
-          eq(conversations.seekerSid, current.seekerSid),
-          current.helpRequestId === null
-            ? isNull(conversations.helpRequestId)
-            : eq(conversations.helpRequestId, current.helpRequestId),
-          current.deletedAt === null
-            ? isNull(conversations.deletedAt)
-            : eq(conversations.deletedAt, current.deletedAt),
-          current.anonymizedAt === null
-            ? isNull(conversations.anonymizedAt)
-            : eq(conversations.anonymizedAt, current.anonymizedAt),
-        ),
-      )
+      .where(roomVersion(current))
       .returning({ id: conversations.id });
     // La inactividad permite leer/reabrir con el permiso existente. Los cierres
     // de caso/cuenta revocan todos los grants de la sala, incluido su enlace.

@@ -14,6 +14,7 @@ import {
 import {
   assignments,
   auditLogs,
+  session as authSessions,
   conversations,
   helpRequests,
   professionals,
@@ -85,6 +86,7 @@ beforeAll(async () => {
   mocks.database = await runtime.getD1Database("DB");
   const names = [
     "user",
+    "session",
     "professionals",
     "help_requests",
     "assignments",
@@ -146,6 +148,7 @@ async function allowQuota() {
   await database.run(sql.raw("DROP TRIGGER IF EXISTS fixture_release_fail"));
 }
 async function cleanup() {
+  await database.delete(authSessions).where(like(authSessions.id, `${P}%`));
   await allowQuota();
   await database
     .delete(seekerSessions)
@@ -212,6 +215,10 @@ describe.each(["libSQL", "D1"] as const)("liberación real con %s", (driver) => 
     mocks.disconnect.mockClear();
     mocks.session.mockResolvedValue({
       user: { id: id.admin, email: `${id.admin}@example.test` },
+      session: {
+        id: `${P}-admin-session`,
+        expiresAt: new Date(Date.now() + 3600000),
+      },
     });
     await database.insert(user).values([
       {
@@ -226,6 +233,12 @@ describe.each(["libSQL", "D1"] as const)("liberación real con %s", (driver) => 
         emailVerified: true,
       },
     ]);
+    await database.insert(authSessions).values({
+      id: `${P}-admin-session`,
+      userId: id.admin,
+      token: `${P}-fake-token`,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
     await database.insert(professionals).values({
       id: id.pro,
       userId: id.user,
@@ -336,12 +349,12 @@ describe.each(["libSQL", "D1"] as const)("liberación real con %s", (driver) => 
     expect(released).toBe(1);
   });
 
-  it("reintenta el cierre administrativo que guardó closed antes del fallo sin perder el cupo", async () => {
+  it("rechaza el cierre administrativo entero si falla el cupo y permite reintento", async () => {
     await failQuota();
     await expect(adminClose(closeForm())).rejects.toThrow();
     const failed = await snapshot();
     expect(failed.requests.find((row) => row.id === id.request)?.status).toBe(
-      "closed",
+      "assigned",
     );
     expect(
       failed.relations.find((row) => row.id === id.assignment)?.status,

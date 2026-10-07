@@ -12,6 +12,7 @@ import {
 import { db } from "@/db";
 import {
   auditLogs,
+  session as authSessions,
   practiceCredentials,
   professionals,
   user,
@@ -33,7 +34,8 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${path}`);
   },
 }));
-vi.mock("@/lib/assignment", () => ({
+vi.mock("@/lib/assignment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/assignment")>()),
   assignRequestToProfessional: vi.fn(),
   releaseAssignmentsForRequest: vi.fn(),
   releaseProfessionalAssignments: mocks.release,
@@ -69,6 +71,7 @@ const emails = {
 function session(role: keyof typeof emails) {
   mocks.session.mockResolvedValue({
     user: { id: `${P}${role}`, email: emails[role], emailVerified: true },
+    session: { id: `${P}${role}-session`, expiresAt: new Date("2099-01-01") },
   });
 }
 function decision(status = "approved", professionalId = clinicalId) {
@@ -95,6 +98,7 @@ async function audits() {
     .where(like(auditLogs.entityId, `${P}%`));
 }
 async function cleanup() {
+  await db.delete(authSessions).where(like(authSessions.id, `${P}%`));
   await db.run(sql`DROP TRIGGER IF EXISTS admission_legacy_test_audit_failure`);
   await db.delete(auditLogs).where(like(auditLogs.entityId, `${P}%`));
   await db
@@ -113,6 +117,12 @@ beforeAll(async () => {
       emailVerified: true,
     })),
   );
+  await db.insert(authSessions).values({
+    id: `${P}admin-session`,
+    userId: `${P}admin`,
+    token: `${P}fake-admin-token`,
+    expiresAt: new Date("2099-01-01"),
+  });
   await db.insert(professionals).values([
     {
       id: clinicalId,
@@ -287,7 +297,8 @@ describe("las aprobaciones antiguas respetan Admisión", () => {
   it("rechazar un pendiente conserva liberación y auditoría", async () => {
     await adminUpdateProfessionalStatus(decision("rejected"));
     expect((await profile())?.status).toBe("rejected");
-    expect(mocks.release).toHaveBeenCalledExactlyOnceWith(clinicalId);
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect((await profile())?.currentActiveRequests).toBe(0);
     expect(await audits()).toHaveLength(1);
   });
   it("el alta clínica incompleta crea candidatura y no inventa aceptación ni aprobación", async () => {
