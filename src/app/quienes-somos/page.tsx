@@ -1,10 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
+
+const title = "Quiénes somos";
+const description =
+  "Nido conecta a personas con profesionales de psicología y ayuda a organizar el acompañamiento. Conoce nuestra misión.";
 export const metadata: Metadata = {
-  title: "Quiénes somos",
-  description:
-    "Nido conecta a personas con profesionales de psicología y ayuda a organizar el acompañamiento. Conoce nuestra misión.",
+  title,
+  description,
   alternates: { canonical: "/quienes-somos" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/quienes-somos",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 export default function Page() {
   return (

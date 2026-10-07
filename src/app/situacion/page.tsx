@@ -3,20 +3,30 @@ import Link from "next/link";
 import { AlliedResources } from "@/components/allied-resources";
 import { SeismicFeed } from "@/components/seismic-feed";
 import { DAMAGE_MAP } from "@/lib/allied-resources";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 // La página es estática + ISR: el feed sísmico se revalida cada 5 minutos.
 export const revalidate = 300;
 
+const title = "Terremoto en Venezuela: sismos en vivo y ayuda";
+const description =
+  "Sismos recientes en Venezuela en vivo (USGS) y plataformas de ayuda tras el terremoto: buscar personas, refugios, hospitales, rescate y apoyo psicológico.";
 export const metadata: Metadata = {
-  title: "Terremoto en Venezuela: sismos en vivo y ayuda",
-  description:
-    "Sismos recientes en Venezuela en vivo (USGS) y plataformas de ayuda tras el terremoto: buscar personas, refugios, hospitales, rescate y apoyo psicológico.",
+  title,
+  description,
   alternates: { canonical: "/situacion" },
   openGraph: {
-    title: "Terremoto en Venezuela: sismos en vivo y ayuda | Nido",
-    description:
-      "Sismos en vivo (USGS) y plataformas de ayuda tras el terremoto en Venezuela: buscar personas, refugios, hospitales, rescate y apoyo psicológico gratis.",
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
     url: "/situacion",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
   },
 };
 

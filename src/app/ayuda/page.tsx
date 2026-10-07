@@ -16,16 +16,22 @@ import {
   partnersToOrganizations,
 } from "@/lib/partners";
 
+const title = "Ayuda Terremoto: solicitar acompañamiento gratuito";
+const description =
+  "Solicita acompañamiento voluntario gratuito por el terremoto en Venezuela, según disponibilidad. Este programa es distinto de las consultas acordadas con profesionales.";
 export const metadata: Metadata = {
-  title: "Pedir ayuda psicológica gratis en Venezuela",
-  description:
-    "Pide apoyo psicológico gratuito y confidencial en Venezuela. Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta.",
+  title,
+  description,
   alternates: { canonical: "/ayuda" },
   openGraph: {
-    title: "Pedir ayuda psicológica gratis en Venezuela | Nido",
-    description:
-      "Escríbele a un profesional voluntario o envía tu solicitud a todos, sin crear cuenta. Una persona voluntaria te acompañará.",
+    title: `${title} | Nido`,
+    description,
     url: "/ayuda",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | Nido`,
+    description,
   },
 };
 
@@ -73,12 +79,20 @@ export default async function HelpPage({
       <QuickExit />
       <div className="container">
         <EmergencyPriorityBar />
-        <h1>Cuéntanos cómo estás. Vamos a leerte.</h1>
-        <ul className="trust-strip" aria-label="Garantías">
-          <li>Gratis</li>
-          <li>Confidencial</li>
+        <h1>Ayuda Terremoto: solicita acompañamiento gratuito</h1>
+        <p className="lead">
+          Ayuda Terremoto es un programa separado de acompañamiento voluntario
+          gratuito para personas afectadas por el terremoto en Venezuela, según
+          disponibilidad. Solicitar apoyo no garantiza cupo ni plazo de
+          respuesta. Para consultas por otros motivos, explora el{" "}
+          <Link href="/profesionales">directorio de profesionales</Link> y
+          acuerda con cada persona las condiciones de atención.
+        </p>
+        <ul className="trust-strip" aria-label="Condiciones del programa">
+          <li>Ayuda Terremoto gratuita</li>
+          <li>Según disponibilidad</li>
           <li>Sin crear cuenta</li>
-          <li>Voluntarios verificados</li>
+          <li>Recorrido separado</li>
         </ul>
         <EmergencyNotice />
 
@@ -86,9 +100,9 @@ export default async function HelpPage({
           <div className="notice" role="alert">
             <p style={{ margin: 0 }}>
               Ese enlace de acceso ya no es válido (pudo expirar o ya se usó).{" "}
-              <Link href="/acceso">Pide un enlace nuevo aquí</Link>: te lo
-              reenviamos a tu correo en segundos. Si aún no tienes una
-              conversación, envía tu solicitud aquí abajo.
+              Si dejaste un correo, puedes{" "}
+              <Link href="/acceso">pedir un enlace nuevo aquí</Link>. Si aún no
+              tienes una conversación, envía tu solicitud aquí abajo.
             </p>
           </div>
         ) : null}
@@ -102,9 +116,11 @@ export default async function HelpPage({
           <>
             <h2>Quiénes pueden acompañarte</h2>
             <p className="lead">
-              Voluntarios verificados y organizaciones aliadas. Escríbele
-              directo a quien prefieras, o{" "}
-              <strong>envía tu solicitud a todas a la vez</strong> más abajo.
+              Perfiles revisados y organizaciones aliadas. El directorio también
+              muestra otros servicios; no todos son gratuitos. Consulta el tipo
+              de apoyo y las condiciones de cada opción. Puedes contactar con
+              una persona o enviar una solicitud general mediante el formulario
+              de abajo.
             </p>
             <SupportDirectory
               itemListPath="/ayuda"
@@ -122,8 +138,9 @@ export default async function HelpPage({
           O cuéntanos y envía tu solicitud a varios a la vez
         </h2>
         <p className="lead">
-          Completar esto toma menos de un minuto. Al terminar podrás enviar tu
-          solicitud a todas las personas disponibles o elegir a quién.
+          Al completar el formulario podrás enviar tu solicitud a las personas
+          disponibles o elegir a quién. El acompañamiento de Ayuda Terremoto es
+          gratuito; las consultas por otros motivos tienen condiciones propias.
         </p>
         <HelpRequestForm
           preferredProfessionalId={preferred?.id}

@@ -5,9 +5,13 @@ import { absoluteUrl, SITE_URL } from "@/lib/site";
  * robots.txt generado.
  *
  * Permite el rastreo del contenido público y bloquea rutas privadas o
- * transaccionales que no aportan valor de búsqueda y no deben indexarse:
+ * transaccionales que no aportan valor de búsqueda:
  * panel de administración, API, panel/onboarding profesional y la página
  * de confirmación tras enviar una solicitud.
+ * Robots controla el rastreo, no protege datos ni garantiza desindexación.
+ * No añadir aquí páginas públicas de acceso que ya declaran noindex: los
+ * buscadores necesitan rastrearlas para leer esa instrucción. La privacidad
+ * de las consultas depende de los controles de acceso del servidor.
  */
 export default function robots(): MetadataRoute.Robots {
   return {

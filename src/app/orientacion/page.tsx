@@ -5,12 +5,28 @@ import { db } from "@/db";
 import { practiceCredentials } from "@/db/schema";
 import { countries } from "@/lib/constants";
 import { getCachedFeedProfessionals } from "@/lib/feed";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 export const dynamic = "force-dynamic";
+const title = "Encuentra con quién hablar";
+const description =
+  "Unas preguntas breves para encontrar profesionales afines a lo que necesitas, en tu idioma y según tu ubicación.";
 export const metadata: Metadata = {
-  title: "Encuentra con quién hablar",
-  description:
-    "Unas preguntas breves para encontrar profesionales afines a lo que necesitas, en tu idioma y según tu ubicación.",
+  title,
+  description,
   alternates: { canonical: "/orientacion" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/orientacion",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 export default async function OrientationPage() {
   const [professionals, credentials] = await Promise.all([

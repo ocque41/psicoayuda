@@ -3,12 +3,28 @@ import Link from "next/link";
 import { FoundationContactForm } from "@/components/foundation-contact-form";
 import { PartnersShowcase } from "@/components/partners-showcase";
 import { WaitlistCallout } from "@/components/waitlist-callout";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
+const title = "Fundaciones y organizaciones aliadas";
+const description =
+  "¿Representas una fundación, universidad, colegio de psicólogos u otra organización de salud mental? Déjanos tus datos para aliarte con Nido y acompañar a más personas tras el terremoto.";
 export const metadata: Metadata = {
-  title: "Fundaciones y organizaciones aliadas",
-  description:
-    "¿Representas una fundación, universidad, colegio de psicólogos u otra organización de salud mental? Déjanos tus datos para aliarte con Nido y acompañar a más personas tras el terremoto.",
+  title,
+  description,
   alternates: { canonical: "/alianzas" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/alianzas",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 
 // ISR: la página es estática pero el escaparate lee aliados de D1. Sin

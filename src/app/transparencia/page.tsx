@@ -1,10 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
+
+const title = "Transparencia e impacto";
+const description =
+  "Cómo Nido separa la consulta profesional y Ayuda Terremoto, cuida los datos y mide su impacto.";
 export const metadata: Metadata = {
-  title: "Transparencia e impacto",
-  description:
-    "Cómo Nido separa la consulta profesional y Ayuda Terremoto, cuida los datos y mide su impacto.",
+  title,
+  description,
   alternates: { canonical: "/transparencia" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/transparencia",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 export default function Page() {
   return (

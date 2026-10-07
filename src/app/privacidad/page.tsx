@@ -1,11 +1,27 @@
 import type { Metadata } from "next";
 import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
+const title = "Política de Privacidad";
+const description =
+  "Información sobre los datos de quienes buscan apoyo y de los profesionales, las conversaciones y los canales para consultas de privacidad en Nido.";
 export const metadata: Metadata = {
-  title: "Política de Privacidad",
-  description:
-    "Cómo Nido recopila, usa y protege los datos de quienes piden ayuda y de los profesionales voluntarios. Pedimos la mínima información necesaria.",
+  title,
+  description,
   alternates: { canonical: "/privacidad" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/privacidad",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 
 export default function PrivacyPage() {

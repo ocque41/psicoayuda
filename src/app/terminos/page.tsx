@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
+const title = "Términos de Servicio";
+const description =
+  "Términos de uso de Nido, la plataforma que conecta a personas con profesionales de psicología y permite organizar el acompañamiento.";
 export const metadata: Metadata = {
-  title: "Términos de Servicio",
-  description:
-    "Términos de uso de Nido, la plataforma que conecta a personas con profesionales de psicología y permite organizar el acompañamiento.",
+  title,
+  description,
   alternates: { canonical: "/terminos" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/terminos",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 
 export default function TermsPage() {

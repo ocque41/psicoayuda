@@ -2,24 +2,33 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
 
+const title = "Revisión de perfiles y cuidados en Nido";
+const description =
+  "Cómo se revisan los perfiles, qué límites tiene esa revisión y cómo se distinguen las condiciones de consulta del programa gratuito Ayuda Terremoto.";
 export const metadata: Metadata = {
-  title: "Cómo verificamos y cuidamos",
-  description:
-    "Cómo verificamos manualmente a los profesionales de Nido, el código de conducta público, el secreto profesional y qué hacemos ante una situación de riesgo.",
+  title,
+  description,
   alternates: { canonical: "/seguridad" },
+  openGraph: { title: `${title} | Nido`, description, url: "/seguridad" },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | Nido`,
+    description,
+  },
 };
 
 export default function Page() {
   return (
     <section className="section">
       <div className="container">
-        <h1>Cómo verificamos y cuidamos</h1>
+        <h1>{title}</h1>
         <p className="lead">
           Nido conecta a personas con profesionales de psicología. Ayuda
           Terremoto conserva su programa de acompañamiento voluntario gratuito.
-          Para que confíes en quien te acompaña, cada profesional pasa una
-          verificación hecha por personas, una a una. Aquí te contamos cómo
-          cuidamos a quien pide ayuda y a quien la ofrece.
+          Los perfiles públicos pasan por revisión manual del equipo. Esa
+          revisión tiene límites: antes de acordar atención, confirma con el
+          profesional la modalidad, las condiciones y si puede atenderte en el
+          lugar donde estarás durante la consulta.
         </p>
 
         <ul className="trust-strip" aria-label="Nuestros cuidados">
@@ -55,10 +64,11 @@ export default function Page() {
           <article className="card">
             <h3>Identidad</h3>
             <p>
-              Verificamos que la persona es quien dice ser. El acceso es con
-              Google y revisamos su identidad antes de aprobar el perfil, para
-              que detrás de cada acompañamiento haya una persona real y
-              responsable.
+              El acceso a una cuenta y la revisión del perfil son procesos
+              distintos. Puedes entrar con correo y, cuando la opción está
+              disponible, con Google. Usar esos métodos no acredita por sí solo
+              la identidad ni las credenciales profesionales; la publicación del
+              perfil requiere revisión manual del equipo.
             </p>
           </article>
           <article className="card">
@@ -76,23 +86,24 @@ export default function Page() {
           un acompañamiento, puedes detenerlo y avisarnos.
         </p>
 
-        <h2>El código de conducta que aceptan</h2>
+        <h2>Compromisos de Ayuda Terremoto</h2>
         <p>
-          Antes de poder acompañar a nadie, cada profesional acepta un código de
-          conducta público. Estos son sus compromisos:
+          El pacto voluntario recoge los compromisos de quienes participan en
+          Ayuda Terremoto. El programa gratuito se mantiene separado de las
+          consultas por otros motivos:
         </p>
         <article className="card">
           <ul>
             <li>
-              <strong>La emergencia es gratuita.</strong> No cobran por la ayuda
-              de la emergencia ni piden datos de pago por ella. Si ofrecen
-              servicios pagos por otros temas, usan los links de pago seguros de
-              Nido y no condicionan nunca la ayuda gratuita.
+              <strong>Ayuda Terremoto es gratuita.</strong> La participación en
+              este programa no se condiciona a contratar servicios pagos ni el
+              software de Nido. Las consultas por otros motivos tienen
+              condiciones e importes que se acuerdan con el profesional.
             </li>
             <li>
-              <strong>Sin presiones comerciales.</strong> No presionan a nadie
-              para contratar servicios pagos ni desvían a las personas hacia
-              consultas privadas.
+              <strong>Sin presiones comerciales.</strong> No se presiona a
+              quienes solicitan Ayuda Terremoto para contratar otras consultas.
+              La ayuda del programa no se condiciona a esa contratación.
             </li>
             <li>
               <strong>Confidencialidad.</strong> Cuidan la información que
@@ -126,9 +137,9 @@ export default function Page() {
 
         <h2>Qué hacemos ante una situación de riesgo</h2>
         <p>
-          Nido es apoyo de acompañamiento, no un servicio de emergencia y no
-          responde al instante. Si una persona está en peligro inmediato, lo más
-          importante es buscar ayuda que pueda llegar ahora.
+          Nido no es un servicio de emergencia y no responde al instante. Si una
+          persona está en peligro inmediato, lo más importante es buscar ayuda
+          que pueda llegar ahora.
         </p>
         <ul>
           <li>
@@ -148,23 +159,30 @@ export default function Page() {
           </li>
         </ul>
         <p className="hint">
-          Texto pendiente de revisión por un profesional del derecho en
-          Venezuela.
+          Los apartados sobre secreto profesional y situaciones de riesgo están
+          pendientes de revisión clínica y jurídica por profesionales con
+          competencia en Venezuela.
         </p>
 
-        <h2>Lo que Nido nunca hace</h2>
+        <h2>Condiciones y límites de Nido</h2>
         <article className="card">
           <ul>
             <li>
-              No cobra a nadie: ni a quien pide ayuda ni a quien la ofrece.
+              El software para profesionales tiene un plan de 10 USD al mes y
+              una prueba de 90 días sin tarjeta tras la aprobación del perfil.
+              Ese plan no fija el precio de las consultas. Consulta las{" "}
+              <Link href="/para-psicologos">
+                condiciones del plan profesional
+              </Link>
+              .
             </li>
             <li>
               No es un servicio de emergencia ni promete tiempos de respuesta.
             </li>
             <li>
-              No reemplaza terapia ni emergencias: hay un chat privado para
-              conocerse y coordinar, pero no llamadas, videollamadas ni sesiones
-              clínicas en la plataforma.
+              Facilita el contacto y la organización de la consulta. La
+              modalidad y las condiciones de atención se acuerdan con cada
+              profesional; crear un contacto no confirma una sesión.
             </li>
             <li>
               No tiene reseñas, puntuaciones ni rankings de profesionales.
@@ -174,8 +192,12 @@ export default function Page() {
               siempre es una persona.
             </li>
             <li>
-              No pide a las personas que solicitan ayuda crear una cuenta ni dar
-              su identidad completa.
+              El primer contacto desde un perfil puede hacerse sin crear una
+              cuenta. Usar un alias no equivale a anonimato completo. Revisa la{" "}
+              <Link href="/recursos/apoyo-emocional-anonimo">
+                información de acceso y privacidad
+              </Link>
+              .
             </li>
           </ul>
         </article>
@@ -183,12 +205,15 @@ export default function Page() {
         <h2>¿Eres profesional de la salud mental?</h2>
         <p>
           Si quieres acompañar a quien más lo necesita, este es tu lugar. Conoce
-          cómo unirte y verificarte en la{" "}
-          <Link href="/pro">página para profesionales</Link> y revisa el{" "}
-          <Link href="/pacto-voluntario">pacto voluntario</Link> que aceptarás.
+          cómo colaborar en la{" "}
+          <Link href="/psicologos">
+            página de Ayuda Terremoto para profesionales
+          </Link>{" "}
+          y revisa el <Link href="/pacto-voluntario">pacto voluntario</Link> que
+          aceptarás.
         </p>
         <p>
-          <Link className="button human" href="/pro">
+          <Link className="button human" href="/psicologos">
             Quiero ser voluntario/a
           </Link>{" "}
           <Link className="button secondary" href="/pacto-voluntario">

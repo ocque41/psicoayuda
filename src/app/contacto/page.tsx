@@ -9,12 +9,28 @@ import {
   getPublicContactEmails,
 } from "@/lib/contact";
 import { buildPreparedEmailUrl } from "@/lib/contact-messages";
+import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
+const title = "Contacto";
+const description =
+  "Cómo escribir al equipo de Nido sobre privacidad, eliminación de datos, abuso o dudas de la plataforma. No es un canal de emergencia.";
 export const metadata: Metadata = {
-  title: "Contacto",
-  description:
-    "Cómo escribirnos en Nido: privacidad y eliminación de datos, o reportar abuso o conducta insegura. Somos un equipo voluntario. Esto no es un canal de emergencia.",
+  title,
+  description,
   alternates: { canonical: "/contacto" },
+  openGraph: {
+    type: "website",
+    locale: SITE_LOCALE,
+    siteName: SITE_NAME,
+    title: `${title} | ${SITE_NAME}`,
+    description,
+    url: "/contacto",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${title} | ${SITE_NAME}`,
+    description,
+  },
 };
 
 export default function Page() {

@@ -20,9 +20,8 @@ export function EmergencyNotice() {
         ) : (
           <strong>911</strong>
         )}{" "}
-        (o al de tu país). Aquí coordinamos apoyo por correo, no atendemos
-        crisis en tiempo real.{" "}
-        <Link href="/emergencia">Ver líneas de ayuda</Link>.
+        (o al de tu país). Aquí coordinamos apoyo, no atendemos crisis en tiempo
+        real. <Link href="/emergencia">Ver líneas de ayuda</Link>.
       </span>
     </div>
   );
