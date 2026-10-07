@@ -154,6 +154,7 @@ export function PracticeCalendar({
   const router = useRouter();
   const headingId = useId();
   const agendaId = useId();
+  const agendaHeading = useRef<HTMLHeadingElement>(null);
   const selected = calendarDay(params.get("dia"), month);
   const view = calendarView(params.get("vista"));
   const referenceDay =
@@ -632,12 +633,19 @@ export function PracticeCalendar({
         ) : (
           <div className="calendar-agenda" id={agendaId}>
             <div className="calendar-agenda-heading">
-              <h3>{selectedLabel}</h3>
+              <h3 ref={agendaHeading} tabIndex={-1}>
+                {selectedLabel}
+              </h3>
               {selected && !periodView ? (
                 <button
                   type="button"
                   className="calendar-clear"
-                  onClick={() => select(null)}
+                  onClick={() => {
+                    select(null);
+                    // El botón desaparece al quitar el filtro; conserva el
+                    // foco en el resultado en lugar de devolverlo al body.
+                    agendaHeading.current?.focus();
+                  }}
                 >
                   Ver el mes
                 </button>
