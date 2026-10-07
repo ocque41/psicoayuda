@@ -5,6 +5,10 @@ import { db } from "@/db";
 import { practiceCredentials } from "@/db/schema";
 import { countries } from "@/lib/constants";
 import { getCachedFeedProfessionals } from "@/lib/feed";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 export const dynamic = "force-dynamic";
 const title = "Encuentra con quién hablar";
@@ -15,6 +19,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/orientacion" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -23,6 +28,7 @@ export const metadata: Metadata = {
     url: "/orientacion",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

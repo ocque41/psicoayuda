@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { GuideJsonLd } from "@/components/structured-data";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 
 const title = "Apoyo psicológico para venezolanos en el exterior";
 const description =
@@ -12,8 +16,14 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: path },
-  openGraph: { title: `${title} | Nido`, description, url: path },
+  openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
+    title: `${title} | Nido`,
+    description,
+    url: path,
+  },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | Nido`,
     description,

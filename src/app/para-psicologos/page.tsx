@@ -3,6 +3,10 @@ import Link from "next/link";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { ProductPreview } from "@/components/workspace/product-preview";
 import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 const title = "Nido para psicólogos";
@@ -13,6 +17,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/para-psicologos" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -21,6 +26,7 @@ export const metadata: Metadata = {
     url: "/para-psicologos",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

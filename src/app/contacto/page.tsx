@@ -9,6 +9,10 @@ import {
   getPublicContactEmails,
 } from "@/lib/contact";
 import { buildPreparedEmailUrl } from "@/lib/contact-messages";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 const title = "Contacto";
@@ -19,6 +23,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/contacto" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -27,6 +32,7 @@ export const metadata: Metadata = {
     url: "/contacto",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

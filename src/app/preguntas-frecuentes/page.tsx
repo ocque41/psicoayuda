@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FaqJsonLd } from "@/components/structured-data";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { HOME_FAQ, SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 const title = "Preguntas frecuentes";
@@ -11,6 +15,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/preguntas-frecuentes" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -19,6 +24,7 @@ export const metadata: Metadata = {
     url: "/preguntas-frecuentes",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

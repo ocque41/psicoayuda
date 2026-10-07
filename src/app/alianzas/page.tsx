@@ -3,6 +3,10 @@ import Link from "next/link";
 import { FoundationContactForm } from "@/components/foundation-contact-form";
 import { PartnersShowcase } from "@/components/partners-showcase";
 import { WaitlistCallout } from "@/components/waitlist-callout";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 const title = "Fundaciones y organizaciones aliadas";
@@ -13,6 +17,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/alianzas" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -21,6 +26,7 @@ export const metadata: Metadata = {
     url: "/alianzas",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

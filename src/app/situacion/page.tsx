@@ -3,6 +3,10 @@ import Link from "next/link";
 import { AlliedResources } from "@/components/allied-resources";
 import { SeismicFeed } from "@/components/seismic-feed";
 import { DAMAGE_MAP } from "@/lib/allied-resources";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 // La página es estática + ISR: el feed sísmico se revalida cada 5 minutos.
@@ -16,6 +20,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/situacion" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -24,6 +29,7 @@ export const metadata: Metadata = {
     url: "/situacion",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

@@ -8,6 +8,10 @@ import {
 } from "@/components/emergency-resources";
 import { QuickExit, QuickExitNote } from "@/components/quick-exit";
 import { getAbuseContactEmail } from "@/lib/contact";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 
 export const metadata: Metadata = {
   title: "Recursos de salud mental en Venezuela",
@@ -15,10 +19,17 @@ export const metadata: Metadata = {
     "Guías de apoyo psicológico para Venezuela y venezolanos en el exterior, recursos para organizar la consulta y el programa separado Ayuda Terremoto.",
   alternates: { canonical: "/recursos" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     title: "Recursos de salud mental en Venezuela | Nido",
     description:
       "Guías para buscar apoyo y organizar la consulta. La atención se acuerda con cada profesional; Ayuda Terremoto mantiene su recorrido gratuito separado.",
     url: "/recursos",
+  },
+  twitter: {
+    ...PUBLIC_TWITTER,
+    title: "Recursos de salud mental en Venezuela | Nido",
+    description:
+      "Guías para buscar apoyo y organizar la consulta. La atención se acuerda con cada profesional; Ayuda Terremoto mantiene su recorrido gratuito separado.",
   },
 };
 

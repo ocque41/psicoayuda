@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 
 const description =
   "Organiza citas, zonas horarias, cambios y condiciones de consulta. Incluye una plantilla de confirmación y pautas para calendarios externos.";
@@ -9,9 +13,15 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/recursos/organizar-agenda-consulta-psicologica" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     title: "Cómo organizar la agenda de una consulta psicológica | Nido",
     description,
     url: "/recursos/organizar-agenda-consulta-psicologica",
+  },
+  twitter: {
+    ...PUBLIC_TWITTER,
+    title: "Cómo organizar la agenda de una consulta psicológica | Nido",
+    description,
   },
 };
 

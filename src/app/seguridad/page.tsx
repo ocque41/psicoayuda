@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 
 const title = "Revisión de perfiles y cuidados en Nido";
 const description =
@@ -9,8 +13,14 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: "/seguridad" },
-  openGraph: { title: `${title} | Nido`, description, url: "/seguridad" },
+  openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
+    title: `${title} | Nido`,
+    description,
+    url: "/seguridad",
+  },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | Nido`,
     description,

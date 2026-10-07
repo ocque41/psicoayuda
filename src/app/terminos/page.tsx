@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 import { SITE_LOCALE, SITE_NAME } from "@/lib/site";
 
 const title = "Términos de Servicio";
@@ -11,6 +15,7 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/terminos" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     type: "website",
     locale: SITE_LOCALE,
     siteName: SITE_NAME,
@@ -19,6 +24,7 @@ export const metadata: Metadata = {
     url: "/terminos",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | ${SITE_NAME}`,
     description,

@@ -15,6 +15,10 @@ import {
   getCachedPublishedPartners,
   partnersToOrganizations,
 } from "@/lib/partners";
+import {
+  PUBLIC_OPEN_GRAPH,
+  PUBLIC_TWITTER,
+} from "@/lib/public-social-metadata";
 
 const title = "Ayuda Terremoto: solicitar acompañamiento gratuito";
 const description =
@@ -24,11 +28,13 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/ayuda" },
   openGraph: {
+    ...PUBLIC_OPEN_GRAPH,
     title: `${title} | Nido`,
     description,
     url: "/ayuda",
   },
   twitter: {
+    ...PUBLIC_TWITTER,
     card: "summary_large_image",
     title: `${title} | Nido`,
     description,
