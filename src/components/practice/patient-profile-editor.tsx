@@ -40,16 +40,27 @@ type Draft = {
   revision: number;
 };
 export function PatientProfileEditor(props: Props) {
-  return (
-    <ScopedProfileEditor
-      key={JSON.stringify([
+  const ownerKey = props.profile.scope
+    ? JSON.stringify([
         props.patientId,
-        props.profile.scope?.accountId,
-        props.profile.scope?.professionalId,
-      ])}
-      {...props}
-    />
-  );
+        props.profile.scope.accountId,
+        props.profile.scope.professionalId,
+      ])
+    : null;
+  const unknownKey = JSON.stringify([props.patientId]);
+  const [identity, setIdentity] = useState(() => ({
+    patientId: props.patientId,
+    key: ownerKey ?? unknownKey,
+  }));
+  // Conserva sólo la identidad del montaje durante unavailable sin scope.
+  // No completa props ni autoriza mostrar el borrador: exige lectura fresca.
+  const key =
+    ownerKey ??
+    (identity.patientId === props.patientId ? identity.key : unknownKey);
+  if (identity.patientId !== props.patientId || identity.key !== key) {
+    setIdentity({ patientId: props.patientId, key });
+  }
+  return <ScopedProfileEditor key={key} {...props} />;
 }
 function ScopedProfileEditor({ patientId, profile, timeZone }: Props) {
   const router = useRouter();

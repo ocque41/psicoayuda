@@ -447,7 +447,7 @@ async function recoverConflict(page) {
         exact: true,
       })
       .click();
-    await idle(page);
+    await ready(page);
     ok(
       (await same(page, afterError)) && (await note(page).isVisible()),
       "RSC disponible requiere lectura fresca y restaura borrador propio sin promover",
@@ -559,6 +559,111 @@ async function recoverConflict(page) {
       (await note(page).inputValue()) === "Nota general ficticia B" &&
         (await field(page, "sex").inputValue()) === "male",
       "cuenta B abre sólo documento B con todos sus campos",
+    );
+    await control("actor", "A");
+    await button("Mostrar ficha ficticia A").click();
+    await ready(page);
+    const retainedA = { ...A, generalNote: "Borrador A oculto sin scope" };
+    await fill(page, retainedA);
+    const originalRevision = await field(page, "revision").inputValue();
+    const writesBeforeUnavailable = (await control("state")).saves;
+    await button("Marcar ficha no disponible").click();
+    ok(
+      (await form(page).count()) === 0 &&
+        !(await page.locator("body").innerText()).includes(
+          retainedA.generalNote,
+        ),
+      "unavailable real sin scope oculta todos los campos del borrador A",
+    );
+    ok(
+      await page.evaluate(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+      "unavailable sin scope conserva protección de cierre del borrador oculto",
+    );
+    await control("hold");
+    const readsBeforeRestore = (await control("state")).reads;
+    const restoreResponse = page.waitForResponse(
+      (r) => !!r.request().headers()["next-action"],
+    );
+    await button("Restaurar disponibilidad ficticia").click();
+    for (let i = 0; i < 100; i++) {
+      if ((await control("state")).reads > readsBeforeRestore) break;
+      await page.waitForTimeout(20);
+    }
+    ok(
+      (await control("state")).reads === readsBeforeRestore + 1 &&
+        (await note(page).inputValue()) === "" &&
+        (await note(page).isDisabled()),
+      "ready A tras unavailable exige lectura nueva sin mostrar RAM mientras espera",
+    );
+    await control("release");
+    await (await restoreResponse).finished();
+    await ready(page);
+    ok(
+      (await same(page, retainedA)) &&
+        (await field(page, "revision").inputValue()) === originalRevision &&
+        !(await consent(page).isChecked()) &&
+        (await control("state")).saves === writesBeforeUnavailable,
+      "permiso fresco de A recupera cuatro campos y revisión original sin escribir ni consentir",
+    );
+    await button("Marcar ficha no disponible").click();
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("nido:session-changed")),
+    );
+    await button("Restaurar disponibilidad ficticia").click();
+    await ready(page);
+    ok(
+      (await note(page).inputValue()) === "Guardado general ficticio retenido",
+      "logout durante unavailable sin scope descarta RAM antes de volver ready A",
+    );
+    await fill(page, retainedA);
+    await button("Marcar ficha no disponible").click();
+    await control("hold");
+    const readsBeforeOldA = (await control("state")).reads;
+    const oldA = page.waitForResponse(
+      (r) => !!r.request().headers()["next-action"],
+    );
+    await button("Restaurar disponibilidad ficticia").click();
+    for (let i = 0; i < 100; i++) {
+      if ((await control("state")).reads > readsBeforeOldA) break;
+      await page.waitForTimeout(20);
+    }
+    ok(
+      (await control("state")).reads === readsBeforeOldA + 1,
+      "lectura permitida de A queda retenida antes de cambiar propietario",
+    );
+    await button("Marcar ficha no disponible").click();
+    await control("actor", "B");
+    await button("Mostrar ficha ficticia B").click();
+    ok(
+      (await form(page).count()) === 0,
+      "nuevo scope B durante unavailable mantiene la ficha oculta",
+    );
+    await button("Restaurar disponibilidad ficticia").click();
+    ok(
+      (await note(page).inputValue()) === "" && (await note(page).isDisabled()),
+      "ready B no presenta props ni borrador A antes de permiso fresco",
+    );
+    await control("release");
+    await (await oldA).finished();
+    await ready(page);
+    ok(
+      (await note(page).inputValue()) === "Nota general ficticia B" &&
+        (await field(page, "revision").inputValue()) === "1" &&
+        !(await consent(page).isChecked()),
+      "respuesta antigua de A descartada; ready B sólo abre documento B",
+    );
+    await control("actor", "A");
+    await button("Mostrar ficha ficticia A").click();
+    await ready(page);
+    ok(
+      (await note(page).inputValue()) ===
+        "Guardado general ficticio retenido" &&
+        (await control("state")).saves === writesBeforeUnavailable,
+      "volver de B a A no recupera RAM previa ni ejecuta escrituras",
     );
     ok(
       !storage.some((r) => r.clinical || r.idb),
