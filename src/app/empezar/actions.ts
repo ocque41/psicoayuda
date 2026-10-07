@@ -41,12 +41,24 @@ export async function chooseAccountRole(
 export async function saveOnboardingDraft(
   role: OnboardingRole,
   input: unknown,
+  expectedOwnerId: string,
 ): Promise<OnboardingResult> {
   const session = await getServerSession();
   if (!session?.user.id)
     return {
       ok: false,
       message: "Tu sesión terminó. Entra de nuevo para guardar.",
+    };
+  // El dueño del formulario no autoriza: debe coincidir con la sesión fresca
+  // de esta acción. Una cola antigua nunca adopta al nuevo usuario de la cookie.
+  if (
+    typeof expectedOwnerId !== "string" ||
+    expectedOwnerId !== session.user.id
+  )
+    return {
+      ok: false,
+      message:
+        "Tu sesión cambió. Vuelve a abrir este recorrido para continuar.",
     };
   if (role !== "patient" && role !== "pro")
     return { ok: false, message: "No pudimos identificar el recorrido." };

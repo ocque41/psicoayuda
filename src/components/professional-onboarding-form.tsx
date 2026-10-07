@@ -421,11 +421,13 @@ export function ProfessionalOnboardingForm({
   name,
   existing,
   draft = {},
+  ownerId,
 }: {
   email: string;
   name?: string | null;
   existing?: ExistingProfessional | null;
   draft?: SafeDraft;
+  ownerId: string;
 }) {
   const editing = Boolean(existing);
   const formId = useId();
@@ -529,10 +531,11 @@ export function ProfessionalOnboardingForm({
       activeStep,
     ],
   );
-  const { status, flush } = useDraftSave("pro", safeDraft);
+  const { status, flush } = useDraftSave("pro", safeDraft, ownerId);
   const safeAction = useCallback(
     async (previous: unknown, data: FormData) => {
-      await flush();
+      const saved = await flush();
+      if (!saved?.ok) return saved;
       try {
         return await saveProfessionalOnboarding(previous, data);
       } catch (error) {

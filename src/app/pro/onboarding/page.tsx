@@ -145,6 +145,8 @@ export default async function ProOnboardingPage({
           </>
         )}
         <ProfessionalOnboardingForm
+          key={session.user.id}
+          ownerId={session.user.id}
           email={session.user.email}
           name={session.user.name}
           existing={existing}

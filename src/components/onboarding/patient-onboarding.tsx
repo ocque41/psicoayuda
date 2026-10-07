@@ -66,9 +66,11 @@ const questions = [
 export function PatientOnboarding({
   initial,
   defaultName,
+  ownerId,
 }: {
   initial: SafeDraft;
   defaultName: string;
+  ownerId: string;
 }) {
   const id = useId();
   const [answers, setAnswers] = useState({
@@ -102,13 +104,14 @@ export function PatientOnboarding({
       step,
     ],
   );
-  const { status, flush } = useDraftSave("patient", draft);
+  const { status, flush } = useDraftSave("patient", draft, ownerId);
   const submit = useCallback(
     async (
       previous: Parameters<typeof finishPatientOnboarding>[0],
       data: FormData,
     ) => {
-      await flush();
+      const saved = await flush();
+      if (!saved?.ok) return saved;
       try {
         return await finishPatientOnboarding(previous, data);
       } catch (error) {

@@ -22,6 +22,8 @@ export default async function PatientStartPage() {
     <section className="section">
       <div className="container">
         <PatientOnboarding
+          key={session.user.id}
+          ownerId={session.user.id}
           initial={draft}
           defaultName={session.user.name ?? ""}
         />

@@ -167,7 +167,7 @@ describe("Onboarding privado, persistente y con revisión humana", () => {
   it("no persiste borradores ni rol sin una sesión autenticada", async () => {
     fixture.session = null;
     expect(
-      (await saveOnboardingDraft("patient", { displayName: "Nombre" }))?.ok,
+      (await saveOnboardingDraft("patient", { displayName: "Nombre" }, ID))?.ok,
     ).toBe(false);
     expect((await chooseAccountRole(null, form({ role: "pro" })))?.ok).toBe(
       false,
@@ -180,19 +180,23 @@ describe("Onboarding privado, persistente y con revisión humana", () => {
     ).toHaveLength(0);
   });
   it("ignora IDs ajenos y elimina datos sensibles del borrador", async () => {
-    await saveOnboardingDraft("pro", {
-      userId: OTHER,
-      fullName: "Nombre ficticio",
-      country: "España",
-      timezone: "Europe/Madrid",
-      licenseNumber: "SECRETO",
-      cedula: "12345678",
-      email: "privado@example.test",
-      phone: "+34123456789",
-      shortBio: "Relato privado",
-      registrationProofDoc: "data:application/pdf;base64,AAAA",
-      photo: "data:image/jpeg;base64,AAAA",
-    });
+    await saveOnboardingDraft(
+      "pro",
+      {
+        userId: OTHER,
+        fullName: "Nombre ficticio",
+        country: "España",
+        timezone: "Europe/Madrid",
+        licenseNumber: "SECRETO",
+        cedula: "12345678",
+        email: "privado@example.test",
+        phone: "+34123456789",
+        shortBio: "Relato privado",
+        registrationProofDoc: "data:application/pdf;base64,AAAA",
+        photo: "data:image/jpeg;base64,AAAA",
+      },
+      ID,
+    );
     expect(await readOnboardingDraft(ID, "pro")).toEqual({
       fullName: "Nombre ficticio",
       country: "España",
