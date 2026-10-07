@@ -186,8 +186,15 @@ export async function deliverAppointmentReminder(
     delivery.leaseUntil <= sendAt ||
     Date.parse(delivery.appointmentStartsAt) <= sendAt
   ) {
-    await finishDelivery(id, token, sendAt, "skipped", "eligibility_changed");
-    return "skipped" as const;
+    return (await finishDelivery(
+      id,
+      token,
+      sendAt,
+      "skipped",
+      "eligibility_changed",
+    ))
+      ? ("skipped" as const)
+      : ("unclaimed" as const);
   }
   let result: ReminderEmailResult;
   try {
@@ -216,12 +223,16 @@ export async function deliverAppointmentReminder(
     nextAt >= Date.parse(delivery.appointmentStartsAt) ||
     nextAt >= (delivery.firstAttemptAt || at) + RETRY_WINDOW_MS;
   if (exhausted) {
-    await finishDelivery(id, token, finishedAt, "dead", result.code);
-    return "dead" as const;
+    return (await finishDelivery(id, token, finishedAt, "dead", result.code))
+      ? ("dead" as const)
+      : ("unclaimed" as const);
   }
-  await db.run(sql`UPDATE appointment_reminder_deliveries SET status='pending',reason_code=${result.code},next_attempt_at=${nextAt},claim_token=NULL,lease_until=NULL,updated_at=${finishedAt}
-    WHERE id=${id} AND claim_token=${token} AND status='sending'`);
-  return "retry" as const;
+  // Un resultado tardío no pertenece a este intento si otro ya tomó el lease.
+  const changed = await db.values<
+    [string]
+  >(sql`UPDATE appointment_reminder_deliveries SET status='pending',reason_code=${result.code},next_attempt_at=${nextAt},claim_token=NULL,lease_until=NULL,updated_at=${finishedAt}
+    WHERE id=${id} AND claim_token=${token} AND status='sending' RETURNING id`);
+  return changed.length ? ("retry" as const) : ("unclaimed" as const);
 }
 
 /** El endpoint interno de cron es el único caller automático. Sin proveedor
@@ -239,6 +250,7 @@ export async function runAppointmentReminderJobs(
     skipped: 0,
     retry: 0,
     dead: 0,
+    unclaimed: 0,
     unavailable: false,
   };
   if (process.env.NIDO_PRACTICE_ENABLED !== "true" || !reminderProviderReady())
@@ -270,7 +282,7 @@ export async function runAppointmentReminderJobs(
       options.send,
       clock,
     );
-    if (outcome !== "unclaimed") result[outcome]++;
+    result[outcome]++;
   }
   return result;
 }

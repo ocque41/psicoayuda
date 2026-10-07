@@ -503,6 +503,48 @@ describe("recordatorios opt-in de sesiones", () => {
     expect(send).toHaveBeenCalledTimes(4);
   });
 
+  it.each([
+    "success",
+    "retry",
+    "rejected",
+  ] as const)("no atribuye el resultado %s de un intento antiguo después de recuperar su lease", async (outcome) => {
+    const row = await queued();
+    let clock = AT;
+    const recovered = sent();
+    let snapshot: typeof row | undefined;
+    const stale = vi.fn(async () => {
+      clock = AT + 121_000;
+      expect(await deliverAppointmentReminder(row.id, clock, recovered)).toBe(
+        "sent",
+      );
+      [snapshot] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.id, row.id));
+      return outcome === "success"
+        ? { ok: true as const }
+        : {
+            ok: false as const,
+            retryable: outcome === "retry",
+            code: "network" as const,
+          };
+    });
+    expect(
+      await deliverAppointmentReminder(row.id, AT, stale, () => clock),
+    ).toBe("unclaimed");
+    expect(recovered).toHaveBeenCalledOnce();
+    expect(stale).toHaveBeenCalledOnce();
+    expect(
+      (await db.select().from(deliveries).where(eq(deliveries.id, row.id)))[0],
+    ).toEqual(snapshot);
+    expect(snapshot).toMatchObject({
+      status: "sent",
+      attempts: 2,
+      sentAt: clock,
+      claimToken: null,
+    });
+  });
+
   it("no reintenta fuera de la ventana Resend de 24 horas", async () => {
     const row = await queued();
     const send = sent();
@@ -522,6 +564,31 @@ describe("recordatorios opt-in de sesiones", () => {
     expect(result.unavailable).toBe(true);
     expect(await db.select().from(deliveries)).toHaveLength(0);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("el cron no suma un reintento tardío que otro worker ya completó", async () => {
+    const row = await queued();
+    let clock = AT;
+    const recovered = sent();
+    const stale = vi.fn(async () => {
+      clock = AT + 121_000;
+      expect(await deliverAppointmentReminder(row.id, clock, recovered)).toBe(
+        "sent",
+      );
+      return { ok: false as const, retryable: true, code: "network" as const };
+    });
+    expect(
+      await runAppointmentReminderJobs({ now: () => clock, send: stale }),
+    ).toMatchObject({
+      enqueued: 0,
+      sent: 0,
+      skipped: 0,
+      retry: 0,
+      dead: 0,
+      unclaimed: 1,
+    });
+    expect(recovered).toHaveBeenCalledOnce();
+    expect(stale).toHaveBeenCalledOnce();
   });
 
   it("genera correo mínimo y headers idempotentes sin datos clínicos", async () => {

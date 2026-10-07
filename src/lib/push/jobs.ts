@@ -238,7 +238,7 @@ async function finish(
   at: number,
   next = at,
 ) {
-  await db
+  const changed = await db
     .update(deliveries)
     .set({
       status,
@@ -254,7 +254,9 @@ async function finish(
         eq(deliveries.claimToken, token),
         eq(deliveries.status, "sending"),
       ),
-    );
+    )
+    .returning({ id: deliveries.id });
+  return changed.length > 0;
 }
 export async function deliverWebPush(
   id: string,
@@ -281,8 +283,9 @@ export async function deliverWebPush(
     .from(subscriptions)
     .where(eq(subscriptions.id, event.subscriptionId));
   const skip = async (reason: string) => {
-    await finish(id, token, "skipped", reason, now());
-    return "skipped";
+    return (await finish(id, token, "skipped", reason, now()))
+      ? "skipped"
+      : "unclaimed";
   };
   if (
     !device ||
@@ -309,8 +312,9 @@ export async function deliverWebPush(
       ),
     );
   } catch {
-    await finish(id, token, "dead", "invalid_storage", now());
-    return "dead";
+    return (await finish(id, token, "dead", "invalid_storage", now()))
+      ? "dead"
+      : "unclaimed";
   }
   const deliveryAt = now();
   if (!(await eligibleEvent(device, preferences, event, deliveryAt)))
@@ -321,10 +325,10 @@ export async function deliverWebPush(
   if (next === null || next >= event.expiresAt) return skip("quiet_expired");
   if (next > sendAt) {
     // A quiet-hours deferral is not a provider attempt.
-    await db.run(
-      sql`UPDATE web_push_deliveries SET status='pending',attempts=attempts-1,next_attempt_at=${next},claim_token=NULL,lease_until=NULL,updated_at=${sendAt} WHERE id=${id} AND claim_token=${token} AND status='sending'`,
+    const changed = await db.values(
+      sql`UPDATE web_push_deliveries SET status='pending',attempts=attempts-1,next_attempt_at=${next},claim_token=NULL,lease_until=NULL,updated_at=${sendAt} WHERE id=${id} AND claim_token=${token} AND status='sending' RETURNING id`,
     );
-    return "deferred";
+    return changed.length ? "deferred" : "unclaimed";
   }
   if (budget && now() - budget.started >= PUSH_JOB_LIMITS.milliseconds - 8500) {
     // Release an unstarted attempt using its reserved cleanup statement.
@@ -354,11 +358,12 @@ export async function deliverWebPush(
   }
   const finishedAt = now();
   if (result.ok) {
-    await finish(id, token, "sent", null, finishedAt);
-    return "sent";
+    return (await finish(id, token, "sent", null, finishedAt))
+      ? "sent"
+      : "unclaimed";
   }
   if (result.code === "expired") {
-    // Only retire the exact subscription revision that failed, not a fresh opt-in.
+    // Retire only while this attempt still owns its claim and exact revision.
     await db
       .update(subscriptions)
       .set({
@@ -372,6 +377,7 @@ export async function deliverWebPush(
         and(
           eq(subscriptions.id, device.id),
           eq(subscriptions.revision, device.revision),
+          sql`EXISTS(SELECT 1 FROM web_push_deliveries d WHERE d.id=${id} AND d.claim_token=${token} AND d.status='sending')`,
         ),
       );
   }
@@ -379,7 +385,7 @@ export async function deliverWebPush(
     finishedAt + [60000, 300000, 900000][Math.min(event.attempts - 1, 2)];
   const retry =
     result.retryable && event.attempts < 4 && retryAt < event.expiresAt;
-  await finish(
+  const changed = await finish(
     id,
     token,
     retry ? "pending" : "dead",
@@ -387,7 +393,7 @@ export async function deliverWebPush(
     finishedAt,
     retryAt,
   );
-  return retry ? "retry" : "dead";
+  return changed ? (retry ? "retry" : "dead") : "unclaimed";
 }
 /** Called as an independent job by the existing authenticated practice cron. */
 /** An opaque notification ID is never an access grant. Resolve after login. */
@@ -464,6 +470,7 @@ export async function runWebPushJobs(
     sent: 0,
     retried: 0,
     skipped: 0,
+    unclaimed: 0,
     dead: 0,
     failed: 0,
     complete: true,
@@ -547,6 +554,7 @@ export async function runWebPushJobs(
         summary.dead++;
         summary.failed++;
       } else if (status === "unavailable") summary.failed++;
+      else if (status === "unclaimed") summary.unclaimed++;
       else summary.skipped++;
     }
     budget.checkTime();

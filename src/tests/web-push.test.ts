@@ -528,6 +528,95 @@ describe("Web Push aislado: permisos y cola", () => {
       (await db.select().from(subscriptions))[0].sealedSubscription,
     ).toBeNull();
   });
+  it.each([
+    "success",
+    "retry",
+    "expired",
+  ] as const)("un resultado Push antiguo %s no altera el intento que recuperó el lease", async (outcome) => {
+    const [row] = await queue();
+    const [device] = await db.select().from(subscriptions);
+    let clock = AT;
+    const recovered = sender();
+    let snapshot: typeof row | undefined;
+    const stale = vi.fn(async () => {
+      clock = AT + 121_000;
+      expect(await deliver(row.id, recovered, clock)).toBe("sent");
+      [snapshot] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.id, row.id));
+      return outcome === "success"
+        ? { ok: true as const }
+        : {
+            ok: false as const,
+            retryable: outcome === "retry",
+            code:
+              outcome === "retry"
+                ? ("temporary" as const)
+                : ("expired" as const),
+          };
+    });
+    expect(await deliverWebPush(row.id, AT, stale, () => clock)).toBe(
+      "unclaimed",
+    );
+    expect(recovered).toHaveBeenCalledOnce();
+    expect(stale).toHaveBeenCalledOnce();
+    expect(
+      (await db.select().from(deliveries).where(eq(deliveries.id, row.id)))[0],
+    ).toEqual(snapshot);
+    expect(snapshot).toMatchObject({
+      status: "sent",
+      attempts: 2,
+      claimToken: null,
+    });
+    expect((await db.select().from(subscriptions))[0]).toEqual(device);
+  });
+  it("un 410 antiguo no retira el dispositivo de otro intento todavía en curso", async () => {
+    const [row] = await queue();
+    const [device] = await db.select().from(subscriptions);
+    const started = Promise.withResolvers<void>();
+    const complete = Promise.withResolvers<{ ok: true }>();
+    let clock = AT;
+    let recovered: Promise<string> | undefined;
+    let snapshot: typeof row | undefined;
+    const stale = vi.fn(async () => {
+      clock = AT + 121_000;
+      recovered = deliverWebPush(
+        row.id,
+        clock,
+        async () => {
+          started.resolve();
+          return complete.promise;
+        },
+        () => clock,
+      );
+      await Promise.race([started.promise, recovered]);
+      [snapshot] = await db
+        .select()
+        .from(deliveries)
+        .where(eq(deliveries.id, row.id));
+      return { ok: false as const, retryable: false, code: "expired" as const };
+    });
+    try {
+      expect(await deliverWebPush(row.id, AT, stale, () => clock)).toBe(
+        "unclaimed",
+      );
+      expect(snapshot).toMatchObject({
+        status: "sending",
+        attempts: 2,
+        claimToken: expect.any(String),
+      });
+      expect(
+        (
+          await db.select().from(deliveries).where(eq(deliveries.id, row.id))
+        )[0],
+      ).toEqual(snapshot);
+      expect((await db.select().from(subscriptions))[0]).toEqual(device);
+    } finally {
+      complete.resolve({ ok: true });
+      expect(await recovered).toBe("sent");
+    }
+  });
   it("aviso pos-sesión tiene consentimiento profesional independiente", async () => {
     await db.update(practiceAppointments).set({
       startsAt: iso(AT - 7200000),
@@ -570,6 +659,33 @@ describe("Web Push aislado: permisos y cola", () => {
       processed: 0,
     });
     expect(send).not.toHaveBeenCalled();
+  });
+  it("el cron separa un resultado tardío de una baja sin atribuirlo a sent o skipped", async () => {
+    const { id } = await optIn(pro, {
+      ...preferences,
+      appointmentEnabled: false,
+    });
+    const send = vi.fn(async () => {
+      await revokePush(pro, id, AT);
+      return { ok: true as const };
+    });
+    expect(await runWebPushJobs(AT, send, () => AT)).toMatchObject({
+      enqueued: 1,
+      processed: 1,
+      sent: 0,
+      skipped: 0,
+      dead: 0,
+      unclaimed: 1,
+      failed: 0,
+      complete: true,
+    });
+    expect(send).toHaveBeenCalledOnce();
+    const [row] = await db.select().from(deliveries);
+    expect(row).toMatchObject({ status: "skipped", reasonCode: "revoked" });
+    expect((await db.select().from(subscriptions))[0]).toMatchObject({
+      revokedAt: AT,
+      sealedSubscription: null,
+    });
   });
   it("una nota guardada después de encolar suprime el aviso pos-sesión", async () => {
     await db.update(practiceAppointments).set({
