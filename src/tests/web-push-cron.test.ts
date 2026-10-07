@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("INTERNAL_NOTIFY_SECRET", "fixture-internal");
   jobs.practice.mockResolvedValue({ offered: 0, purged: 0, failed: 0 });
-  jobs.email.mockResolvedValue({ sent: 0, dead: 0 });
+  jobs.email.mockResolvedValue({ sent: 0, dead: 0, complete: true });
   jobs.calendar.mockResolvedValue({
     processed: 0,
     updated: 0,
@@ -51,6 +51,38 @@ describe("actual authenticated practice cron with independent Push", () => {
       push: { enabled: false },
     });
     for (const job of Object.values(jobs)) expect(job).toHaveBeenCalledOnce();
+  });
+  it.each([
+    { dead: 0, complete: false, exhausted: true, retry: 0 },
+    { dead: 0, complete: false, exhausted: false, retry: 1 },
+    { dead: 0, complete: false, exhausted: false, unclaimed: 1 },
+    { dead: 0, complete: false, exhausted: false, deferred: 1 },
+    { dead: 0 },
+  ])("reports unfinished email without skipping independent jobs", async (summary) => {
+    jobs.email.mockResolvedValue(summary);
+    const response = await POST(request());
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      reminders: summary,
+      calendar: { failed: 0 },
+      push: { enabled: false, complete: true },
+    });
+    for (const job of Object.values(jobs)) expect(job).toHaveBeenCalledOnce();
+  });
+  it("reports an intentionally unavailable email channel without claiming delivery", async () => {
+    jobs.email.mockResolvedValue({
+      dead: 0,
+      sent: 0,
+      complete: true,
+      unavailable: true,
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      reminders: { unavailable: true, sent: 0 },
+    });
   });
   it.each([
     "practice",

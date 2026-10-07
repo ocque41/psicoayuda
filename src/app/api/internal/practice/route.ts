@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       calendar.failed === 0 &&
       remindersResult.status === "fulfilled" &&
       remindersResult.value.dead === 0 &&
+      remindersResult.value.complete === true &&
       push.failed === 0 &&
       push.complete;
     return Response.json(
