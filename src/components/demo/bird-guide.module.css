@@ -105,6 +105,9 @@
 .content[hidden] {
   display: none;
 }
+.constrainedTitle {
+  display: none;
+}
 .descriptionRegion {
   flex: 1;
   min-height: 0;
@@ -183,6 +186,85 @@
   text-decoration-color: #8f6515;
   text-decoration-thickness: 2px;
   text-underline-offset: 0.25em;
+}
+.panel[data-constrained="true"] {
+  display: grid;
+  grid-template-columns: 44px 44px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 44px;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 12px;
+}
+.panel[data-constrained="true"] .top,
+.panel[data-constrained="true"] .content:not([hidden]),
+.panel[data-constrained="true"] .navigation {
+  display: contents;
+}
+.panel[data-constrained="true"] .step,
+.panel[data-constrained="true"] .title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.panel[data-constrained="true"] .iconButton {
+  grid-row: 2;
+}
+.panel[data-constrained="true"] .iconButton:first-of-type {
+  grid-column: 1;
+}
+.panel[data-constrained="true"] .iconButton:last-of-type {
+  grid-column: 2;
+}
+.panel[data-constrained="true"] .descriptionRegion,
+.panel[data-constrained="true"] .compactTitle {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.panel[data-constrained="true"]
+  .title:focus-visible
+  + .content
+  .descriptionRegion {
+  outline: 2px solid #8f6515;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.panel[data-constrained="true"] .compactTitle {
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+}
+.panel[data-constrained="true"] .constrainedTitle {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  font-weight: 650;
+}
+.panel[data-constrained="true"] .previous,
+.panel[data-constrained="true"] .next {
+  grid-row: 2;
+  width: auto;
+  min-width: 0;
+  gap: 2px;
+  padding: 4px;
+  font-size: 0.72rem;
+}
+.panel[data-constrained="true"] .previous {
+  grid-column: 3;
+}
+.panel[data-constrained="true"] .next {
+  grid-column: 4;
+}
+.panel[data-constrained="true"] .keyboard {
+  display: none;
+}
+.panel[data-constrained="true"] button:focus-visible {
+  outline-offset: -3px;
 }
 .highlight {
   position: absolute;

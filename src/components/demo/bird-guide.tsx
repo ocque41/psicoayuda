@@ -619,7 +619,7 @@ export function BirdGuide({
         ) || 0;
       const navbarRect = navbar?.getBoundingClientRect();
       const navigationRect = navigation?.getBoundingClientRect();
-      const contentTop = Math.max(
+      let contentTop = Math.max(
         top + 12,
         navbarRect && navbarRect.top <= top + 1
           ? navbarRect.bottom + 12
@@ -630,20 +630,34 @@ export function BirdGuide({
           ? navigationRect.bottom + 12
           : top + 12,
       );
-      const contentBottom =
+      const bottomNavigation = Boolean(
         navigationRect &&
-        navigationRect.width > width * 0.75 &&
-        navigationRect.top > top + height / 2 &&
-        navigationRect.bottom <= top + height + 1
+          navigationRect.width > width * 0.75 &&
+          navigationRect.top > top + height / 2 &&
+          navigationRect.bottom <= top + height + 1,
+      );
+      let contentBottom =
+        bottomNavigation && navigationRect
           ? navigationRect.top - 12
           : top + height - Math.max(12, safeBottom + 8);
+      // Con zoom o poca altura, una sola fila conserva las cuatro acciones.
+      const constrained = contentBottom - contentTop < 240;
+      panel.dataset.constrained = String(constrained);
+      if (constrained) {
+        contentTop = Math.max(top + 6, contentTop - 6);
+        contentBottom =
+          bottomNavigation && navigationRect
+            ? navigationRect.top - 6
+            : top + height - Math.max(6, safeBottom + 6);
+      }
       // La barra fija al pie sigue disponible durante todo el recorrido.
       const availableHeight = Math.max(0, contentBottom - contentTop);
       panel.style.maxHeight = `${availableHeight}px`;
       // El dock y sus acciones conservan su posición al cambiar de destino.
-      panel.style.height = collapsed
-        ? "auto"
-        : `${Math.min(300, availableHeight)}px`;
+      panel.style.height =
+        collapsed && !constrained
+          ? "auto"
+          : `${Math.min(300, availableHeight)}px`;
       const panelHeight = panel.getBoundingClientRect().height;
       const rect = target?.getBoundingClientRect();
       const available = Boolean(rect && rect.width > 0 && rect.height > 0);
@@ -939,6 +953,9 @@ export function BirdGuide({
                     // biome-ignore lint/a11y/noNoninteractiveTabindex: La región desplazable necesita foco para leer toda la explicación con teclado.
                     tabIndex={0}
                   >
+                    <p className={styles.constrainedTitle} aria-hidden="true">
+                      {currentIndex + 1}/{steps.length} · {step.title}
+                    </p>
                     <p id={`${id}-description`} className={styles.description}>
                       {step.description}
                     </p>
