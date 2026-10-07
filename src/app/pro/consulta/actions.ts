@@ -376,6 +376,7 @@ export async function scheduleAppointment(
               currency: practiceServices.currency,
               cancellationHours: practiceServices.cancellationHours,
               dailyRoom: sql<null>`NULL`.as("daily_room"),
+              calendarRevision: sql<number>`0`.as("calendar_revision"),
               careCycleId: sql<string | null>`${careCycleId || null}`.as(
                 "care_cycle_id",
               ),

@@ -132,6 +132,7 @@ export async function ownedCalendarAppointments(
       endsAt: practiceAppointments.endsAt,
       status: practiceAppointments.status,
       updatedAt: practiceAppointments.updatedAt,
+      calendarRevision: practiceAppointments.calendarRevision,
       patientStatus: practicePatients.status,
     })
     .from(practiceAppointments)

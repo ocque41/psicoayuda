@@ -501,6 +501,7 @@ describe("Google Calendar privado y unidireccional", () => {
   it("ICS usa UTC, título fijo, UID opaco y ninguna identidad ni URL privada", async () => {
     const raw = {
       ...appointments[0],
+      calendarRevision: 0,
       id: "paciente-malicioso\r\nATTENDEE:mailto:privado@example.test",
     };
     const ics = await nidoCalendarIcs(

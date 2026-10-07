@@ -5,6 +5,7 @@ type IcsEvent = {
   startsAt: string;
   endsAt: string;
   updatedAt: string;
+  calendarRevision: number;
 };
 function icsDate(value: string) {
   const date = new Date(value);
@@ -30,6 +31,12 @@ export async function nidoCalendarIcs(
     "X-WR-CALNAME:Nido",
   ];
   for (const event of events) {
+    if (
+      !Number.isInteger(event.calendarRevision) ||
+      event.calendarRevision < 0 ||
+      event.calendarRevision > 2147483647
+    )
+      throw new Error("calendar_invalid_revision");
     if (new Date(event.endsAt) <= new Date(event.startsAt)) continue;
     const uid = await calendarDigest(
       JSON.stringify(["nido-ics-v1", userId, audience, event.id]),
@@ -37,6 +44,7 @@ export async function nidoCalendarIcs(
     lines.push(
       "BEGIN:VEVENT",
       `UID:${uid.slice(0, 48)}@nido.invalid`,
+      `SEQUENCE:${event.calendarRevision}`,
       `DTSTAMP:${icsDate(now.toISOString())}`,
       `LAST-MODIFIED:${icsDate(event.updatedAt)}`,
       `DTSTART:${icsDate(event.startsAt)}`,

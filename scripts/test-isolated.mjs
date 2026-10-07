@@ -58,6 +58,7 @@ try {
     "0036_session_notes.sql",
     "0040_professional_admission_pipeline.sql",
     "0041_patient_profile.sql",
+    "0042_calendar_revision.sql",
   ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),

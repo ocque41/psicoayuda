@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   real,
@@ -831,6 +832,7 @@ export const practiceAppointments = sqliteTable(
     currency: text("currency").notNull().default("usd"),
     cancellationHours: integer("cancellation_hours").notNull().default(24),
     dailyRoom: text("daily_room"),
+    calendarRevision: integer("calendar_revision").notNull().default(0),
     careCycleId: text("care_cycle_id").references(() => careCycles.id, {
       onDelete: "set null",
     }),
@@ -853,6 +855,10 @@ export const practiceAppointments = sqliteTable(
       t.id,
     ),
     index("practice_appointments_cycle_idx").on(t.careCycleId, t.status),
+    check(
+      "practice_appointments_calendar_revision_valid",
+      sql`typeof(${t.calendarRevision}) = 'integer' AND ${t.calendarRevision} BETWEEN 0 AND 2147483647`,
+    ),
     index("practice_appointments_reminder_scan_idx").on(
       t.status,
       t.startsAt,
