@@ -40,8 +40,8 @@ jobs:
       - name: Typecheck worker (deploy path)
         run: pnpm typecheck:worker
 
-      - name: Test
-        run: pnpm test
+      - name: Test (isolated database and triggers)
+        run: pnpm test:isolated
 
       - name: Test chat Durable Object (Workers runtime)
         run: pnpm test:workers
