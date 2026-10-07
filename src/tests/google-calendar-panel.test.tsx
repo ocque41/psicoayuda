@@ -54,11 +54,11 @@ vi.mock("@/components/practice/forms", () => ({
 
 import { CalendarConnectionPanel } from "@/components/calendar/connection-panel";
 
-async function panel() {
+async function panel(audience: "pro" | "patient" = "pro") {
   return renderToStaticMarkup(
     await CalendarConnectionPanel({
       userId: "cuenta-ficticia",
-      audience: "pro",
+      audience,
     }),
   );
 }
@@ -79,6 +79,37 @@ describe("Google Calendar: estados y próximos pasos del panel", () => {
     fixture.connection = null;
     fixture.configured = true;
     fixture.permitted = true;
+  });
+  describe.each([
+    "pro",
+    "patient",
+  ] as const)("%s sin configuración OAuth", (audience) => {
+    it.each([
+      "none",
+      "connected",
+      "needs_reconnect",
+      "disconnecting",
+    ])("%s mantiene ICS y no ofrece sincronización o consentimiento", async (status) => {
+      fixture.configured = false;
+      if (status !== "none") {
+        connected();
+        if (fixture.connection) fixture.connection.status = status;
+      }
+      const html = await panel(audience);
+      expect(html).toContain("La conexión directa aún está en preparación");
+      expect(html).toContain(`href="/api/calendar/export?espacio=${audience}"`);
+      expect(html).toContain(
+        "no retira eventos cancelados que hayas importado antes",
+      );
+      expect(html).not.toContain('name="consent"');
+      expect(html).not.toContain('name="autoSync"');
+      expect(html).not.toContain("Guardar preferencias de Google");
+      expect(html).not.toContain(">Sincronizar ahora</button>");
+      if (status === "needs_reconnect" || status === "disconnecting")
+        expect(html).toMatch(/<details[^>]* open=""/);
+      if (status === "disconnecting")
+        expect(html).toContain("Completar desconexión");
+    });
   });
   it("ofrece ICS sin fingir conexión cuando falta la configuración dedicada", async () => {
     fixture.configured = false;
