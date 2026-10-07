@@ -11,7 +11,9 @@ import {
   it,
   vi,
 } from "vitest";
+import { savePatientNote } from "@/app/pro/pacientes/[patientId]/note-actions";
 import { authorizeNoteDraft } from "@/app/pro/pacientes/[patientId]/note-draft-actions";
+import { loadPatientNoteVersion } from "@/app/pro/pacientes/[patientId]/note-version-actions";
 import { db } from "@/db";
 import {
   practiceAppointments,
@@ -21,7 +23,30 @@ import {
   session,
   user,
 } from "@/db/schema";
-import { encryptNote } from "@/lib/practice/note-crypto";
+import { decryptNote, encryptNote } from "@/lib/practice/note-crypto";
+
+const gates = vi.hoisted(() => ({
+  afterDecrypt: null as null | (() => Promise<void>),
+}));
+vi.mock("@/lib/practice/note-crypto", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/practice/note-crypto")
+  >("@/lib/practice/note-crypto");
+  return {
+    ...actual,
+    decryptNote: async (...args: Parameters<typeof actual.decryptNote>) => {
+      const text = await actual.decryptNote(...args);
+      await gates.afterDecrypt?.();
+      return text;
+    },
+  };
+});
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  },
+}));
 
 const P = "test-note-draft-auth";
 const id = (suffix: string) => `${P}-${suffix}`;
@@ -64,6 +89,7 @@ async function cleanup() {
   await db.delete(user).where(like(user.id, `${P}%`));
 }
 async function reset() {
+  gates.afterDecrypt = null;
   actor.userId = id("user");
   actor.sessionId = id("auth-session");
   actor.onRead = null;
@@ -178,6 +204,36 @@ describe("autorización fresca para abrir draft RAM, sólo booleanos", () => {
   beforeEach(async () => {
     vi.stubEnv("NIDO_NOTES_ENCRYPTION_KEY", "34".repeat(32));
     await reset();
+    await db
+      .insert(practiceNotes)
+      .values({
+        id: input.noteId,
+        professionalId: input.professionalId,
+        patientId: input.patientId,
+        appointmentId: input.appointmentId,
+        ciphertext: await encryptNote(
+          "Nota exclusivamente ficticia",
+          input.professionalId,
+          input.patientId,
+          input.noteId,
+        ),
+        revision: 3,
+        createdAt: "2026-10-04T12:00:00Z",
+        updatedAt: "2026-10-04T12:00:00Z",
+      })
+      .onConflictDoUpdate({
+        target: practiceNotes.id,
+        set: {
+          ciphertext: await encryptNote(
+            "Nota exclusivamente ficticia",
+            input.professionalId,
+            input.patientId,
+            input.noteId,
+          ),
+          revision: 3,
+          updatedAt: "2026-10-04T12:00:00Z",
+        },
+      });
   });
   afterEach(() => vi.unstubAllEnvs());
   afterAll(cleanup);
@@ -326,6 +382,213 @@ describe("autorización fresca para abrir draft RAM, sólo booleanos", () => {
     expect(await authorizeNoteDraft(input)).toEqual({
       accountCurrent: false,
       scopeAllowed: false,
+    });
+  });
+
+  describe("consulta explícita para resolver conflicto", () => {
+    const row = () =>
+      db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, input.noteId),
+      });
+    it("dos pestañas, consulta sin escritura y tercera edición mantienen CAS antes de combinar", async () => {
+      const edit = (revision: number, content: string) =>
+        savePatientNote({
+          patientId: input.patientId,
+          appointmentId: input.appointmentId,
+          id: input.noteId,
+          revision,
+          content,
+        });
+      expect((await edit(3, "Versión ficticia B")).ok).toBe(true);
+      const before = await row();
+      expect(await edit(3, "Borrador ficticio A")).toMatchObject({
+        ok: false,
+        conflict: true,
+      });
+      const result = await loadPatientNoteVersion(input);
+      expect(result).toMatchObject({
+        ok: true,
+        version: {
+          id: input.noteId,
+          revision: 4,
+          content: "Versión ficticia B",
+        },
+      });
+      expect(await row()).toEqual(before);
+      expect((await edit(4, "Tercera edición ficticia B")).ok).toBe(true);
+      const third = await row();
+      expect(await edit(4, "Borrador ficticio A")).toMatchObject({
+        ok: false,
+        conflict: true,
+      });
+      expect(await row()).toEqual(third);
+      const fresh = await loadPatientNoteVersion(input);
+      if (!fresh.ok) throw new Error("Falta versión autorizada");
+      expect(fresh.version.revision).toBe(5);
+      expect(
+        (await edit(fresh.version.revision, "Combinación ficticia A y B")).ok,
+      ).toBe(true);
+      const saved = await row();
+      expect(saved?.revision).toBe(6);
+      expect(saved?.appointmentId).toBe(input.appointmentId);
+      expect(saved?.ciphertext).not.toContain("Combinación");
+      if (!saved) throw new Error("Falta nota guardada");
+      expect(
+        await decryptNote(
+          saved.ciphertext,
+          input.professionalId,
+          input.patientId,
+          input.noteId,
+        ),
+      ).toBe("Combinación ficticia A y B");
+    });
+    it("autoriza histórico NULL sin inventar encuentro ni modificar fila", async () => {
+      const before = await db.query.practiceNotes.findFirst({
+        where: eq(practiceNotes.id, id("legacy")),
+      });
+      expect(
+        await loadPatientNoteVersion({
+          ...input,
+          noteId: id("legacy"),
+          appointmentId: null,
+        }),
+      ).toMatchObject({
+        ok: true,
+        version: { revision: 7, content: "Histórico ficticio" },
+      });
+      expect(
+        await loadPatientNoteVersion({ ...input, noteId: id("legacy") }),
+      ).toMatchObject({ ok: false, accessDenied: true });
+      expect(
+        await db.query.practiceNotes.findFirst({
+          where: eq(practiceNotes.id, id("legacy")),
+        }),
+      ).toEqual(before);
+    });
+    it("cuenta B no abre nota A con IDs antiguos ni IDs de B bajo cuenta esperada A", async () => {
+      const before = await row();
+      actor.userId = id("user-other");
+      for (const request of [
+        input,
+        {
+          ...input,
+          professionalId: id("pro-other"),
+          patientId: id("patient-other"),
+          appointmentId: id("appointment-other"),
+          noteId: id("note-other"),
+        },
+      ]) {
+        const result = await loadPatientNoteVersion(request);
+        expect(result).toMatchObject({
+          ok: false,
+          accessDenied: true,
+          accountChanged: true,
+        });
+        expect(result).not.toHaveProperty("version");
+      }
+      expect(await row()).toEqual(before);
+    });
+    it.each([
+      { professionalId: id("pro-other") },
+      { patientId: id("patient-other") },
+      { appointmentId: id("appointment-other") },
+      { appointmentId: null },
+      { noteId: id("note-other") },
+      { noteId: id("missing") },
+      { accountId: "" },
+    ])("no devuelve texto fuera de ámbito %j", async (patch) => {
+      const before = await row();
+      const result = await loadPatientNoteVersion({ ...input, ...patch });
+      expect(result).toMatchObject({ ok: false, accessDenied: true });
+      expect(result).not.toHaveProperty("version");
+      expect(await row()).toEqual(before);
+    });
+    it.each([
+      "deleted-session",
+      "expired-session",
+      "closed-patient",
+      "suspended",
+      "helper",
+      "deleted-note",
+    ])("no devuelve plaintext si cambia permiso durante descifrado: %s", async (kind) => {
+      const before = await row();
+      gates.afterDecrypt = async () => {
+        if (kind === "deleted-session")
+          await db.delete(session).where(eq(session.id, actor.sessionId));
+        if (kind === "expired-session")
+          await db
+            .update(session)
+            .set({ expiresAt: new Date(Date.now() - 1000) })
+            .where(eq(session.id, actor.sessionId));
+        if (kind === "closed-patient")
+          await db
+            .update(practicePatients)
+            .set({ status: "closed" })
+            .where(eq(practicePatients.id, input.patientId));
+        if (kind === "suspended")
+          await db
+            .update(professionals)
+            .set({ status: "suspended" })
+            .where(eq(professionals.id, input.professionalId));
+        if (kind === "helper")
+          await db
+            .update(professionals)
+            .set({ nonClinicalHelper: true })
+            .where(eq(professionals.id, input.professionalId));
+        if (kind === "deleted-note")
+          await db
+            .delete(practiceNotes)
+            .where(eq(practiceNotes.id, input.noteId));
+      };
+      const result = await loadPatientNoteVersion(input);
+      expect(result).toMatchObject({
+        ok: false,
+        accessDenied: true,
+        accountChanged: kind.endsWith("session"),
+      });
+      expect(result).not.toHaveProperty("version");
+      if (kind !== "deleted-note") expect(await row()).toEqual(before);
+    });
+    it("descarta versión que cambia durante descifrado sin filtrar su contenido", async () => {
+      const cipher = await encryptNote(
+        "Nueva versión ficticia",
+        input.professionalId,
+        input.patientId,
+        input.noteId,
+      );
+      gates.afterDecrypt = async () => {
+        await db
+          .update(practiceNotes)
+          .set({ ciphertext: cipher, revision: 4 })
+          .where(eq(practiceNotes.id, input.noteId));
+      };
+      const result = await loadPatientNoteVersion(input);
+      expect(result).toMatchObject({ ok: false });
+      expect(result).not.toHaveProperty("version");
+      expect(result).not.toHaveProperty("accessDenied");
+      gates.afterDecrypt = null;
+      expect(await loadPatientNoteVersion(input)).toMatchObject({
+        ok: true,
+        version: { revision: 4, content: "Nueva versión ficticia" },
+      });
+    });
+    it("clave ausente/errónea y ciphertext corrupto no escriben ni devuelven texto", async () => {
+      const before = await row();
+      for (const key of ["", "56".repeat(32)]) {
+        vi.stubEnv("NIDO_NOTES_ENCRYPTION_KEY", key);
+        const result = await loadPatientNoteVersion(input);
+        expect(result).toMatchObject({ ok: false });
+        expect(result).not.toHaveProperty("version");
+        expect(await row()).toEqual(before);
+      }
+      vi.stubEnv("NIDO_NOTES_ENCRYPTION_KEY", "34".repeat(32));
+      await db
+        .update(practiceNotes)
+        .set({ ciphertext: "corrupto ficticio" })
+        .where(eq(practiceNotes.id, input.noteId));
+      const corrupt = await row();
+      expect(await loadPatientNoteVersion(input)).toMatchObject({ ok: false });
+      expect(await row()).toEqual(corrupt);
     });
   });
 });

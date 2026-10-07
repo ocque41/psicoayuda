@@ -17,6 +17,7 @@ export type NoteState = {
   message: string;
   id?: string;
   revision?: number;
+  conflict?: boolean;
 };
 function currentActor(
   professionalId: string,
@@ -167,8 +168,9 @@ export async function savePatientNote(data: {
         }
         return {
           ok: false,
+          conflict: true,
           message:
-            "Esta nota cambió en otra ventana. Conserva tu texto y actualiza la página antes de reemplazarlo.",
+            "Esta nota cambió en otra ventana. Tu borrador se conserva; consulta la versión guardada antes de continuar.",
         };
       }
     } else {
@@ -224,8 +226,9 @@ export async function savePatientNote(data: {
         )
           return {
             ok: false,
+            conflict: true,
             message:
-              "La nota ya existe con otro contenido. Conserva tu texto y actualiza antes de reemplazarla.",
+              "La nota ya existe con otro contenido. Tu borrador se conserva; consulta la versión guardada antes de continuar.",
           };
         revalidatePath(`/pro/pacientes/${input.patientId}`);
         return {

@@ -53,6 +53,17 @@ try {
           build.onResolve(
             {
               filter:
+                /^@\/app\/pro\/pacientes\/\[patientId\]\/note-version-actions$/,
+            },
+            () => ({ path: "version-actions", namespace: "fixture" }),
+          );
+          build.onResolve({ filter: /note-conflict\.module\.css$/ }, () => ({
+            path: "conflict-styles",
+            namespace: "fixture",
+          }));
+          build.onResolve(
+            {
+              filter:
                 /^@\/app\/pro\/pacientes\/\[patientId\]\/note-draft-actions$/,
             },
             () => ({ path: "draft-actions", namespace: "fixture" }),
@@ -65,23 +76,27 @@ try {
             resolveDir: root,
             loader: "js",
             contents:
-              path === "draft-actions"
-                ? "export async function authorizeNoteDraft(){return {accountCurrent:true,scopeAllowed:true};}"
-                : path === "actions"
-                  ? `
+              path === "conflict-styles"
+                ? "export default {}"
+                : path === "version-actions"
+                  ? 'export async function loadPatientNoteVersion(){return {ok:false,message:"Versión ficticia no disponible"};}'
+                  : path === "draft-actions"
+                    ? "export async function authorizeNoteDraft(){return {accountCurrent:true,scopeAllowed:true};}"
+                    : path === "actions"
+                      ? `
             async function action(kind,input){
               const f=window.nidoNotesFixture;const mode=f.mode;
               f.calls.push({kind,input});if(f.gate)await f.gate;
               if(mode==='throw')throw new Error('Fallo ficticio');
-              if(mode==='conflict')return {ok:false,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};
+              if(mode==='conflict')return {ok:false,conflict:true,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};
               return {ok:true,message:kind==='save'?'Nota guardada.':'Nota eliminada.',id:input.id,revision:input.revision+1};
             }
             export const savePatientNote=input=>action('save',input);
             export const deletePatientNote=(patientId,id,revision)=>action('delete',{patientId,id,revision});
           `
-                  : path === "next/link"
-                    ? 'import {createElement} from "react";export default function Link({href,prefetch,...props}){return createElement("a",{...props,href});}'
-                    : 'import {createElement} from "react";export default function Image(props){return createElement("img",props);}',
+                      : path === "next/link"
+                        ? 'import {createElement} from "react";export default function Link({href,prefetch,...props}){return createElement("a",{...props,href});}'
+                        : 'import {createElement} from "react";export default function Image(props){return createElement("img",props);}',
           }));
         },
       },

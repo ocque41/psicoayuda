@@ -1,0 +1,38 @@
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 16px);
+  padding: var(--space-4, 16px);
+  min-width: 0;
+}
+.versions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4, 16px);
+}
+.versions label {
+  min-width: 0;
+}
+.versions textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.actions,
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-4, 16px);
+}
+.actions button,
+.confirm button {
+  white-space: normal;
+  min-height: 44px;
+}
+.confirm {
+  flex-direction: column;
+}
+@media (max-width: 700px) {
+  .versions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

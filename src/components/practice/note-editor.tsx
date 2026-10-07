@@ -1,5 +1,6 @@
 "use client";
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -28,6 +29,7 @@ import {
   leaveWithUnsavedNotes,
   registerNoteNavigation,
 } from "@/lib/practice/note-navigation";
+import { NoteConflictRecovery } from "./note-conflict-recovery";
 
 type NoteEditorProps = {
   accountId: string;
@@ -84,11 +86,20 @@ function ScopedNoteEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [unsavedCount, setUnsavedCount] = useState(1);
   const [pending, startTransition] = useTransition();
+  const [conflictBusy, setConflictBusy] = useState(false);
+  const [recoveryVisible, setRecoveryVisible] = useState(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const [restoreFocus, setRestoreFocus] = useState(false);
+  const busy = pending || conflictBusy;
   const dirty = content !== saved;
   const leaveDialog = useRef<HTMLDialogElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const destination = useRef<string | null>(null);
   const operation = useRef(false);
+  const setRecoveryBusy = useCallback((value: boolean) => {
+    operation.current = value;
+    setConflictBusy(value);
+  }, []);
   const mountGeneration = useRef(0);
   useEffect(
     () => () => {
@@ -107,6 +118,12 @@ function ScopedNoteEditor({
   const [attempt, setAttempt] = useState(0);
   const [draftNotice, setDraftNotice] = useState("");
   const canEdit = enabled && ready && authorized;
+  useEffect(() => {
+    if (restoreFocus && !busy && canEdit) {
+      textarea.current?.focus();
+      setRestoreFocus(false);
+    }
+  }, [restoreFocus, busy, canEdit]);
   useEffect(() => {
     if (!focusOnEntry || !canEdit) return;
     function focusLinkedEntry() {
@@ -133,6 +150,7 @@ function ScopedNoteEditor({
           setAuthorized(false);
           setReady(true);
           setState(null);
+          setRecoveryVisible(false);
           setDraftNotice(
             "El acceso de tu cuenta cambió. Retiramos los textos de esta ventana. Comprueba el acceso para recuperar tu borrador temporal con su cuenta.",
           );
@@ -229,7 +247,12 @@ function ScopedNoteEditor({
       if (mount !== mountGeneration.current || epoch !== noteDraftGeneration())
         return;
       setState(result);
+      if (result.conflict) {
+        setRecoveryVisible(true);
+        setRecoveryAttempt((value) => value + 1);
+      }
       if (result.ok) {
+        setRecoveryVisible(false);
         forgetNoteDraft(scope, { ...identity, content, saved });
         setDraftNotice("");
         const confirmed = {
@@ -263,7 +286,7 @@ function ScopedNoteEditor({
         event.preventDefault();
         startTransition(save);
       }}
-      aria-busy={pending || !ready}
+      aria-busy={busy || !ready}
     >
       <label htmlFor={labelId}>
         {note ? "Tu nota privada" : "Nueva nota privada"}
@@ -291,7 +314,7 @@ function ScopedNoteEditor({
         rows={6}
         maxLength={12000}
         required
-        disabled={!canEdit || pending}
+        disabled={!canEdit || busy}
         aria-describedby={`${labelId}-save-status${state ? ` ${labelId}-feedback` : ""}`}
         placeholder="Un espacio privado para tus apuntes de la consulta…"
       />
@@ -301,20 +324,22 @@ function ScopedNoteEditor({
             ? "Comprobando acceso…"
             : !authorized
               ? "Acceso pendiente"
-              : pending
-                ? "Guardando…"
-                : dirty
-                  ? "Cambios sin guardar"
-                  : identity.revision
-                    ? "Guardada"
-                    : "Solo para ti"}
+              : conflictBusy
+                ? "Comprobando la versión guardada…"
+                : pending
+                  ? "Guardando…"
+                  : dirty
+                    ? "Cambios sin guardar"
+                    : identity.revision
+                      ? "Guardada"
+                      : "Solo para ti"}
         </span>
         <span className="hint">
           · {content.length.toLocaleString("es")} / 12.000
         </span>
         <button
           className="button human"
-          disabled={!canEdit || pending || !dirty}
+          disabled={!canEdit || busy || !dirty}
           type="submit"
         >
           Guardar nota
@@ -343,11 +368,69 @@ function ScopedNoteEditor({
           {state.message}
         </p>
       ) : null}
+      {recoveryVisible && canEdit ? (
+        <NoteConflictRecovery
+          key={recoveryAttempt}
+          input={{
+            accountId,
+            professionalId,
+            patientId,
+            appointmentId,
+            noteId: identity.id,
+          }}
+          draft={content}
+          disabled={pending}
+          onBusy={setRecoveryBusy}
+          onKeep={() => textarea.current?.focus()}
+          onDenied={(accountChanged, message) => {
+            if (accountChanged) {
+              clearNoteDrafts();
+              return;
+            }
+            authorizationGeneration.current = -1;
+            setAuthorized(false);
+            setContent("");
+            setSaved("");
+            setState(null);
+            setRecoveryVisible(false);
+            setDraftNotice(message);
+          }}
+          onAccept={(version, keepDraft) => {
+            const epoch = authorizationGeneration.current;
+            if (epoch !== noteDraftGeneration() || version.id !== identity.id)
+              return;
+            baseline.current = { ...version, saved: version.content };
+            const nextContent = keepDraft ? content : version.content;
+            const next = {
+              id: version.id,
+              revision: version.revision,
+              content: nextContent,
+              saved: version.content,
+            };
+            const retained = keepDraft
+              ? rememberNoteDraft(scope, next, epoch)
+              : forgetNoteDraft(scope, { ...identity, content, saved });
+            setIdentity({ id: next.id, revision: next.revision });
+            setContent(next.content);
+            setSaved(next.saved);
+            setState(null);
+            setRecoveryVisible(keepDraft);
+            setDraftNotice(
+              keepDraft
+                ? retained
+                  ? "Tu borrador sigue sin guardar. Combina los cambios antes de guardar; comprobaremos de nuevo la versión."
+                  : "Tu borrador permanece en el editor. No cabe en la memoria temporal; guarda antes de cambiar de ficha."
+                : "Se cargó la versión guardada. No se escribió ni eliminó ninguna nota.",
+            );
+            setRestoreFocus(true);
+          }}
+        />
+      ) : null}
       {!note && identity.revision > 0 ? (
         <button
           type="button"
           className="button secondary"
-          disabled={!canEdit || pending || dirty}
+          disabled={!canEdit || busy || dirty}
           onClick={() => {
             const fresh = {
               id: crypto.randomUUID(),
@@ -360,6 +443,7 @@ function ScopedNoteEditor({
             setContent("");
             setSaved("");
             setState(null);
+            setRecoveryVisible(false);
             setConfirmDelete(false);
             textarea.current?.focus();
           }}
@@ -376,7 +460,7 @@ function ScopedNoteEditor({
           <button
             type="button"
             className="button secondary"
-            disabled={!canEdit || pending || !confirmDelete}
+            disabled={!canEdit || busy || !confirmDelete}
             onClick={() =>
               startTransition(async () => {
                 if (operation.current || !canEdit || !confirmDelete) return;

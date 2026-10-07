@@ -34,7 +34,14 @@ await writeFile(
 );
 await writeFile(
   join(directory, "app/layout.tsx"),
-  'export default function Layout({children}){return <html lang="es"><body>{children}</body></html>;}',
+  'import "./globals.css";export default function Layout({children}){return <html lang="es"><body>{children}</body></html>;}',
+);
+await writeFile(
+  join(directory, "app/globals.css"),
+  (await readFile(join(root, "src/app/globals.css"), "utf8")).replace(
+    '@import "tailwindcss";',
+    "",
+  ),
 );
 await writeFile(
   join(directory, "app/page.tsx"),
@@ -68,7 +75,7 @@ await writeFile(
 await writeFile(
   join(directory, "fixture-state.ts"),
   `
-  export function fixtureState(){const root=globalThis as any;return root.__notesFixture ||= {actor:'A',expired:false,gate:null,release:null,saveGate:null,releaseSave:null,saveCalls:0,authCalls:0,saveRevisions:[],notes:{A:[{content:'Apunte ficticio 0',revision:1},{content:'Apunte ficticio 1',revision:1}],B:[{content:'Apunte ficticio B0',revision:1},{content:'Apunte ficticio B1',revision:1}]}};}
+  export function fixtureState(){const root=globalThis as any;return root.__notesFixture ||= {actor:'A',expired:false,gate:null,release:null,saveGate:null,releaseSave:null,versionCalls:0,failVersion:false,scopeDenied:false,versionGate:null,releaseVersion:null,saveCalls:0,authCalls:0,saveRevisions:[],notes:{A:[{content:'Apunte ficticio 0',revision:1},{content:'Apunte ficticio 1',revision:1}],B:[{content:'Apunte ficticio B0',revision:1},{content:'Apunte ficticio B1',revision:1}]}};}
 `,
 );
 await writeFile(
@@ -83,7 +90,11 @@ await writeFile(
     if(input.kind==='release')s.release?.();
     if(input.kind==='holdSave')s.saveGate=new Promise(resolve=>{s.releaseSave=()=>{s.saveGate=null;resolve();};});
     if(input.kind==='releaseSave')s.releaseSave?.();
-    return Response.json({actor:s.actor,expired:s.expired,authCalls:s.authCalls,saveCalls:s.saveCalls,saveRevisions:s.saveRevisions});
+    if(input.kind==='failVersion')s.failVersion=input.value;
+    if(input.kind==='scopeDenied')s.scopeDenied=input.value;
+    if(input.kind==='holdVersion')s.versionGate=new Promise(resolve=>{s.releaseVersion=()=>{s.versionGate=null;resolve();};});
+    if(input.kind==='releaseVersion')s.releaseVersion?.();
+    return Response.json({actor:s.actor,expired:s.expired,authCalls:s.authCalls,versionCalls:s.versionCalls,saveCalls:s.saveCalls,saveRevisions:s.saveRevisions});
   }
 `,
 );
@@ -104,6 +115,27 @@ await writeFile(
     .replace('"@/lib/practice/note-entry"', '"./note-entry"'),
 );
 await writeFile(
+  join(directory, "note-conflict-recovery.tsx"),
+  (
+    await readFile(
+      join(root, "src/components/practice/note-conflict-recovery.tsx"),
+      "utf8",
+    )
+  )
+    .replace(
+      '"@/app/pro/pacientes/[patientId]/note-version-actions"',
+      '"./actions"',
+    )
+    .replace('"@/lib/practice/note-drafts"', '"./note-drafts"'),
+);
+await writeFile(
+  join(directory, "note-conflict.module.css"),
+  await readFile(
+    join(root, "src/components/practice/note-conflict.module.css"),
+    "utf8",
+  ),
+);
+await writeFile(
   join(directory, "note-navigation.ts"),
   await readFile(join(root, "src/lib/practice/note-navigation.ts"), "utf8"),
 );
@@ -116,9 +148,12 @@ await writeFile(
 await writeFile(
   join(directory, "actions.ts"),
   `"use server";import {fixtureState} from './fixture-state';
-   export type NoteState={ok:boolean;message:string;id?:string;revision?:number};
+   export type NoteState={ok:boolean;message:string;id?:string;revision?:number;conflict?:boolean};
    export async function authorizeNoteDraft(input){const s=fixtureState();s.authCalls++;const accountCurrent=!s.expired && input.accountId===s.actor;const result={accountCurrent,scopeAllowed:accountCurrent && input.professionalId===s.actor+'-professional' && input.patientId==='fixture-patient' && input.appointmentId==='fixture-session'};if(s.gate)await s.gate;return result;}
-   export async function savePatientNote(input){const s=fixtureState();s.saveCalls++;s.saveRevisions.push(input.revision);const index=input.id==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];if(note.revision!==input.revision)return {ok:false,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};s.notes[s.actor][index]={content:input.content,revision:input.revision+1};if(s.saveGate)await s.saveGate;return {ok:true,message:'Guardado ficticio',id:input.id,revision:input.revision+1};}
+   export async function savePatientNote(input){const s=fixtureState();s.saveCalls++;s.saveRevisions.push(input.revision);const index=input.id==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];if(note.revision!==input.revision)return {ok:false,conflict:true,message:'La nota cambió en otra ventana. Tu borrador sigue aquí.'};s.notes[s.actor][index]={content:input.content,revision:input.revision+1};if(s.saveGate)await s.saveGate;return {ok:true,message:'Guardado ficticio',id:input.id,revision:input.revision+1};}
+   export type NoteVersion={id:string;revision:number;content:string;updatedAt:string};
+   export type NoteVersionInput={accountId:string;professionalId:string;patientId:string;appointmentId:string|null;noteId:string};
+   export async function loadPatientNoteVersion(input){const s=fixtureState();s.versionCalls++;if(s.failVersion)throw new Error('Fallo de transporte ficticio');if(s.scopeDenied)return {ok:false,message:'Ficha no disponible',accessDenied:true};if(s.expired||input.accountId!==s.actor)return {ok:false,message:'Acceso no disponible',accessDenied:true,accountChanged:true};if(input.professionalId!==s.actor+'-professional'||input.patientId!=='fixture-patient'||input.appointmentId!=='fixture-session')return {ok:false,message:'Ficha no disponible',accessDenied:true};const index=input.noteId==='fixture-note-0'?0:1;const note=s.notes[s.actor][index];const result={ok:true,version:{id:input.noteId,content:note.content,revision:note.revision,updatedAt:'2026-10-07T10:00:00Z'}};if(s.versionGate)await s.versionGate;return result;}
    export async function deletePatientNote(){return {ok:true,message:'Eliminado ficticio'};}
   `,
 );
