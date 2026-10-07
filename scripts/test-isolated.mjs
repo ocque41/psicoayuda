@@ -16,6 +16,19 @@ const env = {
   STRIPE_WEBHOOK_SECRET: "",
   DAILY_API_KEY: "",
   GITHUB_ISSUE_TOKEN: "",
+  // También neutralizar proveedores configurables sin las claves anteriores.
+  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_SECRET: "",
+  TURNSTILE_SITE_KEY: "",
+  TURNSTILE_SECRET_KEY: "",
+  NIDO_PUSH_ENABLED: "false",
+  NIDO_PUSH_VAPID_PUBLIC_KEY: "",
+  NIDO_PUSH_VAPID_PRIVATE_KEY: "",
+  NIDO_PUSH_VAPID_SUBJECT: "",
+  NIDO_GOOGLE_CALENDAR_ENABLED: "false",
+  NIDO_GOOGLE_CALENDAR_CLIENT_ID: "",
+  NIDO_GOOGLE_CALENDAR_CLIENT_SECRET: "",
+  NIDO_GOOGLE_CALENDAR_REDIRECT_URI: "",
   NIDO_PRACTICE_ENABLED: "false",
 };
 function run(args) {
