@@ -266,6 +266,9 @@
 .panel[data-constrained="true"] button:focus-visible {
   outline-offset: -3px;
 }
+.panel[data-constrained="true"] .next:focus-visible {
+  outline-color: #fff;
+}
 .highlight {
   position: absolute;
   top: 0;

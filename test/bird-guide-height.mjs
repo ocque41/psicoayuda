@@ -15,6 +15,7 @@ const session = `nido-height-${crypto.randomUUID()}`;
 const artifacts = process.env.NIDO_GUIDE_ARTIFACT_DIR;
 const checks = [];
 const evidence = [];
+const focusSamples = [];
 const extension = await mkdtemp(join(tmpdir(), "nido-guide-zoom-"));
 const server = spawn(
   process.execPath,
@@ -91,6 +92,71 @@ async function keyboardAction(label) {
 async function geometry() {
   return evaluate(
     `const panel=document.querySelector('[role=dialog]'),pr=panel.getBoundingClientRect(),buttons=[...panel.querySelectorAll('button')],region=panel.querySelector('section[tabindex]');const header=document.querySelector('[data-workspace-header]'),navigation=document.querySelector('[data-workspace-navigation]');return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,zoom:Number(document.documentElement.dataset.browserZoom),panel:pr.toJSON(),region:region?.getBoundingClientRect().toJSON(),headerBottom:header.getBoundingClientRect().bottom,navigationBottom:navigation.getBoundingClientRect().bottom,buttons:buttons.map(b=>{const r=b.getBoundingClientRect();return {name:b.getAttribute('aria-label')||b.textContent.trim(),x:r.x,y:r.y,width:r.width,height:r.height,inside:r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight&&r.top>=pr.top&&r.bottom<=pr.bottom,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};}),overflow:document.documentElement.scrollWidth>innerWidth};`,
+  );
+}
+function contrast(first, second) {
+  function luminance(color) {
+    const channels = color.match(/[\d.]+/g)?.map(Number);
+    assert.equal(channels?.length, 3, `Color opaco esperado: ${color}`);
+    const linear = channels.map((value) => {
+      const channel = value / 255;
+      return channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  }
+  const a = luminance(first);
+  const b = luminance(second);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+async function focusedStyle() {
+  return evaluate(
+    "const b=document.activeElement,s=getComputedStyle(b);return {name:b.textContent.trim(),visible:b.matches(':focus-visible'),color:s.outlineColor,background:s.backgroundColor,style:s.outlineStyle,width:parseFloat(s.outlineWidth),offset:parseFloat(s.outlineOffset),panelBackground:getComputedStyle(document.querySelector('[role=dialog]')).backgroundColor};",
+  );
+}
+async function focusAdvance(mode, step) {
+  const before = await geometry();
+  await cli("press", "Tab");
+  assert.equal(
+    await evaluate("return document.activeElement.tagName;"),
+    "SECTION",
+  );
+  const reading = await focusedStyle();
+  assert.equal(reading.color, "rgb(143, 101, 21)");
+  assert.ok(contrast(reading.color, reading.panelBackground) >= 3);
+  await cli("press", "Tab");
+  let focused = await focusedStyle();
+  if (focused.name === "Anterior") {
+    assert.ok(focused.visible && focused.style === "solid");
+    assert.equal(focused.color, "rgb(143, 101, 21)");
+    assert.ok(contrast(focused.color, focused.panelBackground) >= 3);
+    await cli("press", "Tab");
+    focused = await focusedStyle();
+  }
+  assert.ok(
+    ["Siguiente", "Terminar"].includes(focused.name),
+    JSON.stringify(focused),
+  );
+  const ratio = contrast(focused.color, focused.background);
+  focusSamples.push({ mode, step, ...focused, contrast: ratio });
+  assert.ok(
+    focused.visible &&
+      focused.style === "solid" &&
+      focused.width >= 2 &&
+      focused.offset === -3,
+    JSON.stringify(focused),
+  );
+  assert.ok(
+    ratio >= 3,
+    `Foco de avance insuficiente: ${JSON.stringify(focusSamples.at(-1))}`,
+  );
+  assert.equal(focused.color, "rgb(255, 255, 255)");
+  const after = await geometry();
+  assert.deepEqual(
+    after.buttons,
+    before.buttons,
+    "El foco no cambia posición, tamaño ni hit test de ninguna acción",
   );
 }
 async function next() {
@@ -220,6 +286,13 @@ try {
       (b) => b.name === "Siguiente",
     );
     await check(
+      `${mode}: foco del avance con contraste y geometría estables`,
+      async () => {
+        await focusAdvance(mode, 1);
+        await capture(`${mode}-siguiente-foco`);
+      },
+    );
+    await check(
       `${mode}: trece pasos conservan el avance incluso con título largo`,
       async () => {
         for (let index = 0; index < 12; index++) {
@@ -238,6 +311,7 @@ try {
               `${mode} desplaza ${key}: ${JSON.stringify(g)}`,
             );
           assert.ok(g.region.height >= 20, JSON.stringify(g));
+          await focusAdvance(mode, index + 2);
         }
         await capture(`${mode}-fin`);
       },
@@ -316,6 +390,7 @@ try {
     checks: checks.length,
     passed: checks,
     evidence,
+    focusSamples,
     zoom: "chrome.tabs.setZoom y getZoom en extensión temporal propia,viewport yDPR reales",
     environment:
       "BirdGuide/PracticeDemo reales,loopback,ejemplos ficticios,sin DB/proveedores",
@@ -327,7 +402,7 @@ try {
     await writeFile(
       join(artifacts, "failure.json"),
       JSON.stringify(
-        { evidence, current: await geometry().catch(() => null) },
+        { evidence, focusSamples, current: await geometry().catch(() => null) },
         null,
         2,
       ),
