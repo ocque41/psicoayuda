@@ -2,7 +2,6 @@
 
 import {
   type ChangeEvent,
-  type SyntheticEvent,
   useActionState,
   useCallback,
   useEffect,
@@ -665,10 +664,15 @@ export function ProfessionalOnboardingForm({
     // También devuelve el foco si el mismo error ya está renderizado.
     clientErrorRef.current?.focus();
   }
-  function handleFileCancel(event: SyntheticEvent<HTMLInputElement>) {
+  function handleFileCancel(event: Event) {
     // Cancelar/repetir la selección no debe cerrar el recorrido.
     event.stopPropagation();
     clientErrorRef.current?.focus();
+  }
+  function bindFileCancel(input: HTMLInputElement | null) {
+    if (!input) return;
+    input.addEventListener("cancel", handleFileCancel);
+    return () => input.removeEventListener("cancel", handleFileCancel);
   }
   async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -920,7 +924,7 @@ export function ProfessionalOnboardingForm({
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={handlePhotoChange}
-                onCancel={handleFileCancel}
+                ref={bindFileCancel}
                 disabled={filePending}
               />
             </>
@@ -1005,7 +1009,7 @@ export function ProfessionalOnboardingForm({
                 type="file"
                 accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={handleProofChange}
-                onCancel={handleFileCancel}
+                ref={bindFileCancel}
                 disabled={filePending}
                 required={
                   !answers.registrationProofDoc &&
