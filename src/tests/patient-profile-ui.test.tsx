@@ -99,6 +99,48 @@ describe("editor privado y revisión de la ficha", () => {
     expect(html).not.toContain("<textarea");
   });
 
+  it("RSC ready con cuenta conocida no presenta texto antes de consulta fresca", () => {
+    const html = renderToStaticMarkup(
+      <PatientProfileEditor
+        patientId="ficha-ficticia"
+        timeZone="UTC"
+        profile={{
+          status: "ready",
+          content: {
+            ...emptyPatientProfile,
+            generalNote: "Texto clínico ficticio previo",
+          },
+          revision: 4,
+          scope: {
+            accountId: "cuenta-ficticia",
+            professionalId: "pro-ficticio",
+          },
+        }}
+      />,
+    );
+    expect(html).not.toContain("Texto clínico ficticio previo");
+    expect(html).toContain('disabled=""');
+    expect(html).not.toMatch(/name="profileConsent"[^>]*checked/);
+  });
+  it("un resultado sin identidad no abre ni permite guardar texto RSC antiguo", () => {
+    const html = renderToStaticMarkup(
+      <PatientProfileEditor
+        patientId="ficha-ficticia"
+        timeZone="UTC"
+        profile={{
+          status: "ready",
+          content: {
+            ...emptyPatientProfile,
+            generalNote: "Texto clínico ficticio previo",
+          },
+          revision: 4,
+        }}
+      />,
+    );
+    expect(html).not.toContain("Texto clínico ficticio previo");
+    expect(html).not.toContain("<form");
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
   it("transporta la revisión y exige autorización al guardar sin mezclar notas de sesión", () => {
     const html = renderToStaticMarkup(
       <PatientProfileEditor
@@ -108,6 +150,10 @@ describe("editor privado y revisión de la ficha", () => {
           status: "ready",
           content: emptyPatientProfile,
           revision: 4,
+          scope: {
+            accountId: "cuenta-ficticia",
+            professionalId: "pro-ficticio",
+          },
         }}
       />,
     );

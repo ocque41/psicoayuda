@@ -71,7 +71,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { createPatient } from "@/app/pro/consulta/actions";
-import { savePatientProfile } from "@/app/pro/pacientes/[patientId]/profile-actions";
+import {
+  loadPatientProfileVersion,
+  savePatientProfile,
+} from "@/app/pro/pacientes/[patientId]/profile-actions";
 
 const P = "test-profile";
 const patientId = `${P}-patient`;
@@ -218,6 +221,248 @@ describe("ficha privada cifrada con actor vivo y revisión CAS", () => {
     vi.unstubAllEnvs();
   });
   afterAll(cleanup);
+  const scope = { accountId: `${P}-user`, professionalId: proId };
+  const load = () => loadPatientProfileVersion({ ...scope, patientId });
+  it("guardado rechaza input nulo o scope inválido sin excepción ni escritura", async () => {
+    expect(await savePatientProfile(null as never)).toMatchObject({
+      ok: false,
+    });
+    expect(
+      await savePatientProfile({
+        ...input(),
+        scope: { accountId: "", professionalId: proId },
+      }),
+    ).toMatchObject({ ok: false, accessDenied: true });
+    expect(await profileRow()).toBeUndefined();
+  });
+  it("consulta fresca devuelve documento completo y metadatos, sin escribir ni auditar", async () => {
+    expect(await load()).toMatchObject({
+      ok: true,
+      version: { scope, revision: 0, content: emptyPatientProfile },
+    });
+    expect(await profileRow()).toBeUndefined();
+    await savePatientProfile(input());
+    const before = await profileRow();
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.entityId, patientId));
+    expect(await load()).toMatchObject({
+      ok: true,
+      version: { scope, revision: 1, content },
+    });
+    expect(await profileRow()).toEqual(before);
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.entityId, patientId)),
+    ).toEqual(logs);
+  });
+  it("conflicto y tercera edición conservan CAS/documento agrupado hasta elección y guardado manual", async () => {
+    await savePatientProfile(input());
+    const b = {
+      ...content,
+      sex: "male" as const,
+      birthDate: "1980-01-01",
+      consultationReason: "Motivo ficticio B",
+      generalNote: "Nota general ficticia B",
+    };
+    expect((await savePatientProfile({ ...input(1), ...b, scope })).ok).toBe(
+      true,
+    );
+    const before = await profileRow();
+    expect(await savePatientProfile({ ...input(1), scope })).toMatchObject({
+      ok: false,
+      conflict: true,
+    });
+    expect(await load()).toMatchObject({
+      ok: true,
+      version: { revision: 2, content: b },
+    });
+    expect(await profileRow()).toEqual(before);
+    expect(
+      (
+        await savePatientProfile({
+          ...input(2),
+          ...b,
+          generalNote: "Tercera nota general ficticia B",
+          scope,
+        })
+      ).ok,
+    ).toBe(true);
+    const third = await profileRow();
+    expect(await savePatientProfile({ ...input(2), scope })).toMatchObject({
+      ok: false,
+      conflict: true,
+    });
+    expect(await profileRow()).toEqual(third);
+    const latest = await load();
+    if (!latest.ok) throw new Error("Falta versión propia");
+    expect(
+      await savePatientProfile({
+        ...latest.version.content,
+        patientId,
+        revision: latest.version.revision,
+        scope,
+        consent: false,
+      }),
+    ).toMatchObject({ ok: false });
+    expect(await profileRow()).toEqual(third);
+    expect(
+      await savePatientProfile({
+        ...latest.version.content,
+        generalNote: "Combinación general ficticia A B",
+        patientId,
+        revision: latest.version.revision,
+        scope,
+        consent: true,
+      }),
+    ).toMatchObject({ ok: true, revision: 4 });
+    const saved = await profileRow();
+    if (!saved) throw new Error("Falta documento");
+    expect(
+      await decryptPatientProfile(saved.contentCiphertext, proId, patientId),
+    ).toEqual({ ...b, generalNote: "Combinación general ficticia A B" });
+    expect(saved.contentCiphertext).not.toContain("Combinación");
+  });
+  it("cuenta B no abre ni guarda con scope de A aunque cambie IDs a los de B", async () => {
+    await savePatientProfile(input());
+    const before = await profileRow();
+    hooks.userId = `${P}-user-other`;
+    hooks.authId = `${P}-auth-other`;
+    for (const request of [
+      { ...scope, patientId },
+      {
+        ...scope,
+        professionalId: `${proId}-other`,
+        patientId: `${patientId}-other`,
+      },
+    ]) {
+      const result = await loadPatientProfileVersion(request);
+      expect(result).toMatchObject({
+        ok: false,
+        accessDenied: true,
+        accountChanged: true,
+      });
+      expect(result).not.toHaveProperty("version");
+    }
+    expect(
+      await savePatientProfile({
+        ...input(),
+        patientId: `${patientId}-other`,
+        scope,
+      }),
+    ).toMatchObject({ ok: false, accessDenied: true, accountChanged: true });
+    expect(await profileRow()).toEqual(before);
+    expect(
+      await db.query.practicePatientProfiles.findFirst({
+        where: eq(practicePatientProfiles.patientId, `${patientId}-other`),
+      }),
+    ).toBeUndefined();
+  });
+  it.each([
+    { professionalId: `${proId}-other` },
+    { patientId: `${patientId}-other` },
+    { patientId: "" },
+    { accountId: "" },
+  ])("lectura rechaza scope ajeno/inválido %j", async (patch) => {
+    await savePatientProfile(input());
+    const before = await profileRow();
+    const result = await loadPatientProfileVersion({
+      ...scope,
+      patientId,
+      ...patch,
+    });
+    expect(result).toMatchObject({ ok: false, accessDenied: true });
+    expect(result).not.toHaveProperty("version");
+    expect(await profileRow()).toEqual(before);
+  });
+  it.each([
+    "session",
+    "expiry",
+    "suspension",
+    "helper",
+  ])("consulta rechaza revocación durante descifrado: %s", async (kind) => {
+    await savePatientProfile(input());
+    const before = await profileRow();
+    hooks.afterDecrypt = async () => {
+      if (kind === "session")
+        await db.delete(session).where(eq(session.id, `${P}-auth`));
+      if (kind === "expiry")
+        await db
+          .update(session)
+          .set({ expiresAt: new Date(Date.now() - 1000) })
+          .where(eq(session.id, `${P}-auth`));
+      if (kind === "suspension")
+        await db
+          .update(professionals)
+          .set({ status: "suspended" })
+          .where(eq(professionals.id, proId));
+      if (kind === "helper")
+        await db
+          .update(professionals)
+          .set({ nonClinicalHelper: true })
+          .where(eq(professionals.id, proId));
+    };
+    const result = await load();
+    expect(result).toMatchObject({ ok: false, accessDenied: true });
+    expect(result).not.toHaveProperty("version");
+    expect(await profileRow()).toEqual(before);
+  });
+  it.each([
+    "version",
+    "zone",
+    "deleted",
+  ])("descarta snapshot que cambia durante descifrado: %s", async (kind) => {
+    await savePatientProfile(input());
+    const ciphertext = await encryptPatientProfile(
+      { ...content, generalNote: "Versión ficticia posterior" },
+      proId,
+      patientId,
+    );
+    hooks.afterDecrypt = async () => {
+      if (kind === "version")
+        await db
+          .update(practicePatientProfiles)
+          .set({ contentCiphertext: ciphertext, revision: 2 })
+          .where(eq(practicePatientProfiles.patientId, patientId));
+      if (kind === "zone")
+        await db
+          .update(practicePatients)
+          .set({ timeZone: "UTC" })
+          .where(eq(practicePatients.id, patientId));
+      if (kind === "deleted")
+        await db
+          .delete(practicePatientProfiles)
+          .where(eq(practicePatientProfiles.patientId, patientId));
+    };
+    const result = await load();
+    expect(result).toMatchObject({ ok: false });
+    expect(result).not.toHaveProperty("version");
+    expect(result).not.toHaveProperty("accessDenied");
+    hooks.afterDecrypt = null;
+    expect((await load()).ok).toBe(true);
+  });
+  it("consulta no escribe ni filtra texto con clave ausente/errónea o cipher corrupto", async () => {
+    await savePatientProfile(input());
+    const before = await profileRow();
+    for (const key of ["", "56".repeat(32)]) {
+      vi.stubEnv("NIDO_NOTES_ENCRYPTION_KEY", key);
+      const result = await load();
+      expect(result).toMatchObject({ ok: false });
+      expect(result).not.toHaveProperty("version");
+      expect(await profileRow()).toEqual(before);
+    }
+    vi.stubEnv("NIDO_NOTES_ENCRYPTION_KEY", "34".repeat(32));
+    await db
+      .update(practicePatientProfiles)
+      .set({ contentCiphertext: "corrupto ficticio" })
+      .where(eq(practicePatientProfiles.patientId, patientId));
+    const corrupt = await profileRow();
+    expect(await load()).toMatchObject({ ok: false });
+    expect(await profileRow()).toEqual(corrupt);
+  });
   it("cifra con nonce y AAD de ficha propio, conservando notas v1", async () => {
     const a = await encryptPatientProfile(content, proId, patientId);
     const b = await encryptPatientProfile(content, proId, patientId);
