@@ -6,6 +6,7 @@ import {
   webPushSubscriptions as subscriptions,
 } from "@/db/push-schema";
 import { notesConfigured } from "@/lib/practice/note-crypto";
+import { sessionNoteEntryHref } from "@/lib/practice/note-entry";
 import {
   nextOutsideQuietHours,
   type PushKind,
@@ -453,7 +454,7 @@ export async function pushOpenDestination(
   );
   const patientId = rows[0]?.[0];
   return patientId
-    ? `/pro/pacientes/${encodeURIComponent(patientId)}?notaSesion=${encodeURIComponent(row.event.entityId)}#notas`
+    ? sessionNoteEntryHref(patientId, row.event.entityId)
     : fallback;
 }
 export async function runWebPushJobs(

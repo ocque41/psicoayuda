@@ -46,17 +46,26 @@ export function ReminderPreferencesForm({
         Quiero recibir recordatorios de mis sesiones por correo.
       </label>
       <p className="hint">
-        Están desactivados hasta que tú los actives. Puedes elegir hasta tres
-        avisos distintos por sesión y desactivarlos cuando quieras.
+        {preferences.emailEnabled
+          ? "Preferencia guardada: recibir recordatorios por correo."
+          : "Preferencia guardada: recordatorios por correo desactivados."}{" "}
+        Puedes elegir hasta tres avisos distintos por sesión. Los cambios se
+        aplican al pulsar «Guardar recordatorios».
       </p>
-      {!preferences.emailVerified ? (
-        <p className="hint">
-          Verifica el correo de tu cuenta para activar los avisos.
-        </p>
-      ) : !preferences.providerReady ? (
-        <p className="hint">
-          El envío por correo todavía no está disponible. Tus recordatorios se
-          mantienen desactivados.
+      {!canEnable ? (
+        <p className="hint" role="status">
+          {preferences.emailEnabled
+            ? "El envío está pausado; tu preferencia sigue guardada. "
+            : "Los recordatorios siguen desactivados. "}
+          {!preferences.emailVerified
+            ? "Falta verificar el correo de tu cuenta. "
+            : null}
+          {!preferences.providerReady
+            ? "El envío por correo todavía no está disponible. "
+            : null}
+          {preferences.emailEnabled
+            ? "Puedes desmarcar la casilla y guardar para desactivarlos."
+            : "Puedes guardar tus anticipaciones y zona sin activar el correo."}
         </p>
       ) : null}
       <div className={styles.slots}>

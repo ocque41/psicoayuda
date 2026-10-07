@@ -76,8 +76,11 @@ const preferences: PushPreferences = {
 };
 let subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
 const sender = () => vi.fn(async () => ({ ok: true as const }));
-const deliver = (id: string, send = sender(), at = AT) =>
-  deliverWebPush(id, at, send, () => at);
+const deliver = (
+  id: string,
+  send: NonNullable<Parameters<typeof deliverWebPush>[2]> = sender(),
+  at = AT,
+) => deliverWebPush(id, at, send, () => at);
 async function optIn(actor: PushActor = pro, prefs = preferences) {
   return subscribePush(actor, subscription, prefs, 0, AT - 3600000);
 }
@@ -631,12 +634,22 @@ describe("Web Push aislado: permisos y cola", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe("after_session");
-    const send = sender();
+    const send = vi.fn<NonNullable<Parameters<typeof deliverWebPush>[2]>>(
+      async () => ({ ok: true }),
+    );
     expect(await deliver(rows[0].id, send)).toBe("sent");
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0][1]).toEqual({
+      v: 1,
+      id: rows[0].id,
+      kind: "after_session",
+      role: "professional",
+    });
+    expect(await enqueueWebPush(AT)).toBe(0);
     expect(
       await pushOpenDestination(pro.userId, pro.sessionId, rows[0].id, AT),
     ).toBe(
-      "/pro/pacientes/fixture-push-practice-patient?notaSesion=fixture-push-appointment#notas",
+      "/pro/pacientes/fixture-push-practice-patient?notaSesion=fixture-push-appointment#nota-nueva",
     );
     expect(
       await pushOpenDestination(
@@ -649,6 +662,81 @@ describe("Web Push aislado: permisos y cola", () => {
     expect(
       await pushOpenDestination(pro.userId, "wrong-session", rows[0].id, AT),
     ).toBe("/entrar");
+  });
+  it("el destino del aviso conserva IDs opacos exactos sin llevar datos privados en la payload", async () => {
+    const patientId = "opaque-patient/?#";
+    const appointmentId = "opaque-appointment/?#";
+    await db.insert(practicePatients).values({
+      id: patientId,
+      professionalId: "fixture-push-professional",
+      name: "PRIVATE_FICTITIOUS_PATIENT",
+      country: "VE",
+      status: "active",
+      consentAt: iso(AT),
+      createdAt: iso(AT),
+      updatedAt: iso(AT),
+    });
+    await db.insert(practiceAppointments).values({
+      id: appointmentId,
+      professionalId: "fixture-push-professional",
+      patientId,
+      startsAt: iso(AT - 7200000),
+      endsAt: iso(AT - 1000),
+      status: "completed",
+      timeZone: "UTC",
+      createdAt: iso(AT),
+      updatedAt: iso(AT),
+    });
+    await db.insert(practiceAppointments).values({
+      id: "opaque-earlier-appointment",
+      professionalId: "fixture-push-professional",
+      patientId,
+      startsAt: iso(AT - 86400000),
+      endsAt: iso(AT - 82800000),
+      status: "completed",
+      timeZone: "UTC",
+      createdAt: iso(AT),
+      updatedAt: iso(AT),
+    });
+    // Another encounter's note must not block this one or enter its payload.
+    await db.insert(practiceNotes).values({
+      id: "opaque-general-note",
+      professionalId: "fixture-push-professional",
+      patientId,
+      appointmentId: "opaque-earlier-appointment",
+      ciphertext: "PRIVATE_FICTITIOUS_CONTENT_NOT_DECRYPTABLE",
+      createdAt: iso(AT),
+      updatedAt: iso(AT),
+    });
+    const [row] = await queue(pro, {
+      ...preferences,
+      chatEnabled: false,
+      appointmentEnabled: false,
+      afterSessionEnabled: true,
+    });
+    expect(row.entityId).toBe(appointmentId);
+    const send = vi.fn<NonNullable<Parameters<typeof deliverWebPush>[2]>>(
+      async () => ({ ok: true }),
+    );
+    expect(await deliver(row.id, send)).toBe("sent");
+    const payload = send.mock.calls[0][1];
+    expect(payload).toEqual({
+      v: 1,
+      id: row.id,
+      kind: "after_session",
+      role: "professional",
+    });
+    expect(JSON.stringify(payload)).not.toContain(patientId);
+    expect(JSON.stringify(payload)).not.toContain(appointmentId);
+    expect(JSON.stringify(payload)).not.toContain("PRIVATE_FICTITIOUS");
+    expect(
+      await pushOpenDestination(pro.userId, pro.sessionId, row.id, AT),
+    ).toBe(
+      "/pro/pacientes/opaque-patient%2F%3F%23?notaSesion=opaque-appointment%2F%3F%23#nota-nueva",
+    );
+    expect(await enqueueWebPush(AT)).toBe(0);
+    expect(await deliver(row.id, send)).toBe("unclaimed");
+    expect(send).toHaveBeenCalledOnce();
   });
   it("cron no llama al proveedor con flag apagado", async () => {
     vi.stubEnv("NIDO_PUSH_ENABLED", "false");
@@ -725,6 +813,103 @@ describe("Web Push aislado: permisos y cola", () => {
         afterSessionEnabled: true,
       }),
     ).toHaveLength(0);
+  });
+  it("el aviso de notas exige su opt-in propio y deduplica después de activarlo", async () => {
+    await db.update(practiceAppointments).set({
+      startsAt: iso(AT - 7200000),
+      endsAt: iso(AT - 1000),
+      status: "completed",
+    });
+    const { id } = await optIn(pro, {
+      ...preferences,
+      chatEnabled: false,
+      appointmentEnabled: true,
+      afterSessionEnabled: false,
+    });
+    expect(await enqueueWebPush(AT)).toBe(0);
+    expect(await db.select().from(deliveries)).toHaveLength(0);
+    await updatePushPreferences(
+      pro,
+      id,
+      1,
+      { ...preferences, afterSessionEnabled: true, chatEnabled: false },
+      AT - 2000,
+    );
+    expect(await enqueueWebPush(AT)).toBe(1);
+    expect(await enqueueWebPush(AT)).toBe(0);
+    const [row] = await db.select().from(deliveries);
+    expect(row).toMatchObject({
+      kind: "after_session",
+      entityId: "fixture-push-appointment",
+      preferenceRevision: 2,
+    });
+  });
+  it.each([
+    "cancelled",
+    "moved",
+    "savedNote",
+    "preferenceChanged",
+    "expiredSession",
+    "unverified",
+  ] as const)("revalida el destino del editor antes de abrir un aviso de notas: %s", async (change) => {
+    await db.update(practiceAppointments).set({
+      startsAt: iso(AT - 7200000),
+      endsAt: iso(AT - 1000),
+      status: "completed",
+    });
+    const [row] = await queue(pro, {
+      ...preferences,
+      chatEnabled: false,
+      appointmentEnabled: false,
+      afterSessionEnabled: true,
+    });
+    if (change === "cancelled")
+      await db.update(practiceAppointments).set({ status: "cancelled" });
+    if (change === "moved")
+      await db.update(practiceAppointments).set({
+        startsAt: iso(AT + 3600000),
+        endsAt: iso(AT + 7200000),
+      });
+    if (change === "savedNote")
+      await db.insert(practiceNotes).values({
+        id: "opaque-note-already-saved",
+        professionalId: "fixture-push-professional",
+        patientId: "fixture-push-practice-patient",
+        appointmentId: "fixture-push-appointment",
+        ciphertext: "FICTITIOUS_UNREADABLE_NOTE",
+        createdAt: iso(AT),
+        updatedAt: iso(AT),
+      });
+    if (change === "preferenceChanged") {
+      const [device] = await db.select().from(subscriptions);
+      await updatePushPreferences(
+        pro,
+        device.id,
+        device.revision,
+        { ...preferences, afterSessionEnabled: false },
+        AT,
+      );
+    }
+    if (change === "expiredSession")
+      await db
+        .update(session)
+        .set({ expiresAt: new Date(AT - 1) })
+        .where(eq(session.id, pro.sessionId));
+    if (change === "unverified")
+      await db
+        .update(user)
+        .set({ emailVerified: false })
+        .where(eq(user.id, pro.userId));
+    expect(
+      await pushOpenDestination(pro.userId, pro.sessionId, row.id, AT),
+    ).toBe(
+      change === "expiredSession" || change === "unverified"
+        ? "/entrar"
+        : "/pro/consulta",
+    );
+    const send = sender();
+    expect(await deliver(row.id, send)).toBe("skipped");
+    expect(send).not.toHaveBeenCalled();
   });
   it("no reactiva actividad anterior al consentimiento", async () => {
     await subscribePush(pro, subscription, preferences, 0, AT);
