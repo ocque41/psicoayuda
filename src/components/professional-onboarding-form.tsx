@@ -594,6 +594,14 @@ export function ProfessionalOnboardingForm({
   }, [existing?.timezone, draft.timezone, zones]);
   const handledResponse = useRef<typeof state>(null);
   useEffect(() => {
+    if (
+      serverErrorVisible &&
+      state?.message &&
+      !("field" in state && state.field)
+    )
+      clientErrorRef.current?.focus();
+  }, [serverErrorVisible, state]);
+  useEffect(() => {
     if (handledResponse.current === state) return;
     handledResponse.current = state;
     setServerErrorVisible(Boolean(state?.message));
