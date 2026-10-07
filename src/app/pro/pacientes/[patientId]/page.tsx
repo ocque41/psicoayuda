@@ -278,7 +278,13 @@ export default async function PatientPage({
             <h2>Sesiones y llamadas</h2>
             {appointments.map((a) => (
               <article className="card" key={a.id}>
-                <h3>{dateLabel(a.startsAt, zone)}</h3>
+                <h3
+                  id={`practice-session-heading-${a.id}`}
+                  tabIndex={-1}
+                  aria-describedby={`practice-session-state-${a.id}`}
+                >
+                  {dateLabel(a.startsAt, zone)}
+                </h3>
                 <p>
                   <Link
                     href={`/pro/pacientes/${patient.id}?notaSesion=${encodeURIComponent(a.id)}#notas`}
@@ -290,7 +296,7 @@ export default async function PatientPage({
                 <p>
                   Para el paciente: {dateLabel(a.startsAt, patient.timeZone)}
                 </p>
-                <p>
+                <p id={`practice-session-state-${a.id}`}>
                   {appointmentStateLabels[a.status]} ·{" "}
                   {a.modality === "online" ? "En línea" : "Presencial"}
                 </p>
@@ -303,6 +309,7 @@ export default async function PatientPage({
                     <PracticeForm
                       action={updateAppointment}
                       submit="Actualizar sesión"
+                      successFocusId={`practice-session-heading-${a.id}`}
                     >
                       <input type="hidden" name="appointmentId" value={a.id} />
                       <label>

@@ -17,6 +17,7 @@ export function PracticeForm({
   children,
   submit = "Guardar",
   resetOnSuccess = false,
+  successFocusId,
 }: {
   action: (
     state: PracticeFormState,
@@ -26,6 +27,8 @@ export function PracticeForm({
   submit?: string;
   /** Las formas de creación pueden volver a sus defaults tras éxito confirmado. */
   resetOnSuccess?: boolean;
+  /** Destino persistente cuando el éxito retira el formulario de la página. */
+  successFocusId?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
@@ -38,9 +41,26 @@ export function PracticeForm({
       previous: { feedback: PracticeFormState; submission: number },
       data: FormData,
     ): Promise<{ feedback: PracticeFormState; submission: number }> => {
+      const submittedForm = formRef.current;
       try {
+        const feedback = await action(previous.feedback, data);
+        if (feedback?.ok && successFocusId) {
+          // La acción puede desmontar este formulario al actualizar la sesión.
+          requestAnimationFrame(() => {
+            const target = document.getElementById(successFocusId);
+            const active = document.activeElement;
+            if (
+              target?.isConnected &&
+              !target.closest("[inert], [hidden]") &&
+              target.getClientRects().length &&
+              (active === document.body ||
+                (active && submittedForm?.contains(active)))
+            )
+              target.focus();
+          });
+        }
         return {
-          feedback: await action(previous.feedback, data),
+          feedback,
           submission: previous.submission + 1,
         };
       } catch (error) {
@@ -67,7 +87,7 @@ export function PracticeForm({
         setLocked(false);
       }
     },
-    [action],
+    [action, successFocusId],
   );
   const [result, formAction, pending] = useActionState(safeAction, {
     feedback: null,
