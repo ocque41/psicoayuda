@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { saveProfessionalOnboarding } from "@/app/actions";
+import { captureOnboardingAnswers } from "@/components/onboarding/capture-answers";
 import styles from "@/components/onboarding/onboarding.module.css";
 import { useDraftSave } from "@/components/onboarding/use-draft-save";
 import { WizardFrame } from "@/components/onboarding/wizard-frame";
@@ -604,22 +605,24 @@ export function ProfessionalOnboardingForm({
     setAnswers((current) => ({ ...current, [key]: value }));
   }
   function next() {
+    const current = captureOnboardingAnswers(formRef.current, answers);
+    setAnswers(current);
     if (!formRef.current?.reportValidity()) return;
-    if (question.field === "supportAreas" && !answers.supportAreas.length) {
+    if (question.field === "supportAreas" && !current.supportAreas.length) {
       setClientError("Elige al menos un área de acompañamiento.");
       return;
     }
     if (
       question.field === "remoteAvailable" &&
-      !answers.remoteAvailable &&
-      !answers.inPersonAvailable
+      !current.remoteAvailable &&
+      !current.inPersonAvailable
     ) {
       setClientError("Elige al menos una modalidad para tu perfil.");
       return;
     }
     if (
       question.field === "registrationProofDoc" &&
-      !answers.registrationProofDoc &&
+      !current.registrationProofDoc &&
       !existing?.hasRegistrationProof
     ) {
       setClientError(
@@ -629,9 +632,9 @@ export function ProfessionalOnboardingForm({
     }
     if (
       question.field === "landline" &&
-      !answers.emailPublic &&
-      !answers.phone.trim() &&
-      !answers.landline.trim()
+      !current.emailPublic &&
+      !current.phone.trim() &&
+      !current.landline.trim()
     ) {
       setClientError(
         "Elige al menos una vía de contacto: correo, WhatsApp o teléfono.",
@@ -765,12 +768,16 @@ export function ProfessionalOnboardingForm({
             : `${status} Credenciales y adjuntos se envían al terminar.`
         }
         onBack={() => {
+          setAnswers(captureOnboardingAnswers(formRef.current, answers));
           setClientError("");
           setStep(Math.max(0, activeStep - 1));
         }}
         onNext={next}
         complete={field === "review"}
-        onExit={flush}
+        onExit={() => {
+          setAnswers(captureOnboardingAnswers(formRef.current, answers));
+          return flush(captureOnboardingAnswers(formRef.current, safeDraft));
+        }}
       >
         <div className={styles.field}>
           {textFields.includes(field) ? (
@@ -788,6 +795,7 @@ export function ProfessionalOnboardingForm({
               </label>
               <input
                 id={`${formId}-${field}`}
+                data-onboarding-answer={field}
                 value={String(answers[field as keyof ProfessionalAnswers])}
                 onChange={(event) =>
                   update(field as keyof ProfessionalAnswers, event.target.value)
@@ -828,6 +836,7 @@ export function ProfessionalOnboardingForm({
               <label htmlFor={`${formId}-${field}`}>País</label>
               <select
                 id={`${formId}-${field}`}
+                data-onboarding-answer={field}
                 value={answers[field]}
                 onChange={(event) => update(field, event.target.value)}
                 autoComplete="country-name"
@@ -845,6 +854,7 @@ export function ProfessionalOnboardingForm({
               <label htmlFor={`${formId}-timezone`}>Zona horaria</label>
               <select
                 id={`${formId}-timezone`}
+                data-onboarding-answer="timezone"
                 value={answers.timezone}
                 onChange={(event) => update("timezone", event.target.value)}
               >
@@ -933,6 +943,7 @@ export function ProfessionalOnboardingForm({
               </label>
               <select
                 id={`${formId}-registration`}
+                data-onboarding-answer="registrationType"
                 value={answers.registrationType}
                 onChange={(event) =>
                   update("registrationType", event.target.value)
@@ -1007,6 +1018,7 @@ export function ProfessionalOnboardingForm({
               </label>
               <input
                 id={`${formId}-max`}
+                data-onboarding-answer="maxActiveRequests"
                 type="number"
                 min={1}
                 max={10}
@@ -1053,6 +1065,7 @@ export function ProfessionalOnboardingForm({
               </label>
               <textarea
                 id={`${formId}-${field}`}
+                data-onboarding-answer={field}
                 value={answers[field]}
                 onChange={(event) => update(field, event.target.value)}
                 maxLength={field === "shortBio" ? 600 : 500}

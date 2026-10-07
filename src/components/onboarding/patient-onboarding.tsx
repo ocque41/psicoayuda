@@ -13,6 +13,7 @@ import {
 import { finishPatientOnboarding } from "@/app/empezar/actions";
 import type { SafeDraft } from "@/lib/onboarding/drafts";
 import { countryOptions, timeZoneOptions } from "@/lib/onboarding/locale";
+import { captureOnboardingAnswers } from "./capture-answers";
 import styles from "./onboarding.module.css";
 import { useDraftSave } from "./use-draft-save";
 import { WizardFrame } from "./wizard-frame";
@@ -145,15 +146,17 @@ export function PatientOnboarding({
     setAnswers((current) => ({ ...current, [key]: value }));
   }
   function next() {
+    const current = captureOnboardingAnswers(form.current, answers);
+    setAnswers(current);
     if (!form.current?.reportValidity()) return;
     if (
       question.field === "displayName" &&
-      answers.displayName.trim().length < 1
+      current.displayName.trim().length < 1
     ) {
       setClientError("Escribe el nombre que quieres usar en tu espacio.");
       return;
     }
-    if (question.field === "privacyAccepted" && !answers.privacyAccepted) {
+    if (question.field === "privacyAccepted" && !current.privacyAccepted) {
       setClientError(
         "Confirma que leíste cómo se utilizan tus datos para continuar.",
       );
@@ -190,12 +193,16 @@ export function PatientOnboarding({
         pending={pending}
         saveStatus={status}
         onBack={() => {
+          setAnswers(captureOnboardingAnswers(form.current, answers));
           setClientError("");
           setStep((current) => current - 1);
         }}
         onNext={next}
         complete={step === questions.length - 1}
-        onExit={flush}
+        onExit={() => {
+          setAnswers(captureOnboardingAnswers(form.current, answers));
+          return flush(captureOnboardingAnswers(form.current, draft));
+        }}
       >
         <div className={styles.field}>
           {question.field === "displayName" ? (
@@ -203,6 +210,7 @@ export function PatientOnboarding({
               <label htmlFor={`${id}-name`}>Tu nombre</label>
               <input
                 id={`${id}-name`}
+                data-onboarding-answer="displayName"
                 value={answers.displayName}
                 onChange={(event) => update("displayName", event.target.value)}
                 autoComplete="given-name"
@@ -219,6 +227,7 @@ export function PatientOnboarding({
               </label>
               <select
                 id={`${id}-country`}
+                data-onboarding-answer="country"
                 value={answers.country}
                 onChange={(event) => update("country", event.target.value)}
                 autoComplete="country"
@@ -237,6 +246,7 @@ export function PatientOnboarding({
               <label htmlFor={`${id}-zone`}>Zona horaria</label>
               <select
                 id={`${id}-zone`}
+                data-onboarding-answer="timezone"
                 value={answers.timezone}
                 onChange={(event) => update("timezone", event.target.value)}
                 required
@@ -254,6 +264,7 @@ export function PatientOnboarding({
               <label htmlFor={`${id}-language`}>Idioma preferido</label>
               <select
                 id={`${id}-language`}
+                data-onboarding-answer="preferredLanguage"
                 value={answers.preferredLanguage}
                 onChange={(event) =>
                   update("preferredLanguage", event.target.value)

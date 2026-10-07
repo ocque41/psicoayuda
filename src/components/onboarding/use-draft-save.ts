@@ -11,27 +11,29 @@ export function useDraftSave(role: OnboardingRole, answers: SafeDraft) {
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const mounted = useRef(true);
   current.current = answers;
-  const flush = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    const snapshot = current.current;
-    queue.current = queue.current
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          const result = await saveOnboardingDraft(role, snapshot);
-          if (mounted.current)
-            setStatus(result?.message || "Tu progreso se guardó.");
-          return result;
-        } catch {
-          if (mounted.current)
-            setStatus(
-              "No pudimos guardar el progreso. Conserva esta ventana abierta.",
-            );
-          return { ok: false, message: "No pudimos guardar el progreso." };
-        }
-      });
-    return queue.current;
-  }, [role]);
+  const flush = useCallback(
+    (snapshot: SafeDraft = current.current) => {
+      if (timer.current) clearTimeout(timer.current);
+      queue.current = queue.current
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const result = await saveOnboardingDraft(role, snapshot);
+            if (mounted.current)
+              setStatus(result?.message || "Tu progreso se guardó.");
+            return result;
+          } catch {
+            if (mounted.current)
+              setStatus(
+                "No pudimos guardar el progreso. Conserva esta ventana abierta.",
+              );
+            return { ok: false, message: "No pudimos guardar el progreso." };
+          }
+        });
+      return queue.current;
+    },
+    [role],
+  );
   useEffect(() => {
     mounted.current = true;
     return () => {
