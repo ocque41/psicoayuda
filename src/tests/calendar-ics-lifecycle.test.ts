@@ -321,7 +321,7 @@ describe("ICS: revisiones persistentes con writers reales", () => {
     await cleanup();
     vi.unstubAllEnvs();
     if (identity.previousTarget === undefined)
-      delete process.env.NIDO_DB_TARGET;
+      Reflect.deleteProperty(process.env, "NIDO_DB_TARGET");
     else process.env.NIDO_DB_TARGET = identity.previousTarget;
     await disposeD1?.();
   });
