@@ -567,6 +567,12 @@ describe.each(["libSQL", "D1"] as const)("liberación real con %s", (driver) => 
       committed.requests.find((row) => row.id === id.request)?.status,
     ).toBe(mode === "suspension" ? "new" : "closed");
     expect(committed.audits).toHaveLength(1);
+    expect(committed.audits[0]).toMatchObject({
+      action:
+        mode === "request" ? "request_closure" : "professional_suspension",
+      entityType: mode === "request" ? "help_request" : "professional",
+      entityId: mode === "request" ? id.request : id.pro,
+    });
     expect(committed.outsider).toEqual(before.outsider);
     expect(committed.pro?.cryptoPublicKey).toBe(before.pro?.cryptoPublicKey);
     expect(
@@ -646,6 +652,57 @@ describe.each(["libSQL", "D1"] as const)("liberación real con %s", (driver) => 
       mode === "request" ? 1 : 0,
     );
     expect(committed.audits).toHaveLength(1);
+    expect(committed.audits[0]).toMatchObject({
+      action:
+        mode === "request" ? "request_closure" : "professional_suspension",
+      entityType: mode === "request" ? "help_request" : "professional",
+      entityId: mode === "request" ? id.request : id.pro,
+    });
+  });
+
+  it.each([
+    "suspended",
+    "rejected",
+  ] as const)("auditoría administrativa: %s conserva nombre, destino y cupos", async (status) => {
+    const before = await snapshot();
+    const { adminUpdateProfessionalStatus } = await import("@/app/actions");
+    const data = new FormData();
+    data.set("professionalId", id.pro);
+    data.set("status", status);
+    await adminUpdateProfessionalStatus(data);
+    const after = await snapshot();
+    expect(after.pro?.status).toBe(status);
+    expect(after.pro?.currentActiveRequests).toBe(0);
+    expect(after.requests.find((row) => row.id === id.request)?.status).toBe(
+      "new",
+    );
+    expect(
+      after.requests.find((row) => row.id === id.otherRequest)?.status,
+    ).toBe("new");
+    expect(
+      after.rooms
+        .filter((row) => row.professionalId === id.pro)
+        .every((row) => row.status === "closed"),
+    ).toBe(true);
+    expect(
+      after.sessions
+        .filter(
+          (row) =>
+            row.conversationId === id.room ||
+            row.conversationId === id.otherRoom,
+        )
+        .every((row) => row.revokedAt !== null),
+    ).toBe(true);
+    expect(after.audits).toHaveLength(1);
+    expect(after.audits[0]).toMatchObject({
+      action:
+        status === "suspended"
+          ? "professional_suspension"
+          : "professional_rejection",
+      entityType: "professional",
+      entityId: id.pro,
+    });
+    expect(after.outsider).toEqual(before.outsider);
   });
 
   it.each([

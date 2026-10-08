@@ -115,8 +115,15 @@ describe("Seguridad — aislamiento de datos", () => {
 
   it("cerrar, anonimizar y suspender liberan capacidad", () => {
     const actions = read("src/app/actions.ts");
-    expect(actions).toContain("releaseAssignmentsForRequest");
-    expect(actions).toContain("releaseProfessionalAssignments");
+    expect(actions).toMatch(
+      /closeAdministrativeAssignments\(\{\s*kind: "request"/,
+    );
+    expect(actions).toMatch(
+      /closeAdministrativeAssignments\(\{\s*kind: "professional"/,
+    );
+    const retention = read("src/lib/retention.ts");
+    expect(actions).toContain("anonymizeHelpRequest");
+    expect(retention).toContain("releaseAssignmentsForRequest");
     const assignment = read("src/lib/assignment.ts");
     expect(assignment).toContain("max(0,");
   });

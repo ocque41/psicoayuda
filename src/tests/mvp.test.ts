@@ -260,10 +260,11 @@ describe("Nido MVP smoke checks", () => {
       "utf8",
     );
 
-    expect(actions).toContain("professional_approval");
-    expect(actions).toContain("professional_rejection");
-    expect(actions).toContain("professional_suspension");
-    expect(actions).toContain("request_closure");
+    const administrativeAudit = `${actions}\n${assignment}`;
+    expect(administrativeAudit).toContain("professional_approval");
+    expect(administrativeAudit).toContain("professional_rejection");
+    expect(administrativeAudit).toContain("professional_suspension");
+    expect(administrativeAudit).toContain("request_closure");
     expect(retention).toContain("data_anonymization");
     expect(assignment).toContain("request_assignment");
   });
