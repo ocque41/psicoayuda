@@ -466,7 +466,32 @@ export async function purgeAccount(
           "Los roles o la reclamación de la cuenta cambiaron. Conservamos los datos para reintentar la baja.",
         );
     } else {
-      await db.batch(deletes);
+      // El alcance inicial era una cuenta sin perfiles. Un alta terminada
+      // durante la preparación no autoriza a esta baja a borrar el nuevo
+      // alcance: debe conservarlo y capturarlo en un reintento explícito.
+      const finalId = newId("log");
+      const admitted = sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${finalId})`;
+      const guard = and(
+        eq(user.id, userId),
+        sql`NOT EXISTS (SELECT 1 FROM ${professionals} WHERE ${professionals.userId}=${userId})`,
+        sql`NOT EXISTS (SELECT 1 FROM ${patientAccounts} WHERE ${patientAccounts.userId}=${userId})`,
+      );
+      const claim = db
+        .insert(auditLogs)
+        .select(sql`SELECT ${finalId},${actor?.email ?? null},
+          'account_unprofiled_deletion_completed','user',${userId},NULL,${nowIso()}
+          FROM ${user} WHERE ${guard}`)
+        .returning({ id: auditLogs.id });
+      const result = await db.batch([
+        claim,
+        ...deletes.map((statement) =>
+          db.run(sql`${statement.getSQL()} AND ${admitted}`),
+        ),
+      ]);
+      if (!Array.isArray(result[0]) || result[0].length !== 1)
+        throw new Error(
+          "La cuenta o sus roles cambiaron. Conservamos los datos para reintentar la baja.",
+        );
     }
   } catch (error) {
     if (patientMayReactivate && !patientEffectsStarted && patientScope)
