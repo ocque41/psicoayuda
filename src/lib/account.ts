@@ -69,7 +69,9 @@ export async function purgeAccount(
   userId: string,
   actor?: AccountDeletionActor,
 ): Promise<void> {
-  let patientClaimed = false;
+  let patientMayReactivate = false;
+  let patientEffectsStarted = false;
+  let patientScope: { auditId: string; updatedAt: string } | undefined;
   let intent: AccountDeletionIntent | undefined;
   const professional = await db.query.professionals.findFirst({
     where: eq(professionals.userId, userId),
@@ -80,16 +82,32 @@ export async function purgeAccount(
   try {
     const patientAccount = await db.query.patientAccounts.findFirst({
       where: eq(patientAccounts.userId, userId),
-      columns: { userId: true, deletionState: true },
+      columns: { userId: true, deletionState: true, updatedAt: true },
     });
+    // Este marcador permite reintentar una baja propia ya reclamada. No es
+    // autorización de staff: una rama profesional nueva exige su actor/SID
+    // vigente habitual y un NUEVO snapshot capturado al inicio del reintento.
+    const priorPatientClaim = sql`EXISTS (SELECT 1 FROM ${auditLogs}
+      JOIN ${patientAccounts} ON ${patientAccounts.userId}=${auditLogs.entityId}
+      WHERE ${auditLogs.action}='account_patient_deletion_started'
+        AND ${auditLogs.entityType}='user' AND ${auditLogs.entityId}=${userId}
+        AND ${auditLogs.createdAt}=${patientAccounts.updatedAt}
+        AND ${patientAccounts.deletionState}='deleting')`;
     if (professional) {
       if (
         patientAccount?.deletionState === "deleting" &&
         professional.status !== "deleting"
-      )
-        throw new Error(
-          "La baja de esta cuenta está en proceso. Reintenta más tarde.",
-        );
+      ) {
+        const [resumable] = await db
+          .select({ id: user.id })
+          .from(user)
+          .where(and(eq(user.id, userId), priorPatientClaim))
+          .limit(1);
+        if (!resumable)
+          throw new Error(
+            "La baja de esta cuenta está en proceso. Reintenta más tarde.",
+          );
+      }
       if (!actor)
         throw new Error("Tu sesión cambió. Vuelve a intentar la eliminación.");
       const target = await db.query.user.findFirst({
@@ -121,6 +139,10 @@ export async function purgeAccount(
           ? sql`EXISTS (SELECT 1 FROM ${patientAccounts} WHERE ${patientAccounts.userId}=${userId}
           AND ${patientAccounts.deletionState}=${patientAccount.deletionState})`
           : sql`NOT EXISTS (SELECT 1 FROM ${patientAccounts} WHERE ${patientAccounts.userId}=${userId})`,
+        patientAccount?.deletionState === "deleting" &&
+          professional.status !== "deleting"
+          ? priorPatientClaim
+          : sql`1`,
       );
       const claim = db
         .insert(auditLogs)
@@ -184,40 +206,75 @@ export async function purgeAccount(
       };
     }
     if (patientAccount && !professional) {
+      const auditId = newId("log");
+      const lockedAt = new Date(
+        Math.max(Date.now(), Date.parse(patientAccount.updatedAt) + 1),
+      ).toISOString();
+      const admitted = sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${auditId})`;
+      const noProfessional = sql`NOT EXISTS (SELECT 1 FROM ${professionals} WHERE ${professionals.userId}=${userId})`;
       const links = db
         .select({ id: patientConversationLinks.conversationId })
         .from(patientConversationLinks)
         .where(eq(patientConversationLinks.userId, userId));
+      const claim = db
+        .insert(auditLogs)
+        .select(sql`SELECT ${auditId},${actor?.email ?? null},
+          'account_patient_deletion_started','user',${userId},NULL,${lockedAt}
+          FROM ${patientAccounts} WHERE ${and(
+            eq(patientAccounts.userId, userId),
+            eq(patientAccounts.updatedAt, patientAccount.updatedAt),
+            eq(patientAccounts.deletionState, patientAccount.deletionState),
+            patientAccount.deletionState === "active"
+              ? sql`1`
+              : patientAccount.deletionState === "deleting"
+                ? priorPatientClaim
+                : sql`0`,
+            noProfessional,
+          )}`)
+        .returning({ id: auditLogs.id });
       const claimed = await db.batch([
+        claim,
         db
           .update(patientAccounts)
-          .set({ deletionState: "deleting" })
-          .where(
-            and(
-              eq(patientAccounts.userId, userId),
-              eq(patientAccounts.deletionState, "active"),
-            ),
-          )
-          .returning({ userId: patientAccounts.userId }),
+          .set({ deletionState: "deleting", updatedAt: lockedAt })
+          .where(and(admitted, eq(patientAccounts.userId, userId))),
         db
           .update(seekerSessions)
-          .set({ revokedAt: new Date() })
-          .where(inArray(seekerSessions.conversationId, links)),
+          .set({ revokedAt: new Date(lockedAt) })
+          .where(
+            and(
+              admitted,
+              isNull(seekerSessions.revokedAt),
+              inArray(seekerSessions.conversationId, links),
+            ),
+          ),
       ]);
-      if (!claimed[0].length)
+      if (!Array.isArray(claimed[0]) || claimed[0].length !== 1)
         throw new Error(
-          "La baja de esta cuenta está en proceso. Reintenta más tarde.",
+          "La cuenta o sus roles cambiaron. Vuelve a intentar la eliminación.",
         );
-      patientClaimed = true;
-      try {
-        await preparePatientAccountPurge(userId);
-      } catch (error) {
-        await db
-          .update(patientAccounts)
-          .set({ deletionState: "active" })
-          .where(eq(patientAccounts.userId, userId));
-        throw error;
-      }
+      // Un retry de deleting nunca reactiva los efectos del intento anterior.
+      patientMayReactivate = patientAccount.deletionState === "active";
+      patientScope = { auditId, updatedAt: lockedAt };
+      // Un perfil aparecido después del claim tampoco debe empezar una purga
+      // autorizada para otro conjunto de roles. Antes de efectos aún podemos
+      // liberar nuestra reclamación; después se conserva deleting para retry.
+      const [unchanged] = await db
+        .select({ id: patientAccounts.userId })
+        .from(patientAccounts)
+        .where(
+          and(
+            admitted,
+            noProfessional,
+            eq(patientAccounts.userId, userId),
+            eq(patientAccounts.deletionState, "deleting"),
+            eq(patientAccounts.updatedAt, lockedAt),
+          ),
+        );
+      if (!unchanged)
+        throw new Error("La cuenta o sus roles cambiaron. Reintenta la baja.");
+      patientEffectsStarted = true;
+      await preparePatientAccountPurge(userId);
     }
     // Una baja profesional queda bloqueada y revocada antes de efectos externos.
     // Si un proveedor ya actuó, nunca se reactiva ni se pierden sus referencias.
@@ -379,11 +436,40 @@ export async function purgeAccount(
         throw new Error(
           "La cuenta, el chat o tu sesión cambió. Vuelve a intentar la eliminación.",
         );
+    } else if (patientScope) {
+      const finalId = newId("log");
+      const admitted = sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${finalId})`;
+      const guard = and(
+        eq(user.id, userId),
+        sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${patientScope.auditId}
+          AND ${auditLogs.action}='account_patient_deletion_started'
+          AND ${auditLogs.entityType}='user' AND ${auditLogs.entityId}=${userId})`,
+        sql`EXISTS (SELECT 1 FROM ${patientAccounts} WHERE ${patientAccounts.userId}=${userId}
+          AND ${patientAccounts.deletionState}='deleting'
+          AND ${patientAccounts.updatedAt}=${patientScope.updatedAt})`,
+        sql`NOT EXISTS (SELECT 1 FROM ${professionals} WHERE ${professionals.userId}=${userId})`,
+      );
+      const claim = db
+        .insert(auditLogs)
+        .select(sql`SELECT ${finalId},${actor?.email ?? null},
+          'account_patient_deletion_completed','user',${userId},NULL,${nowIso()}
+          FROM ${user} WHERE ${guard}`)
+        .returning({ id: auditLogs.id });
+      const result = await db.batch([
+        claim,
+        ...deletes.map((statement) =>
+          db.run(sql`${statement.getSQL()} AND ${admitted}`),
+        ),
+      ]);
+      if (!Array.isArray(result[0]) || result[0].length !== 1)
+        throw new Error(
+          "Los roles o la reclamación de la cuenta cambiaron. Conservamos los datos para reintentar la baja.",
+        );
     } else {
       await db.batch(deletes);
     }
   } catch (error) {
-    if (patientClaimed)
+    if (patientMayReactivate && !patientEffectsStarted && patientScope)
       await db
         .update(patientAccounts)
         .set({ deletionState: "active" })
@@ -391,6 +477,10 @@ export async function purgeAccount(
           and(
             eq(patientAccounts.userId, userId),
             eq(patientAccounts.deletionState, "deleting"),
+            eq(patientAccounts.updatedAt, patientScope.updatedAt),
+            // Un nuevo lock profesional puede haber adoptado esta versión
+            // paciente: el intento anterior no debe reabrir ninguno de ellos.
+            sql`NOT EXISTS (SELECT 1 FROM ${professionals} WHERE ${professionals.userId}=${userId})`,
           ),
         )
         .catch(() => undefined);
