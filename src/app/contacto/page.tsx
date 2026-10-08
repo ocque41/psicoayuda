@@ -135,8 +135,9 @@ export default function Page() {
             <h3>También puedes usar tu correo</h3>
             <p className="muted">
               Estos son los correos públicos de las personas administradoras.
-              Registramos el clic para saber qué vías se usan más, pero no vemos
-              el contenido de tu correo.
+              Los enlaces abren tu aplicación de correo: el mensaje que envíes
+              lo recibe la dirección elegida. El sitio registra el clic en el
+              enlace para saber qué vías se usan más.
             </p>
             <div className="contact-email-list">
               {publicEmails.map((email) => (
@@ -182,9 +183,8 @@ export default function Page() {
           <h2>Qué esperar de nosotros</h2>
           <ul>
             <li>
-              Somos un equipo voluntario y sin fines de lucro. Leemos lo que nos
-              escribes y respondemos en cuanto podemos, aunque no siempre sea de
-              inmediato.
+              El equipo de Nido lee lo que nos escribes y responde según
+              disponibilidad. No podemos garantizar un plazo de respuesta.
             </li>
             <li>
               Tu mensaje lo ve solo el equipo de coordinación, y se trata con el
@@ -206,12 +206,20 @@ export default function Page() {
           <h3>¿Buscas otra cosa?</h3>
           <ul>
             <li>
-              Si necesitas apoyo emocional, empieza por{" "}
-              <Link href="/ayuda">pedir ayuda</Link>.
+              Si buscas un profesional de psicología, explora el{" "}
+              <Link href="/profesionales">directorio de profesionales</Link> y
+              acuerda las condiciones de atención.
+            </li>
+            <li>
+              Si buscas apoyo por el terremoto, puedes solicitar{" "}
+              <Link href="/ayuda">Ayuda Terremoto gratuita</Link>, según
+              disponibilidad.
             </li>
             <li>
               Si eres profesional de la psicología y quieres ser voluntario/a,
-              entra por <Link href="/pro">el acceso para profesionales</Link>.
+              conoce cómo participar en{" "}
+              <Link href="/psicologos">Ayuda Terremoto para profesionales</Link>
+              .
             </li>
             <li>
               Para entender cómo cuidamos tu información, lee nuestra{" "}
