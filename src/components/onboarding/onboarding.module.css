@@ -31,8 +31,6 @@
   padding: clamp(1.25rem, 4vw, 3rem);
   box-shadow: 0 30px 90px -55px #344a3c66;
   transition: border-color var(--motion-duration, 180ms) ease;
-  max-height: calc(100svh - 2rem);
-  overflow-y: auto;
   color: var(--ink, #283d30);
 }
 .modal::backdrop {
@@ -42,6 +40,8 @@
 .modal:is(dialog) {
   width: min(calc(100% - 2rem), 760px);
   margin: auto;
+  max-height: calc(100svh - 2rem);
+  overflow-y: auto;
 }
 .content {
   padding: 0;
@@ -92,6 +92,9 @@
   margin: 0 0 1rem;
   max-width: 24ch;
 }
+.question h2 {
+  scroll-margin-block: 1rem;
+}
 .eyebrow {
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -121,6 +124,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
   border: 1px solid var(--line, #dcded5);
   border-radius: 50%;
   color: var(--ink, #283d30);

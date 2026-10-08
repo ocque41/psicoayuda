@@ -71,10 +71,10 @@ export function WizardFrame({
       before !== height &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
-      // El navegador interpola el tamaño del panel, sin bibliotecas de animación
-      // ni estado React por frame. Al terminar vuelve a su altura natural.
+      // Interpola el espacio mínimo: el contenido puede crecer durante la
+      // transición sin invadir la navegación. Después vuelve al mínimo CSS.
       const animation = element.animate(
-        [{ height: `${before}px` }, { height: `${height}px` }],
+        [{ minHeight: `${before}px` }, { minHeight: `${height}px` }],
         { duration: 260, easing: "cubic-bezier(.22, 1, .36, 1)" },
       );
       return () => animation.cancel();
@@ -85,7 +85,7 @@ export function WizardFrame({
     const focusable = question.current?.querySelector<HTMLElement>(
       "input:not([type=hidden]), select, textarea, button, [tabindex='-1']",
     );
-    focusable?.focus({ preventScroll: true });
+    focusable?.focus();
   }, [step]);
   return (
     <div className={styles.scene}>
