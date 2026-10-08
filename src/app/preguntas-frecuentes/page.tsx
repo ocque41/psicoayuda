@@ -30,6 +30,11 @@ export const metadata: Metadata = {
     description,
   },
 };
+const conversationAccessFaq = {
+  question: "¿Cómo vuelvo a mi conversación y a mis mensajes?",
+  answer:
+    "Guarda el enlace privado y vuelve desde el mismo navegador mientras conserves la sesión. Si dejaste correo para esa conversación, puedes solicitar un enlace desde la página de acceso. Si ya la vinculaste a tu cuenta, también puedes entrar desde ella. Si el dispositivo no tiene las claves de tus mensajes cifrados, el código de recuperación sirve para restaurarlas desde un respaldo que las contenga. El código no concede acceso al chat ni recupera claves ausentes del respaldo.",
+};
 const professionalFaq = [
   {
     question: "¿Cómo creo mi espacio profesional?",
@@ -53,7 +58,12 @@ const waitlistFaq = {
     "Sí. La lista general de espera recoge solicitudes de apoyo por motivos distintos del terremoto para que el equipo las revise según disponibilidad. No garantiza un cupo ni un plazo de respuesta. Puedes seguir explorando el catálogo y las organizaciones aliadas. Ayuda Terremoto mantiene su recorrido gratuito separado.",
 };
 export default function Page() {
-  const items = [...HOME_FAQ, waitlistFaq, ...professionalFaq];
+  const items = [
+    ...HOME_FAQ,
+    conversationAccessFaq,
+    waitlistFaq,
+    ...professionalFaq,
+  ];
   return (
     <section className="section">
       <div className="container">
@@ -66,6 +76,7 @@ export default function Page() {
         ))}
         <p>
           <Link href="/profesionales">Encontrar mi psicólogo</Link> ·{" "}
+          <Link href="/acceso">Pedir enlace de acceso</Link> ·{" "}
           <Link href="/lista-de-espera">Lista general de espera</Link> ·{" "}
           <Link href="/para-psicologos">Soy profesional</Link> ·{" "}
           <Link href="/contacto">Hablar con el equipo</Link>
