@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { chooseAccountRole } from "@/app/empezar/actions";
 import styles from "./onboarding.module.css";
 
@@ -29,6 +29,17 @@ export function RolePicker({ name }: { name: string }) {
     },
     null,
   );
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const focusedResult = useRef<typeof state>(null);
+  useEffect(() => {
+    if (pending || state?.ok !== false || focusedResult.current === state)
+      return;
+    const error = errorRef.current;
+    if (!error) return;
+    focusedResult.current = state;
+    error.focus({ preventScroll: true });
+    error.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [state, pending]);
   return (
     <div className={styles.scene}>
       <form action={action} className={styles.modal} aria-busy={pending}>
@@ -77,7 +88,7 @@ export function RolePicker({ name }: { name: string }) {
           </p>
         ) : null}
         {state?.message ? (
-          <p className="form-error" role="alert">
+          <p ref={errorRef} tabIndex={-1} className="form-error" role="alert">
             {state.message}
           </p>
         ) : null}
