@@ -9,7 +9,7 @@ describe("acciones visibles de cuenta", () => {
     const action = read("src/app/actions-account.ts");
     const page = read("src/app/pro/page.tsx");
 
-    expect(action).toContain("await purgeAccount(userId)");
+    expect(action).toContain("await purgeAccount(userId,");
     expect(action).toContain("revalidateAccountViews()");
     expect(action).toContain('redirect("/entrar?cuenta=borrada")');
     expect(action).toContain(

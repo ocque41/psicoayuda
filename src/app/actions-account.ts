@@ -44,7 +44,12 @@ export async function deleteMyAccount(
   // conserva su sesión y puede reintentar; no la dejamos fuera de una cuenta
   // que todavía existe.
   try {
-    await purgeAccount(userId);
+    await purgeAccount(userId, {
+      kind: "self",
+      userId,
+      email: authSession.user.email.toLowerCase(),
+      sessionId: authSession.session?.id || "",
+    });
   } catch (error) {
     console.error("self account deletion failed", { userId, error });
     return {
@@ -85,7 +90,7 @@ export async function repararRegistroHuerfano(emailCrudo: string) {
  */
 export async function adminDeleteAccount(formData: FormData) {
   const admin = await requireAdmin();
-  if (!admin) redirect("/pro");
+  if (!admin?.session?.user?.id) redirect("/pro");
 
   const userId = String(formData.get("userId") ?? "").trim();
   if (!userId) redirect("/admin?cuenta=no-encontrada");
@@ -99,7 +104,12 @@ export async function adminDeleteAccount(formData: FormData) {
   if (isAdminEmail(target.email)) redirect("/admin?cuenta=protegida");
 
   // purgeAccount también devuelve cualquier caso activo a la cola.
-  await purgeAccount(target.id);
+  await purgeAccount(target.id, {
+    kind: "admin",
+    userId: admin.session.user.id,
+    email: admin.email.toLowerCase(),
+    sessionId: admin.session.session?.id || "",
+  });
 
   await db.insert(auditLogs).values({
     id: newId("log"),

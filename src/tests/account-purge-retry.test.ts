@@ -258,9 +258,14 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
       return "purged";
     });
 
-    await expect(purgeAccount(ids.owner)).rejects.toThrow(
-      "borrado de los chats",
-    );
+    await expect(
+      purgeAccount(ids.owner, {
+        kind: "self",
+        userId: ids.owner,
+        email: `${ids.owner}@example.test`,
+        sessionId: ids.session,
+      }),
+    ).rejects.toThrow("borrado de los chats");
     expect(contents).toEqual(new Set([ids.second]));
     expect(mocks.purge.mock.calls.map(([id]) => id).sort()).toEqual(
       [ids.first, ids.second].sort(),
@@ -287,7 +292,7 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
         where: eq(patientAccounts.userId, ids.owner),
         columns: { deletionState: true },
       }),
-    ).toEqual({ deletionState: "active" });
+    ).toEqual({ deletionState: "deleting" });
     expect(
       await db.query.practiceNotes.findFirst({
         where: eq(practiceNotes.id, ids.note),
@@ -340,7 +345,14 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
     expect(failures[0].action).toBe("account_purge_conversation_failed");
 
     providerRecovered = true;
-    await expect(purgeAccount(ids.owner)).resolves.toBeUndefined();
+    await expect(
+      purgeAccount(ids.owner, {
+        kind: "self",
+        userId: ids.owner,
+        email: `${ids.owner}@example.test`,
+        sessionId: ids.session,
+      }),
+    ).resolves.toBeUndefined();
     expect(contents.size).toBe(0);
     expect(
       mocks.purge.mock.calls.filter(([id]) => id === ids.first),
@@ -398,9 +410,16 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
     ).toBeDefined();
   });
 
-  it("una excepción del transporte conserva referencias y solo libera la reclamación propia del paciente", async () => {
+  it("una excepción del transporte conserva referencias y ambas bajas para reintentar", async () => {
     mocks.purge.mockRejectedValue(new Error("Proveedor ficticio sin conexión"));
-    await expect(purgeAccount(ids.owner)).rejects.toThrow("sin conexión");
+    await expect(
+      purgeAccount(ids.owner, {
+        kind: "self",
+        userId: ids.owner,
+        email: `${ids.owner}@example.test`,
+        sessionId: ids.session,
+      }),
+    ).rejects.toThrow("sin conexión");
     expect(
       (
         await db.query.professionals.findFirst({
@@ -414,7 +433,7 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
           where: eq(patientAccounts.userId, ids.owner),
         })
       )?.deletionState,
-    ).toBe("active");
+    ).toBe("deleting");
     expect(
       await db.query.conversations.findFirst({
         where: eq(conversations.id, ids.first),
@@ -430,7 +449,14 @@ describe("baja recuperable cuando falla la purga de mensajes", () => {
       .update(patientAccounts)
       .set({ deletionState: "deleting" })
       .where(eq(patientAccounts.userId, ids.owner));
-    await expect(purgeAccount(ids.owner)).rejects.toThrow("está en proceso");
+    await expect(
+      purgeAccount(ids.owner, {
+        kind: "self",
+        userId: ids.owner,
+        email: `${ids.owner}@example.test`,
+        sessionId: ids.session,
+      }),
+    ).rejects.toThrow("está en proceso");
     expect(
       (
         await db.query.patientAccounts.findFirst({

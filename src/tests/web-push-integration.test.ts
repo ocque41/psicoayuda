@@ -504,7 +504,12 @@ describe("Push integration in an independent memory database", () => {
     await client.execute(
       "CREATE TRIGGER fixture_push_user_order BEFORE DELETE ON user WHEN EXISTS(SELECT 1 FROM web_push_subscriptions w WHERE w.user_id=OLD.id) BEGIN SELECT RAISE(ABORT,'push before user'); END",
     );
-    await purgeAccount(actor.userId);
+    await purgeAccount(actor.userId, {
+      kind: "self",
+      userId: actor.userId,
+      email: `${actor.userId}@example.invalid`,
+      sessionId: actor.sessionId,
+    });
     expect(await fixture.db.select().from(deliveries)).toHaveLength(0);
     expect(
       (await fixture.db.select().from(devices)).map((row) => row.id),
@@ -528,7 +533,14 @@ describe("Push integration in an independent memory database", () => {
     await client.execute(
       "CREATE TRIGGER fixture_fail_user_delete BEFORE DELETE ON user BEGIN SELECT RAISE(ABORT,'fixture rollback'); END",
     );
-    await expect(purgeAccount(professional.userId)).rejects.toThrow();
+    await expect(
+      purgeAccount(professional.userId, {
+        kind: "self",
+        userId: professional.userId,
+        email: `${professional.userId}@example.invalid`,
+        sessionId: professional.sessionId,
+      }),
+    ).rejects.toThrow();
     expect(await fixture.db.select().from(devices)).toHaveLength(1);
     expect(await fixture.db.select().from(deliveries)).toHaveLength(1);
     expect(

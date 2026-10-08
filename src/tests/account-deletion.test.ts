@@ -151,7 +151,12 @@ describe("purgeAccount", () => {
   afterAll(cleanup);
 
   it("borra la cuenta y sus datos operativos, sin tocar datos ajenos", async () => {
-    await purgeAccount(id.vUser);
+    await purgeAccount(id.vUser, {
+      kind: "self",
+      userId: id.vUser,
+      email: `${id.vUser}@test.local`,
+      sessionId: id.vSession,
+    });
 
     // Todo lo de la cuenta borrada desaparece.
     expect(

@@ -22,6 +22,7 @@ import {
   practiceAppointments,
   practicePatients,
   professionals,
+  session,
   user,
 } from "@/db/schema";
 import {
@@ -1005,7 +1006,19 @@ describe("Google Calendar privado y unidireccional", () => {
       return successGoogle(url, init);
     });
     const { purgeAccount } = await import("@/lib/account");
-    const purge = purgeAccount(accountId);
+    const sid = id("purge-session");
+    await db.insert(session).values({
+      id: sid,
+      userId: accountId,
+      token: `${sid}-fixture-token`,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
+    const purge = purgeAccount(accountId, {
+      kind: "self",
+      userId: accountId,
+      email: `${accountId}@example.test`,
+      sessionId: sid,
+    });
     await waiting;
     expect(await loadCalendarActor(accountId, "pro")).toBeNull();
     expect(await loadCalendarActor(accountId, "patient")).toBeNull();

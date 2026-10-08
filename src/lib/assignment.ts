@@ -12,6 +12,8 @@ import {
   practiceCredentials,
   professionals,
   seekerSessions,
+  session,
+  user,
 } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { currentWaitlistAdmin } from "@/lib/admin-waitlist/access";
@@ -24,7 +26,7 @@ import { newId, nowIso } from "@/lib/ids";
 // rutinas de liberación DEBEN contemplar ambos o el cupo se queda pegado.
 const ACTIVE_ASSIGNMENT_STATES = ["assigned", "accepted"] as const;
 
-type RoomSnapshot = typeof conversations.$inferSelect & {
+export type RoomSnapshot = typeof conversations.$inferSelect & {
   reopeningId: string | null;
 };
 // La reapertura real confirma esta auditoría en el mismo batch. Su ID distingue
@@ -88,9 +90,9 @@ function snapshotMatches(
  * reclama TODAS las versiones y la sesión vigente antes de escribir; su ID
  * nuevo guarda cada sentencia del mismo batch D1/libSQL. Un conflicto no
  * confirma ninguna escritura propia. No se relee/reautoriza automáticamente.
- * Los helpers de retención/cuenta conservan sus contratos independientes.
+ * Retención conserva su contrato independiente; cuenta exige intención de baja.
  */
-type ProfessionalClosureSnapshot = Pick<
+export type ProfessionalClosureSnapshot = Pick<
   typeof professionals.$inferSelect,
   "id" | "status" | "userId" | "updatedAt" | "currentActiveRequests"
 >;
@@ -119,28 +121,158 @@ function currentCredentialReviewer(actor: WaitlistAdmin) {
       AND live_session.expires_at > cast(unixepoch('subsecond') * 1000 as integer))`;
 }
 
+// La baja propia no exige verificación ni scope de staff. La baja administrativa
+// conserva requireAdmin y la protección de cuentas admin, repetidos con el SID
+// real y el correo actual dentro de SQL antes de cada fase local.
+export type AccountDeletionActor = {
+  kind: "self" | "admin";
+  userId: string;
+  email: string;
+  sessionId: string;
+};
+export type AccountDeletionIntent = {
+  actor: AccountDeletionActor;
+  targetUserId: string;
+  targetEmail: string;
+  auditId: string;
+};
+export function accountDeletionAuthority(
+  actor: AccountDeletionActor,
+  targetUserId: string,
+  targetEmail: string,
+) {
+  if (
+    !actor.sessionId ||
+    !actor.userId ||
+    !actor.email ||
+    (actor.kind !== "self" && actor.kind !== "admin")
+  )
+    return sql`0`;
+  if (actor.kind === "self" && actor.userId !== targetUserId) return sql`0`;
+  if (
+    actor.kind === "admin" &&
+    (!isAdminEmail(actor.email) || isAdminEmail(targetEmail))
+  )
+    return sql`0`;
+  return and(
+    sql`EXISTS (SELECT 1 FROM ${user} JOIN ${session} ON ${session.userId}=${user.id}
+      WHERE ${user.id}=${actor.userId} AND lower(${user.email})=${actor.email}
+        AND ${session.id}=${actor.sessionId}
+        AND ${session.expiresAt} > cast(unixepoch('subsecond') * 1000 as integer)
+        AND ${actor.kind === "admin" ? sql`${user.emailVerified}=1` : sql`1`})`,
+    sql`EXISTS (SELECT 1 FROM ${user} WHERE ${user.id}=${targetUserId} AND lower(${user.email})=${targetEmail})`,
+  );
+}
+export function accountDeletionIntentGuard(intent: AccountDeletionIntent) {
+  return and(
+    accountDeletionAuthority(
+      intent.actor,
+      intent.targetUserId,
+      intent.targetEmail,
+    ),
+    sql`EXISTS (SELECT 1 FROM ${auditLogs} WHERE ${auditLogs.id}=${intent.auditId}
+      AND ${auditLogs.action}='account_deletion_started' AND ${auditLogs.entityType}='user'
+      AND ${auditLogs.entityId}=${intent.targetUserId} AND ${auditLogs.actorEmail}=${intent.actor.email})`,
+  );
+}
+export async function accountRoomsSnapshot(professionalId: string) {
+  return db.query.conversations.findMany({
+    where: eq(conversations.professionalId, professionalId),
+    extras: { reopeningId: reopeningVersion().as("reopening_id") },
+  });
+}
+export function accountRoomsMatch(
+  professionalId: string,
+  rooms: RoomSnapshot[],
+) {
+  return and(
+    sql`(SELECT count(*) FROM ${conversations} WHERE ${conversations.professionalId}=${professionalId})=${rooms.length}`,
+    snapshotMatches(
+      conversations,
+      [
+        conversations.id,
+        conversations.status,
+        conversations.updatedAt,
+        conversations.professionalId,
+        conversations.seekerSid,
+        conversations.helpRequestId,
+        conversations.deletedAt,
+        conversations.anonymizedAt,
+        conversations.reopenedAt,
+        reopeningVersion(),
+      ],
+      rooms.map((room) => [
+        room.id,
+        room.status,
+        room.updatedAt,
+        room.professionalId,
+        room.seekerSid,
+        room.helpRequestId,
+        room.deletedAt,
+        room.anonymizedAt,
+        room.reopenedAt,
+        room.reopeningId,
+      ]),
+    ),
+  );
+}
+
+// Wrapper de intención propia/admin: permite deleting sólo para la cuenta
+// reclamada. No usa ni amplía los permisos de decisiones administrativas.
+export async function closeAccountAssignments(input: {
+  id: string;
+  expected: ProfessionalClosureSnapshot;
+  intent: AccountDeletionIntent;
+}) {
+  if (
+    input.expected.status !== "deleting" ||
+    input.expected.userId !== input.intent.targetUserId
+  ) {
+    throw new Error("La cuenta cambió. Vuelve a intentar la eliminación.");
+  }
+  return closeAssignments({
+    ...input,
+    kind: "account",
+    actor: input.intent.actor,
+  });
+}
+
+type AdministrativeClosureInput = { actor: WaitlistAdmin } & (
+  | { kind: "request"; id: string }
+  | {
+      kind: "professional";
+      id: string;
+      status: "suspended" | "rejected";
+      expected: ProfessionalClosureSnapshot;
+    }
+  | {
+      kind: "credential_review";
+      id: string;
+      status: "suspended" | "rejected" | "pending_verification";
+      reference: string;
+      expected: ClinicalClosureSnapshot;
+    }
+  | {
+      kind: "professional_kind";
+      id: string;
+      expected: ClinicalClosureSnapshot;
+    }
+);
 export async function closeAdministrativeAssignments(
-  input: { actor: WaitlistAdmin } & (
-    | { kind: "request"; id: string }
+  input: AdministrativeClosureInput,
+) {
+  return closeAssignments(input);
+}
+async function closeAssignments(
+  input:
+    | AdministrativeClosureInput
     | {
-        kind: "professional";
+        kind: "account";
         id: string;
-        status: "suspended" | "rejected";
+        actor: AccountDeletionActor;
         expected: ProfessionalClosureSnapshot;
-      }
-    | {
-        kind: "credential_review";
-        id: string;
-        status: "suspended" | "rejected" | "pending_verification";
-        reference: string;
-        expected: ClinicalClosureSnapshot;
-      }
-    | {
-        kind: "professional_kind";
-        id: string;
-        expected: ClinicalClosureSnapshot;
-      }
-  ),
+        intent: AccountDeletionIntent;
+      },
 ) {
   const scope =
     input.kind === "request"
@@ -177,7 +309,7 @@ export async function closeAdministrativeAssignments(
   if (
     requests.length !== requestIds.length ||
     pros.length !== proIds.length ||
-    pros.some((row) => row.status === "deleting") ||
+    pros.some((row) => row.status === "deleting" && input.kind !== "account") ||
     (input.kind !== "request" &&
       !pros.some(
         (row) =>
@@ -210,9 +342,11 @@ export async function closeAdministrativeAssignments(
     extras: { reopeningId: reopeningVersion().as("reopening_id") },
   });
   const guards = [
-    input.kind === "credential_review"
-      ? currentCredentialReviewer(input.actor)
-      : currentWaitlistAdmin(input.actor),
+    input.kind === "account"
+      ? accountDeletionIntentGuard(input.intent)
+      : input.kind === "credential_review"
+        ? currentCredentialReviewer(input.actor)
+        : currentWaitlistAdmin(input.actor),
     sql`(SELECT count(*) FROM ${assignments} WHERE ${scope} AND ${assignments.status} IN ('assigned','accepted'))=${active.length}`,
     sql`(SELECT count(*) FROM ${conversations} WHERE ${roomScope} AND ${conversations.status}='open')=${rooms.length}`,
     snapshotMatches(
@@ -331,9 +465,11 @@ export async function closeAdministrativeAssignments(
         ? "practice_credential_decision"
         : input.kind === "professional_kind"
           ? "professional_kind_certified"
-          : input.status === "suspended"
-            ? "professional_suspension"
-            : "professional_rejection";
+          : input.kind === "account"
+            ? "account_assignments_closed"
+            : input.status === "suspended"
+              ? "professional_suspension"
+              : "professional_rejection";
   const metadata =
     input.kind === "credential_review"
       ? JSON.stringify({ status: input.status, reference: input.reference })
@@ -433,28 +569,35 @@ export async function closeAdministrativeAssignments(
         );
     }
     const updates =
-      input.kind === "credential_review"
+      input.kind === "account"
         ? {
-            status: input.status,
-            credentialConfirmed: false,
+            status: "deleting",
+            acceptingRequests: false,
             currentActiveRequests: 0,
-            updatedAt: timestamp,
+            updatedAt: input.expected.updatedAt,
           }
-        : input.kind === "professional_kind"
+        : input.kind === "credential_review"
           ? {
-              status: "pending_verification",
-              nonClinicalHelper: false,
+              status: input.status,
               credentialConfirmed: false,
-              acceptingRequests: false,
               currentActiveRequests: 0,
               updatedAt: timestamp,
             }
-          : {
-              status: input.status,
-              acceptingRequests: false,
-              currentActiveRequests: 0,
-              updatedAt: timestamp,
-            };
+          : input.kind === "professional_kind"
+            ? {
+                status: "pending_verification",
+                nonClinicalHelper: false,
+                credentialConfirmed: false,
+                acceptingRequests: false,
+                currentActiveRequests: 0,
+                updatedAt: timestamp,
+              }
+            : {
+                status: input.status,
+                acceptingRequests: false,
+                currentActiveRequests: 0,
+                updatedAt: timestamp,
+              };
     writes.push(
       db
         .update(professionals)
