@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { accountOnboardingDrafts } from "@/db/schema";
+import { accountOnboardingDrafts, user } from "@/db/schema";
 import { countryCodes, validTimeZone } from "./locale";
 
 export type OnboardingRole = "patient" | "pro";
@@ -100,29 +100,30 @@ export async function persistOnboardingDraft(
   const timestamp = new Date().toISOString();
   const answersJson = JSON.stringify(safeOnboardingDraft(role, input));
   const expiresAt = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
-  await db.batch([
+  // El batch exige usuario vigente también para limpiar sólo este recorrido.
+  // Si una baja ya terminó, no borra memoria remanente ni anuncia guardado.
+  const userExists = sql`EXISTS(SELECT 1 FROM ${user} WHERE ${user.id}=${userId})`;
+  const results = await db.batch([
     db
       .delete(accountOnboardingDrafts)
       .where(
         and(
           eq(accountOnboardingDrafts.userId, userId),
+          eq(accountOnboardingDrafts.role, role),
           lt(accountOnboardingDrafts.expiresAt, timestamp),
+          userExists,
         ),
       ),
     db
       .insert(accountOnboardingDrafts)
-      .values({
-        userId,
-        role,
-        answersJson,
-        version: 1,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        expiresAt,
-      })
+      .select(
+        sql`SELECT ${userId},${role},${answersJson},1,${timestamp},${timestamp},${expiresAt} FROM ${user} WHERE ${user.id}=${userId}`,
+      )
       .onConflictDoUpdate({
         target: [accountOnboardingDrafts.userId, accountOnboardingDrafts.role],
         set: { answersJson, updatedAt: timestamp, expiresAt },
-      }),
+      })
+      .returning({ userId: accountOnboardingDrafts.userId }),
   ]);
+  return results[1].length === 1;
 }

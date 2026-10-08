@@ -1,10 +1,14 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { accountOnboardingDrafts, accountRolePreferences } from "@/db/schema";
+import {
+  accountOnboardingDrafts,
+  accountRolePreferences,
+  user,
+} from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
 import {
   type OnboardingRole,
@@ -24,17 +28,21 @@ export async function chooseAccountRole(
   const role = form.get("role");
   if (role !== "patient" && role !== "pro")
     return { ok: false, message: "Elige el espacio que quieres crear." };
-  await db
+  const admitted = await db
     .insert(accountRolePreferences)
-    .values({
-      userId: session.user.id,
-      role,
-      updatedAt: new Date().toISOString(),
-    })
+    .select(
+      sql`SELECT ${session.user.id},${role},${new Date().toISOString()} FROM ${user} WHERE ${user.id}=${session.user.id}`,
+    )
     .onConflictDoUpdate({
       target: accountRolePreferences.userId,
       set: { role, updatedAt: new Date().toISOString() },
-    });
+    })
+    .returning({ userId: accountRolePreferences.userId });
+  if (!admitted.length)
+    return {
+      ok: false,
+      message: "Tu cuenta cambió. Entra de nuevo para elegir tu espacio.",
+    };
   redirect(role === "patient" ? "/empezar/paciente" : "/pro/onboarding");
 }
 
@@ -63,7 +71,13 @@ export async function saveOnboardingDraft(
   if (role !== "patient" && role !== "pro")
     return { ok: false, message: "No pudimos identificar el recorrido." };
   try {
-    await persistOnboardingDraft(session.user.id, role, input);
+    const admitted = await persistOnboardingDraft(session.user.id, role, input);
+    if (!admitted)
+      return {
+        ok: false,
+        message:
+          "Tu cuenta cambió. Vuelve a entrar antes de guardar el progreso.",
+      };
     return { ok: true, message: "Progreso guardado en tu cuenta." };
   } catch {
     return {
