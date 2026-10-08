@@ -129,7 +129,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       path: "/como-funciona",
       priority: 0.7,
       changeFrequency: "monthly",
-      lastModified: "2026-10-07",
+      lastModified: "2026-10-08",
     },
     {
       path: "/preguntas-frecuentes",

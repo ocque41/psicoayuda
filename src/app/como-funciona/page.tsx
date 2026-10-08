@@ -65,8 +65,47 @@ export default function Page() {
               Acuerda con el profesional las sesiones y condiciones de atención.
               Tu profesional organiza contigo la agenda y el seguimiento.
             </p>
+            <Link href="#acordar-cita">
+              Qué preguntar antes de confirmar una cita
+            </Link>
           </article>
         </div>
+        <h2 id="acordar-cita" style={{ scrollMarginTop: "14rem" }}>
+          Antes de confirmar una cita
+        </h2>
+        <p>
+          Puedes llevar estas preguntas al profesional para concretar los
+          detalles del encuentro:
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>¿Cómo sabremos que la cita quedó confirmada?</li>
+          <li>¿Por qué medio nos encontraremos y cuánto tiempo reservamos?</li>
+          <li>¿Qué fecha, hora y zona horaria acordamos?</li>
+          <li>
+            ¿Por qué canal coordinamos cambios y en qué horario respondes?
+          </li>
+          <li>¿Qué hacemos si no puedo asistir o se corta la conexión?</li>
+        </ul>
+        <p>
+          Las condiciones de cada consulta se acuerdan con el profesional. Si
+          vas a recibir atención desde otro país, consulta la{" "}
+          <Link href="/recursos/venezolanos-en-el-exterior">
+            guía para personas en el exterior
+          </Link>
+          .
+        </p>
+        <p className="muted">
+          Preguntas editoriales con elaboración asistida por IA. Fuentes
+          estadounidenses consultadas el 8 de octubre de 2026: información del{" "}
+          <a href="https://www.nimh.nih.gov/health/topics/psychotherapies">
+            NIMH
+          </a>{" "}
+          sobre preguntas al profesional y preparación de citas virtuales del{" "}
+          <a href="https://telehealth.hhs.gov/providers/preparing-patients-for-telehealth/helping-patients-prepare-for-their-appointment">
+            HHS
+          </a>
+          . Preguntas adaptadas para la coordinación de la cita.
+        </p>
         <p>
           Si buscas otras opciones de apoyo, puedes{" "}
           <Link href="/lista-de-espera">
