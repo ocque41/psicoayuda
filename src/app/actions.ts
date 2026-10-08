@@ -1,6 +1,17 @@
 "use server";
 
-import { and, count, eq, gte, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  eq,
+  getTableColumns,
+  gte,
+  is,
+  ne,
+  or,
+  SQL,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -487,17 +498,34 @@ export async function saveProfessionalOnboarding(
           ),
         )
         .returning({ id: professionals.id })
-    : db
-        .insert(professionals)
-        .values({
+    : (() => {
+        const initial: typeof professionals.$inferInsert = {
           ...values,
           ...(fpvFields ?? {}),
           id: professionalId,
           status: "pending_verification",
           currentActiveRequests: 0,
           createdAt: timestamp,
-        })
-        .returning({ id: professionals.id });
+        };
+        // Conserva orden, defaults y codificadores del esquema (booleanos y
+        // fechas FPV). El usuario se admite en el INSERT, después de los awaits:
+        // una baja ya completada devuelve cero filas, incluso sin FK activas.
+        const fields = Object.entries(getTableColumns(professionals)).map(
+          ([key, column]) => {
+            const value = initial[key as keyof typeof initial];
+            const resolved = value === undefined ? column.default : value;
+            return is(resolved, SQL)
+              ? resolved
+              : sql.param(resolved ?? null, column);
+          },
+        );
+        return db
+          .insert(professionals)
+          .select(
+            sql`SELECT ${sql.join(fields, sql`, `)} FROM ${user} WHERE ${user.id}=${session.user.id}`,
+          )
+          .returning({ id: professionals.id });
+      })();
   // Se evalúa dentro del mismo batch que el perfil. Si la baja ganó la
   // carrera, tampoco se cambian preferencias, ámbitos ni memoria del alta.
   const profileSaved = sql`EXISTS(SELECT 1 FROM professionals p WHERE p.id=${professionalId} AND p.user_id=${session.user.id} AND p.status!='deleting' AND p.updated_at=${timestamp})`;
@@ -552,8 +580,9 @@ export async function saveProfessionalOnboarding(
   if (!results[0].length)
     return {
       ok: false as const,
-      message:
-        "Tu perfil inició su eliminación antes de guardar. Conservamos tu borrador; espera a que termine antes de hacer cambios.",
+      message: existing
+        ? "Tu perfil inició su eliminación antes de guardar. Conservamos tu borrador; espera a que termine antes de hacer cambios."
+        : "Tu cuenta cambió antes de completar el alta. Vuelve a entrar para continuar.",
     };
 
   revalidateDirectoryViews();
