@@ -1,5 +1,5 @@
 .card {
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 1.3rem;
   padding: clamp(1rem, 3vw, 1.5rem);
   background: var(--surface-raised, #fffdf7);
@@ -48,7 +48,7 @@
   font-size: 0.78rem;
 }
 .next {
-  border-left: 3px solid var(--green);
+  border-left: 3px solid var(--accent);
   border-radius: 0 0.75rem 0.75rem 0;
   padding: 0.85rem 1rem;
   background: var(--surface-muted, #f3f1e8);
@@ -81,14 +81,14 @@
   min-width: 0;
 }
 .decision {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   margin-top: 1rem;
   padding-top: 1rem;
 }
 .decision summary {
   cursor: pointer;
   font-weight: 600;
-  color: var(--green);
+  color: var(--accent);
   padding: 0.35rem 0;
 }
 @media (max-width: 900px) {

@@ -6,6 +6,7 @@ import { rankProfessionalsForRequest } from "@/lib/matching";
 import { offerRequestToProfessionals } from "@/lib/offers";
 import { insideWorkHours } from "@/lib/practice/domain";
 import { purgeExpiredCallAssets } from "@/lib/practice/media";
+import { professionalAccessOpenSql } from "@/lib/practice/subscription-access";
 export async function runPracticeJobs() {
   if (process.env.NIDO_PRACTICE_ENABLED !== "true")
     return { offered: 0, purged: 0, failed: 0 };
@@ -39,6 +40,7 @@ export async function runPracticeJobs() {
         and(
           eq(professionals.status, "approved"),
           eq(professionals.acceptingRequests, true),
+          professionalAccessOpenSql(),
           eq(professionals.remoteAvailable, true),
           gt(
             professionals.maxActiveRequests,

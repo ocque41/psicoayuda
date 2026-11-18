@@ -6,7 +6,7 @@
 .cycle {
   min-width: 0;
   padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 1.5rem;
   background: var(--surface, #fffdf8);
 }
@@ -75,7 +75,7 @@
   gap: 0.8rem;
   margin-top: 1rem;
   padding-top: 0.9rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .footer p {
   margin: 0;

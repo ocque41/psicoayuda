@@ -10,7 +10,7 @@ import {
   type ProfessionalInvitationPanelProps,
 } from "@/components/professional-invitation-panel";
 import { WorkspaceNav } from "@/components/workspace/nav";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/pro/invitaciones",
@@ -61,8 +61,9 @@ describe("preparación de invitaciones profesionales", () => {
         message={'Texto ficticio <script>alert("ficticio")</script>'}
       />,
     );
-    expect(html).toContain(`${TRIAL_DAYS} días de prueba sin tarjeta`);
-    expect(html).toContain(`${MEMBERSHIP_PLAN.priceLabel}/mes al contratar.`);
+    expect(html).toContain(formatMembershipPrice("month", "usd"));
+    expect(html).toContain(formatMembershipPrice("year", "usd"));
+    expect(html).toContain("Sin permanencia.");
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("19 USD");

@@ -35,7 +35,12 @@ import {
   refreshStripeAccountStatus,
 } from "@/lib/payments/connect";
 import { listPackagesForProfessional } from "@/lib/payments/packages";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
+import {
+  professionalAccessLocked,
+  SUBSCRIPTION_PATH,
+} from "@/lib/practice/subscription-access";
+import { screeningSubmitted } from "@/lib/screening/store";
 import { SITE_URL } from "@/lib/site";
 import { getTurnstileConfig } from "@/lib/turnstile";
 
@@ -51,8 +56,8 @@ const verificationCopy: Record<string, { title: string; body: string }> = {
     body: "Tu consulta está en pausa mientras se eliminan tus datos. Si el intento anterior no terminó, puedes reintentar desde «Tu cuenta» más abajo.",
   },
   pending_verification: {
-    title: "Estamos verificando tu perfil",
-    body: "Una persona del equipo revisará tu credencial y te avisaremos por correo en cuanto esté aprobado. No necesitas hacer nada más.",
+    title: "Recibimos tu solicitud",
+    body: "El equipo está revisando tu perfil, tu credencial y tus respuestas. Te escribiremos por correo en cuanto se apruebe, con el enlace para activar tu plan y entrar a tu panel. No necesitas hacer nada más.",
   },
   rejected: {
     title: "Aún no pudimos verificar tu perfil",
@@ -108,9 +113,14 @@ function lastActivityLabel(value: Date | null, fallbackIso: string): string {
 export default async function ProDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ oferta?: string; error?: string; cobros?: string }>;
+  searchParams: Promise<{
+    oferta?: string;
+    error?: string;
+    cobros?: string;
+    solicitud?: string;
+  }>;
 }) {
-  const { oferta, error, cobros } = await searchParams;
+  const { oferta, error, cobros, solicitud } = await searchParams;
   const session = await getServerSession();
   if (!session?.user?.id) redirect("/pro");
 
@@ -181,6 +191,14 @@ export default async function ProDashboardPage({
   }
 
   if (professional.status !== "approved") {
+    // Candidatura clínica nueva: el cuestionario va justo después del perfil y
+    // es parte de la solicitud. Sin él, la revisión no puede empezar.
+    if (
+      professional.status === "pending_verification" &&
+      !professional.nonClinicalHelper &&
+      !(await screeningSubmitted(professional.id))
+    )
+      redirect("/pro/cuestionario");
     const copy =
       verificationCopy[professional.status] ??
       verificationCopy.pending_verification;
@@ -193,6 +211,11 @@ export default async function ProDashboardPage({
             </Link>
           </p>
           <h1>Tu panel</h1>
+          {solicitud === "enviada" ? (
+            <p className="status-message" role="status">
+              ¡Gracias! Tu solicitud está completa y en manos del equipo.
+            </p>
+          ) : null}
           <div className="card">
             <h2>{copy.title}</h2>
             <p>{copy.body}</p>
@@ -209,6 +232,11 @@ export default async function ProDashboardPage({
       </section>
     );
   }
+
+  // Sin plan vigente (solo con los cobros del software activos): los datos se
+  // conservan y vuelve al panel en cuanto activa su suscripción.
+  if (await professionalAccessLocked(professional.id))
+    redirect(SUBSCRIPTION_PATH);
 
   // ---- Cobros (Stripe) ----
   // Al volver del onboarding de Stripe (?cobros=volviendo) refrescamos el estado
@@ -578,11 +606,10 @@ export default async function ProDashboardPage({
             <p className="eyebrow">Comparte una consulta más organizada</p>
             <h3>Un lugar para su agenda, pacientes y seguimiento</h3>
             <p>
-              Invita a otro profesional a probar el CRM de Nido durante{" "}
-              {TRIAL_DAYS} días sin tarjeta. Tras la aprobación de su perfil,
-              puede activar su prueba gratuita. Después,{" "}
-              {MEMBERSHIP_PLAN.priceLabel}
-              /mes al contratar.
+              Invita a otro profesional a organizar su consulta con Nido. Tras
+              la aprobación de su perfil, elige su plan:{" "}
+              {formatMembershipPrice("month", "usd")} al mes o{" "}
+              {formatMembershipPrice("year", "usd")} al año.
             </p>
           </div>
           {!professional.nonClinicalHelper ? (

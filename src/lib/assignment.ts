@@ -20,6 +20,7 @@ import { currentWaitlistAdmin } from "@/lib/admin-waitlist/access";
 import type { WaitlistAdmin } from "@/lib/admin-waitlist/types";
 import { disconnectConversationSockets } from "@/lib/chat-admin";
 import { newId, nowIso } from "@/lib/ids";
+import { professionalAccessOpenSql } from "@/lib/practice/subscription-access";
 
 // Estados de asignación que consumen cupo del profesional. "accepted" lo crea el
 // flujo de ofertas (offers.ts); "assigned" lo crea la asignación del admin. Las
@@ -738,6 +739,7 @@ export async function assignRequestToProfessional(input: {
         eq(professionals.id, input.professionalId),
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
+        professionalAccessOpenSql(),
         eq(professionals.remoteAvailable, true),
         gt(
           professionals.maxActiveRequests,

@@ -112,16 +112,23 @@ export function PatientSessionBoundary({
     const revalidate = () => void boundary.check();
     window.addEventListener(ACCOUNT_SESSION_CHANGED_EVENT, revalidate);
     window.addEventListener(SESSION_CHANGED_EVENT, revalidate);
+    // Volver a la pestaña o al foco revalida de fondo sin ocultar la vista;
+    // sólo una sesión distinta o cerrada la retira.
     const resume = () => {
-      if (document.visibilityState === "visible") void boundary.check();
+      if (document.visibilityState === "visible")
+        void boundary.check({ quiet: true });
     };
     const visibility = () => {
-      if (document.visibilityState === "hidden") boundary.pause();
+      if (document.visibilityState === "hidden")
+        boundary.pause({ quiet: true });
       else resume();
     };
+    // Al salir de la página (bfcache) sí se oculta: al restaurarla se comprueba
+    // antes de volver a mostrar el contenido.
+    const leave = () => boundary.pause();
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
-    window.addEventListener("pagehide", boundary.pause);
+    window.addEventListener("pagehide", leave);
     document.addEventListener("visibilitychange", visibility);
     void boundary.check();
     return () => {
@@ -133,7 +140,7 @@ export function PatientSessionBoundary({
       window.removeEventListener(ACCOUNT_SESSION_CHANGED_EVENT, revalidate);
       window.removeEventListener("focus", resume);
       window.removeEventListener("pageshow", resume);
-      window.removeEventListener("pagehide", boundary.pause);
+      window.removeEventListener("pagehide", leave);
       document.removeEventListener("visibilitychange", visibility);
       boundary.dispose();
       if (guard.current === boundary) guard.current = null;

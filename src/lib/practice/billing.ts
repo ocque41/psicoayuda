@@ -9,51 +9,65 @@ import {
 } from "@/db/schema";
 import { newId, nowIso } from "@/lib/ids";
 import { getStripe } from "@/lib/payments/stripe";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import {
+  INTERVAL_LABELS,
+  isMembershipCurrency,
+  isMembershipInterval,
+  MEMBERSHIP_POLICY_VERSION,
+  MEMBERSHIP_PRICES,
+  type MembershipCurrency,
+  type MembershipInterval,
+} from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
 
-export { TRIAL_DAYS } from "@/lib/practice/membership-plan";
-export const MEMBERSHIP_PRICES = { month: MEMBERSHIP_PLAN.priceCents } as const;
 export class MembershipCheckoutError extends Error {}
 
+/**
+ * Los cobros del software se activan con la bandera y las dos claves de Stripe.
+ * Mientras está apagado nadie pierde acceso: los planes se muestran, pero no
+ * se crea ningún pago (ver `subscription-access.ts`).
+ */
 export function membershipBillingReady() {
   return (
     process.env.NIDO_MEMBERSHIP_BILLING_ENABLED === "true" &&
     Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET)
   );
 }
-export async function startMembershipTrial(professionalId: string) {
-  const start = new Date();
-  const end = new Date(start.getTime() + TRIAL_DAYS * 86400000);
+
+const POLICY_PREFIX = `creating:${MEMBERSHIP_POLICY_VERSION}:`;
+
+/** Crea la fila local sin prueba ni estado de acceso (status "none"). */
+async function ensureMembershipRow(professionalId: string) {
+  const now = nowIso();
   await db
     .insert(professionalMemberships)
     .values({
       professionalId,
-      trialStartedAt: start.toISOString(),
-      trialEndsAt: end.toISOString(),
-      status: "trialing",
-      updatedAt: nowIso(),
+      trialStartedAt: now,
+      trialEndsAt: now,
+      status: "none",
+      updatedAt: now,
     })
     .onConflictDoNothing();
+  return db.query.professionalMemberships.findFirst({
+    where: eq(professionalMemberships.professionalId, professionalId),
+  });
 }
+
 export async function membershipCheckout(
   pro: { id: string; email: string },
-  plan: string,
+  interval: string,
+  currency: string,
 ) {
-  if (plan !== MEMBERSHIP_PLAN.interval)
+  if (!isMembershipInterval(interval) || !isMembershipCurrency(currency))
     throw new MembershipCheckoutError(
-      "El plan disponible es de 10 USD al mes. Revisa el precio antes de continuar.",
+      "Elige un plan mensual o anual y una moneda disponible antes de continuar.",
     );
   const stripe = getStripe();
   if (!stripe || !membershipBillingReady())
     throw new MembershipCheckoutError(
-      "Los cobros del software todavía no están habilitados.",
+      "La activación de planes todavía no está abierta.",
     );
-  const member = await db.query.professionalMemberships.findFirst({
-    where: eq(professionalMemberships.professionalId, pro.id),
-  });
-  if (!member)
-    throw new MembershipCheckoutError("Activa primero tu prueba gratuita.");
   const approved = await db.query.professionals.findFirst({
     where: and(
       eq(professionals.id, pro.id),
@@ -63,16 +77,12 @@ export async function membershipCheckout(
   });
   if (!approved)
     throw new MembershipCheckoutError(
-      "Tu perfil necesita aprobación antes de contratar el software.",
+      "Tu perfil necesita aprobación antes de activar un plan.",
     );
-  const remaining = Date.parse(member.trialEndsAt) - Date.now();
-  if (!Number.isFinite(remaining))
+  const member = await ensureMembershipRow(pro.id);
+  if (!member)
     throw new MembershipCheckoutError(
-      "No pudimos comprobar el fin de tu prueba. Contacta a soporte antes de contratar.",
-    );
-  if (remaining > 0 && remaining <= 48 * 3600000)
-    throw new MembershipCheckoutError(
-      "Tu prueba sigue activa. Puedes contratar el plan al finalizar para conservar todos tus días gratuitos.",
+      "No pudimos preparar tu plan. Reintenta en un momento.",
     );
   if (member.stripeSubscriptionId) {
     const existing = await membershipProviderCall(() =>
@@ -101,56 +111,63 @@ export async function membershipCheckout(
         "Ya completaste un pago. Estamos confirmando su estado; comprueba tu plan antes de repetirlo.",
       );
     if (existing.status === "open") {
-      if (!currentMembershipCheckout(existing) || !existing.url)
-        throw new MembershipCheckoutError(
-          "Hay un pago anterior que no coincide con el plan de 10 USD al mes. Contacta a soporte o espera a que expire antes de continuar.",
-        );
-      const [verified] = await db
-        .select({ member: professionalMemberships })
-        .from(professionalMemberships)
-        .innerJoin(
-          professionals,
-          eq(professionals.id, professionalMemberships.professionalId),
+      if (currentMembershipCheckout(existing, interval, currency)) {
+        if (!existing.url)
+          throw new MembershipCheckoutError(
+            "No pudimos recuperar el pago abierto. Reintenta en un momento.",
+          );
+        const [verified] = await db
+          .select({ member: professionalMemberships })
+          .from(professionalMemberships)
+          .innerJoin(
+            professionals,
+            eq(professionals.id, professionalMemberships.professionalId),
+          )
+          .where(
+            and(
+              eq(professionalMemberships.professionalId, pro.id),
+              eq(professionalMemberships.checkoutId, existing.id),
+              eq(professionals.status, "approved"),
+            ),
+          )
+          .limit(1);
+        const currentMember = verified?.member;
+        if (
+          !currentMember ||
+          currentMember.stripeCustomerId !== member.stripeCustomerId
         )
-        .where(
-          and(
-            eq(professionalMemberships.professionalId, pro.id),
-            eq(professionalMemberships.checkoutId, existing.id),
-            eq(professionals.status, "approved"),
-          ),
-        )
-        .limit(1);
-      const currentMember = verified?.member;
-      if (
-        !currentMember ||
-        currentMember.stripeCustomerId !== member.stripeCustomerId
-      )
-        throw new MembershipCheckoutError(
-          "El estado del plan cambió. Recarga la página antes de continuar.",
-        );
-      if (currentMember.stripeSubscriptionId !== member.stripeSubscriptionId)
-        throw new MembershipCheckoutError(
-          "Estamos confirmando una suscripción. Comprueba tu plan antes de repetir el pago.",
-        );
-      return existing.url;
-    }
-    if (existing.status !== "expired")
+          throw new MembershipCheckoutError(
+            "El estado del plan cambió. Recarga la página antes de continuar.",
+          );
+        if (currentMember.stripeSubscriptionId !== member.stripeSubscriptionId)
+          throw new MembershipCheckoutError(
+            "Estamos confirmando una suscripción. Comprueba tu plan antes de repetir el pago.",
+          );
+        return existing.url;
+      }
+      // Cambió el plan o la moneda: cerramos el enlace anterior antes de abrir
+      // uno nuevo para que nunca convivan dos pagos abiertos.
+      await membershipProviderCall(() =>
+        stripe.checkout.sessions.expire(existing.id),
+      );
+    } else if (existing.status !== "expired")
       throw new MembershipCheckoutError(
         "No pudimos confirmar el estado del pago. Reintenta en un momento.",
       );
   }
   const recovering = member.checkoutId?.startsWith("creating:");
-  const policyPrefix = `creating:${MEMBERSHIP_PLAN.policyVersion}:`;
   if (
     recovering &&
-    (!member.checkoutId?.startsWith(policyPrefix) || member.plan !== plan)
+    (!member.checkoutId?.startsWith(POLICY_PREFIX) ||
+      member.plan !== interval ||
+      member.currency !== currency)
   )
     throw new MembershipCheckoutError(
-      "Hay un pago anterior en preparación. Contacta a soporte para comprobarlo antes de contratar el plan de 10 USD al mes.",
+      "Hay un pago anterior en preparación con otras condiciones. Contacta a soporte para comprobarlo antes de continuar.",
     );
   if (recovering) {
     const startedAt = Number(
-      member.checkoutId?.slice(policyPrefix.length).split(":")[0],
+      member.checkoutId?.slice(POLICY_PREFIX.length).split(":")[0],
     );
     const age = Date.now() - startedAt;
     // Stripe puede descartar la clave a partir de 24 h. No recrear un pago incierto.
@@ -165,11 +182,11 @@ export async function membershipCheckout(
       );
   }
   const attempt = recovering
-    ? member.checkoutId || `${policyPrefix}${Date.now()}:${newId("billing")}`
-    : `${policyPrefix}${Date.now()}:${newId("billing")}`;
+    ? member.checkoutId || `${POLICY_PREFIX}${Date.now()}:${newId("billing")}`
+    : `${POLICY_PREFIX}${Date.now()}:${newId("billing")}`;
   const claimed = await db
     .update(professionalMemberships)
-    .set({ checkoutId: attempt, plan })
+    .set({ checkoutId: attempt, plan: interval, currency })
     .where(
       and(
         eq(professionalMemberships.professionalId, pro.id),
@@ -190,8 +207,9 @@ export async function membershipCheckout(
     throw new MembershipCheckoutError("Ya hay una operación de pago en curso.");
   const metadata = {
     nido_membership_pro: pro.id,
-    nido_plan: MEMBERSHIP_PLAN.interval,
-    nido_membership_policy: MEMBERSHIP_PLAN.policyVersion,
+    nido_plan: interval,
+    nido_currency: currency,
+    nido_membership_policy: MEMBERSHIP_POLICY_VERSION,
   };
   // Una clave estable permite recuperar el mismo cliente si falla el guardado local.
   const customer =
@@ -208,7 +226,6 @@ export async function membershipCheckout(
     .update(professionalMemberships)
     .set({ stripeCustomerId: customer })
     .where(eq(professionalMemberships.professionalId, pro.id));
-  const trialEnd = Math.floor(Date.parse(member.trialEndsAt) / 1000);
   const checkout = await membershipProviderCall(() =>
     stripe.checkout.sessions.create(
       {
@@ -221,21 +238,16 @@ export async function membershipCheckout(
           {
             quantity: 1,
             price_data: {
-              currency: MEMBERSHIP_PLAN.currency,
-              unit_amount: MEMBERSHIP_PLAN.priceCents,
-              recurring: { interval: MEMBERSHIP_PLAN.interval },
+              currency,
+              unit_amount: MEMBERSHIP_PRICES[interval][currency],
+              recurring: { interval },
               product_data: {
-                name: "Nido · software profesional mensual",
+                name: `Nido · software profesional (${INTERVAL_LABELS[interval].toLowerCase()})`,
               },
             },
           },
         ],
-        subscription_data: {
-          metadata,
-          ...(trialEnd > Math.floor(Date.now() / 1000) + 48 * 3600
-            ? { trial_end: trialEnd }
-            : {}),
-        },
+        subscription_data: { metadata },
         success_url: `${SITE_URL}/pro/plan?resultado=confirmando`,
         cancel_url: `${SITE_URL}/pro/plan`,
       },
@@ -248,7 +260,7 @@ export async function membershipCheckout(
     );
   const saved = await db
     .update(professionalMemberships)
-    .set({ checkoutId: checkout.id, plan, updatedAt: nowIso() })
+    .set({ checkoutId: checkout.id, updatedAt: nowIso() })
     .where(
       and(
         eq(professionalMemberships.professionalId, pro.id),
@@ -294,23 +306,27 @@ function ownedMembershipCheckout(
 }
 
 /** No reutiliza enlaces de otra tarifa ni da por válido un listado truncado. */
-function currentMembershipCheckout(checkout: Stripe.Checkout.Session) {
+function currentMembershipCheckout(
+  checkout: Stripe.Checkout.Session,
+  interval: MembershipInterval,
+  currency: MembershipCurrency,
+) {
   const lines = checkout.line_items;
   const item = lines?.data[0];
   const price = item?.price;
   return Boolean(
-    checkout.metadata?.nido_plan === MEMBERSHIP_PLAN.interval &&
-      checkout.metadata?.nido_membership_policy ===
-        MEMBERSHIP_PLAN.policyVersion &&
+    checkout.metadata?.nido_plan === interval &&
+      checkout.metadata?.nido_currency === currency &&
+      checkout.metadata?.nido_membership_policy === MEMBERSHIP_POLICY_VERSION &&
       lines &&
       !lines.has_more &&
       lines.data.length === 1 &&
       item?.quantity === 1 &&
       price &&
-      price.currency === MEMBERSHIP_PLAN.currency &&
-      (!checkout.currency || checkout.currency === MEMBERSHIP_PLAN.currency) &&
-      price.unit_amount === MEMBERSHIP_PLAN.priceCents &&
-      price.recurring?.interval === MEMBERSHIP_PLAN.interval &&
+      price.currency === currency &&
+      (!checkout.currency || checkout.currency === currency) &&
+      price.unit_amount === MEMBERSHIP_PRICES[interval][currency] &&
+      price.recurring?.interval === interval &&
       price.recurring.interval_count === 1,
   );
 }
@@ -375,6 +391,7 @@ export async function handleMembershipEvent(
     current.metadata.nido_membership_pro !== proId
   )
     return true;
+  const currency = current.metadata.nido_currency || current.currency || null;
   await db.batch([
     db
       .update(professionalMemberships)
@@ -382,6 +399,7 @@ export async function handleMembershipEvent(
         stripeSubscriptionId: current.id,
         status: current.status,
         plan: current.metadata.nido_plan || null,
+        currency,
         updatedAt: nowIso(),
       })
       .where(eq(professionalMemberships.professionalId, proId)),

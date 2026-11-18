@@ -22,6 +22,7 @@ import {
 
 const tabs = [
   { id: "profile", label: "Perfil" },
+  { id: "screening", label: "Cuestionario" },
   { id: "review", label: "Documentos" },
   { id: "scope", label: "Ámbitos" },
   { id: "interview", label: "Entrevista" },
@@ -255,6 +256,86 @@ export function AdmissionDetailDialog({
             Retroceder conserva las revisiones y el historial.
           </p>
         </AdmissionActionForm>
+      </section>
+
+      <section {...panelProps("screening")}>
+        {candidate.screeningDetail ? (
+          <>
+            <div className={styles.screeningSummary}>
+              <span className={styles.screeningScore}>
+                {candidate.screening.score}/{candidate.screening.maxScore}
+              </span>
+              <span className={styles.muted}>
+                Puntuación ponderada (las preguntas de peso alto valen 2).
+              </span>
+            </div>
+            {candidate.screeningDetail.flags.length ? (
+              <p className={styles.error} role="status">
+                Respuestas eliminatorias falladas:{" "}
+                {candidate.screeningDetail.flags
+                  .map(
+                    (flag) =>
+                      `P${flag.number}${
+                        flag.reason === "children"
+                          ? " (trabaja con infancia)"
+                          : flag.reason === "older"
+                            ? " (trabaja con adultos mayores)"
+                            : ""
+                      }`,
+                  )
+                  .join(", ")}
+                . Revísalas en la entrevista antes de aceptar.
+              </p>
+            ) : (
+              <p className={styles.success}>
+                Sin respuestas eliminatorias falladas.
+              </p>
+            )}
+            <div className={styles.gate}>
+              <strong>Qué casos no atendería y por qué</strong>
+              <p className={styles.exclusions}>
+                {candidate.screeningDetail.exclusions || "Sin respuesta"}
+              </p>
+            </div>
+            <ol className={styles.screeningList}>
+              {candidate.screeningDetail.items.map((item) => {
+                const flagged = candidate.screeningDetail?.flags.some(
+                  (flag) => flag.number === item.number,
+                );
+                return (
+                  <li
+                    key={item.id}
+                    data-result={
+                      !item.scored || item.right
+                        ? "ok"
+                        : flagged
+                          ? "flag"
+                          : "wrong"
+                    }
+                  >
+                    <span className={styles.cardMeta}>
+                      P{item.number} · {item.block}
+                      {item.scored
+                        ? ` · ${item.right ? "Correcta" : "Incorrecta"}${item.weight > 1 ? " · peso alto" : ""}${item.eliminatory === "always" ? " · eliminatoria" : item.eliminatory ? " · eliminatoria según población" : ""}`
+                        : " · informativa"}
+                    </span>
+                    <strong>{item.title}</strong>
+                    <p>{item.answer}</p>
+                    {item.scored && !item.right ? (
+                      <p className={styles.muted}>Esperada: {item.expected}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        ) : (
+          <p className={styles.empty}>
+            La persona candidata todavía no envió el cuestionario clínico. Lo
+            verá automáticamente al entrar en su panel; la publicación queda
+            bloqueada hasta recibirlo.
+          </p>
+        )}
       </section>
 
       <div hidden={tab !== "review" && tab !== "interview"}>

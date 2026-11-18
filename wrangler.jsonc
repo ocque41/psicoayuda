@@ -63,6 +63,14 @@
     "NIDO_PLATFORM_FEE_CENTS": "0",
     "NIDO_PRACTICE_ENABLED": "true",
     "NIDO_PUSH_ENABLED": "false",
+    // Google Calendar con un cliente OAuth propio ("Nido Calendar"), separado del
+    // de login para que desconectar el calendario nunca revoque el acceso con
+    // Google. Secretos: NIDO_GOOGLE_CALENDAR_CLIENT_ID/_SECRET y
+    // NIDO_CALENDAR_ENCRYPTION_KEY (64 hex). La URI está autorizada en Google.
+    "NIDO_GOOGLE_CALENDAR_ENABLED": "true",
+    "NIDO_GOOGLE_CALENDAR_REDIRECT_URI": "https://saludmental-venezuela.com/api/calendar/google/callback",
+    // Cobros del software (14,99 / 99,99 en $, € o £). Apagado: nadie pierde
+    // acceso y los planes se muestran sin cobrar. Ver /admin/planes.
     "NIDO_MEMBERSHIP_BILLING_ENABLED": "false",
     "NIDO_CARE_BILLING_ENABLED": "false",
     "NIDO_CALL_CAPTURE_ENABLED": "false"

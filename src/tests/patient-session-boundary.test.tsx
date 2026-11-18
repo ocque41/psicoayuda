@@ -161,6 +161,55 @@ describe("contenido del paciente ligado a la sesión actual", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("revalidar de fondo no oculta la vista autorizada; sólo la retira si cambió la sesión", async () => {
+    const read = vi.fn(async () => valid());
+    const changed = vi.fn();
+    const guard = createPatientSessionBoundary(
+      "fictional-patient-a",
+      read,
+      changed,
+    );
+    await guard.check();
+    changed.mockClear();
+    guard.pause({ quiet: true });
+    await guard.check({ quiet: true });
+    expect(changed).not.toHaveBeenCalled();
+    read.mockRejectedValueOnce(new Error("offline"));
+    await guard.check({ quiet: true });
+    expect(changed).not.toHaveBeenCalled();
+    read.mockResolvedValueOnce(valid("fictional-patient-b"));
+    await guard.check({ quiet: true });
+    expect(changed).toHaveBeenLastCalledWith({
+      status: "revoked",
+      accountPresent: true,
+    });
+    guard.dispose();
+  });
+
+  it("la revalidación silenciosa no aplica antes de autorizar ni tras una pausa de salida", async () => {
+    const read = vi.fn(async () => valid());
+    const changed = vi.fn();
+    const guard = createPatientSessionBoundary(
+      "fictional-patient-a",
+      read,
+      changed,
+    );
+    await guard.check({ quiet: true });
+    expect(changed.mock.calls.map(([state]) => state.status)).toEqual([
+      "checking",
+      "authorized",
+    ]);
+    changed.mockClear();
+    guard.pause();
+    await guard.check({ quiet: true });
+    expect(changed.mock.calls.map(([state]) => state.status)).toEqual([
+      "checking",
+      "checking",
+      "authorized",
+    ]);
+    guard.dispose();
+  });
+
   it("lee sesión propia sin caché; rechaza respuestas HTTP o esquemas incompletos", async () => {
     const fetch = vi.fn().mockResolvedValue(
       new Response(

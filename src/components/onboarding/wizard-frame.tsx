@@ -17,6 +17,10 @@ export function WizardFrame({
   onNext,
   complete = false,
   onExit,
+  exitHref = "/empezar?cambiar=1",
+  exitLabel = "Guardar progreso básico y salir",
+  submitLabel = "Entrar a mi espacio →",
+  eyebrow,
 }: {
   title: string;
   description?: string;
@@ -30,6 +34,10 @@ export function WizardFrame({
   onNext?: () => void;
   complete?: boolean;
   onExit?: () => Promise<unknown>;
+  exitHref?: string;
+  exitLabel?: string;
+  submitLabel?: string;
+  eyebrow?: string;
 }) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -54,7 +62,7 @@ export function WizardFrame({
         result.ok === false
       )
         return;
-      router.push("/empezar?cambiar=1");
+      router.push(exitHref);
     } finally {
       exitPending.current = false;
     }
@@ -107,7 +115,7 @@ export function WizardFrame({
           <button
             type="button"
             className={styles.arrow}
-            aria-label="Guardar progreso básico y salir"
+            aria-label={exitLabel}
             disabled={pending}
             onClick={() => void exit()}
           >
@@ -122,7 +130,8 @@ export function WizardFrame({
         />
         <div className={styles.question} key={step} ref={question}>
           <p className={styles.eyebrow}>
-            {complete ? "Todo listo para continuar" : "Un paso a la vez"}
+            {eyebrow ??
+              (complete ? "Todo listo para continuar" : "Un paso a la vez")}
           </p>
           <h2 tabIndex={-1}>{title}</h2>
           {description ? (
@@ -153,7 +162,7 @@ export function WizardFrame({
               disabled={pending}
               aria-busy={pending}
             >
-              {pending ? "Guardando…" : "Entrar a mi espacio →"}
+              {pending ? "Guardando…" : submitLabel}
             </button>
           ) : (
             <button

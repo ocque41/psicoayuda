@@ -3358,6 +3358,10 @@ a.professional-carousel-link:focus-visible {
 .practice-shell > details {
   margin-top: 28px;
 }
+.practice-shell > .card + .card,
+.practice-shell > .card + form {
+  margin-top: 20px;
+}
 .workspace-content .card,
 .practice-shell .card {
   border-radius: 22px;

@@ -216,6 +216,19 @@ export function AdmissionBoard({
                             </span>
                           ),
                         )}
+                        <span
+                          className={styles.badge}
+                          data-complete={candidate.screening.submitted}
+                          data-alert={candidate.screening.flagCount > 0}
+                        >
+                          {candidate.screening.submitted
+                            ? `✓ Cuestionario ${candidate.screening.score}/${candidate.screening.maxScore}${
+                                candidate.screening.flagCount
+                                  ? ` · ${candidate.screening.flagCount} alerta${candidate.screening.flagCount === 1 ? "" : "s"}`
+                                  : ""
+                              }`
+                            : "○ Cuestionario"}
+                        </span>
                       </div>
                       <span className={styles.cardMeta}>
                         {completedGates(candidate.gates)} de 4 revisiones ·{" "}

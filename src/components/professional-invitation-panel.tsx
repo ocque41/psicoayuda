@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 import styles from "./professional-invitation-panel.module.css";
 
 export type ProfessionalInvitationPanelProps = {
@@ -66,12 +66,15 @@ export function ProfessionalInvitationPanel({
           conversaciones en un mismo lugar.
         </p>
         <div className={styles.offer}>
-          <strong>{TRIAL_DAYS} días de prueba sin tarjeta</strong>
-          <span>Después, {MEMBERSHIP_PLAN.priceLabel}/mes al contratar.</span>
+          <strong>
+            {formatMembershipPrice("month", "usd")} al mes o{" "}
+            {formatMembershipPrice("year", "usd")} al año
+          </strong>
+          <span>También en euros y libras. Sin permanencia.</span>
         </div>
         <p className={styles.detail}>
           Cada profesional crea su cuenta y completa la revisión de su perfil.
-          Tras la aprobación, puede activar su prueba gratuita.
+          Tras la aprobación, activa su plan y entra a su panel.
         </p>
       </div>
 

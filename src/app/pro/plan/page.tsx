@@ -1,22 +1,31 @@
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import {
-  activateTrial,
-  billingPortal,
-  subscribeSoftware,
-} from "@/app/pro/plan/actions";
+import Link from "next/link";
+import { billingPortal, subscribeSoftware } from "@/app/pro/plan/actions";
 import { PracticeForm } from "@/components/practice/forms";
 import { PracticeNav } from "@/components/practice/nav";
+import { PlanPicker } from "@/components/practice/plan-picker";
 import { db } from "@/db";
-import { professionalMemberships } from "@/db/schema";
+import { professionalMemberships, professionals } from "@/db/schema";
 import { requirePracticeBillingProfessional } from "@/lib/practice/access";
-import { membershipBillingReady, TRIAL_DAYS } from "@/lib/practice/billing";
-import { MEMBERSHIP_PLAN } from "@/lib/practice/membership-plan";
+import { membershipBillingReady } from "@/lib/practice/billing";
+import {
+  formatMembershipPrice,
+  isMembershipCurrency,
+  isMembershipInterval,
+  MEMBERSHIP_ACCESS_STATUSES,
+  suggestedMembershipCurrency,
+} from "@/lib/practice/membership-plan";
+import { accessLockedFor } from "@/lib/practice/subscription-access";
+
 export const metadata: Metadata = {
   title: "Tu plan de Nido",
   robots: { index: false, follow: false },
 };
+export const dynamic = "force-dynamic";
+
 const statusLabels: Record<string, string> = {
+  none: "Sin plan activo",
   trialing: "En prueba",
   active: "Activo",
   past_due: "Pago pendiente",
@@ -26,6 +35,7 @@ const statusLabels: Record<string, string> = {
   unpaid: "Sin pagar",
   paused: "En pausa",
 };
+
 export default async function PlanPage({
   searchParams,
 }: {
@@ -33,137 +43,144 @@ export default async function PlanPage({
 }) {
   const pro = await requirePracticeBillingProfessional();
   const query = await searchParams;
-  const member = await db.query.professionalMemberships.findFirst({
-    where: eq(professionalMemberships.professionalId, pro.id),
-  });
+  const [member, profile] = await Promise.all([
+    db.query.professionalMemberships.findFirst({
+      where: eq(professionalMemberships.professionalId, pro.id),
+    }),
+    db.query.professionals.findFirst({
+      where: eq(professionals.id, pro.id),
+      columns: { country: true, accessPlan: true, nonClinicalHelper: true },
+    }),
+  ]);
   const ready = membershipBillingReady();
-  const trialExpired = member && Date.parse(member.trialEndsAt) <= Date.now();
+  const approved = pro.status === "approved";
+  const locked = accessLockedFor(profile?.accessPlan, member?.status);
   const subscriptionCurrent = Boolean(
     member?.stripeSubscriptionId &&
-      !["canceled", "incomplete_expired"].includes(member.status),
+      MEMBERSHIP_ACCESS_STATUSES.includes(
+        member.status as (typeof MEMBERSHIP_ACCESS_STATUSES)[number],
+      ),
   );
+  const canPay = ready && approved && !subscriptionCurrent;
+  const legacy = profile?.accessPlan !== "subscription";
   return (
     <section className="section">
       <div className="container practice-shell">
-        <h1>Más tiempo para acompañar</h1>
-        <PracticeNav />
-        <p className="lead">
-          La suscripción paga el software que usas para organizar tu consulta.
-          Las sesiones con tus pacientes se acuerdan por separado.
-        </p>
-        <div className="grid grid-2">
+        <p className="eyebrow">Nido · Tu plan</p>
+        <h1>
+          {subscriptionCurrent
+            ? "Tu plan está activo"
+            : canPay || locked
+              ? "Activa tu plan"
+              : "Tu plan de Nido"}
+        </h1>
+        {locked ? null : <PracticeNav />}
+        {query.resultado ? (
+          <p className="status-message" role="status">
+            Estamos confirmando tu suscripción con el proveedor de pagos. En
+            cuanto llegue la confirmación (suele tardar unos segundos), podrás
+            entrar a tu panel.
+          </p>
+        ) : null}
+        {locked ? (
+          <div className="card" role="status">
+            <h2>Tu panel está en pausa</h2>
+            <p>
+              Para seguir usando Nido, activa tu plan. Tus pacientes, notas,
+              agenda e historial están guardados y vuelven intactos en cuanto se
+              confirme el pago.
+            </p>
+            <p className="hint">
+              Las conversaciones abiertas siguen disponibles desde los enlaces
+              de tus avisos por correo.
+            </p>
+          </div>
+        ) : (
+          <p className="lead">
+            La suscripción incluye el software para organizar tu consulta:
+            agenda, fichas de pacientes, servicios, mensajes y seguimiento de
+            cobros. Las sesiones con tus pacientes se acuerdan por separado.
+          </p>
+        )}
+
+        {subscriptionCurrent && member ? (
           <article className="card">
-            <h2>Empieza con {TRIAL_DAYS} días</h2>
+            <h2>{statusLabels[member.status] || "En revisión"}</h2>
             <p>
-              Prueba gratuita sin tarjeta. No se convierte en un cobro
-              automáticamente.
+              Plan{" "}
+              {member.plan === "year"
+                ? "anual"
+                : member.plan === "month"
+                  ? "mensual"
+                  : "contratado"}
+              {isMembershipInterval(member.plan) &&
+              isMembershipCurrency(member.currency)
+                ? ` · ${formatMembershipPrice(member.plan, member.currency)}`
+                : ""}
+              .
             </p>
-            {member ? (
-              <>
-                <p>
-                  Estado:{" "}
-                  {member.status === "trialing" && trialExpired
-                    ? "Prueba finalizada"
-                    : statusLabels[member.status] || "En revisión"}
-                </p>
-                <p>
-                  Tu prueba termina el{" "}
-                  {new Intl.DateTimeFormat("es", {
-                    timeZone: "America/Caracas",
-                    dateStyle: "long",
-                  }).format(new Date(member.trialEndsAt))}
-                  .
-                </p>
-                <p className="hint">
-                  Durante la beta, la prueba no bloquea el acceso al CRM ni a
-                  tus chats.
-                </p>
-              </>
-            ) : pro.status === "approved" ? (
-              <PracticeForm
-                action={activateTrial}
-                submit="Activar mi prueba gratuita"
-              >
-                <label className="practice-check">
-                  <input name="accept" type="checkbox" required />
-                  Entiendo que esta prueba es del software profesional y que no
-                  inicia cobros.
-                </label>
-              </PracticeForm>
-            ) : (
+            {member.status === "past_due" ? (
               <p className="hint">
-                Tu perfil necesita revisión antes de activar un plan nuevo.
-                Puedes gestionar una suscripción existente aquí.
-              </p>
-            )}
-          </article>
-          <article className="card">
-            <h2>Un solo plan profesional</h2>
-            <p>
-              <strong>{MEMBERSHIP_PLAN.priceLabel} al mes</strong>. Una única
-              suscripción mensual para nuevas contrataciones.
-            </p>
-            <p>
-              Agenda, fichas de pacientes, servicios y seguimiento de cobros. El
-              uso de llamadas, grabaciones y transcripción tendrá condiciones e
-              integración propias.
-            </p>
-            {member?.stripeSubscriptionId ? (
-              <p className="hint">
-                Tu suscripción existente conserva las condiciones que
-                contrataste. Consulta sus importes y renovación en el portal de
-                facturación; este precio no cambia los cobros anteriores.
+                No pudimos cobrar la última renovación. Actualiza tu método de
+                pago desde el portal para no perder el acceso.
               </p>
             ) : null}
-            {ready &&
-            member &&
-            !subscriptionCurrent &&
-            pro.status === "approved" ? (
+            <p>
+              <Link className="button human" href="/pro/dashboard">
+                Ir a mi panel →
+              </Link>
+            </p>
+          </article>
+        ) : (
+          <article className="card">
+            <h2>Elige cómo quieres pagar</h2>
+            {canPay ? (
               <PracticeForm
                 action={subscribeSoftware}
                 submit="Continuar al pago seguro"
               >
-                <input
-                  type="hidden"
-                  name="plan"
-                  value={MEMBERSHIP_PLAN.interval}
+                <PlanPicker
+                  defaultCurrency={suggestedMembershipCurrency(
+                    profile?.country,
+                  )}
+                  canPay
                 />
-                <input
-                  type="hidden"
-                  name="pricePolicy"
-                  value={MEMBERSHIP_PLAN.policyVersion}
-                />
-                <label className="practice-check">
-                  <input type="checkbox" name="accept" required />
-                  Acepto {MEMBERSHIP_PLAN.priceLabel} cada mes, con renovación
-                  mensual hasta que cancele desde el portal. Si mi prueba sigue
-                  activa, el primer cobro se realiza al finalizarla.
-                </label>
               </PracticeForm>
             ) : (
-              <p className="hint">
-                {!ready
-                  ? "Los cobros del software aún no están abiertos. Puedes usar la consulta durante la beta."
-                  : subscriptionCurrent
-                    ? "Gestiona tu suscripción existente desde el portal de facturación."
-                    : pro.status !== "approved"
-                      ? "Tu perfil necesita aprobación antes de contratar el software."
-                      : "Activa primero tu prueba gratuita para elegir un plan."}
-              </p>
+              <>
+                <PlanPicker
+                  defaultCurrency={suggestedMembershipCurrency(
+                    profile?.country,
+                  )}
+                  canPay={false}
+                />
+                <p className="hint">
+                  {!approved
+                    ? "Podrás activar tu plan en cuanto el equipo apruebe tu perfil. Te avisaremos por correo."
+                    : "La activación de planes abre muy pronto y te avisaremos por correo. Mientras tanto, tu panel sigue disponible sin cambios."}
+                </p>
+                {approved && !locked ? (
+                  <p>
+                    <Link className="button human" href="/pro/dashboard">
+                      Ir a mi panel →
+                    </Link>
+                  </p>
+                ) : null}
+              </>
             )}
-            {member?.stripeCustomerId ? (
-              <PracticeForm
-                action={billingPortal}
-                submit="Gestionar o cancelar suscripción"
-              />
+            {legacy && approved && !subscriptionCurrent ? (
+              <p className="hint">
+                Tu perfil conserva su acceso actual. Te escribiremos antes de
+                cualquier cambio.
+              </p>
             ) : null}
           </article>
-        </div>
-        {query.resultado ? (
-          <p role="status">
-            Estamos confirmando tu suscripción con el proveedor. El estado se
-            actualiza tras recibir su confirmación.
-          </p>
+        )}
+        {member?.stripeCustomerId ? (
+          <PracticeForm
+            action={billingPortal}
+            submit="Gestionar o cancelar suscripción"
+          />
         ) : null}
       </div>
     </section>

@@ -73,6 +73,13 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
       "Estado de la consulta, integraciones y configuración del servicio.",
   },
   {
+    id: "planes",
+    label: "Planes",
+    href: "/admin/planes",
+    description:
+      "Suscripción del software: estado de cada profesional y paso de perfiles anteriores.",
+  },
+  {
     id: "contactos",
     label: "Contactos",
     href: "/admin/contactos",

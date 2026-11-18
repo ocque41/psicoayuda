@@ -4,7 +4,7 @@ import {
   buildProfessionalReferralWhatsAppUrl,
   type ProfessionalInvitationSource,
 } from "@/lib/contact-messages";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 
 describe("invitación al software profesional", () => {
   it.each([
@@ -25,11 +25,10 @@ describe("invitación al software profesional", () => {
       utm_content: content,
     });
     expect(invitation.message).toContain(invitation.registrationUrl);
-    expect(invitation.message).toContain(`${TRIAL_DAYS} días gratis`);
-    expect(invitation.message).toContain("sin tarjeta y sin cobro automático");
     expect(invitation.message).toContain(
-      `${MEMBERSHIP_PLAN.priceLabel} al mes, sólo si decides contratarlo`,
+      `${formatMembershipPrice("month", "usd")} al mes o ${formatMembershipPrice("year", "usd")} al año`,
     );
+    expect(invitation.message).toContain("sin permanencia");
     expect(invitation.message).toContain("revisión profesional habitual");
     expect(invitation.message).toContain("Tras la aprobación de tu perfil");
     expect(invitation.message).toContain("antes de publicar tu perfil");

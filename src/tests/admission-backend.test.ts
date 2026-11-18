@@ -17,6 +17,7 @@ import {
   admissionEvents,
   auditLogs,
   practiceCredentials,
+  professionalScreenings,
   professionals,
   session,
   user,
@@ -93,7 +94,25 @@ async function events() {
 async function logs() {
   return db.query.auditLogs.findMany({ where: eq(auditLogs.entityId, proId) });
 }
-async function prepared() {
+async function submittedScreening() {
+  await db
+    .insert(professionalScreenings)
+    .values({
+      professionalId: proId,
+      version: "prueba",
+      answersJson: "{}",
+      exclusions: "Casos ficticios fuera de mi ámbito de práctica.",
+      score: 16,
+      maxScore: 18,
+      flagsJson: "[]",
+      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    .onConflictDoNothing();
+}
+async function prepared(withScreening = true) {
+  if (withScreening) await submittedScreening();
   expect(await saveAdmissionReview(actor, form())).toMatchObject({ ok: true });
   expect(
     await saveAdmissionScope(
@@ -124,6 +143,9 @@ async function cleanup() {
   await db
     .delete(practiceCredentials)
     .where(like(practiceCredentials.professionalId, `${P}%`));
+  await db
+    .delete(professionalScreenings)
+    .where(like(professionalScreenings.professionalId, `${P}%`));
   await db.delete(professionals).where(like(professionals.id, `${P}%`));
   await db.delete(session).where(like(session.id, `${P}%`));
   await db.delete(user).where(like(user.id, `${P}%`));
@@ -582,6 +604,7 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       status: "approved",
       credentialConfirmed: true,
       remoteAvailable: true,
+      accessPlan: "subscription",
     });
     expect(await events()).toHaveLength(4);
     expect(await logs()).toHaveLength(4);
@@ -602,6 +625,25 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       ),
     ).toMatchObject({ ok: false });
     expect(await events()).toHaveLength(4);
+  });
+  it("no publica sin el cuestionario clínico enviado", async () => {
+    await prepared(false);
+    expect(
+      await publishAdmissionCandidate(
+        actor,
+        form({ revision: "3", confirm: "on" }),
+      ),
+    ).toMatchObject({ ok: false, code: "blocked" });
+    const detail = (await readAdmissionBoard(actor, { candidato: proId }))
+      .selected;
+    expect(detail?.screening.submitted).toBe(false);
+    expect(detail?.canPublish).toBe(false);
+    expect(detail?.publishBlockers.join(" ")).toContain("cuestionario");
+    expect(
+      await db.query.professionals.findFirst({
+        where: eq(professionals.id, proId),
+      }),
+    ).toMatchObject({ status: "pending_verification", accessPlan: "legacy" });
   });
   it("no publica sin consentimiento, ámbito vigente ni confirmación", async () => {
     await prepared();

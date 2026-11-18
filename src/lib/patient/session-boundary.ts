@@ -12,6 +12,7 @@ export function createPatientSessionBoundary(
 ) {
   let revision = 0;
   let ended = false;
+  let authorized = false;
   let disposed = false;
   let request: AbortController | undefined;
   let expiry: ReturnType<typeof setTimeout> | undefined;
@@ -25,18 +26,29 @@ export function createPatientSessionBoundary(
   function end() {
     if (disposed) return;
     ended = true;
+    authorized = false;
     cancelRequest();
     clearTimeout(expiry);
     changed({ status: "revoked" });
   }
-  async function check() {
+  /**
+   * `quiet`: revalidación de fondo (volver a la pestaña, foco). Si la vista ya
+   * estaba autorizada no se oculta mientras llega la red; sólo se retira si la
+   * sesión cambió de verdad. Un fallo de red transitorio no la borra: la
+   * caducidad programada y las señales de cierre siguen actuando.
+   */
+  async function check(options: { quiet?: boolean } = {}) {
     if (disposed) return;
     cancelRequest();
     const ticket = revision;
     const pending = new AbortController();
     request = pending;
     timeout = setTimeout(() => pending.abort(), 10_000);
-    changed({ status: ended ? "revoked" : "checking" });
+    const quiet = Boolean(options.quiet) && authorized && !ended;
+    if (!quiet) {
+      authorized = false;
+      changed({ status: ended ? "revoked" : "checking" });
+    }
     try {
       const session = await read(pending.signal);
       if (disposed || ticket !== revision) return;
@@ -47,6 +59,7 @@ export function createPatientSessionBoundary(
         (session.expiresAt ?? 0) <= Date.now()
       ) {
         ended = true;
+        authorized = false;
         clearTimeout(expiry);
         changed({
           status: "revoked",
@@ -54,15 +67,18 @@ export function createPatientSessionBoundary(
         });
         return;
       }
-      changed({ status: "authorized" });
+      authorized = true;
+      if (!quiet) changed({ status: "authorized" });
       clearTimeout(expiry);
       expiry = setTimeout(
         end,
         Math.min((session.expiresAt ?? 0) - Date.now(), 2_147_483_647),
       );
     } catch {
-      if (!disposed && ticket === revision)
+      if (!disposed && ticket === revision && !quiet) {
+        authorized = false;
         changed({ status: ended ? "revoked" : "unavailable" });
+      }
     } finally {
       if (ticket === revision) clearTimeout(timeout);
     }
@@ -70,9 +86,12 @@ export function createPatientSessionBoundary(
   return {
     check,
     end,
-    pause() {
+    /** `quiet`: sólo cancela la comprobación en curso, sin ocultar la vista. */
+    pause(options: { quiet?: boolean } = {}) {
       if (disposed) return;
       cancelRequest();
+      if (options.quiet && authorized && !ended) return;
+      authorized = false;
       changed({ status: ended ? "revoked" : "checking" });
     },
     dispose() {

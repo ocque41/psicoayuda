@@ -6,6 +6,7 @@ node_modules
 local.db
 local.db-*
 .env
+.env*.local
 # Backups de base de datos: NUNCA al repo (pueden contener datos reales)
 backup-*.sql
 *.bigr-backup

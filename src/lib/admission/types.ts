@@ -53,8 +53,30 @@ export type AdmissionCandidate = {
   updatedAt: string;
   hasDocument: boolean;
   gates: Record<AdmissionGate, boolean>;
+  screening: {
+    submitted: boolean;
+    score: number | null;
+    maxScore: number | null;
+    flagCount: number;
+  };
   canPublish: boolean;
 };
+export type AdmissionScreeningItem = {
+  id: string;
+  number: number;
+  block: string;
+  title: string;
+  answer: string;
+} & (
+  | { scored: false }
+  | {
+      scored: true;
+      right: boolean;
+      expected: string;
+      weight: number;
+      eliminatory: "always" | "children" | "older" | null;
+    }
+);
 export type AdmissionDetail = AdmissionCandidate & {
   profile: {
     university: string | null;
@@ -65,6 +87,11 @@ export type AdmissionDetail = AdmissionCandidate & {
     registrationDetail: string | null;
     conductAccepted: boolean;
   };
+  screeningDetail: {
+    items: AdmissionScreeningItem[];
+    exclusions: string;
+    flags: { number: number; reason: string }[];
+  } | null;
   evidence: { identity: string; credentials: string };
   interview: {
     startsAt: string | null;

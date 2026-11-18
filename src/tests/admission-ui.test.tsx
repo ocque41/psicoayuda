@@ -46,6 +46,7 @@ function fixture(): AdmissionBoardData {
     updatedAt: "2026-10-04T08:00:00.000Z",
     hasDocument: true,
     gates: { identity: true, credentials: true, scope: true, interview: true },
+    screening: { submitted: true, score: 16, maxScore: 18, flagCount: 0 },
     canPublish: true,
   };
   return {
@@ -63,6 +64,7 @@ function fixture(): AdmissionBoardData {
         registrationDetail: null,
         conductAccepted: true,
       },
+      screeningDetail: null,
       evidence: {
         identity: "Cotejo mediante entrevista",
         credentials: "Consulta en registro profesional",
@@ -172,7 +174,7 @@ describe("admisión: tablero y revisión humana", () => {
     expect(url.searchParams.get("otro")).toBeNull();
   });
 
-  it("escapa perfiles y referencias y mantiene los seis apartados sin una página larga", () => {
+  it("escapa perfiles y referencias y mantiene los siete apartados sin una página larga", () => {
     const data = fixture();
     const candidate = detail(data);
     candidate.name = "<script>prueba</script>";
@@ -187,8 +189,8 @@ describe("admisión: tablero y revisión humana", () => {
     expect(html).toContain("&lt;script&gt;prueba&lt;/script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<img src=x");
-    expect(html.match(/role="tab"/g)).toHaveLength(6);
-    expect(html.match(/role="tabpanel"/g)).toHaveLength(6);
+    expect(html.match(/role="tab"/g)).toHaveLength(7);
+    expect(html.match(/role="tabpanel"/g)).toHaveLength(7);
     const panels = [
       ...html.matchAll(/<section[^>]*role="tabpanel"[^>]*>/g),
     ].map(([tag]) => tag);

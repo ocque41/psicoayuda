@@ -1,4 +1,4 @@
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 
 export const contactSources = [
   "public_contact",
@@ -72,7 +72,7 @@ function professionalInvitation(
 
   const message = [
     "Hola. Te invito a conocer Nido, un CRM para psicólogas y psicólogos: agenda, fichas de pacientes, notas por sesión, conversaciones y seguimiento de cobros externos en un solo lugar.",
-    `Tras la aprobación de tu perfil, puedes activar una prueba del software de ${TRIAL_DAYS} días gratis, sin tarjeta y sin cobro automático. Después, el plan del software es de ${MEMBERSHIP_PLAN.priceLabel} al mes, sólo si decides contratarlo.`,
+    `Tras la aprobación de tu perfil, eliges tu plan del software: ${formatMembershipPrice("month", "usd")} al mes o ${formatMembershipPrice("year", "usd")} al año (también en euros o libras), sin permanencia.`,
     "El registro sigue la revisión profesional habitual de identidad, credenciales y ámbito de atención antes de publicar tu perfil. Las sesiones y sus pagos se acuerdan por separado con cada paciente. Ayuda Terremoto mantiene su apoyo psicológico gratuito por separado.",
     `Si quieres conocerlo y registrarte, empieza aquí:\n${registrationUrl.toString()}`,
   ].join("\n\n");

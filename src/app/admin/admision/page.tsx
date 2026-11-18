@@ -87,7 +87,8 @@ export default async function AdmissionPage({
   let data: AdmissionBoardData;
   try {
     data = await readAdmissionBoard(actor, query);
-  } catch {
+  } catch (error) {
+    console.error("[admision] no se pudo leer el tablero", error);
     return (
       <AdminShell
         active="admision"

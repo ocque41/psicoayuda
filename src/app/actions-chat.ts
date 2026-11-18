@@ -9,6 +9,7 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { getServerSession } from "@/lib/auth-server";
 import { newId, nowIso } from "@/lib/ids";
 import { linkPatientConversation } from "@/lib/patient/access";
+import { professionalAccessOpenSql } from "@/lib/practice/subscription-access";
 import { mintSeekerToken, SEEKER_COOKIE } from "@/lib/seeker-token";
 
 const TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72h
@@ -68,6 +69,7 @@ export async function createConversation(formData: FormData) {
   const results = await db.batch([
     db.all(sql`UPDATE professionals SET current_active_requests=current_active_requests+1,updated_at=${timestamp}
       WHERE id=${professionalId} AND status='approved' AND accepting_requests=1 AND remote_available=1
+        AND ${professionalAccessOpenSql(sql`${professionalId}`) ?? sql`1=1`}
         AND current_active_requests < max_active_requests
         AND (${requesterHash ?? null} IS NULL OR (SELECT count(*) FROM seeker_sessions
           WHERE requester_hash=${requesterHash ?? null} AND issued_at >= ${now - 3600000}) < 3)

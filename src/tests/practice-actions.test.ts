@@ -60,7 +60,6 @@ import {
 } from "@/app/pro/consulta/actions";
 import { saveCallConsent } from "@/app/sesion/[appointmentId]/actions";
 import { ownedPatient } from "@/lib/practice/access";
-import { startMembershipTrial } from "@/lib/practice/billing";
 import {
   appointmentActor,
   CALL_POLICY_VERSION,
@@ -438,18 +437,6 @@ describe("CRM con aislamiento y datos persistidos", () => {
     });
     expect(chat?.status).toBe("open");
     expect(chat?.quotaReleasedAt).toBeTruthy();
-  });
-  it("la prueba no se reinicia al volver a activarla", async () => {
-    await startMembershipTrial(`${P}-pro`);
-    const a = await db.query.professionalMemberships.findFirst({
-      where: eq(professionalMemberships.professionalId, `${P}-pro`),
-    });
-    await startMembershipTrial(`${P}-pro`);
-    const b = await db.query.professionalMemberships.findFirst({
-      where: eq(professionalMemberships.professionalId, `${P}-pro`),
-    });
-    expect(a?.trialEndsAt).toBe(b?.trialEndsAt);
-    expect(b?.stripeSubscriptionId).toBeNull();
   });
   it("los créditos del paquete se consumen de forma atómica", async () => {
     await db.insert(carePlans).values({

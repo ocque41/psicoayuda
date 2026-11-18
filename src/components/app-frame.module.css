@@ -21,6 +21,7 @@
   display: inline-flex;
   align-items: center;
   flex: none;
+  min-height: 44px;
   gap: 10px;
   color: var(--accent-strong, #2f7a5b);
   text-decoration: none;
@@ -84,4 +85,9 @@
   .separator {
     display: none;
   }
+}
+
+/* Objetivo táctil mínimo de 44px para el menú de cuenta del espacio de trabajo. */
+.account :global(.site-nav-toggle) {
+  min-height: 44px;
 }

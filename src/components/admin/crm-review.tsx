@@ -6,7 +6,7 @@ import { PracticeCalendar } from "@/components/practice/calendar";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { WorkspaceNav } from "@/components/workspace/nav";
 import { SettingsPanel } from "@/components/workspace/settings-panel";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 import {
   type ReviewWindow,
   reviewHref,
@@ -84,8 +84,8 @@ const windows: Record<
   },
   plan: {
     title: "Tu espacio profesional",
-    description: "Prueba y estado del software en una ventana propia.",
-    detail: `El software tiene una prueba de ${TRIAL_DAYS} días sin tarjeta y un único plan de ${MEMBERSHIP_PLAN.priceLabel} al mes. La prueba no inicia cobros automáticamente. La facturación se habilita por separado de los cobros de atención; su estado real se consulta en Consola.`,
+    description: "Plan y estado del software en una ventana propia.",
+    detail: `El software tiene dos planes: ${formatMembershipPrice("month", "usd")} al mes o ${formatMembershipPrice("year", "usd")} al año (también en € y £). Los perfiles nuevos lo activan tras su aprobación; los anteriores conservan su acceso hasta pasarlos desde Planes. La facturación se habilita por separado de los cobros de atención; su estado real se consulta en Consola.`,
     links: [{ label: "Ver servicios", window: "servicios" }],
   },
   perfil: {

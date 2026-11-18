@@ -2,13 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ professional: vi.fn(), checkout: vi.fn() }));
 vi.mock("@/lib/practice/access", () => ({
-  requirePracticeProfessional: mocks.professional,
-  requirePracticeBillingProfessional: vi.fn(),
+  requirePracticeProfessional: vi.fn(),
+  requirePracticeBillingProfessional: mocks.professional,
 }));
 vi.mock("@/lib/practice/billing", () => ({
   MembershipCheckoutError: class extends Error {},
   membershipCheckout: mocks.checkout,
-  startMembershipTrial: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -18,31 +17,33 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { subscribeSoftware } from "@/app/pro/plan/actions";
-import { MEMBERSHIP_PLAN } from "@/lib/practice/membership-plan";
+import { MEMBERSHIP_POLICY_VERSION } from "@/lib/practice/membership-plan";
 
 function form(
   plan = "month",
-  policy = MEMBERSHIP_PLAN.policyVersion,
+  currency = "eur",
+  policy: string = MEMBERSHIP_POLICY_VERSION,
   accept = "on",
 ) {
   const data = new FormData();
   data.set("plan", plan);
+  data.set("currency", currency);
   data.set("pricePolicy", policy);
   if (accept) data.set("accept", accept);
   return data;
 }
 
-describe("consentimiento al plan vigente", () => {
+describe("consentimiento a los planes vigentes", () => {
   beforeEach(() => {
     mocks.professional.mockResolvedValue({
-      id: "test-monthly",
+      id: "test-plan",
       email: "fiction@example.test",
+      status: "approved",
     });
     mocks.checkout.mockResolvedValue("https://checkout.stripe.com/fictitious");
   });
   afterEach(() => vi.resetAllMocks());
   it.each([
-    "year",
     "week",
     "",
     "month/year",
@@ -52,31 +53,46 @@ describe("consentimiento al plan vigente", () => {
     });
     expect(mocks.checkout).not.toHaveBeenCalled();
   });
-  it("rechaza un formulario anterior de 19 USD que no conoce la política vigente", async () => {
-    const old = form();
-    old.delete("pricePolicy");
-    expect(await subscribeSoftware(null, old)).toMatchObject({
+  it.each([
+    "jpy",
+    "",
+    "EUR",
+  ])("rechaza moneda no ofrecida %s", async (currency) => {
+    expect(
+      await subscribeSoftware(null, form("month", currency)),
+    ).toMatchObject({ ok: false });
+    expect(mocks.checkout).not.toHaveBeenCalled();
+  });
+  it("rechaza un formulario con la política anterior de 10 USD", async () => {
+    expect(
+      await subscribeSoftware(null, form("month", "usd", "monthly-usd-10-v1")),
+    ).toMatchObject({
       ok: false,
       message: expect.stringContaining("Recarga"),
     });
     expect(mocks.checkout).not.toHaveBeenCalled();
   });
-  it("rechaza consentimiento ausente aunque la frecuencia coincida", async () => {
+  it("rechaza consentimiento ausente aunque el plan coincida", async () => {
     expect(
       await subscribeSoftware(
         null,
-        form("month", MEMBERSHIP_PLAN.policyVersion, ""),
+        form("year", "gbp", MEMBERSHIP_POLICY_VERSION, ""),
       ),
     ).toMatchObject({ ok: false });
     expect(mocks.checkout).not.toHaveBeenCalled();
   });
-  it("continúa únicamente con frecuencia y condiciones vigentes aceptadas", async () => {
-    await expect(subscribeSoftware(null, form())).rejects.toThrow(
+  it.each([
+    ["month", "usd"],
+    ["year", "eur"],
+    ["year", "gbp"],
+  ])("continúa con %s en %s y condiciones aceptadas", async (plan, currency) => {
+    await expect(subscribeSoftware(null, form(plan, currency))).rejects.toThrow(
       "redirect:https://checkout.stripe.com/fictitious",
     );
     expect(mocks.checkout).toHaveBeenCalledWith(
-      { id: "test-monthly", email: "fiction@example.test" },
-      "month",
+      { id: "test-plan", email: "fiction@example.test", status: "approved" },
+      plan,
+      currency,
     );
   });
   it("los fallos inesperados se muestran en español sin exponer detalles internos", async () => {

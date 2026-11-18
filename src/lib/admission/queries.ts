@@ -10,9 +10,14 @@ import {
   admissionConfiguration,
   admissionEvents,
   practiceCredentials,
+  professionalScreenings,
   professionals,
   user,
 } from "@/db/schema";
+import {
+  sanitizeScreeningAnswers,
+  screeningReview,
+} from "@/lib/screening/scoring";
 import { currentAdmissionReviewer } from "./access";
 import { admissionHistoryDetails } from "./history";
 import type {
@@ -73,7 +78,21 @@ const candidateColumns = {
   interviewReference: admissionCases.interviewReference,
   interviewCompleted: admissionCases.interviewCompleted,
   scopeValid: currentScopeGate(professionals.id),
+  screeningSubmittedAt: professionalScreenings.submittedAt,
+  screeningScore: professionalScreenings.score,
+  screeningMaxScore: professionalScreenings.maxScore,
+  screeningFlags: professionalScreenings.flagsJson,
 };
+function flagList(value: unknown) {
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed)
+      ? (parsed as { number: number; reason: string }[])
+      : [];
+  } catch {
+    return [];
+  }
+}
 type CandidateRow = { [Key in keyof typeof candidateColumns]: unknown };
 function candidateFromRow(
   row: CandidateRow,
@@ -99,6 +118,7 @@ function candidateFromRow(
   );
   const scope = Boolean(row.scopeValid);
   const stageId = String(row.stageId || firstStage);
+  const screeningSubmitted = Boolean(row.screeningSubmittedAt);
   return {
     professionalId: String(row.professionalId),
     name: String(row.name),
@@ -114,7 +134,14 @@ function candidateFromRow(
     ),
     hasDocument: Boolean(row.hasDocument),
     gates: { identity, credentials, scope, interview },
+    screening: {
+      submitted: screeningSubmitted,
+      score: screeningSubmitted ? Number(row.screeningScore ?? 0) : null,
+      maxScore: screeningSubmitted ? Number(row.screeningMaxScore ?? 0) : null,
+      flagCount: screeningSubmitted ? flagList(row.screeningFlags).length : 0,
+    },
     canPublish:
+      screeningSubmitted &&
       identity &&
       credentials &&
       scope &&
@@ -170,6 +197,10 @@ export async function readAdmissionBoard(
         admissionCases,
         eq(admissionCases.professionalId, professionals.id),
       )
+      .leftJoin(
+        professionalScreenings,
+        eq(professionalScreenings.professionalId, professionals.id),
+      )
       .where(
         and(
           candidateEligibility(),
@@ -212,12 +243,18 @@ export async function readAdmissionBoard(
         fpvVerified: professionals.fpvVerified,
         registrationType: professionals.registrationType,
         registrationDetail: professionals.registrationDetail,
+        screeningAnswers: professionalScreenings.answersJson,
+        screeningExclusions: professionalScreenings.exclusions,
       })
       .from(professionals)
       .innerJoin(user, eq(user.id, professionals.userId))
       .leftJoin(
         admissionCases,
         eq(admissionCases.professionalId, professionals.id),
+      )
+      .leftJoin(
+        professionalScreenings,
+        eq(professionalScreenings.professionalId, professionals.id),
       )
       .where(
         and(
@@ -293,6 +330,16 @@ export async function readAdmissionBoard(
         );
       if (!detail.candidateEmailVerified)
         blockers.push("La cuenta candidata debe verificar su correo.");
+      if (!summary.screening.submitted)
+        blockers.push(
+          "La cuenta candidata debe enviar el cuestionario clínico.",
+        );
+      let screeningAnswers = {};
+      try {
+        screeningAnswers = sanitizeScreeningAnswers(
+          JSON.parse(String(detail.screeningAnswers || "{}")),
+        );
+      } catch {}
       selected = {
         ...summary,
         profile: {
@@ -304,6 +351,13 @@ export async function readAdmissionBoard(
           registrationDetail: detail.registrationDetail,
           conductAccepted: Boolean(detail.conductAcceptedAt),
         },
+        screeningDetail: summary.screening.submitted
+          ? {
+              items: screeningReview(screeningAnswers),
+              exclusions: detail.screeningExclusions || "",
+              flags: flagList(detail.screeningFlags),
+            }
+          : null,
         evidence: {
           identity: detail.identityReference || "",
           credentials: detail.credentialsReference || "",

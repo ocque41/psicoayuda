@@ -34,6 +34,7 @@ export {
   appointmentReminderDeliveries,
   appointmentReminderPreferences,
 } from "./reminder-schema";
+export { professionalScreenings } from "./screening-schema";
 export { waitlistEntries } from "./waitlist-schema";
 
 export const user = sqliteTable("user", {
@@ -245,6 +246,13 @@ export const professionals = sqliteTable(
     cryptoPublicKeyUpdatedAt: integer("crypto_public_key_updated_at", {
       mode: "timestamp_ms",
     }),
+    // ---- Plan de acceso al software. "legacy": perfiles anteriores a la
+    // suscripción, con acceso completo. "subscription": necesita una
+    // suscripción vigente cuando los cobros del software están activos. ----
+    accessPlan: text("access_plan", { enum: ["legacy", "subscription"] })
+      .default("legacy")
+      .notNull(),
+    accessPlanChangedAt: text("access_plan_changed_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -952,6 +960,7 @@ export const professionalMemberships = sqliteTable("professional_memberships", {
   checkoutId: text("checkout_id"),
   status: text("status").notNull().default("trialing"),
   plan: text("plan"),
+  currency: text("currency"),
   updatedAt: text("updated_at").notNull(),
 });
 export const practiceCredentials = sqliteTable(

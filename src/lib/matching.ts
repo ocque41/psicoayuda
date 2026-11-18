@@ -4,6 +4,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { helpRequests, professionals } from "@/db/schema";
 import { languageLabels, needLabels } from "@/lib/constants";
+import { professionalAccessOpenSql } from "@/lib/practice/subscription-access";
 
 type ProfessionalRow = typeof professionals.$inferSelect;
 type HelpRequestRow = typeof helpRequests.$inferSelect;
@@ -148,6 +149,7 @@ export async function suggestProfessionalsForRequest(helpRequestId: string) {
       and(
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
+        professionalAccessOpenSql(),
         eq(professionals.remoteAvailable, true),
         gt(
           professionals.maxActiveRequests,

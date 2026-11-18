@@ -1,50 +1,41 @@
 "use server";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PracticeFormState } from "@/app/pro/consulta/actions";
 import { db } from "@/db";
 import { professionalMemberships } from "@/db/schema";
 import { getStripe } from "@/lib/payments/stripe";
-import {
-  requirePracticeBillingProfessional,
-  requirePracticeProfessional,
-} from "@/lib/practice/access";
+import { requirePracticeBillingProfessional } from "@/lib/practice/access";
 import {
   MembershipCheckoutError,
   membershipCheckout,
-  startMembershipTrial,
 } from "@/lib/practice/billing";
-import { MEMBERSHIP_PLAN } from "@/lib/practice/membership-plan";
+import {
+  isMembershipCurrency,
+  isMembershipInterval,
+  MEMBERSHIP_POLICY_VERSION,
+} from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
-export async function activateTrial(
-  _prev: PracticeFormState,
-  form: FormData,
-): Promise<PracticeFormState> {
-  const pro = await requirePracticeProfessional();
-  if (form.get("accept") !== "on")
-    return { ok: false, message: "Confirma las condiciones de la prueba." };
-  await startMembershipTrial(pro.id);
-  revalidatePath("/pro/plan");
-  return {
-    ok: true,
-    message:
-      "Tu prueba está activa. No se ha solicitado tarjeta ni iniciado un cobro.",
-  };
-}
+
 export async function subscribeSoftware(
   _prev: PracticeFormState,
   form: FormData,
 ): Promise<PracticeFormState> {
-  const pro = await requirePracticeProfessional();
-  if (
-    form.get("plan") !== MEMBERSHIP_PLAN.interval ||
-    form.get("pricePolicy") !== MEMBERSHIP_PLAN.policyVersion
-  )
+  // Sin el guard del CRM: un perfil en pausa por falta de plan debe poder pagar.
+  const pro = await requirePracticeBillingProfessional();
+  if (form.get("pricePolicy") !== MEMBERSHIP_POLICY_VERSION)
     return {
       ok: false,
       message:
-        "El plan disponible es de 10 USD al mes. Recarga la página y confirma las condiciones actuales.",
+        "Los precios se actualizaron. Recarga la página y confirma las condiciones actuales.",
+    };
+  const plan = form.get("plan");
+  const currency = form.get("currency");
+  if (!isMembershipInterval(plan) || !isMembershipCurrency(currency))
+    return {
+      ok: false,
+      message:
+        "Elige un plan mensual o anual y una moneda disponible antes de continuar.",
     };
   if (form.get("accept") !== "on")
     return {
@@ -53,7 +44,7 @@ export async function subscribeSoftware(
     };
   let url: string;
   try {
-    url = await membershipCheckout(pro, MEMBERSHIP_PLAN.interval);
+    url = await membershipCheckout(pro, plan, currency);
   } catch (error) {
     return {
       ok: false,

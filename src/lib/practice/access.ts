@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { practicePatients, professionals } from "@/db/schema";
 import { getServerSession } from "@/lib/auth-server";
+import {
+  professionalAccessLocked,
+  SUBSCRIPTION_PATH,
+} from "@/lib/practice/subscription-access";
 
 export async function requirePracticeProfessional() {
   const session = await getServerSession();
@@ -27,6 +31,9 @@ export async function requirePracticeProfessional() {
     },
   });
   if (!pro || pro.nonClinicalHelper || !pro.userId) redirect("/pro/dashboard");
+  // Sin plan vigente (solo con los cobros activos): los datos se conservan y
+  // el profesional vuelve a su panel en cuanto activa la suscripción.
+  if (await professionalAccessLocked(pro.id)) redirect(SUBSCRIPTION_PATH);
   return { ...pro, userId: pro.userId };
 }
 export async function ownedPatient(patientId: string, professionalId: string) {

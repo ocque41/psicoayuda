@@ -245,6 +245,58 @@
   color: #24553a;
   background: #e1edda;
 }
+.badge[data-alert="true"] {
+  color: #822c27;
+  background: #fff0e9;
+}
+.screeningSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+.screeningScore {
+  font-size: 28px;
+  font-weight: 700;
+  color: #24553a;
+  letter-spacing: -0.02em;
+}
+.screeningList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.screeningList li {
+  padding: 12px 14px;
+  border: 1px solid #e0e6d8;
+  border-radius: 14px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.screeningList li[data-result="wrong"] {
+  border-color: #e9c4b8;
+  background: #fff8f4;
+}
+.screeningList li[data-result="flag"] {
+  border-color: #c9675a;
+  background: #fff0e9;
+}
+.screeningList p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.exclusions {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f6f8f2;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .empty {
   border: 1px dashed #cbd6c1;
   border-radius: 14px;

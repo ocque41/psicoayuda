@@ -11,6 +11,8 @@ import {
 } from "@/db/schema";
 import { newId, nowIso } from "@/lib/ids";
 import { localToUtc } from "@/lib/practice/domain";
+import { suggestedMembershipCurrency } from "@/lib/practice/membership-plan";
+import { sendPlanEmail } from "@/lib/practice/plan-emails";
 import { currentAdmissionReviewer, pendingAdmissionCandidate } from "./access";
 import { currentScopeGate, readAdmissionConfiguration } from "./queries";
 import type { AdmissionFormState, AdmissionReviewer } from "./types";
@@ -558,6 +560,7 @@ export async function publishAdmissionCandidate(
         gatePredicate(gate, input),
       ),
       sql`EXISTS(SELECT 1 FROM professionals p JOIN user u ON u.id=p.user_id WHERE p.id=${input.professionalId} AND p.conduct_accepted_at IS NOT NULL AND u.email_verified=1)`,
+      sql`EXISTS(SELECT 1 FROM professional_screenings WHERE professional_id=${input.professionalId} AND submitted_at IS NOT NULL)`,
     );
     const publicationProof = sql`EXISTS(SELECT 1 FROM professionals p JOIN user u ON u.id=p.user_id WHERE p.id=${input.professionalId} AND p.status='approved' AND p.credential_confirmed=1 AND p.updated_at=${timestamp} AND p.conduct_accepted_at IS NOT NULL AND u.email_verified=1) AND ${currentScopeGate(input.professionalId)}`;
     const [written] = await db.batch([
@@ -575,6 +578,10 @@ export async function publishAdmissionCandidate(
         .set({
           status: "approved",
           credentialConfirmed: true,
+          // Las aprobaciones nuevas entran en el plan de suscripción. Solo se
+          // exige pagar cuando los cobros del software están activos.
+          accessPlan: "subscription",
+          accessPlanChangedAt: timestamp,
           updatedAt: timestamp,
         })
         .where(
@@ -603,19 +610,22 @@ export async function publishAdmissionCandidate(
         input.professionalId,
       ),
     ]);
-    return written.length
-      ? {
-          ok: true,
-          published: true,
-          message:
-            "Profesional publicado. Su perfil conserva sus preferencias de atención y visibilidad.",
-        }
-      : {
-          ok: false,
-          code: "blocked",
-          message:
-            "La publicación requiere todos los cotejos, ámbitos vigentes, entrevista realizada, condiciones aceptadas y un perfil sin cambios pendientes.",
-        };
+    if (written.length) {
+      const emailed = await sendAcceptanceEmail(input.professionalId);
+      return {
+        ok: true,
+        published: true,
+        message: emailed
+          ? "Profesional aceptado. Le enviamos el correo de bienvenida con el siguiente paso."
+          : "Profesional aceptado. El correo de bienvenida no se pudo enviar; avísale de que ya puede entrar a Nido.",
+      };
+    }
+    return {
+      ok: false,
+      code: "blocked",
+      message:
+        "La publicación requiere todos los cotejos, ámbitos vigentes, entrevista realizada, cuestionario clínico enviado, condiciones aceptadas y un perfil sin cambios pendientes.",
+    };
   } catch {
     return unavailable();
   }
@@ -711,5 +721,29 @@ export async function configureAdmissionStages(
         };
   } catch {
     return unavailable();
+  }
+}
+
+/** Correo de aceptación con el enlace al plan. Nunca bloquea la aprobación. */
+async function sendAcceptanceEmail(professionalId: string) {
+  try {
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.id, professionalId),
+      columns: {
+        email: true,
+        displayName: true,
+        fullName: true,
+        country: true,
+      },
+    });
+    if (!pro?.email) return false;
+    const result = await sendPlanEmail("acceptance", {
+      email: pro.email,
+      name: pro.displayName || pro.fullName,
+      currency: suggestedMembershipCurrency(pro.country),
+    });
+    return result.ok;
+  } catch {
+    return false;
   }
 }

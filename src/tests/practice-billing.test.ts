@@ -274,13 +274,13 @@ describe("facturación separada, reintentos y permisos del equipo", () => {
       stripeSubscriptionId: `${P}-software`,
     });
   });
-  it("no adelanta el cobro en las últimas 48 horas de la prueba", async () => {
+  it("no abre un pago con una moneda que no se ofrece", async () => {
     vi.stubEnv("NIDO_MEMBERSHIP_BILLING_ENABLED", "true");
     vi.stubEnv("STRIPE_SECRET_KEY", "fixture");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "fixture");
     await expect(
-      membershipCheckout({ id: P, email: `${P}@example.test` }, "month"),
-    ).rejects.toThrow("Tu prueba sigue activa");
+      membershipCheckout({ id: P, email: `${P}@example.test` }, "month", "jpy"),
+    ).rejects.toThrow("moneda disponible");
     expect(mocks.checkoutCreate).not.toHaveBeenCalled();
   });
   it("una baja conserva punteros cuando el proveedor no está configurado", async () => {

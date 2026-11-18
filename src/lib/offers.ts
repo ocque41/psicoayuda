@@ -16,6 +16,7 @@ import { needLabels, urgencyLabels } from "@/lib/constants";
 import { newId, nowIso } from "@/lib/ids";
 import { notifyProfessionalNewOffer } from "@/lib/notifications";
 import { insideWorkHours } from "@/lib/practice/domain";
+import { professionalAccessOpenSql } from "@/lib/practice/subscription-access";
 import { mintSeekerToken } from "@/lib/seeker-token";
 
 const TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72h
@@ -43,6 +44,7 @@ export async function offerRequestToProfessionals(
         inArray(professionals.id, professionalIds),
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
+        professionalAccessOpenSql(),
         eq(professionals.remoteAvailable, true),
         sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
       ),
@@ -217,6 +219,7 @@ export async function acceptOffer(input: {
         eq(professionals.id, input.professionalId),
         eq(professionals.status, "approved"),
         eq(professionals.acceptingRequests, true),
+        professionalAccessOpenSql(),
         eq(professionals.remoteAvailable, true),
         sql`${professionals.currentActiveRequests} < ${professionals.maxActiveRequests}`,
       ),
