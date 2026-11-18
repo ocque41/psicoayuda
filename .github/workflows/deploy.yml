@@ -106,7 +106,7 @@ jobs:
           check_status "/healthz" "200" || ok=0
           check_status "/" "200" || ok=0
           check_status "/pro" "200" || ok=0
-          fetch "https://saludmental-venezuela.com/" | grep -Fq "Ayuda psicológica gratis en Venezuela" || {
+          fetch "https://saludmental-venezuela.com/" | grep -Fq "Ayuda psicológica en Venezuela" || {
             echo "FALLO portada: respondió 200 pero no contiene el contenido esperado"
             ok=0
           }
