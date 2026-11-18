@@ -11,8 +11,12 @@ import { PracticeForm } from "@/components/practice/forms";
 import { requireAdmin } from "@/lib/admin";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
+  EXISTING_PROFESSIONAL_TRIAL_DAYS,
+  existingProfessionalTrialEnd,
   formatMembershipPrice,
+  formatTrialDate,
   MEMBERSHIP_ACCESS_STATUSES,
+  trialActive,
 } from "@/lib/practice/membership-plan";
 import { migrationEmailContent } from "@/lib/practice/plan-emails";
 import { listPlanProfessionals } from "@/lib/practice/plan-migration";
@@ -45,6 +49,7 @@ export default async function AdminPlansPage() {
     email: "",
     name: "Nombre",
     currency: "usd",
+    trialEndsAt: existingProfessionalTrialEnd(),
   });
   return (
     <AdminShell
@@ -64,7 +69,7 @@ export default async function AdminPlansPage() {
           </p>
           <p className="hint">
             {ready
-              ? "Quien esté en suscripción sin un plan vigente pierde el acceso al panel (sin perder datos) hasta pagar."
+              ? `Los perfiles anteriores tienen ${EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis desde que se les pasa a suscripción. Después, quien no tenga un plan vigente pierde el acceso al panel (sin perder datos) hasta pagar. Las altas nuevas activan su plan al ser aceptadas.`
               : "Mientras estén desactivados nadie pierde el acceso y los cambios de plan están bloqueados. Para activarlos: claves de Stripe (STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET) y NIDO_MEMBERSHIP_BILLING_ENABLED=true."}
           </p>
         </div>
@@ -75,9 +80,11 @@ export default async function AdminPlansPage() {
             {legacy.length === 1
               ? "1 perfil aprobado sigue en el plan anterior."
               : `${legacy.length} perfiles aprobados siguen en el plan anterior.`}{" "}
-            Al pasarlos, cada uno recibe este correo y su panel queda en pausa
-            hasta activar el plan. Sus pacientes, notas, agenda e historial se
-            conservan.
+            Al pasarlos, cada uno recibe este correo y tiene{" "}
+            {EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis con su panel
+            completo. Si al terminar no activó su plan, el panel queda en pausa;
+            sus pacientes, notas, agenda e historial se conservan. Siete días
+            antes del final reciben un recordatorio.
           </p>
           <details>
             <summary>Ver el correo que recibirán</summary>
@@ -92,10 +99,11 @@ export default async function AdminPlansPage() {
                 <input type="checkbox" name="confirm" required />
                 Entiendo que{" "}
                 {legacy.length === 1
-                  ? "este perfil perderá"
-                  : `${legacy.length} perfiles perderán`}{" "}
-                el acceso al panel hasta activar su plan y que se enviará el
-                correo ahora.
+                  ? "este perfil empieza"
+                  : `${legacy.length} perfiles empiezan`}{" "}
+                hoy {EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis, que después
+                necesitarán un plan activo para usar el panel y que se enviará
+                el correo ahora.
               </label>
             </PracticeForm>
           ) : (
@@ -144,6 +152,16 @@ export default async function AdminPlansPage() {
                       {paid && row.membershipPlan
                         ? ` · ${row.membershipPlan === "year" ? "anual" : "mensual"}`
                         : ""}
+                      {subscription && !paid && row.accessTrialEndsAt ? (
+                        <>
+                          <br />
+                          <span className="muted">
+                            {trialActive(row.accessTrialEndsAt)
+                              ? `Prueba gratis hasta el ${formatTrialDate(row.accessTrialEndsAt)}`
+                              : `Prueba terminada el ${formatTrialDate(row.accessTrialEndsAt)}`}
+                          </span>
+                        </>
+                      ) : null}
                     </td>
                     <td>
                       {!subscription && ready ? (

@@ -2,8 +2,11 @@ import "server-only";
 import { sendEmail } from "@/lib/email";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
+  EXISTING_PROFESSIONAL_TRIAL_DAYS,
   formatMembershipPrice,
+  formatTrialDate,
   type MembershipCurrency,
+  trialActive,
 } from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
 
@@ -21,6 +24,8 @@ type Recipient = {
   email: string;
   name: string | null;
   currency: MembershipCurrency;
+  /** Solo perfiles anteriores pasados a suscripción. */
+  trialEndsAt?: string | null;
 };
 
 function layout(input: {
@@ -72,34 +77,84 @@ export function acceptanceEmailContent(
   };
 }
 
-/** Paso de un perfil anterior al plan de suscripción. */
+/**
+ * Paso de un perfil anterior al plan de suscripción. Con la prueba activa,
+ * el panel sigue abierto hasta la fecha indicada y no se cobra nada antes.
+ */
 export function migrationEmailContent(recipient: Recipient) {
   const url = new URL("/pro/plan", SITE_URL).toString();
-  const subject = "Nido se actualiza: activa tu plan para continuar";
+  const greeting = `Hola${recipient.name ? `, ${recipient.name}` : ""}:`;
+  const footer =
+    "Las conversaciones abiertas siguen disponibles desde los enlaces de tus avisos. Si tienes dudas, responde a este correo.";
+  if (recipient.trialEndsAt && trialActive(recipient.trialEndsAt)) {
+    const date = formatTrialDate(recipient.trialEndsAt);
+    return {
+      subject: `Nido se actualiza: tienes ${EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis`,
+      ...layout({
+        heading: "Nido se actualiza",
+        greeting,
+        paragraphs: [
+          "Gracias por acompañar a tantas personas desde Nido. Para seguir mejorando la plataforma, el panel profesional pasa a funcionar con una suscripción.",
+          `Como ya formabas parte de Nido, tienes ${EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis: tu panel sigue funcionando igual hasta el ${date}.`,
+          `Puedes activar tu plan cuando quieras (${prices(recipient.currency)}). No se cobra nada hasta el ${date}, y puedes cancelar antes sin coste.`,
+          "Si al terminar la prueba no hay un plan activo, el panel queda en pausa, pero tus pacientes, notas, agenda e historial se conservan y vuelven en cuanto lo actives.",
+        ],
+        cta: "Activar mi plan",
+        url,
+        footer,
+      }),
+    };
+  }
   return {
-    subject,
+    subject: "Nido se actualiza: activa tu plan para continuar",
     ...layout({
       heading: "Nido se actualiza",
-      greeting: `Hola${recipient.name ? `, ${recipient.name}` : ""}:`,
+      greeting,
       paragraphs: [
         "Gracias por acompañar a tantas personas desde Nido. Para seguir mejorando la plataforma, el panel profesional pasa a funcionar con una suscripción.",
         `Tu cuenta y todos tus datos (pacientes, notas, agenda e historial) están guardados. Para volver a tu panel, activa tu plan: ${prices(recipient.currency)}.`,
       ],
       cta: "Activar mi plan y volver a mi panel",
       url,
-      footer:
-        "Las conversaciones abiertas siguen disponibles desde los enlaces de tus avisos. Si tienes dudas, responde a este correo.",
+      footer,
+    }),
+  };
+}
+
+/** Aviso único 7 días antes de que termine la prueba gratuita. */
+export function trialReminderEmailContent(
+  recipient: Recipient & { trialEndsAt: string },
+) {
+  const date = formatTrialDate(recipient.trialEndsAt);
+  return {
+    subject: `Tu prueba gratuita de Nido termina el ${date}`,
+    ...layout({
+      heading: "Tu prueba gratuita termina pronto",
+      greeting: `Hola${recipient.name ? `, ${recipient.name}` : ""}:`,
+      paragraphs: [
+        `Tu prueba gratuita del panel profesional termina el ${date}.`,
+        `Para seguir usándolo sin interrupciones, activa tu plan (${prices(recipient.currency)}). Si lo activas antes de esa fecha, no se cobra nada hasta entonces.`,
+        "Si no lo activas, el panel queda en pausa, pero tus pacientes, notas, agenda e historial se conservan y vuelven en cuanto lo actives.",
+      ],
+      cta: "Activar mi plan",
+      url: new URL("/pro/plan", SITE_URL).toString(),
+      footer: "Si tienes dudas, responde a este correo.",
     }),
   };
 }
 
 export async function sendPlanEmail(
-  kind: "acceptance" | "migration",
+  kind: "acceptance" | "migration" | "trial-reminder",
   recipient: Recipient,
 ) {
   const content =
     kind === "acceptance"
       ? acceptanceEmailContent(recipient, membershipBillingReady())
-      : migrationEmailContent(recipient);
+      : kind === "trial-reminder" && recipient.trialEndsAt
+        ? trialReminderEmailContent({
+            ...recipient,
+            trialEndsAt: recipient.trialEndsAt,
+          })
+        : migrationEmailContent(recipient);
   return sendEmail({ to: recipient.email, ...content });
 }

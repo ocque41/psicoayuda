@@ -101,6 +101,65 @@ export const MEMBERSHIP_ACCESS_STATUSES = [
 ] as const;
 
 /**
+ * Prueba gratuita para los profesionales que ya estaban en Nido: empieza cuando
+ * el equipo los pasa al plan de suscripción y dura 90 días. Las altas nuevas
+ * (aceptadas en admisión) no tienen prueba.
+ */
+export const EXISTING_PROFESSIONAL_TRIAL_DAYS = 90;
+const DAY_MS = 86_400_000;
+
+export function existingProfessionalTrialEnd(from = Date.now()) {
+  return new Date(
+    from + EXISTING_PROFESSIONAL_TRIAL_DAYS * DAY_MS,
+  ).toISOString();
+}
+
+/** true si la fecha de fin de prueba sigue en el futuro. */
+export function trialActive(
+  trialEndsAt: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!trialEndsAt) return false;
+  const end = Date.parse(trialEndsAt);
+  return Number.isFinite(end) && end > now;
+}
+
+/** Días completos restantes de prueba (mínimo 1 mientras siga activa). */
+export function trialDaysLeft(
+  trialEndsAt: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!trialActive(trialEndsAt, now)) return 0;
+  return Math.max(
+    1,
+    Math.ceil((Date.parse(trialEndsAt as string) - now) / DAY_MS),
+  );
+}
+
+/**
+ * Stripe exige que `trial_end` en Checkout quede al menos 48 h en el futuro.
+ * Con margen: si quedan menos de 50 h, se cobra al confirmar.
+ */
+export function stripeTrialEnd(
+  trialEndsAt: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!trialEndsAt) return null;
+  const end = Date.parse(trialEndsAt);
+  if (!Number.isFinite(end) || end - now < 50 * 3_600_000) return null;
+  return Math.floor(end / 1000);
+}
+
+export function formatTrialDate(trialEndsAt: string) {
+  return new Intl.DateTimeFormat("es", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(trialEndsAt));
+}
+
+/**
  * Valores históricos que solo usa la web pública de marketing (que no se
  * modifica en esta versión). La app ya no ofrece prueba ni plan de 10 USD.
  */

@@ -35,8 +35,14 @@ import {
   refreshStripeAccountStatus,
 } from "@/lib/payments/connect";
 import { listPackagesForProfessional } from "@/lib/payments/packages";
-import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 import {
+  formatMembershipPrice,
+  formatTrialDate,
+  trialActive,
+  trialDaysLeft,
+} from "@/lib/practice/membership-plan";
+import {
+  membershipCurrent,
   professionalAccessLocked,
   SUBSCRIPTION_PATH,
 } from "@/lib/practice/subscription-access";
@@ -237,6 +243,13 @@ export default async function ProDashboardPage({
   // conservan y vuelve al panel en cuanto activa su suscripción.
   if (await professionalAccessLocked(professional.id))
     redirect(SUBSCRIPTION_PATH);
+  // Perfiles anteriores en su prueba de 90 días sin plan activado todavía.
+  const trialEndsAt =
+    professional.accessPlan === "subscription" &&
+    trialActive(professional.accessTrialEndsAt) &&
+    !(await membershipCurrent(professional.id))
+      ? professional.accessTrialEndsAt
+      : null;
 
   // ---- Cobros (Stripe) ----
   // Al volver del onboarding de Stripe (?cobros=volviendo) refrescamos el estado
@@ -330,6 +343,23 @@ export default async function ProDashboardPage({
     <section className="section">
       <div className="container">
         <h1>{nombrePanel ? `Hola, ${nombrePanel}` : "Tu panel"}</h1>
+        {trialEndsAt ? (
+          <div className="card" role="status">
+            <h2>
+              Prueba gratuita: te quedan {trialDaysLeft(trialEndsAt)} días
+            </h2>
+            <p>
+              Tu panel funciona con normalidad hasta el{" "}
+              {formatTrialDate(trialEndsAt)}. Activa tu plan cuando quieras: no
+              se cobra nada hasta esa fecha.
+            </p>
+            <p>
+              <Link className="button human" href={SUBSCRIPTION_PATH}>
+                Activar mi plan
+              </Link>
+            </p>
+          </div>
+        ) : null}
         {!professional.nonClinicalHelper ? (
           <p>
             <Link className="button human" href="/pro/consulta">

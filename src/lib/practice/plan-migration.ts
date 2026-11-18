@@ -5,6 +5,7 @@ import { professionalMemberships, professionals } from "@/db/schema";
 import { nowIso } from "@/lib/ids";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
+  existingProfessionalTrialEnd,
   MEMBERSHIP_ACCESS_STATUSES,
   suggestedMembershipCurrency,
 } from "@/lib/practice/membership-plan";
@@ -16,7 +17,11 @@ import { sendPlanEmail } from "@/lib/practice/plan-emails";
  *
  * - Solo cambia `access_plan` (y su fecha). No borra ni toca pacientes,
  *   notas, agenda, conversaciones ni historial.
- * - Envía a cada perfil el correo con el enlace directo para pagar y volver.
+ * - Abre 90 días de prueba gratuita con acceso completo. Si un perfil vuelve
+ *   al plan anterior y se le pasa otra vez, conserva la fecha de su primera
+ *   prueba (no se reinicia).
+ * - Envía a cada perfil el correo con la fecha de fin de la prueba y el
+ *   enlace para activar el plan (sin cobro hasta esa fecha).
  * - Se niega a ejecutarse con los cobros del software apagados, para no
  *   mandar un enlace de pago que todavía no funciona.
  * - Es reversible por perfil (`revertToLegacy`).
@@ -38,6 +43,7 @@ export async function listPlanProfessionals() {
       country: professionals.country,
       accessPlan: professionals.accessPlan,
       accessPlanChangedAt: professionals.accessPlanChangedAt,
+      accessTrialEndsAt: professionals.accessTrialEndsAt,
       membershipStatus: professionalMemberships.status,
       membershipPlan: professionalMemberships.plan,
     })
@@ -58,9 +64,14 @@ export async function migrateToSubscription(ids: string[] | "all") {
     );
   if (ids !== "all" && ids.length === 0) return { moved: 0, emailed: 0 };
   const timestamp = nowIso();
+  const trialEnd = existingProfessionalTrialEnd(Date.parse(timestamp));
   const moved = await db
     .update(professionals)
-    .set({ accessPlan: "subscription", accessPlanChangedAt: timestamp })
+    .set({
+      accessPlan: "subscription",
+      accessPlanChangedAt: timestamp,
+      accessTrialEndsAt: sql`COALESCE(${professionals.accessTrialEndsAt}, ${trialEnd})`,
+    })
     .where(
       and(
         clinicalApproved,
@@ -74,6 +85,7 @@ export async function migrateToSubscription(ids: string[] | "all") {
       name: professionals.displayName,
       fullName: professionals.fullName,
       country: professionals.country,
+      trialEndsAt: professionals.accessTrialEndsAt,
     });
   let emailed = 0;
   for (const pro of moved) {
@@ -81,6 +93,7 @@ export async function migrateToSubscription(ids: string[] | "all") {
       email: pro.email,
       name: pro.name || pro.fullName,
       currency: suggestedMembershipCurrency(pro.country),
+      trialEndsAt: pro.trialEndsAt,
     }).catch(() => ({ ok: false }));
     if (result.ok) emailed++;
   }
@@ -99,6 +112,7 @@ export async function resendPaymentEmail(id: string) {
       name: professionals.displayName,
       fullName: professionals.fullName,
       country: professionals.country,
+      trialEndsAt: professionals.accessTrialEndsAt,
     })
     .from(professionals)
     .where(
@@ -118,6 +132,7 @@ export async function resendPaymentEmail(id: string) {
     email: pro.email,
     name: pro.name || pro.fullName,
     currency: suggestedMembershipCurrency(pro.country),
+    trialEndsAt: pro.trialEndsAt,
   });
   return result.ok;
 }
@@ -130,4 +145,53 @@ export async function revertToLegacy(id: string) {
     .where(and(clinicalApproved, eq(professionals.id, id)))
     .returning({ id: professionals.id });
   return rows.length > 0;
+}
+
+const TRIAL_REMINDER_MS = 7 * 86_400_000;
+
+/**
+ * Aviso único 7 días antes del fin de la prueba a quien aún no activó su plan.
+ * Se reserva el envío en la base antes de mandar el correo (nunca dos avisos),
+ * y solo corre con los cobros del software activos.
+ */
+export async function runTrialReminderJobs(now = Date.now()) {
+  if (!membershipBillingReady()) return { reminded: 0, failed: 0 };
+  const nowStamp = new Date(now).toISOString();
+  const horizon = new Date(now + TRIAL_REMINDER_MS).toISOString();
+  const claimed = await db
+    .update(professionals)
+    .set({ accessTrialRemindedAt: nowStamp })
+    .where(
+      and(
+        clinicalApproved,
+        eq(professionals.accessPlan, "subscription"),
+        sql`${professionals.accessTrialRemindedAt} IS NULL`,
+        sql`${professionals.accessTrialEndsAt} > ${nowStamp}`,
+        sql`${professionals.accessTrialEndsAt} <= ${horizon}`,
+        sql`NOT EXISTS (SELECT 1 FROM professional_memberships m WHERE m.professional_id = ${professionals.id} AND m.stripe_subscription_id IS NOT NULL AND m.status IN (${sql.join(
+          MEMBERSHIP_ACCESS_STATUSES.map((status) => sql`${status}`),
+          sql`, `,
+        )}))`,
+      ),
+    )
+    .returning({
+      email: professionals.email,
+      name: professionals.displayName,
+      fullName: professionals.fullName,
+      country: professionals.country,
+      trialEndsAt: professionals.accessTrialEndsAt,
+    });
+  let reminded = 0;
+  let failed = 0;
+  for (const pro of claimed) {
+    const result = await sendPlanEmail("trial-reminder", {
+      email: pro.email,
+      name: pro.name || pro.fullName,
+      currency: suggestedMembershipCurrency(pro.country),
+      trialEndsAt: pro.trialEndsAt,
+    }).catch(() => ({ ok: false }));
+    if (result.ok) reminded++;
+    else failed++;
+  }
+  return { reminded, failed };
 }

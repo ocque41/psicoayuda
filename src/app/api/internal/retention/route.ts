@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { runTrialReminderJobs } from "@/lib/practice/plan-migration";
 import { runRetention } from "@/lib/retention";
 
 // Endpoint interno disparado por el cron de Cloudflare (custom-worker.ts
@@ -21,7 +22,12 @@ export async function POST(request: Request) {
   }
   try {
     const result = await runRetention();
-    return NextResponse.json({ ok: true, ...result });
+    // Aviso de fin de prueba: un fallo aquí no debe frenar la retención.
+    const trial = await runTrialReminderJobs().catch(() => ({
+      reminded: 0,
+      failed: 1,
+    }));
+    return NextResponse.json({ ok: true, ...result, trial });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: String(error) },

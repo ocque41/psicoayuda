@@ -11,10 +11,14 @@ import { requirePracticeBillingProfessional } from "@/lib/practice/access";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
   formatMembershipPrice,
+  formatTrialDate,
   isMembershipCurrency,
   isMembershipInterval,
   MEMBERSHIP_ACCESS_STATUSES,
+  stripeTrialEnd,
   suggestedMembershipCurrency,
+  trialActive,
+  trialDaysLeft,
 } from "@/lib/practice/membership-plan";
 import { accessLockedFor } from "@/lib/practice/subscription-access";
 
@@ -49,12 +53,22 @@ export default async function PlanPage({
     }),
     db.query.professionals.findFirst({
       where: eq(professionals.id, pro.id),
-      columns: { country: true, accessPlan: true, nonClinicalHelper: true },
+      columns: {
+        country: true,
+        accessPlan: true,
+        accessTrialEndsAt: true,
+        nonClinicalHelper: true,
+      },
     }),
   ]);
   const ready = membershipBillingReady();
   const approved = pro.status === "approved";
-  const locked = accessLockedFor(profile?.accessPlan, member?.status);
+  const trialEndsAt = profile?.accessTrialEndsAt ?? null;
+  const locked = accessLockedFor(
+    profile?.accessPlan,
+    member?.status,
+    trialEndsAt,
+  );
   const subscriptionCurrent = Boolean(
     member?.stripeSubscriptionId &&
       MEMBERSHIP_ACCESS_STATUSES.includes(
@@ -63,6 +77,15 @@ export default async function PlanPage({
   );
   const canPay = ready && approved && !subscriptionCurrent;
   const legacy = profile?.accessPlan !== "subscription";
+  const onTrial =
+    !legacy && !subscriptionCurrent && trialEndsAt && trialActive(trialEndsAt);
+  const trialEnded =
+    !legacy && !subscriptionCurrent && trialEndsAt && !trialActive(trialEndsAt);
+  // Fecha del primer cobro si se activa ahora durante la prueba.
+  const chargeFrom =
+    !legacy && trialEndsAt && stripeTrialEnd(trialEndsAt)
+      ? formatTrialDate(trialEndsAt)
+      : null;
   return (
     <section className="section">
       <div className="container practice-shell">
@@ -72,7 +95,9 @@ export default async function PlanPage({
             ? "Tu plan está activo"
             : canPay || locked
               ? "Activa tu plan"
-              : "Tu plan de Nido"}
+              : onTrial
+                ? "Tu prueba gratuita de Nido"
+                : "Tu plan de Nido"}
         </h1>
         {locked ? null : <PracticeNav />}
         {query.resultado ? (
@@ -82,9 +107,25 @@ export default async function PlanPage({
             entrar a tu panel.
           </p>
         ) : null}
+        {onTrial && trialEndsAt ? (
+          <div className="card" role="status">
+            <h2>
+              Prueba gratuita: te quedan {trialDaysLeft(trialEndsAt)} días
+            </h2>
+            <p>
+              Tu panel funciona con normalidad hasta el{" "}
+              {formatTrialDate(trialEndsAt)}. Si activas tu plan ahora, no se
+              cobra nada hasta esa fecha y puedes cancelar antes sin coste.
+            </p>
+          </div>
+        ) : null}
         {locked ? (
           <div className="card" role="status">
-            <h2>Tu panel está en pausa</h2>
+            <h2>
+              {trialEnded
+                ? "Tu prueba gratuita terminó"
+                : "Tu panel está en pausa"}
+            </h2>
             <p>
               Para seguir usando Nido, activa tu plan. Tus pacientes, notas,
               agenda e historial están guardados y vuelven intactos en cuanto se
@@ -144,6 +185,7 @@ export default async function PlanPage({
                     profile?.country,
                   )}
                   canPay
+                  chargeFrom={chargeFrom}
                 />
               </PracticeForm>
             ) : (

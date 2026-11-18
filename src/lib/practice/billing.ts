@@ -17,6 +17,7 @@ import {
   MEMBERSHIP_PRICES,
   type MembershipCurrency,
   type MembershipInterval,
+  stripeTrialEnd,
 } from "@/lib/practice/membership-plan";
 import { SITE_URL } from "@/lib/site";
 
@@ -73,12 +74,18 @@ export async function membershipCheckout(
       eq(professionals.id, pro.id),
       eq(professionals.status, "approved"),
     ),
-    columns: { id: true },
+    columns: { id: true, accessPlan: true, accessTrialEndsAt: true },
   });
   if (!approved)
     throw new MembershipCheckoutError(
       "Tu perfil necesita aprobación antes de activar un plan.",
     );
+  // Perfiles anteriores en su prueba de 90 días: la suscripción empieza a
+  // cobrar al terminar la prueba, nunca antes.
+  const trialEnd =
+    approved.accessPlan === "subscription"
+      ? stripeTrialEnd(approved.accessTrialEndsAt)
+      : null;
   const member = await ensureMembershipRow(pro.id);
   if (!member)
     throw new MembershipCheckoutError(
@@ -111,7 +118,7 @@ export async function membershipCheckout(
         "Ya completaste un pago. Estamos confirmando su estado; comprueba tu plan antes de repetirlo.",
       );
     if (existing.status === "open") {
-      if (currentMembershipCheckout(existing, interval, currency)) {
+      if (currentMembershipCheckout(existing, interval, currency, trialEnd)) {
         if (!existing.url)
           throw new MembershipCheckoutError(
             "No pudimos recuperar el pago abierto. Reintenta en un momento.",
@@ -205,11 +212,12 @@ export async function membershipCheckout(
     .returning({ id: professionalMemberships.professionalId });
   if (!claimed.length)
     throw new MembershipCheckoutError("Ya hay una operación de pago en curso.");
-  const metadata = {
+  const metadata: Record<string, string> = {
     nido_membership_pro: pro.id,
     nido_plan: interval,
     nido_currency: currency,
     nido_membership_policy: MEMBERSHIP_POLICY_VERSION,
+    ...(trialEnd ? { nido_trial_end: String(trialEnd) } : {}),
   };
   // Una clave estable permite recuperar el mismo cliente si falla el guardado local.
   const customer =
@@ -247,7 +255,9 @@ export async function membershipCheckout(
             },
           },
         ],
-        subscription_data: { metadata },
+        subscription_data: trialEnd
+          ? { metadata, trial_end: trialEnd }
+          : { metadata },
         success_url: `${SITE_URL}/pro/plan?resultado=confirmando`,
         cancel_url: `${SITE_URL}/pro/plan`,
       },
@@ -310,6 +320,7 @@ function currentMembershipCheckout(
   checkout: Stripe.Checkout.Session,
   interval: MembershipInterval,
   currency: MembershipCurrency,
+  trialEnd: number | null,
 ) {
   const lines = checkout.line_items;
   const item = lines?.data[0];
@@ -318,6 +329,8 @@ function currentMembershipCheckout(
     checkout.metadata?.nido_plan === interval &&
       checkout.metadata?.nido_currency === currency &&
       checkout.metadata?.nido_membership_policy === MEMBERSHIP_POLICY_VERSION &&
+      (checkout.metadata?.nido_trial_end ?? null) ===
+        (trialEnd ? String(trialEnd) : null) &&
       lines &&
       !lines.has_more &&
       lines.data.length === 1 &&

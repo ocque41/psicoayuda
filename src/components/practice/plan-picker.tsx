@@ -25,9 +25,12 @@ function monthlyEquivalent(currency: MembershipCurrency) {
 export function PlanPicker({
   defaultCurrency,
   canPay,
+  chargeFrom = null,
 }: {
   defaultCurrency: MembershipCurrency;
   canPay: boolean;
+  /** Fecha del primer cobro si la persona está en su prueba gratuita. */
+  chargeFrom?: string | null;
 }) {
   const [interval, setPlanInterval] = useState<MembershipInterval>("year");
   const [currency, setCurrency] = useState<MembershipCurrency>(defaultCurrency);
@@ -90,9 +93,9 @@ export function PlanPicker({
       {canPay ? (
         <label className="practice-check">
           <input type="checkbox" name="accept" required />
-          Acepto {price} {interval === "month" ? "cada mes" : "cada año"}, con
-          renovación automática hasta que cancele desde el portal de
-          facturación.
+          {chargeFrom
+            ? `Acepto que, a partir del ${chargeFrom}, se cobren ${price} ${interval === "month" ? "cada mes" : "cada año"}, con renovación automática hasta que cancele desde el portal de facturación. Hoy no se cobra nada.`
+            : `Acepto ${price} ${interval === "month" ? "cada mes" : "cada año"}, con renovación automática hasta que cancele desde el portal de facturación.`}
         </label>
       ) : null}
     </div>

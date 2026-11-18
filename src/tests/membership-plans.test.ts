@@ -47,10 +47,14 @@ import {
   membershipCheckout,
 } from "@/lib/practice/billing";
 import {
+  existingProfessionalTrialEnd,
   formatMembershipPrice,
   MEMBERSHIP_POLICY_VERSION,
   MEMBERSHIP_PRICES,
+  stripeTrialEnd,
   suggestedMembershipCurrency,
+  trialActive,
+  trialDaysLeft,
   yearlySavingsPercent,
 } from "@/lib/practice/membership-plan";
 
@@ -166,6 +170,46 @@ describe("planes mensual y anual en $, € y £ con consentimiento y recuperaci�
     }
     expect(formatMembershipPrice("month", "eur")).toBe("14,99\u00a0€");
     expect(formatMembershipPrice("year", "gbp")).toBe("99,99\u00a0£");
+  });
+  it("calcula la prueba de 90 días y el límite de 48 h de Stripe", () => {
+    const now = Date.parse("2026-11-19T12:00:00.000Z");
+    const end = existingProfessionalTrialEnd(now);
+    expect(end).toBe("2027-02-17T12:00:00.000Z");
+    expect(trialActive(end, now)).toBe(true);
+    expect(trialDaysLeft(end, now)).toBe(90);
+    expect(trialActive(end, Date.parse(end))).toBe(false);
+    expect(stripeTrialEnd(end, now)).toBe(Math.floor(Date.parse(end) / 1000));
+    const almost = new Date(now + 49 * 3_600_000).toISOString();
+    expect(stripeTrialEnd(almost, now)).toBeNull();
+    expect(stripeTrialEnd(null, now)).toBeNull();
+  });
+  it("durante la prueba, el checkout empieza a cobrar al terminarla", async () => {
+    const trialEndsAt = new Date(Date.now() + 60 * 86_400_000).toISOString();
+    await db
+      .update(professionals)
+      .set({ accessPlan: "subscription", accessTrialEndsAt: trialEndsAt })
+      .where(eq(professionals.id, P));
+    try {
+      await expect(membershipCheckout(pro, "year", "eur")).resolves.toBe(
+        checkoutUrl,
+      );
+      const [data] = stripe.checkoutCreate.mock.calls[0];
+      const expected = Math.floor(Date.parse(trialEndsAt) / 1000);
+      expect(data.subscription_data.trial_end).toBe(expected);
+      expect(data.metadata.nido_trial_end).toBe(String(expected));
+      expect(data.line_items[0].price_data.unit_amount).toBe(9999);
+    } finally {
+      await db
+        .update(professionals)
+        .set({ accessPlan: "legacy", accessTrialEndsAt: null })
+        .where(eq(professionals.id, P));
+    }
+  });
+  it("sin prueba vigente, el checkout no lleva trial_end", async () => {
+    await membershipCheckout(pro, "month", "usd");
+    const [data] = stripe.checkoutCreate.mock.calls[0];
+    expect(data.subscription_data.trial_end).toBeUndefined();
+    expect(data.metadata.nido_trial_end).toBeUndefined();
   });
   it("sugiere la moneda por país sin impedir elegir otra", () => {
     expect(suggestedMembershipCurrency("España")).toBe("eur");

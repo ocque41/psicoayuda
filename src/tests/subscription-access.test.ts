@@ -1,4 +1,4 @@
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import {
   afterAll,
   afterEach,
@@ -10,10 +10,12 @@ import {
 } from "vitest";
 import { db } from "@/db";
 import { professionalMemberships, professionals, user } from "@/db/schema";
+import { migrationEmailContent } from "@/lib/practice/plan-emails";
 import {
   listPlanProfessionals,
   migrateToSubscription,
   revertToLegacy,
+  runTrialReminderJobs,
 } from "@/lib/practice/plan-migration";
 import {
   accessLockedFor,
@@ -155,10 +157,112 @@ describe("paso de perfiles anteriores a suscripción", () => {
       [pending]: "legacy",
       [already]: "subscription",
     });
-    expect(await professionalAccessLocked(legacy)).toBe(true);
+    // Empieza 90 días de prueba con el panel abierto.
+    expect(await professionalAccessLocked(legacy)).toBe(false);
+    const moved = await db.query.professionals.findFirst({
+      where: eq(professionals.id, legacy),
+    });
+    const days =
+      (Date.parse(moved?.accessTrialEndsAt ?? "") - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(89.9);
+    expect(days).toBeLessThanOrEqual(90);
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, already),
+        })
+      )?.accessTrialEndsAt,
+    ).toBeNull();
     expect(
       (await listPlanProfessionals()).filter((row) => row.id.startsWith(P)),
     ).toHaveLength(2);
+  });
+  it("la prueba no se reinicia al volver al plan anterior y pasar otra vez", async () => {
+    billingOn();
+    vi.stubEnv("RESEND_API_KEY", "");
+    const ended = new Date(Date.now() - 86_400_000).toISOString();
+    const id = await pro("again", { accessTrialEndsAt: ended });
+    await migrateToSubscription([id]);
+    const row = await db.query.professionals.findFirst({
+      where: eq(professionals.id, id),
+    });
+    expect(row?.accessTrialEndsAt).toBe(ended);
+    expect(await professionalAccessLocked(id)).toBe(true);
+  });
+  it("la prueba vigente abre el acceso y su fin lo cierra sin plan pagado", async () => {
+    billingOn();
+    const future = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const trial = await pro("trial", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: future,
+    });
+    const over = await pro("over", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: past,
+    });
+    expect(accessLockedFor("subscription", null, future)).toBe(false);
+    expect(accessLockedFor("subscription", null, past)).toBe(true);
+    expect(await professionalAccessLocked(trial)).toBe(false);
+    expect(await professionalAccessLocked(over)).toBe(true);
+    const open = await db
+      .select({ id: professionals.id })
+      .from(professionals)
+      .where(and(like(professionals.id, `${P}%`), professionalAccessOpenSql()));
+    expect(open.map((row) => row.id)).toEqual([trial]);
+  });
+  it("el correo del cambio anuncia los 90 días y la fecha sin cobro", () => {
+    const end = new Date(Date.now() + 90 * 86_400_000).toISOString();
+    const content = migrationEmailContent({
+      email: "ficticio@example.test",
+      name: "Ana",
+      currency: "eur",
+      trialEndsAt: end,
+    });
+    expect(content.subject).toContain("90 días gratis");
+    expect(content.text).toContain("No se cobra nada hasta el");
+    expect(content.text.replace(/\u00a0/g, " ")).toContain(
+      "14,99 € al mes o 99,99 € al año",
+    );
+  });
+  it("avisa una sola vez 7 días antes del fin a quien no activó su plan", async () => {
+    billingOn();
+    vi.stubEnv("RESEND_API_KEY", "");
+    const soon = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    const later = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    const due = await pro("due", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: soon,
+    });
+    await pro("later", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: later,
+    });
+    const paid = await pro("paid-trial", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: soon,
+    });
+    await db.insert(professionalMemberships).values({
+      professionalId: paid,
+      trialStartedAt: stamp(),
+      trialEndsAt: stamp(),
+      status: "trialing",
+      stripeSubscriptionId: `sub_${paid}`,
+      updatedAt: stamp(),
+    });
+    const first = await runTrialReminderJobs();
+    expect(first.reminded + first.failed).toBe(1);
+    const reminded = await db
+      .select({ id: professionals.id })
+      .from(professionals)
+      .where(
+        and(
+          like(professionals.id, `${P}%`),
+          sql`${professionals.accessTrialRemindedAt} IS NOT NULL`,
+        ),
+      );
+    expect(reminded.map((row) => row.id)).toEqual([due]);
+    expect(await runTrialReminderJobs()).toEqual({ reminded: 0, failed: 0 });
   });
   it("devolver al plan anterior restaura el acceso sin tocar otros datos", async () => {
     billingOn();

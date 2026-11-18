@@ -253,6 +253,9 @@ export const professionals = sqliteTable(
       .default("legacy")
       .notNull(),
     accessPlanChangedAt: text("access_plan_changed_at"),
+    // Prueba gratuita de los perfiles anteriores al pasar a suscripción.
+    accessTrialEndsAt: text("access_trial_ends_at"),
+    accessTrialRemindedAt: text("access_trial_reminded_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
