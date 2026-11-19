@@ -15,6 +15,7 @@ import {
   isMembershipInterval,
   MEMBERSHIP_POLICY_VERSION,
 } from "@/lib/practice/membership-plan";
+import { membershipPortalConfiguration } from "@/lib/practice/stripe-catalog";
 import { SITE_URL } from "@/lib/site";
 
 export async function subscribeSoftware(
@@ -75,6 +76,7 @@ export async function billingPortal(
   try {
     const portal = await stripe.billingPortal.sessions.create({
       customer: member.stripeCustomerId,
+      configuration: await membershipPortalConfiguration(stripe),
       return_url: `${SITE_URL}/pro/plan`,
     });
     url = portal.url;

@@ -28,7 +28,7 @@ import {
 } from "@/lib/offers";
 import {
   isStripeSupportedCountry,
-  paymentsConfigured,
+  sessionPaymentsEnabled,
 } from "@/lib/payments/config";
 import {
   connectStatusOf,
@@ -290,7 +290,7 @@ export default async function ProDashboardPage({
   ]);
   const unreadCount = chats.filter(isUnread).length;
 
-  const paymentsReady = paymentsConfigured();
+  const paymentsReady = sessionPaymentsEnabled();
   const countrySupported = isStripeSupportedCountry(professional.country);
   const connectStatus = connectStatusOf({
     stripeAccountId: professional.stripeAccountId,

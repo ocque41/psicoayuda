@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { notifyAdminScreeningSubmitted } from "@/lib/notifications";
 import {
   currentScreeningCandidate,
   saveScreeningDraft,
@@ -46,6 +47,9 @@ export async function sendScreening(
     form.get("exclusions"),
   );
   if (!result.ok) return result;
+  // Best-effort: el cuestionario ya quedó guardado aunque el aviso falle.
+  if (result.firstSubmission)
+    await notifyAdminScreeningSubmitted().catch(() => undefined);
   revalidatePath("/pro/dashboard");
   redirect("/pro/dashboard?solicitud=enviada");
 }

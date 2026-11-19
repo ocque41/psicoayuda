@@ -88,7 +88,7 @@ export async function saveScreeningDraft(
 }
 
 export type SubmitScreeningResult =
-  | { ok: true }
+  | { ok: true; firstSubmission: boolean }
   | { ok: false; message: string; questionId?: string };
 
 export async function submitScreening(
@@ -139,8 +139,9 @@ export async function submitScreening(
       ),
     )
     .returning({ id: professionalScreenings.professionalId });
-  if (updated.length) return { ok: true };
-  if (await screeningSubmitted(professionalId)) return { ok: true };
+  if (updated.length) return { ok: true, firstSubmission: true };
+  if (await screeningSubmitted(professionalId))
+    return { ok: true, firstSubmission: false };
   return {
     ok: false,
     message:

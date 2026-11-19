@@ -212,7 +212,7 @@ describe("cuestionario clínico: guardado y envío", () => {
         wrong(perfect(), "q14"),
         "No atendería casos fuera de mi formación ficticia.",
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, firstSubmission: true });
     const saved = await readScreening(P);
     expect(saved).toMatchObject({ score: 17, maxScore: 18 });
     expect(saved?.submittedAt).toBeTruthy();
@@ -226,7 +226,7 @@ describe("cuestionario clínico: guardado y envío", () => {
         perfect(),
         "Otra respuesta suficientemente larga.",
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, firstSubmission: false });
     expect((await readScreening(P))?.score).toBe(17);
   });
   it.each([

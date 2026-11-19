@@ -1525,3 +1525,32 @@ export function buildWaitlistAlertEmail(input: {
 
   return { subject, html, text, headers: {} };
 }
+
+/** Aviso al equipo de admisión: llegó un cuestionario clínico. Sin PII. */
+export function buildScreeningSubmittedAlertEmail(input: {
+  adminUrl: string;
+}): BuiltEmail {
+  const url = input.adminUrl;
+  const urlAttr = escapeHtml(url);
+  const subject = "Nueva solicitud profesional para revisar — Nido";
+  const html = `<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(subject)}</title></head>
+  <body style="margin:0;padding:24px;background:#faf6f0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b2723;">
+    <div style="max-width:560px;margin:0 auto;padding:28px;background:#fff;border:1px solid #e7decf;border-radius:14px;">
+      <p style="margin:0 0 4px;font-weight:700;color:#245f47;">Nido · admisión</p>
+      <h1 style="margin:0 0 16px;font-size:22px;">Un cuestionario clínico está listo</h1>
+      <p style="line-height:1.6;">Una persona terminó el cuestionario de su solicitud profesional. Por privacidad, sus respuestas y datos se ven únicamente en el panel protegido, donde puedes aceptarla o pedirle más información.</p>
+      <p><a href="${urlAttr}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#2f7a5b;color:#fff;text-decoration:none;font-weight:700;">Revisar solicitudes</a></p>
+    </div>
+  </body>
+</html>`;
+  const text = [
+    "Una persona terminó el cuestionario de su solicitud profesional en Nido.",
+    "",
+    "Por privacidad, revisa sus respuestas en el panel protegido:",
+    url,
+  ].join("\n");
+
+  return { subject, html, text, headers: {} };
+}

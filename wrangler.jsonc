@@ -38,7 +38,14 @@
     "BETTER_AUTH_URL": "https://saludmental-venezuela.com",
     "NEXT_PUBLIC_SITE_URL": "https://saludmental-venezuela.com",
     "GOOGLE_SITE_VERIFICATION": "",
-    "ADMIN_EMAILS": "ocquema@gmail.com,martinezra02@gmail.com",
+    // Paola Di Pietro (psicoblonde1@gmail.com): admisión de profesionales y
+    // soporte. Recibe los avisos de contacto, lista de espera y cuestionarios
+    // enviados; los avisos de abajo se quedan con el equipo técnico.
+    "ADMIN_EMAILS": "ocquema@gmail.com,martinezra02@gmail.com,psicoblonde1@gmail.com",
+    // Sin estas tres, los avisos caen a todos los ADMIN_EMAILS.
+    "NOTIFICATION_EMAIL": "ocquema@gmail.com,martinezra02@gmail.com",
+    "ERROR_ALERT_EMAILS": "ocquema@gmail.com,martinezra02@gmail.com",
+    "ALLIANCES_CONTACT_EMAIL": "ocquema@gmail.com,martinezra02@gmail.com",
     "PUBLIC_CONTACT_EMAILS": "ocquema@gmail.com,martinezra02@gmail.com",
     "PRIVACY_CONTACT_EMAIL": "ocquema@gmail.com",
     "ABUSE_CONTACT_EMAIL": "ocquema@gmail.com",
@@ -69,9 +76,13 @@
     // NIDO_CALENDAR_ENCRYPTION_KEY (64 hex). La URI está autorizada en Google.
     "NIDO_GOOGLE_CALENDAR_ENABLED": "true",
     "NIDO_GOOGLE_CALENDAR_REDIRECT_URI": "https://saludmental-venezuela.com/api/calendar/google/callback",
-    // Cobros del software (14,99 / 99,99 en $, € o £). Apagado: nadie pierde
-    // acceso y los planes se muestran sin cobrar. Ver /admin/planes.
-    "NIDO_MEMBERSHIP_BILLING_ENABLED": "false",
+    // Cobros del software (14,99 / 99,99 en $, € o £) con la cuenta de Stripe
+    // de Bandicot (compartida): Checkout se muestra como "Nido" y el producto
+    // propio es nido_software_profesional. Ver /admin/planes.
+    "NIDO_MEMBERSHIP_BILLING_ENABLED": "true",
+    // Paquetes de sesiones con Stripe Connect (/pagar). Apagado: con la cuenta
+    // de Bandicot solo se cobra el software a los profesionales.
+    "NIDO_SESSION_PAYMENTS_ENABLED": "false",
     "NIDO_CARE_BILLING_ENABLED": "false",
     "NIDO_CALL_CAPTURE_ENABLED": "false"
   },

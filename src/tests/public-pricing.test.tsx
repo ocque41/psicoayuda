@@ -69,7 +69,8 @@ describe("precios de la web pública", () => {
     expect(config).toContain(
       "env: { NIDO_PUBLIC_PRICING: publicPricingMode() }",
     );
-    expect(wrangler).toMatch(/"NIDO_MEMBERSHIP_BILLING_ENABLED":\s*"false"/);
+    // Con el cobro encendido en producción, el build muestra los importes reales.
+    expect(wrangler).toMatch(/"NIDO_MEMBERSHIP_BILLING_ENABLED":\s*"true"/);
     expect(publicPricingCopy(false).ctaText).toContain("10 USD");
     expect(publicPricingCopy(true).ctaText).toContain("14,99");
   });

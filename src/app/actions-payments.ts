@@ -12,6 +12,7 @@ import { createPackageCheckout } from "@/lib/payments/checkout";
 import {
   getStripeSecretKey,
   isStripeSupportedCountry,
+  sessionPaymentsEnabled,
   stripeCountryCode,
 } from "@/lib/payments/config";
 import {
@@ -161,7 +162,7 @@ export async function startStripeOnboarding(): Promise<void> {
     redirect("/pro/dashboard?cobros=perfil#cobros");
   }
   const stripe = getStripe();
-  if (!stripe || !getStripeSecretKey()) {
+  if (!stripe || !getStripeSecretKey() || !sessionPaymentsEnabled()) {
     redirect("/pro/dashboard?cobros=sin-configurar#cobros");
   }
   if (!isStripeSupportedCountry(professional.country)) {

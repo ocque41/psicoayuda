@@ -17,6 +17,7 @@ import {
   buildFoundationContactEmail,
   buildNewMessageEmail,
   buildNewOfferEmail,
+  buildScreeningSubmittedAlertEmail,
   buildSeekerAccessLinksEmail,
   buildSeekerNewMessageEmail,
   buildWaitlistAlertEmail,
@@ -435,4 +436,24 @@ export async function notifyProfessionalApproved(input: {
     html: mail.html,
     text: mail.text,
   });
+}
+
+/** Avisa a los administradores de que hay un cuestionario clínico por revisar. */
+export async function notifyAdminScreeningSubmitted() {
+  const recipients = getAdminEmails();
+  if (recipients.length === 0) return;
+  const mail = buildScreeningSubmittedAlertEmail({
+    adminUrl: `${appBaseUrl()}/admin/admision`,
+  });
+  await Promise.allSettled(
+    recipients.map((to) =>
+      sendEmail({
+        to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        headers: mail.headers,
+      }),
+    ),
+  );
 }

@@ -10,7 +10,6 @@ import {
 import { newId, nowIso } from "@/lib/ids";
 import { getStripe } from "@/lib/payments/stripe";
 import {
-  INTERVAL_LABELS,
   isMembershipCurrency,
   isMembershipInterval,
   MEMBERSHIP_POLICY_VERSION,
@@ -19,6 +18,10 @@ import {
   type MembershipInterval,
   stripeTrialEnd,
 } from "@/lib/practice/membership-plan";
+import {
+  MEMBERSHIP_CHECKOUT_BRANDING,
+  membershipProductId,
+} from "@/lib/practice/stripe-catalog";
 import { SITE_URL } from "@/lib/site";
 
 export class MembershipCheckoutError extends Error {}
@@ -234,14 +237,19 @@ export async function membershipCheckout(
     .update(professionalMemberships)
     .set({ stripeCustomerId: customer })
     .where(eq(professionalMemberships.professionalId, pro.id));
+  const product = await membershipProviderCall(() =>
+    membershipProductId(stripe),
+  );
+  // Sin client_reference_id: la cuenta es compartida y Bandicot lo lee como
+  // identificador de sus propios usuarios. Nido se identifica por metadatos.
   const checkout = await membershipProviderCall(() =>
     stripe.checkout.sessions.create(
       {
         mode: "subscription",
         locale: "es",
         customer,
-        client_reference_id: `nido-membership:${pro.id}`,
         metadata,
+        branding_settings: MEMBERSHIP_CHECKOUT_BRANDING,
         line_items: [
           {
             quantity: 1,
@@ -249,9 +257,7 @@ export async function membershipCheckout(
               currency,
               unit_amount: MEMBERSHIP_PRICES[interval][currency],
               recurring: { interval },
-              product_data: {
-                name: `Nido · software profesional (${INTERVAL_LABELS[interval].toLowerCase()})`,
-              },
+              product,
             },
           },
         ],
@@ -310,7 +316,6 @@ function ownedMembershipCheckout(
     customerId &&
       owner === customerId &&
       checkout.mode === "subscription" &&
-      checkout.client_reference_id === `nido-membership:${professionalId}` &&
       checkout.metadata?.nido_membership_pro === professionalId,
   );
 }

@@ -98,6 +98,12 @@ export function PlanPicker({
             : `Acepto ${price} ${interval === "month" ? "cada mes" : "cada año"}, con renovación automática hasta que cancele desde el portal de facturación.`}
         </label>
       ) : null}
+      {canPay ? (
+        <p className={styles.note}>
+          El pago lo procesa Stripe. En el recibo y en el portal de facturación
+          puede figurar Bandicot, la cuenta que gestiona los cobros de Nido.
+        </p>
+      ) : null}
     </div>
   );
 }

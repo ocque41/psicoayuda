@@ -39,6 +39,18 @@ export function paymentsConfigured(): boolean {
   return getStripeSecretKey() !== null;
 }
 
+/**
+ * Paquetes de sesiones con Stripe Connect (/pagar y alta de cobros en el panel).
+ * Requiere encenderlo aparte: la cuenta de Stripe es compartida con Bandicot y
+ * solo cobra el software a los profesionales; sin este interruptor nadie puede
+ * abrir una cuenta Connect ni pagar un paquete.
+ */
+export function sessionPaymentsEnabled(): boolean {
+  return (
+    paymentsConfigured() && process.env.NIDO_SESSION_PAYMENTS_ENABLED === "true"
+  );
+}
+
 /** ¿Se puede verificar la firma del webhook? (clave + secreto presentes) */
 export function webhookConfigured(): boolean {
   return paymentsConfigured() && getStripeWebhookSecret() !== null;

@@ -8,6 +8,7 @@ import {
   getPlatformFeeCents,
   isStripeSupportedCountry,
   PACKAGE_CURRENCY,
+  sessionPaymentsEnabled,
 } from "@/lib/payments/config";
 import { getPayablePackage } from "@/lib/payments/packages";
 import { getStripe } from "@/lib/payments/stripe";
@@ -33,7 +34,7 @@ export async function createPackageCheckout(input: {
   origin: string;
 }): Promise<CheckoutResult> {
   const stripe = getStripe();
-  if (!stripe) {
+  if (!stripe || !sessionPaymentsEnabled()) {
     return { ok: false, message: "Los cobros aún no están configurados." };
   }
 

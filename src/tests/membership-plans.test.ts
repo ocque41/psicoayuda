@@ -24,10 +24,18 @@ const stripe = vi.hoisted(() => ({
   checkoutRetrieve: vi.fn(),
   checkoutCreate: vi.fn(),
   checkoutExpire: vi.fn(),
+  productRetrieve: vi.fn(async () => ({ active: true })),
+  productCreate: vi.fn(),
+  productUpdate: vi.fn(),
 }));
 vi.mock("@/lib/payments/stripe", () => ({
   getStripe: () => ({
     customers: { create: stripe.customerCreate },
+    products: {
+      retrieve: stripe.productRetrieve,
+      create: stripe.productCreate,
+      update: stripe.productUpdate,
+    },
     subscriptions: {
       retrieve: stripe.subscriptionRetrieve,
       cancel: stripe.subscriptionCancel,
@@ -70,7 +78,6 @@ const validCheckout = () => ({
   mode: "subscription",
   currency: "eur",
   customer: customerId,
-  client_reference_id: `nido-membership:${P}`,
   metadata: {
     nido_membership_pro: P,
     nido_plan: "year",
@@ -270,10 +277,15 @@ describe("planes mensual y anual en $, € y £ con consentimiento y recuperaci�
           currency,
           unit_amount: amount,
           recurring: { interval: plan },
-          product_data: { name: `Nido · software profesional (${label})` },
+          product: "nido_software_profesional",
         },
       },
     ]);
+    // Cuenta compartida con Bandicot: Checkout se presenta como Nido y no
+    // envía client_reference_id (Bandicot lo leería como usuario propio).
+    expect(data.branding_settings).toMatchObject({ display_name: "Nido" });
+    expect(data).not.toHaveProperty("client_reference_id");
+    expect(label).toMatch(/mensual|anual/);
     expect(data.subscription_data).not.toHaveProperty("trial_end");
     expect(data.metadata).toMatchObject({
       nido_plan: plan,
@@ -350,12 +362,15 @@ describe("planes mensual y anual en $, € y £ con consentimiento y recuperaci�
   });
   it.each([
     "customer",
-    "client_reference_id",
+    "metadata",
     "mode",
   ] as const)("rechaza un checkout de otro propietario: %s", async (field) => {
     await patch({ checkoutId });
-    const current = validCheckout();
-    current[field] = "otro";
+    const current: Record<string, unknown> = validCheckout();
+    current[field] =
+      field === "metadata"
+        ? { ...validCheckout().metadata, nido_membership_pro: "otro" }
+        : "otro";
     stripe.checkoutRetrieve.mockResolvedValue(current);
     await expect(membershipCheckout(pro, "year", "eur")).rejects.toThrow(
       "comprobar este pago",
