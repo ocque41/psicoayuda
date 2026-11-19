@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAbuseContactEmail, getPrivacyContactEmail } from "@/lib/contact";
+import { publicPricingCopy } from "@/lib/practice/public-pricing";
 import {
   PUBLIC_OPEN_GRAPH,
   PUBLIC_TWITTER,
@@ -91,9 +92,7 @@ export default function TermsPage() {
             acordadas no limitan los derechos legalmente aplicables.
           </p>
           <p>
-            La prueba del software profesional dura 90 días desde su activación
-            y no inicia cobros por sí sola. Contratar una suscripción requiere
-            aceptar el importe y la frecuencia. Los servicios de videollamada y
+            {publicPricingCopy().termsTrial} Los servicios de videollamada y
             captura tienen sus propias condiciones de disponibilidad. Ninguna
             suscripción garantiza un número de pacientes.
           </p>

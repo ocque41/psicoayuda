@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { createClient } from "@libsql/client";
 import { eq, inArray, like, sql } from "drizzle-orm";
 import {
@@ -23,6 +22,7 @@ import {
   professionals,
   user,
 } from "@/db/schema";
+import { createD1Runtime } from "@/tests/support/d1-runtime";
 
 const fixture = vi.hoisted(() => ({
   d1: null as D1Database | null,
@@ -51,23 +51,8 @@ vi.mock("next/navigation", () => ({
 const url = process.env.DATABASE_URL || "";
 if (!url.startsWith("file:") || !url.includes("nido-tests-"))
   throw Error("Requiere test:isolated y su SQLite temporal.");
-const local = createClient({ url }),
-  require = createRequire(import.meta.url),
-  wranglerRequire = createRequire(require.resolve("wrangler/package.json"));
-const { Miniflare } = wranglerRequire("miniflare") as {
-  Miniflare: new (
-    options: unknown,
-  ) => {
-    getD1Database(name: string): Promise<D1Database>;
-    dispose(): Promise<void>;
-  };
-};
-const runtime = new Miniflare({
-  modules: true,
-  script: "export default {fetch(){return new Response('fixture')}}",
-  compatibilityDate: "2026-06-28",
-  d1Databases: { DB: "onboarding-role-draft-fixture" },
-});
+const local = createClient({ url });
+const runtime = createD1Runtime("onboarding-role-draft-fixture");
 const P = "fixture-onboarding-role-draft",
   A = `${P}-a`,
   B = `${P}-b`,

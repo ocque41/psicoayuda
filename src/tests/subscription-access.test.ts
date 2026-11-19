@@ -8,6 +8,15 @@ import {
   it,
   vi,
 } from "vitest";
+
+const email = vi.hoisted(() => ({
+  send: vi.fn(
+    async (_input: { to: string }) =>
+      ({ ok: false, skipped: true }) as { ok: boolean; skipped?: boolean },
+  ),
+}));
+vi.mock("@/lib/email", () => ({ sendEmail: email.send }));
+
 import { db } from "@/db";
 import { professionalMemberships, professionals, user } from "@/db/schema";
 import { migrationEmailContent } from "@/lib/practice/plan-emails";
@@ -250,8 +259,23 @@ describe("paso de perfiles anteriores a suscripción", () => {
       stripeSubscriptionId: `sub_${paid}`,
       updatedAt: stamp(),
     });
-    const first = await runTrialReminderJobs();
-    expect(first.reminded + first.failed).toBe(1);
+    // Un envío fallido libera la reserva para reintentarlo al día siguiente.
+    await runTrialReminderJobs();
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, due),
+        })
+      )?.accessTrialRemindedAt,
+    ).toBeNull();
+    email.send.mockResolvedValue({ ok: true });
+    await runTrialReminderJobs();
+    expect(email.send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        to: `${due}@example.test`,
+        subject: expect.stringContaining("Tu prueba gratuita de Nido termina"),
+      }),
+    );
     const reminded = await db
       .select({ id: professionals.id })
       .from(professionals)
@@ -262,7 +286,13 @@ describe("paso de perfiles anteriores a suscripción", () => {
         ),
       );
     expect(reminded.map((row) => row.id)).toEqual([due]);
-    expect(await runTrialReminderJobs()).toEqual({ reminded: 0, failed: 0 });
+    email.send.mockClear();
+    await runTrialReminderJobs();
+    expect(
+      email.send.mock.calls.filter(
+        ([input]) => input.to === `${due}@example.test`,
+      ),
+    ).toHaveLength(0);
   });
   it("devolver al plan anterior restaura el acceso sin tocar otros datos", async () => {
     billingOn();

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { WorkspaceIcon } from "@/components/workspace/icon";
 import { ProductPreview } from "@/components/workspace/product-preview";
-import { MEMBERSHIP_PLAN, TRIAL_DAYS } from "@/lib/practice/membership-plan";
+import { publicPricingCopy } from "@/lib/practice/public-pricing";
 import {
   PUBLIC_OPEN_GRAPH,
   PUBLIC_TWITTER,
@@ -33,6 +33,7 @@ export const metadata: Metadata = {
   },
 };
 export default function ProfessionalLanding() {
+  const pricing = publicPricingCopy();
   return (
     <div className="nido-marketing professional-marketing">
       <section className="marketing-hero">
@@ -71,11 +72,11 @@ export default function ProfessionalLanding() {
             <div className="marketing-trust">
               <span>
                 <WorkspaceIcon name="calendar" />
-                Prueba de {TRIAL_DAYS} días
+                {pricing.heroTerm}
               </span>
               <span>
                 <WorkspaceIcon name="payment" />
-                Sin tarjeta
+                {pricing.heroPayment}
               </span>
             </div>
             <p className="marketing-hero-context">
@@ -231,11 +232,7 @@ export default function ProfessionalLanding() {
             <br />
             tu forma de trabajar.
           </h2>
-          <p>
-            Empieza con {TRIAL_DAYS} días del software sin tarjeta. Después,{" "}
-            {MEMBERSHIP_PLAN.priceLabel} al mes si decides suscribirte. La
-            prueba no inicia cobros automáticamente.
-          </p>
+          <p>{pricing.ctaText}</p>
           <Link className="button" href="/entrar?modo=registro&rol=profesional">
             Crear mi perfil profesional<span aria-hidden="true">↗</span>
           </Link>

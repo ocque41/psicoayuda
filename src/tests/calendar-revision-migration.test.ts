@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
+import { createD1Runtime } from "@/tests/support/d1-runtime";
 
 type Statement = { sql: string; args?: (string | number | null)[] };
 type Fixture = {
@@ -21,16 +21,7 @@ async function fixture(engine: "libsql" | "d1"): Promise<Fixture> {
       close: async () => client.close(),
     };
   }
-  const require = createRequire(import.meta.url);
-  const { Miniflare } = createRequire(require.resolve("wrangler/package.json"))(
-    "miniflare",
-  );
-  const runtime = new Miniflare({
-    modules: true,
-    script: "export default {fetch(){return new Response('fixture')}}",
-    compatibilityDate: "2026-06-28",
-    d1Databases: { DB: "calendar-legacy-fixture" },
-  });
+  const runtime = createD1Runtime("calendar-legacy-fixture");
   const database: D1Database = await runtime.getD1Database("DB");
   return {
     run: async (sql, args = []) =>

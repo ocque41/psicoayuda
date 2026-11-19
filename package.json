@@ -60,7 +60,7 @@
     "server-only": "^0.0.1",
     "stripe": "^22.6.2",
     "tailwind-merge": "3.7.0",
-    "wrangler": "^4.105.0",
+    "wrangler": "^4.164.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

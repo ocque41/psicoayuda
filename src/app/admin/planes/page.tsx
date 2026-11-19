@@ -70,7 +70,7 @@ export default async function AdminPlansPage() {
           <p className="hint">
             {ready
               ? `Los perfiles anteriores tienen ${EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis desde que se les pasa a suscripción. Después, quien no tenga un plan vigente pierde el acceso al panel (sin perder datos) hasta pagar. Las altas nuevas activan su plan al ser aceptadas.`
-              : "Mientras estén desactivados nadie pierde el acceso y los cambios de plan están bloqueados. Para activarlos: claves de Stripe (STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET) y NIDO_MEMBERSHIP_BILLING_ENABLED=true."}
+              : "Mientras estén desactivados nadie pierde el acceso y los cambios de plan están bloqueados. Para activarlos: claves de Stripe (STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET) y NIDO_MEMBERSHIP_BILLING_ENABLED=true en wrangler.jsonc. Al volver a desplegar, la web pública muestra también los nuevos importes."}
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CrisisResources } from "@/components/crisis-resources";
+import { publicPricingCopy } from "@/lib/practice/public-pricing";
 import {
   PUBLIC_OPEN_GRAPH,
   PUBLIC_TWITTER,
@@ -178,9 +179,8 @@ export default function Page() {
         <article className="card">
           <ul>
             <li>
-              El software para profesionales tiene un plan de 10 USD al mes y
-              una prueba de 90 días sin tarjeta tras la aprobación del perfil.
-              Ese plan no fija el precio de las consultas. Consulta las{" "}
+              {publicPricingCopy().safetyPlan} Ese plan no fija el precio de las
+              consultas. Consulta las{" "}
               <Link href="/para-psicologos">
                 condiciones del plan profesional
               </Link>

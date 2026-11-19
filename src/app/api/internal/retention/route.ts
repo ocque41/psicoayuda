@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runTrialReminderJobs } from "@/lib/practice/plan-migration";
 import { runRetention } from "@/lib/retention";
+import { runScreeningReminderJobs } from "@/lib/screening/reminders";
 
 // Endpoint interno disparado por el cron de Cloudflare (custom-worker.ts
 // `scheduled()`), con el mismo secreto compartido que el callback del chat.
@@ -27,7 +28,11 @@ export async function POST(request: Request) {
       reminded: 0,
       failed: 1,
     }));
-    return NextResponse.json({ ok: true, ...result, trial });
+    const screening = await runScreeningReminderJobs().catch(() => ({
+      reminded: 0,
+      failed: 1,
+    }));
+    return NextResponse.json({ ok: true, ...result, trial, screening });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: String(error) },

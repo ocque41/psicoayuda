@@ -160,8 +160,8 @@ export function formatTrialDate(trialEndsAt: string) {
 }
 
 /**
- * Valores históricos que solo usa la web pública de marketing (que no se
- * modifica en esta versión). La app ya no ofrece prueba ni plan de 10 USD.
+ * Valores históricos que solo usa la web pública mientras el cobro esté
+ * apagado (ver public-pricing.ts). La app ya no ofrece prueba ni plan de 10 USD.
  */
 export const MEMBERSHIP_PLAN = {
   priceCents: 1000,

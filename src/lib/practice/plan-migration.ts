@@ -175,6 +175,7 @@ export async function runTrialReminderJobs(now = Date.now()) {
       ),
     )
     .returning({
+      id: professionals.id,
       email: professionals.email,
       name: professionals.displayName,
       fullName: professionals.fullName,
@@ -190,8 +191,21 @@ export async function runTrialReminderJobs(now = Date.now()) {
       currency: suggestedMembershipCurrency(pro.country),
       trialEndsAt: pro.trialEndsAt,
     }).catch(() => ({ ok: false }));
-    if (result.ok) reminded++;
-    else failed++;
+    if (result.ok) {
+      reminded++;
+      continue;
+    }
+    failed++;
+    // Sin envío confirmado, se libera la reserva para reintentar mañana.
+    await db
+      .update(professionals)
+      .set({ accessTrialRemindedAt: null })
+      .where(
+        and(
+          eq(professionals.id, pro.id),
+          eq(professionals.accessTrialRemindedAt, nowStamp),
+        ),
+      );
   }
   return { reminded, failed };
 }

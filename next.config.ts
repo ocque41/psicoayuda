@@ -1,4 +1,27 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { NextConfig } from "next";
+
+// Textos de precio de la web pública (estática): siguen al interruptor de cobro
+// de wrangler.jsonc, el mismo que lee el Worker. Con el cobro apagado se ven los
+// textos de siempre; al encenderlo, el siguiente despliegue muestra los importes
+// reales. NIDO_PUBLIC_PRICING=live|legacy lo fuerza en local.
+function publicPricingMode() {
+  const forced = process.env.NIDO_PUBLIC_PRICING;
+  if (forced === "live" || forced === "legacy") return forced;
+  try {
+    const wrangler = readFileSync(
+      join(process.cwd(), "wrangler.jsonc"),
+      "utf8",
+    );
+    const flag = wrangler.match(
+      /"NIDO_MEMBERSHIP_BILLING_ENABLED"\s*:\s*"([^"]*)"/,
+    )?.[1];
+    return flag === "true" ? "live" : "legacy";
+  } catch {
+    return "legacy";
+  }
+}
 
 // Cabeceras de seguridad aplicadas a todas las rutas. La CSP permite los
 // scripts/estilos en línea que Next inyecta para hidratar (por eso 'unsafe-inline'
@@ -44,6 +67,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: { NIDO_PUBLIC_PRICING: publicPricingMode() },
   // Sin binding de Cloudflare Images, /_next/image solo ejecutaría el Worker
   // para devolver el archivo original (sin transformar) y sin caché persistente.
   // Servimos los archivos tal cual (ya redimensionados en public/) para ahorrar

@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { createClient } from "@libsql/client";
 import { eq, inArray, like, sql } from "drizzle-orm";
 import {
@@ -21,6 +20,7 @@ import {
   professionals,
   user,
 } from "@/db/schema";
+import { createD1Runtime } from "@/tests/support/d1-runtime";
 
 const fixture = vi.hoisted(() => ({
   d1: null as D1Database | null,
@@ -53,22 +53,7 @@ const url = process.env.DATABASE_URL || "";
 if (!url.startsWith("file:") || !url.includes("nido-tests-"))
   throw new Error("Requiere la base temporal de test:isolated.");
 const local = createClient({ url });
-const require = createRequire(import.meta.url);
-const wranglerRequire = createRequire(require.resolve("wrangler/package.json"));
-const { Miniflare } = wranglerRequire("miniflare") as {
-  Miniflare: new (
-    options: unknown,
-  ) => {
-    getD1Database(name: string): Promise<D1Database>;
-    dispose(): Promise<void>;
-  };
-};
-const runtime = new Miniflare({
-  modules: true,
-  script: "export default {fetch(){return new Response('fixture')}}",
-  compatibilityDate: "2026-06-28",
-  d1Databases: { DB: "onboarding-new-profile-fixture" },
-});
+const runtime = createD1Runtime("onboarding-new-profile-fixture");
 const P = "fixture-onboarding-new-profile";
 const id = {
   owner: `${P}-owner`,

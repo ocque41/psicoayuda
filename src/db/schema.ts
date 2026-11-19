@@ -256,6 +256,8 @@ export const professionals = sqliteTable(
     // Prueba gratuita de los perfiles anteriores al pasar a suscripción.
     accessTrialEndsAt: text("access_trial_ends_at"),
     accessTrialRemindedAt: text("access_trial_reminded_at"),
+    // Recordatorio único del cuestionario clínico de admisión.
+    screeningRemindedAt: text("screening_reminded_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

@@ -1,5 +1,4 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { createClient } from "@libsql/client";
 import { eq, sql } from "drizzle-orm";
@@ -32,6 +31,7 @@ import {
   user,
 } from "@/db/schema";
 import { completePatientOnboarding } from "@/lib/patient/accounts";
+import { createD1Runtime } from "@/tests/support/d1-runtime";
 
 const identity = vi.hoisted(() => {
   const previousTarget = process.env.NIDO_DB_TARGET;
@@ -285,16 +285,7 @@ describe("ICS: revisiones persistentes con writers reales", () => {
     if (!identity.d1) return;
     const url = process.env.DATABASE_URL;
     if (!url?.includes("nido-tests-")) throw new Error("Usa test:isolated.");
-    const require = createRequire(import.meta.url);
-    const { Miniflare } = createRequire(
-      require.resolve("wrangler/package.json"),
-    )("miniflare");
-    const runtime = new Miniflare({
-      modules: true,
-      script: "export default {fetch(){return new Response('fixture')}}",
-      compatibilityDate: "2026-06-28",
-      d1Databases: { DB: "calendar-revision-fixture" },
-    });
+    const runtime = createD1Runtime("calendar-revision-fixture");
     disposeD1 = () => runtime.dispose();
     const database: D1Database = await runtime.getD1Database("DB");
     identity.database = database;

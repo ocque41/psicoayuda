@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -48,22 +47,7 @@ const url = process.env.DATABASE_URL;
 if (!url?.includes("nido-tests-"))
   throw new Error("Esta prueba requiere test:isolated.");
 const local = createClient({ url });
-const require = createRequire(import.meta.url);
-const wranglerRequire = createRequire(require.resolve("wrangler/package.json"));
-const { Miniflare } = wranglerRequire("miniflare") as {
-  Miniflare: new (
-    options: unknown,
-  ) => {
-    getD1Database(name: string): Promise<D1Database>;
-    dispose(): Promise<void>;
-  };
-};
-const runtime = new Miniflare({
-  modules: true,
-  script: "export default {fetch(){return new Response('fixture')}}",
-  compatibilityDate: "2026-06-28",
-  d1Databases: { DB: "chat-integrity-fixture" },
-});
+const runtime = createD1Runtime("chat-integrity-fixture");
 let database: D1Database;
 
 import { createConversation } from "@/app/actions-chat";
@@ -72,6 +56,7 @@ import { getAuthSecret } from "@/lib/auth-secret";
 import { createSeekerAccessLink } from "@/lib/seeker-access";
 import { exchangeSeekerAccess } from "@/lib/seeker-access-session";
 import { verifySeekerAccessToken } from "@/lib/seeker-token";
+import { createD1Runtime } from "@/tests/support/d1-runtime";
 
 const timestamp = new Date().toISOString();
 async function aggregate() {

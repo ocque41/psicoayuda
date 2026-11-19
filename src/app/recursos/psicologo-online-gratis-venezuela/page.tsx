@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { GuideJsonLd } from "@/components/structured-data";
+import { publicPricingCopy } from "@/lib/practice/public-pricing";
 import {
   PUBLIC_OPEN_GRAPH,
   PUBLIC_TWITTER,
@@ -120,8 +121,7 @@ export default function Page() {
           <Link href="/para-psicologos">
             software para organizar la práctica profesional
           </Link>{" "}
-          tiene un plan de 10 USD al mes y una prueba de 90 días sin tarjeta,
-          que comienza tras la aprobación del perfil. Ese plan corresponde a las
+          {publicPricingCopy().guidePlan} Ese plan corresponde a las
           herramientas del profesional; no establece el precio de sus consultas
           ni convierte toda la atención en gratuita.
         </p>
