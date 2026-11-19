@@ -36,11 +36,14 @@ export async function migrateOne(
     return result.moved
       ? {
           ok: true,
-          message: result.emailed
-            ? "Perfil pasado a suscripción. Le enviamos el correo para activar su plan."
-            : "Perfil pasado a suscripción, pero el correo no se pudo enviar. Usa «Reenviar correo».",
+          message:
+            "Perfil pasado a suscripción. Verá la prueba y el botón de pago en su panel.",
         }
-      : { ok: false, message: "Este perfil ya no estaba en el plan anterior." };
+      : {
+          ok: false,
+          message:
+            "Este perfil ya no estaba en el plan anterior o es del equipo (gratuito).",
+        };
   } catch (error) {
     return failure(error);
   }
@@ -61,7 +64,7 @@ export async function migrateAll(
     revalidatePath("/admin/planes");
     return {
       ok: true,
-      message: `${result.moved} perfiles pasados a suscripción; ${result.emailed} correos enviados.`,
+      message: `${result.moved} perfiles pasados a suscripción. Verán la prueba y el botón de pago en su panel; el equipo sigue gratis.`,
     };
   } catch (error) {
     return failure(error);

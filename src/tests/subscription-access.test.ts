@@ -1,4 +1,5 @@
 import { and, eq, like, sql } from "drizzle-orm";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   afterAll,
   afterEach,
@@ -17,6 +18,7 @@ const email = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/email", () => ({ sendEmail: email.send }));
 
+import { TrialBar } from "@/components/practice/trial-bar";
 import { db } from "@/db";
 import { professionalMemberships, professionals, user } from "@/db/schema";
 import { migrationEmailContent } from "@/lib/practice/plan-emails";
@@ -150,8 +152,19 @@ describe("paso de perfiles anteriores a suscripción", () => {
     const helper = await pro("helper", { nonClinicalHelper: true });
     const pending = await pro("pending", { status: "pending_verification" });
     const already = await pro("already", { accessPlan: "subscription" });
+    // El equipo (ADMIN_EMAILS) sigue gratis para siempre aunque sea clínico.
+    const staff = await pro("staff");
+    vi.stubEnv(
+      "ADMIN_EMAILS",
+      `otra@example.test, ${staff.toUpperCase()}@EXAMPLE.TEST`,
+    );
+    email.send.mockClear();
     const result = await migrateToSubscription("all");
-    expect(result).toEqual({ moved: 1, emailed: 0 });
+    expect(result).toEqual({ moved: 1 });
+    // Sin correo: el aviso es la barra fija del panel.
+    expect(
+      email.send.mock.calls.filter(([input]) => input.to.startsWith(P)),
+    ).toHaveLength(0);
     const plans = Object.fromEntries(
       (
         await db
@@ -165,6 +178,7 @@ describe("paso de perfiles anteriores a suscripción", () => {
       [helper]: "legacy",
       [pending]: "legacy",
       [already]: "subscription",
+      [staff]: "legacy",
     });
     // Empieza 90 días de prueba con el panel abierto.
     expect(await professionalAccessLocked(legacy)).toBe(false);
@@ -184,7 +198,42 @@ describe("paso de perfiles anteriores a suscripción", () => {
     ).toBeNull();
     expect(
       (await listPlanProfessionals()).filter((row) => row.id.startsWith(P)),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
+  });
+  it("la barra fija muestra los días de prueba y el pago solo a quien está en prueba", async () => {
+    billingOn();
+    const trialEnd = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const trial = await pro("bar-trial", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: trialEnd,
+      country: "España",
+    });
+    const free = await pro("bar-free");
+    const paid = await pro("bar-paid", {
+      accessPlan: "subscription",
+      accessTrialEndsAt: trialEnd,
+    });
+    await db.insert(professionalMemberships).values({
+      professionalId: paid,
+      trialStartedAt: stamp(),
+      trialEndsAt: stamp(),
+      status: "active",
+      stripeSubscriptionId: `sub_${paid}`,
+      updatedAt: stamp(),
+    });
+    const html = renderToStaticMarkup(
+      (await TrialBar({ userId: trial })) as React.ReactElement,
+    );
+    expect(html).toContain("Quedan 10 días de prueba gratis.");
+    expect(html).toContain("/mes");
+    expect(html).toContain("14,99");
+    expect(html).toContain("€");
+    expect(html).toContain('href="/pro/plan"');
+    expect(html).toContain("Añadir método de pago");
+    expect(await TrialBar({ userId: free })).toBeNull();
+    expect(await TrialBar({ userId: paid })).toBeNull();
+    vi.stubEnv("NIDO_MEMBERSHIP_BILLING_ENABLED", "false");
+    expect(await TrialBar({ userId: trial })).toBeNull();
   });
   it("la prueba no se reinicia al volver al plan anterior y pasar otra vez", async () => {
     billingOn();

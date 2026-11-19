@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PatientSessionBoundary } from "@/components/patient/session-boundary";
+import { TrialBar } from "@/components/practice/trial-bar";
 import { getServerSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function ProfessionalLayout({
       ownerId={session.user.id}
       audience="professional"
     >
+      <TrialBar userId={session.user.id} />
       {children}
     </PatientSessionBoundary>
   );

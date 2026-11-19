@@ -1,7 +1,8 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { professionalMemberships, professionals } from "@/db/schema";
+import { getAdminEmails } from "@/lib/admin";
 import { nowIso } from "@/lib/ids";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
@@ -20,8 +21,10 @@ import { sendPlanEmail } from "@/lib/practice/plan-emails";
  * - Abre 90 días de prueba gratuita con acceso completo. Si un perfil vuelve
  *   al plan anterior y se le pasa otra vez, conserva la fecha de su primera
  *   prueba (no se reinicia).
- * - Envía a cada perfil el correo con la fecha de fin de la prueba y el
- *   enlace para activar el plan (sin cobro hasta esa fecha).
+ * - No envía correo: el aviso es la barra fija del espacio profesional
+ *   (`TrialBar`), con los días que quedan y el botón para añadir el pago.
+ * - El equipo (ADMIN_EMAILS) nunca pasa a suscripción: conserva el acceso
+ *   anterior, gratuito y con el mismo plan completo.
  * - Se niega a ejecutarse con los cobros del software apagados, para no
  *   mandar un enlace de pago que todavía no funciona.
  * - Es reversible por perfil (`revertToLegacy`).
@@ -62,7 +65,8 @@ export async function migrateToSubscription(ids: string[] | "all") {
     throw new PlanMigrationError(
       "Activa primero los cobros del software (Stripe y NIDO_MEMBERSHIP_BILLING_ENABLED). Sin ellos, el correo llevaría a un pago que aún no funciona.",
     );
-  if (ids !== "all" && ids.length === 0) return { moved: 0, emailed: 0 };
+  if (ids !== "all" && ids.length === 0) return { moved: 0 };
+  const staff = getAdminEmails();
   const timestamp = nowIso();
   const trialEnd = existingProfessionalTrialEnd(Date.parse(timestamp));
   const moved = await db
@@ -76,28 +80,14 @@ export async function migrateToSubscription(ids: string[] | "all") {
       and(
         clinicalApproved,
         eq(professionals.accessPlan, "legacy"),
+        staff.length
+          ? notInArray(sql`lower(${professionals.email})`, staff)
+          : undefined,
         ids === "all" ? undefined : inArray(professionals.id, ids),
       ),
     )
-    .returning({
-      id: professionals.id,
-      email: professionals.email,
-      name: professionals.displayName,
-      fullName: professionals.fullName,
-      country: professionals.country,
-      trialEndsAt: professionals.accessTrialEndsAt,
-    });
-  let emailed = 0;
-  for (const pro of moved) {
-    const result = await sendPlanEmail("migration", {
-      email: pro.email,
-      name: pro.name || pro.fullName,
-      currency: suggestedMembershipCurrency(pro.country),
-      trialEndsAt: pro.trialEndsAt,
-    }).catch(() => ({ ok: false }));
-    if (result.ok) emailed++;
-  }
-  return { moved: moved.length, emailed };
+    .returning({ id: professionals.id });
+  return { moved: moved.length };
 }
 
 /** Reenvía el correo a quien está en suscripción y aún no tiene plan vigente. */

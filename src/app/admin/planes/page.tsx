@@ -8,17 +8,15 @@ import {
 } from "@/app/admin/planes/actions";
 import { AdminShell } from "@/components/admin/shell";
 import { PracticeForm } from "@/components/practice/forms";
-import { requireAdmin } from "@/lib/admin";
+import { getAdminEmails, requireAdmin } from "@/lib/admin";
 import { membershipBillingReady } from "@/lib/practice/billing";
 import {
   EXISTING_PROFESSIONAL_TRIAL_DAYS,
-  existingProfessionalTrialEnd,
   formatMembershipPrice,
   formatTrialDate,
   MEMBERSHIP_ACCESS_STATUSES,
   trialActive,
 } from "@/lib/practice/membership-plan";
-import { migrationEmailContent } from "@/lib/practice/plan-emails";
 import { listPlanProfessionals } from "@/lib/practice/plan-migration";
 
 export const metadata: Metadata = {
@@ -44,13 +42,11 @@ export default async function AdminPlansPage() {
   if (!admin) redirect("/admin");
   const ready = membershipBillingReady();
   const rows = await listPlanProfessionals();
-  const legacy = rows.filter((row) => row.accessPlan !== "subscription");
-  const preview = migrationEmailContent({
-    email: "",
-    name: "Nombre",
-    currency: "usd",
-    trialEndsAt: existingProfessionalTrialEnd(),
-  });
+  const staff = new Set(getAdminEmails());
+  const isStaff = (email: string) => staff.has(email.toLowerCase());
+  const legacy = rows.filter(
+    (row) => row.accessPlan !== "subscription" && !isStaff(row.email),
+  );
   return (
     <AdminShell
       active="planes"
@@ -80,30 +76,23 @@ export default async function AdminPlansPage() {
             {legacy.length === 1
               ? "1 perfil aprobado sigue en el plan anterior."
               : `${legacy.length} perfiles aprobados siguen en el plan anterior.`}{" "}
-            Al pasarlos, cada uno recibe este correo y tiene{" "}
-            {EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis con su panel
-            completo. Si al terminar no activó su plan, el panel queda en pausa;
-            sus pacientes, notas, agenda e historial se conservan. Siete días
-            antes del final reciben un recordatorio.
+            Al pasarlos, cada uno tiene {EXISTING_PROFESSIONAL_TRIAL_DAYS} días
+            gratis con su panel completo y ve una barra fija con los días que
+            quedan y el botón para añadir su método de pago; no se envía correo.
+            Si al terminar no activó su plan, el panel queda en pausa; sus
+            pacientes, notas, agenda e historial se conservan. Las cuentas del
+            equipo (administradoras) siguen gratis para siempre.
           </p>
-          <details>
-            <summary>Ver el correo que recibirán</summary>
-            <p>
-              <strong>{preview.subject}</strong>
-            </p>
-            <p style={{ whiteSpace: "pre-wrap" }}>{preview.text}</p>
-          </details>
           {ready && legacy.length ? (
-            <PracticeForm action={migrateAll} submit="Pasar a todos y avisar">
+            <PracticeForm action={migrateAll} submit="Pasar a todos">
               <label className="practice-check">
                 <input type="checkbox" name="confirm" required />
                 Entiendo que{" "}
                 {legacy.length === 1
                   ? "este perfil empieza"
                   : `${legacy.length} perfiles empiezan`}{" "}
-                hoy {EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis, que después
-                necesitarán un plan activo para usar el panel y que se enviará
-                el correo ahora.
+                hoy {EXISTING_PROFESSIONAL_TRIAL_DAYS} días gratis y que después
+                necesitarán un plan activo para usar el panel.
               </label>
             </PracticeForm>
           ) : (
@@ -142,7 +131,11 @@ export default async function AdminPlansPage() {
                       <span className="muted">{row.email}</span>
                     </td>
                     <td>
-                      {subscription ? "Suscripción" : "Anterior (sin cobro)"}
+                      {subscription
+                        ? "Suscripción"
+                        : isStaff(row.email)
+                          ? "Equipo · gratis"
+                          : "Anterior (sin cobro)"}
                     </td>
                     <td>
                       {row.membershipStatus
@@ -164,7 +157,7 @@ export default async function AdminPlansPage() {
                       ) : null}
                     </td>
                     <td>
-                      {!subscription && ready ? (
+                      {!subscription && ready && !isStaff(row.email) ? (
                         <PracticeForm
                           action={migrateOne}
                           submit="Pasar a suscripción"

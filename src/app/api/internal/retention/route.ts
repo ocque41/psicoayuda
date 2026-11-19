@@ -1,6 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { runTrialReminderJobs } from "@/lib/practice/plan-migration";
 import { runRetention } from "@/lib/retention";
 import { runScreeningReminderJobs } from "@/lib/screening/reminders";
 
@@ -23,16 +22,13 @@ export async function POST(request: Request) {
   }
   try {
     const result = await runRetention();
-    // Aviso de fin de prueba: un fallo aquí no debe frenar la retención.
-    const trial = await runTrialReminderJobs().catch(() => ({
-      reminded: 0,
-      failed: 1,
-    }));
+    // El fin de la prueba se avisa en la barra fija del panel (TrialBar), sin
+    // correo: decisión del equipo. runTrialReminderJobs queda disponible.
     const screening = await runScreeningReminderJobs().catch(() => ({
       reminded: 0,
       failed: 1,
     }));
-    return NextResponse.json({ ok: true, ...result, trial, screening });
+    return NextResponse.json({ ok: true, ...result, screening });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: String(error) },
