@@ -644,7 +644,7 @@ export function AdmissionDetailDialog({
         <h3>Una decisión explícita.</h3>
         <p className={styles.muted}>
           {candidate.volunteer
-            ? "Aceptar habilita su apoyo voluntario y le envía un correo con el acceso a su panel. No aceptar cierra la solicitud y se lo comunica por correo."
+            ? "Aceptar le envía un correo para activar su plan; en cuanto paga entra a su panel y empieza a recibir solicitudes. No aceptar cierra la solicitud y se lo comunica por correo."
             : "Aceptar aprueba el perfil clínico, permite su aparición en el catálogo y le envía un correo para activar su plan y entrar a su panel. No aceptar cierra la solicitud y se lo comunica por correo."}
         </p>
         {candidate.publishBlockers.length ? (

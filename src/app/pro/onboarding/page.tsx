@@ -13,6 +13,8 @@ import { practiceSettings, professionals } from "@/db/schema";
 import { requireAdmin } from "@/lib/admin";
 import { getServerSession } from "@/lib/auth-server";
 import { readOnboardingDraft } from "@/lib/onboarding/drafts";
+import { membershipBillingReady } from "@/lib/practice/billing";
+import { formatMembershipPrice } from "@/lib/practice/membership-plan";
 import { requirePracticeStaff } from "@/lib/practice/staff";
 
 export const metadata: Metadata = {
@@ -143,6 +145,14 @@ export default async function ProOnboardingPage({
               el cuestionario de admisión. Con las dos, el equipo la revisa y te
               escribe con la decisión.
             </p>
+            {membershipBillingReady() ? (
+              <p className="muted">
+                Si tu solicitud es aceptada, clínica o de apoyo voluntario,
+                activas tu plan de Nido ({formatMembershipPrice("month", "usd")}{" "}
+                al mes o {formatMembershipPrice("year", "usd")} al año) antes de
+                entrar a tu panel. Revisar tu solicitud no tiene coste.
+              </p>
+            ) : null}
           </>
         )}
         <ProfessionalOnboardingForm

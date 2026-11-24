@@ -117,6 +117,56 @@ describe("alta profesional: formulario de perfil y cuestionario de admisión", (
   });
 });
 
+describe("pago antes del panel", () => {
+  it("una solicitud aceptada sin plan pagado va a activar su plan, también la voluntaria", async () => {
+    vi.stubEnv("NIDO_MEMBERSHIP_BILLING_ENABLED", "true");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_ficticia");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_ficticio");
+    try {
+      for (const nonClinicalHelper of [true, false]) {
+        await db
+          .update(professionals)
+          .set({
+            status: "approved",
+            nonClinicalHelper,
+            accessPlan: "subscription",
+          })
+          .where(eq(professionals.id, candidate.professionalId));
+        await expect(dashboard()).rejects.toThrow("redirect:/pro/plan");
+      }
+    } finally {
+      vi.unstubAllEnvs();
+      await db
+        .update(professionals)
+        .set({
+          status: "pending_verification",
+          nonClinicalHelper: false,
+          accessPlan: "legacy",
+        })
+        .where(eq(professionals.id, candidate.professionalId));
+    }
+  });
+
+  it("el correo de aceptación lleva a activar el plan con cualquier tipo de solicitud", async () => {
+    const { acceptanceEmailContent } = await import(
+      "@/lib/practice/plan-emails"
+    );
+    const mail = acceptanceEmailContent(
+      {
+        email: "persona@example.test",
+        name: "Persona ficticia",
+        currency: "usd",
+      },
+      true,
+    );
+    expect(mail.subject).toBe("Tu solicitud en Nido fue aceptada");
+    expect(mail.text).toContain("/pro/plan");
+    expect(mail.text).toContain("Activar mi plan");
+    expect(mail.text).not.toContain("credencial");
+    expect(mail.text).not.toContain("consulta");
+  });
+});
+
 describe("correo de solicitud no aceptada", () => {
   it("informa con respeto, sin el motivo interno y sin hablar de cobros", async () => {
     const { rejectionEmailContent } = await import(

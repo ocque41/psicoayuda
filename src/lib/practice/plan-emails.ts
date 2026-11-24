@@ -64,10 +64,10 @@ export function acceptanceEmailContent(
       heading: "Te damos la bienvenida a Nido",
       greeting: `Hola${recipient.name ? `, ${recipient.name}` : ""}:`,
       paragraphs: [
-        "El equipo revisó tu perfil, tu credencial y tus respuestas, y tu solicitud fue aceptada.",
+        "El equipo revisó tu solicitud (tu perfil y tus respuestas al cuestionario de admisión) y fue aceptada.",
         billingOpen
-          ? `El último paso es activar tu plan (${prices(recipient.currency)}). En cuanto se confirme, entras directamente a tu panel para organizar tu consulta.`
-          : `Ya puedes entrar a tu panel y organizar tu consulta. Cuando abramos la activación de planes (${prices(recipient.currency)}) te escribiremos con el enlace.`,
+          ? `El último paso es activar tu plan (${prices(recipient.currency)}). En cuanto se confirme el pago, entras directamente a tu panel.`
+          : `Ya puedes entrar a tu panel. Cuando abramos la activación de planes (${prices(recipient.currency)}) te escribiremos con el enlace.`,
       ],
       cta: billingOpen ? "Activar mi plan" : "Entrar a mi panel",
       url,

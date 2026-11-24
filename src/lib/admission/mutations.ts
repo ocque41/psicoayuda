@@ -10,7 +10,6 @@ import {
   professionals,
 } from "@/db/schema";
 import { newId, nowIso } from "@/lib/ids";
-import { notifyProfessionalApproved } from "@/lib/notifications";
 import { localToUtc } from "@/lib/practice/domain";
 import { suggestedMembershipCurrency } from "@/lib/practice/membership-plan";
 import { sendPlanEmail } from "@/lib/practice/plan-emails";
@@ -782,10 +781,12 @@ export async function approveAdmissionVolunteer(
         .update(professionals)
         .set({
           status: "approved",
-          // Mismo criterio que la aprobación de apoyo voluntario de siempre:
-          // visible y disponible en cuanto se acepta.
           remoteAvailable: true,
           acceptingRequests: true,
+          // Como cualquier alta nueva: activa su plan antes de usar el panel
+          // y de recibir solicitudes (con los cobros del software abiertos).
+          accessPlan: "subscription",
+          accessPlanChangedAt: timestamp,
           updatedAt: timestamp,
         })
         .where(
@@ -819,19 +820,13 @@ export async function approveAdmissionVolunteer(
         message:
           "La aceptación requiere el cuestionario enviado, las condiciones aceptadas, el correo verificado y un perfil sin cambios desde que abriste la ficha.",
       };
-    const emailed = await notifyProfessionalApproved({
-      professionalEmail: pro.email,
-      professionalName: pro.displayName || pro.fullName,
-      nonClinicalHelper: true,
-    })
-      .then((result) => Boolean(result && "ok" in result && result.ok))
-      .catch(() => false);
+    const emailed = await sendAcceptanceEmail(input.professionalId);
     return {
       ok: true,
       decided: true,
       message: emailed
-        ? "Solicitud aceptada. Le enviamos el correo con el acceso a su panel."
-        : "Solicitud aceptada. El correo no se pudo enviar; avísale de que ya puede entrar a Nido.",
+        ? "Solicitud aceptada. Le enviamos el correo para activar su plan y entrar a su panel."
+        : "Solicitud aceptada. El correo no se pudo enviar; avísale de que ya puede entrar a Nido y activar su plan.",
     };
   } catch {
     return unavailable();

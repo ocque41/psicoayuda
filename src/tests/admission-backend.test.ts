@@ -1068,8 +1068,8 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       status: "approved",
       acceptingRequests: true,
       remoteAvailable: true,
-      // El apoyo voluntario conserva su acceso sin plan de pago.
-      accessPlan: "legacy",
+      // Como cualquier alta nueva, activa su plan antes de usar el panel.
+      accessPlan: "subscription",
     });
     expect((await logs()).map((log) => log.action)).toContain(
       "admission_volunteer_approved",

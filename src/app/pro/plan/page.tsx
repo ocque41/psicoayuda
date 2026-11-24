@@ -81,6 +81,10 @@ export default async function PlanPage({
     !legacy && !subscriptionCurrent && trialEndsAt && trialActive(trialEndsAt);
   const trialEnded =
     !legacy && !subscriptionCurrent && trialEndsAt && !trialActive(trialEndsAt);
+  // Alta recién aceptada: nunca tuvo prueba ni suscripción. No está "en
+  // pausa": es el último paso de su solicitud.
+  const firstActivation =
+    locked && !trialEndsAt && !member?.stripeSubscriptionId;
   // Fecha del primer cobro si se activa ahora durante la prueba.
   const chargeFrom =
     !legacy && trialEndsAt && stripeTrialEnd(trialEndsAt)
@@ -119,7 +123,18 @@ export default async function PlanPage({
             </p>
           </div>
         ) : null}
-        {locked ? (
+        {firstActivation ? (
+          <div className="card" role="status">
+            <h2>Tu solicitud fue aceptada: último paso</h2>
+            <p>
+              Activa tu plan para entrar a tu panel
+              {profile?.nonClinicalHelper
+                ? " y empezar a recibir solicitudes de apoyo"
+                : " y organizar tu consulta"}
+              . En cuanto se confirme el pago, entras directamente.
+            </p>
+          </div>
+        ) : locked ? (
           <div className="card" role="status">
             <h2>
               {trialEnded
@@ -138,9 +153,9 @@ export default async function PlanPage({
           </div>
         ) : (
           <p className="lead">
-            La suscripción incluye el software para organizar tu consulta:
-            agenda, fichas de pacientes, servicios, mensajes y seguimiento de
-            cobros. Las sesiones con tus pacientes se acuerdan por separado.
+            {profile?.nonClinicalHelper
+              ? "La suscripción incluye tu panel de Nido: las solicitudes de apoyo que te asignamos, los mensajes y tu perfil visible para quien busca acompañamiento."
+              : "La suscripción incluye el software para organizar tu consulta: agenda, fichas de pacientes, servicios, mensajes y seguimiento de cobros. Las sesiones con tus pacientes se acuerdan por separado."}
           </p>
         )}
 
