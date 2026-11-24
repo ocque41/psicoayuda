@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import type { AdmissionActions } from "@/lib/admission/types";
+import { countryName } from "@/lib/geography";
 import styles from "./admission.module.css";
 import { AdmissionConfiguration } from "./configuration";
 import { AdmissionDetailDialog, type AdmissionPanel } from "./detail-dialog";
@@ -192,7 +193,9 @@ export function AdmissionBoard({
                       <div>
                         <strong>{candidate.name}</strong>
                         <span className={styles.cardMeta}>
-                          {candidate.country || "País pendiente"}
+                          {candidate.country
+                            ? countryName(candidate.country)
+                            : "País pendiente"}
                         </span>
                       </div>
                       <div className={styles.checks}>

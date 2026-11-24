@@ -14,7 +14,9 @@ import {
   professionals,
   user,
 } from "@/db/schema";
+import { SCREENING_QUESTIONS } from "@/lib/screening/questions";
 import {
+  type ScreeningAnswers,
   sanitizeScreeningAnswers,
   screeningReview,
 } from "@/lib/screening/scoring";
@@ -249,6 +251,26 @@ export async function readAdmissionBoard(
         fpvVerified: professionals.fpvVerified,
         registrationType: professionals.registrationType,
         registrationDetail: professionals.registrationDetail,
+        displayName: professionals.displayName,
+        city: professionals.city,
+        photo: professionals.photo,
+        supportAreas: professionals.supportAreas,
+        maxActiveRequests: professionals.maxActiveRequests,
+        remoteAvailable: professionals.remoteAvailable,
+        inPersonAvailable: professionals.inPersonAvailable,
+        acceptingRequests: professionals.acceptingRequests,
+        crisisExperience: professionals.crisisExperience,
+        offersPaidServices: professionals.offersPaidServices,
+        shortBio: professionals.shortBio,
+        emailPublic: professionals.emailPublic,
+        contactEmail: professionals.contactEmail,
+        phone: professionals.phone,
+        landline: professionals.landline,
+        contactNotes: professionals.contactNotes,
+        supervisionInfo: professionals.supervisionInfo,
+        timeZone: sql<
+          string | null
+        >`(SELECT time_zone FROM practice_settings WHERE professional_id=${professionals.id})`,
         screeningAnswers: professionalScreenings.answersJson,
         screeningExclusions: professionalScreenings.exclusions,
       })
@@ -342,12 +364,27 @@ export async function readAdmissionBoard(
         blockers.push(
           "La cuenta candidata debe enviar el cuestionario de admisión.",
         );
-      let screeningAnswers = {};
+      let screeningAnswers: ScreeningAnswers = {};
       try {
         screeningAnswers = sanitizeScreeningAnswers(
           JSON.parse(String(detail.screeningAnswers || "{}")),
         );
       } catch {}
+      let supportAreas: string[] = [];
+      try {
+        const parsed = JSON.parse(String(detail.supportAreas || "[]"));
+        if (Array.isArray(parsed)) supportAreas = parsed.map(String);
+      } catch {}
+      const startedScreening =
+        !summary.screening.submitted &&
+        (detail.screeningAnswers !== null ||
+          Boolean(detail.screeningExclusions));
+      const answeredQuestions = SCREENING_QUESTIONS.filter((question) => {
+        if (question.kind === "text")
+          return Boolean(String(detail.screeningExclusions || "").trim());
+        const answer = screeningAnswers[question.id];
+        return Array.isArray(answer) ? answer.length > 0 : Boolean(answer);
+      }).length;
       selected = {
         ...summary,
         profile: {
@@ -359,6 +396,30 @@ export async function readAdmissionBoard(
           registrationDetail: detail.registrationDetail,
           conductAccepted: Boolean(detail.conductAcceptedAt),
         },
+        application: {
+          displayName: detail.displayName,
+          city: detail.city,
+          timeZone: detail.timeZone,
+          photo: detail.photo,
+          supportAreas,
+          maxActiveRequests: Number(detail.maxActiveRequests || 0),
+          remoteAvailable: Boolean(detail.remoteAvailable),
+          inPersonAvailable: Boolean(detail.inPersonAvailable),
+          acceptingRequests: Boolean(detail.acceptingRequests),
+          crisisExperience: Boolean(detail.crisisExperience),
+          offersPaidServices: Boolean(detail.offersPaidServices),
+          shortBio: detail.shortBio || "",
+          emailPublic: Boolean(detail.emailPublic),
+          contactEmail: detail.contactEmail,
+          phone: detail.phone,
+          landline: detail.landline,
+          contactNotes: detail.contactNotes || "",
+          supervisionInfo: detail.supervisionInfo,
+          createdAt: String(detail.createdAt),
+        },
+        screeningProgress: startedScreening
+          ? { answered: answeredQuestions, total: SCREENING_QUESTIONS.length }
+          : null,
         screeningDetail: summary.screening.submitted
           ? {
               items: screeningReview(screeningAnswers),

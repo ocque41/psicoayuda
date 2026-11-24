@@ -466,6 +466,52 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       ).status,
     ).toBe(404);
   });
+  it("la ficha trae todas las respuestas del perfil y el avance de un cuestionario sin enviar", async () => {
+    await db
+      .update(professionals)
+      .set({
+        displayName: "Nombre público ficticio",
+        city: "Mérida",
+        supportAreas: '["duelo","familia_pareja"]',
+        shortBio: "Presentación ficticia",
+        phone: "+58 000 0000000",
+        crisisExperience: true,
+        remoteAvailable: true,
+        maxActiveRequests: 3,
+      })
+      .where(eq(professionals.id, proId));
+    await db.insert(professionalScreenings).values({
+      professionalId: proId,
+      version: "prueba",
+      answersJson: JSON.stringify({
+        q1: ["ansiedad"],
+        q2: ["adicciones", "opción inventada"],
+        q3: [],
+      }),
+      exclusions: "",
+      score: 0,
+      maxScore: 0,
+      flagsJson: "[]",
+      submittedAt: null,
+      createdAt: profileRevision,
+      updatedAt: profileRevision,
+    });
+    const selected = (await readAdmissionBoard(actor, { candidato: proId }))
+      .selected;
+    expect(selected?.application).toMatchObject({
+      displayName: "Nombre público ficticio",
+      city: "Mérida",
+      supportAreas: ["duelo", "familia_pareja"],
+      shortBio: "Presentación ficticia",
+      phone: "+58 000 0000000",
+      crisisExperience: true,
+      remoteAvailable: true,
+      maxActiveRequests: 3,
+      createdAt: profileRevision,
+    });
+    expect(selected?.screeningDetail).toBeNull();
+    expect(selected?.screeningProgress).toEqual({ answered: 2, total: 20 });
+  });
   it("entrega el documento autorizado con cabeceras privadas y sandbox", async () => {
     const response = await GET(new Request("https://example.test"), {
       params: Promise.resolve({ professionalId: proId }),

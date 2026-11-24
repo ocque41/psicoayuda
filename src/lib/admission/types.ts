@@ -94,6 +94,30 @@ export type AdmissionDetail = AdmissionCandidate & {
     registrationDetail: string | null;
     conductAccepted: boolean;
   };
+  /** Parte 1 de la solicitud: todo lo que respondió en su perfil. */
+  application: {
+    displayName: string | null;
+    city: string | null;
+    timeZone: string | null;
+    photo: string | null;
+    supportAreas: string[];
+    maxActiveRequests: number;
+    remoteAvailable: boolean;
+    inPersonAvailable: boolean;
+    acceptingRequests: boolean;
+    crisisExperience: boolean;
+    offersPaidServices: boolean;
+    shortBio: string;
+    emailPublic: boolean;
+    contactEmail: string | null;
+    phone: string | null;
+    landline: string | null;
+    contactNotes: string;
+    supervisionInfo: string | null;
+    createdAt: string;
+  };
+  /** Cuestionario empezado pero no enviado: cuántas preguntas lleva. */
+  screeningProgress: { answered: number; total: number } | null;
   screeningDetail: {
     items: AdmissionScreeningItem[];
     exclusions: string;

@@ -9,8 +9,8 @@ import type {
   AdmissionDetail,
   AdmissionFormState,
 } from "@/lib/admission/types";
-import { countries } from "@/lib/constants";
-import { TIME_ZONES } from "@/lib/geography";
+import { countries, needLabels } from "@/lib/constants";
+import { countryName, TIME_ZONES } from "@/lib/geography";
 import { AdmissionActionForm } from "./action-form";
 import styles from "./admission.module.css";
 import { AdmissionDialog } from "./dialog-frame";
@@ -131,7 +131,7 @@ export function AdmissionDetailDialog({
   return (
     <AdmissionDialog
       title={candidate.name}
-      description={`${candidate.country || "País por confirmar"} · ${candidate.email}`}
+      description={`${candidate.country ? countryName(candidate.country) : "País por confirmar"} · ${candidate.email}`}
       dirty={dirty}
       busy={busy}
       onClose={() => router.replace(admissionHref(data), { scroll: false })}
@@ -188,6 +188,7 @@ export function AdmissionDetailDialog({
       ) : null}
 
       <section {...panelProps("profile")}>
+        <ApplicationAnswers candidate={candidate} />
         {candidate.volunteer ? (
           <div className={styles.gate}>
             <strong>Apoyo voluntario no clínico</strong>
@@ -285,6 +286,14 @@ export function AdmissionDetailDialog({
       </section>
 
       <section {...panelProps("screening")}>
+        {candidate.screeningProgress ? (
+          <p className={styles.notice} role="status">
+            Empezó el cuestionario y lleva{" "}
+            {candidate.screeningProgress.answered} de{" "}
+            {candidate.screeningProgress.total} preguntas respondidas, sin
+            enviarlo todavía. Verás sus respuestas aquí en cuanto lo envíe.
+          </p>
+        ) : null}
         {candidate.screeningDetail ? (
           <>
             <div className={styles.screeningSummary}>
@@ -841,5 +850,118 @@ export function AdmissionDetailDialog({
         </nav>
       </section>
     </AdmissionDialog>
+  );
+}
+
+const yesNo = (value: boolean) => (value ? "Sí" : "No");
+
+/** Parte 1 de la solicitud: todo lo que la persona respondió en su perfil. */
+function ApplicationAnswers({ candidate }: { candidate: AdmissionDetail }) {
+  const answers = candidate.application;
+  // Solo fotos subidas por el formulario (data URL de imagen); nunca una URL
+  // externa ni otro esquema que el navegador pudiera cargar o ejecutar.
+  const photo =
+    answers.photo &&
+    /^data:image\/(jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(answers.photo)
+      ? answers.photo
+      : null;
+  const facts: [string, string][] = [
+    [
+      "Rol",
+      candidate.volunteer
+        ? "Apoyo voluntario no clínico"
+        : "Profesional clínico",
+    ],
+    ["Nombre completo", candidate.name],
+    ["Nombre público", answers.displayName || "Sin indicar"],
+    [
+      "País y ciudad",
+      [candidate.country && countryName(candidate.country), answers.city]
+        .filter(Boolean)
+        .join(" · ") || "Sin indicar",
+    ],
+    ["Zona horaria", answers.timeZone || "Sin indicar"],
+    [
+      "Áreas de acompañamiento",
+      answers.supportAreas
+        .map(
+          (area) => needLabels[area as keyof typeof needLabels] ?? "Otra área",
+        )
+        .join(", ") || "Sin indicar",
+    ],
+    [
+      "Modalidad",
+      [
+        answers.remoteAvailable ? "En línea" : "",
+        answers.inPersonAvailable ? "Presencial" : "",
+      ]
+        .filter(Boolean)
+        .join(" y ") || "Sin indicar",
+    ],
+    [
+      "Personas a la vez",
+      answers.maxActiveRequests
+        ? `Hasta ${answers.maxActiveRequests}`
+        : "Sin indicar",
+    ],
+    ["Recibir solicitudes al empezar", yesNo(answers.acceptingRequests)],
+    ["Experiencia en crisis", yesNo(answers.crisisExperience)],
+    ["Ofrece servicios pagos", yesNo(answers.offersPaidServices)],
+    ["Correo de coordinación", answers.contactEmail || candidate.email],
+    ["WhatsApp", answers.phone || "Sin indicar"],
+    ["Teléfono", answers.landline || "Sin indicar"],
+    ["Correo visible en su perfil", yesNo(answers.emailPublic)],
+    // Formación y registro clínicos ya se muestran debajo, en sus recuadros.
+    ...(!candidate.volunteer && answers.supervisionInfo
+      ? ([["Supervisión", answers.supervisionInfo]] as [string, string][])
+      : []),
+    [
+      "Condiciones y código de conducta",
+      candidate.profile.conductAccepted ? "Aceptados" : "Pendientes",
+    ],
+    ["Solicitud enviada", formatAdmissionDate(answers.createdAt)],
+  ];
+  return (
+    <div className={styles.application}>
+      <div className={styles.applicationHead}>
+        {photo ? (
+          // biome-ignore lint/performance/noImgElement: foto privada en data URL, sin optimizador.
+          <img
+            className={styles.applicationPhoto}
+            src={photo}
+            alt={`Foto de ${candidate.name}`}
+            width={64}
+            height={64}
+          />
+        ) : null}
+        <div>
+          <h3>Parte 1 · Perfil</h3>
+          <p className={styles.muted}>
+            Todo lo que respondió en su solicitud. El cuestionario (parte 2)
+            está en su pestaña.
+          </p>
+        </div>
+      </div>
+      <dl className={styles.facts}>
+        {facts.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {answers.shortBio ? (
+        <div className={styles.gate}>
+          <strong>Presentación</strong>
+          <p className={styles.exclusions}>{answers.shortBio}</p>
+        </div>
+      ) : null}
+      {answers.contactNotes ? (
+        <div className={styles.gate}>
+          <strong>Notas de contacto</strong>
+          <p className={styles.exclusions}>{answers.contactNotes}</p>
+        </div>
+      ) : null}
+    </div>
   );
 }

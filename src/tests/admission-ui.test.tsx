@@ -67,6 +67,28 @@ function fixture(): AdmissionBoardData {
         registrationDetail: null,
         conductAccepted: true,
       },
+      application: {
+        displayName: "Nombre público de prueba",
+        city: "Caracas",
+        timeZone: "America/Caracas",
+        photo: null,
+        supportAreas: ["duelo", "familia_pareja"],
+        maxActiveRequests: 4,
+        remoteAvailable: true,
+        inPersonAvailable: false,
+        acceptingRequests: true,
+        crisisExperience: true,
+        offersPaidServices: false,
+        shortBio: "Presentación ficticia para la revisión.",
+        emailPublic: false,
+        contactEmail: null,
+        phone: "+58 000 0000000",
+        landline: null,
+        contactNotes: "",
+        supervisionInfo: "Supervisión ficticia quincenal",
+        createdAt: "2026-10-01T08:00:00.000Z",
+      },
+      screeningProgress: null,
       screeningDetail: null,
       evidence: {
         identity: "Cotejo mediante entrevista",
@@ -201,6 +223,54 @@ describe("admisión: tablero y revisión humana", () => {
     expect(html).toContain(
       "La identidad, documentación y autorización de ejercicio requieren revisión humana.",
     );
+  });
+
+  it("muestra todas las respuestas de la parte 1 de la solicitud, escapadas", () => {
+    const data = fixture();
+    const candidate = detail(data);
+    candidate.application.shortBio = "<b>Presentación</b> & experiencia";
+    candidate.application.photo = "javascript:alert(1)";
+    const html = renderToStaticMarkup(
+      <AdmissionDetailDialog
+        data={data}
+        candidate={candidate}
+        actions={actions}
+      />,
+    );
+    for (const text of [
+      "Parte 1 · Perfil",
+      "Profesional clínico",
+      "Nombre público de prueba",
+      "Venezuela · Caracas",
+      "America/Caracas",
+      "Duelo",
+      "En línea",
+      "Hasta 4",
+      "+58 000 0000000",
+      "Supervisión ficticia quincenal",
+      "&lt;b&gt;Presentación&lt;/b&gt; &amp; experiencia",
+    ])
+      expect(html).toContain(text);
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("<b>Presentación");
+  });
+
+  it("el apoyo voluntario muestra su perfil sin campos clínicos y el borrador del cuestionario", () => {
+    const data = fixture();
+    const candidate = detail(data);
+    candidate.volunteer = true;
+    candidate.screening.submitted = false;
+    candidate.screeningProgress = { answered: 7, total: 20 };
+    const html = renderToStaticMarkup(
+      <AdmissionDetailDialog
+        data={data}
+        candidate={candidate}
+        actions={actions}
+      />,
+    );
+    expect(html).toContain("Apoyo voluntario no clínico");
+    expect(html).not.toContain("Supervisión ficticia quincenal");
+    expect(html).toMatch(/lleva\s*(<!-- -->)?7(<!-- -->)? de\s*(<!-- -->)?20/);
   });
 
   it("envía revisión y entrevista completas con versiones, sin fingir un control de ámbito", () => {

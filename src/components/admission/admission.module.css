@@ -504,3 +504,52 @@
 .rejection h3 {
   margin: 0;
 }
+/* Parte 1 de la solicitud: respuestas del perfil en la ficha de Admisión. */
+.application {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.applicationHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.applicationHead h3 {
+  margin: 0;
+}
+.applicationPhoto {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.facts > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #e2e7da;
+  border-radius: 12px;
+  background: #fbfcf8;
+}
+.facts dt {
+  color: #626a5b;
+  font-size: 13px;
+}
+.facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
