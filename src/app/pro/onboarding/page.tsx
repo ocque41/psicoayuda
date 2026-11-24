@@ -139,9 +139,9 @@ export default async function ProOnboardingPage({
             <p className="muted">
               Una pregunta a la vez. Guardamos tu progreso básico en tu cuenta
               durante siete días. Los documentos y datos de credenciales se
-              envían al terminar. Si atiendes como profesional clínico, después
-              respondes el cuestionario de admisión, el último paso de tu
-              solicitud. Con las dos partes, una persona del equipo la revisa.
+              envían al terminar. Tu solicitud tiene dos partes: este perfil y
+              el cuestionario de admisión. Con las dos, el equipo la revisa y te
+              escribe con la decisión.
             </p>
           </>
         )}

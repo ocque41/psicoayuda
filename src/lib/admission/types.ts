@@ -35,6 +35,8 @@ export type AdmissionFormState = {
     | "unavailable"
     | "blocked";
   published?: boolean;
+  /** La solicitud se cerró (aceptada o no aceptada) y sale del tablero. */
+  decided?: boolean;
   field?: "interviewLocal" | "interviewTimeZone" | "interviewReference";
 };
 export type AdmissionAction = (
@@ -52,6 +54,11 @@ export type AdmissionCandidate = {
   profileRevision: string;
   updatedAt: string;
   hasDocument: boolean;
+  /**
+   * Apoyo voluntario no clínico: pasa por el mismo perfil y cuestionario, pero
+   * su aceptación no exige cotejo de credenciales, ámbitos ni entrevista.
+   */
+  volunteer: boolean;
   gates: Record<AdmissionGate, boolean>;
   screening: {
     submitted: boolean;
@@ -138,5 +145,7 @@ export type AdmissionActions = {
   saveScope: AdmissionAction;
   moveStage: AdmissionAction;
   publish: AdmissionAction;
+  approveVolunteer: AdmissionAction;
+  reject: AdmissionAction;
   configure: AdmissionAction;
 };

@@ -284,7 +284,21 @@ describe("las aprobaciones antiguas respetan Admisión", () => {
     });
     expect(await audits()).toHaveLength(1);
   });
-  it("mantiene la aprobación de auxiliares desde administración", async () => {
+  it("una solicitud voluntaria pendiente también se decide en Admisión", async () => {
+    const batch = vi.spyOn(db, "batch");
+    await expect(
+      adminUpdateProfessionalStatus(decision("approved", auxiliaryId)),
+    ).rejects.toThrow(`REDIRECT:/admin/admision?candidato=${auxiliaryId}`);
+    expect(batch).not.toHaveBeenCalled();
+    expect((await profile(auxiliaryId))?.status).toBe("pending_verification");
+    expect(await audits()).toHaveLength(0);
+    expect(mocks.approval).not.toHaveBeenCalled();
+  });
+  it("un auxiliar ya aceptado y suspendido se reactiva desde administración", async () => {
+    await db
+      .update(professionals)
+      .set({ status: "suspended" })
+      .where(eq(professionals.id, auxiliaryId));
     await adminUpdateProfessionalStatus(decision("approved", auxiliaryId));
     expect(await profile(auxiliaryId)).toMatchObject({
       status: "approved",

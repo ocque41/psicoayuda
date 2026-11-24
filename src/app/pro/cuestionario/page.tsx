@@ -16,10 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function ScreeningPage() {
   const pro = await currentScreeningCandidate();
   if (!pro) redirect("/pro");
-  // Solo candidaturas clínicas pendientes. Los perfiles aprobados y el apoyo
-  // voluntario no clínico no pasan por este cuestionario.
-  if (pro.status !== "pending_verification" || pro.nonClinicalHelper)
-    redirect("/pro/dashboard");
+  // Toda solicitud pendiente, clínica o de apoyo voluntario, lo responde: es
+  // la segunda parte de la solicitud que revisa Admisión.
+  if (pro.status !== "pending_verification") redirect("/pro/dashboard");
   const screening = await readScreening(pro.id);
   if (screening?.submittedAt) redirect("/pro/dashboard");
   return (

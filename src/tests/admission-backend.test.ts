@@ -26,9 +26,11 @@ import { requireAdmin } from "@/lib/admin";
 import { requireAdmissionReviewer } from "@/lib/admission/access";
 import { admissionHistoryDetails } from "@/lib/admission/history";
 import {
+  approveAdmissionVolunteer,
   configureAdmissionStages,
   moveAdmissionStage,
   publishAdmissionCandidate,
+  rejectAdmissionCandidate,
   saveAdmissionReview,
   saveAdmissionScope,
 } from "@/lib/admission/mutations";
@@ -418,7 +420,7 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
     ).toBe(403);
     expect(select).not.toHaveBeenCalled();
   });
-  it("limita listado y documentos a candidatos clínicos pendientes", async () => {
+  it("limita listado a solicitudes pendientes y documentos a candidaturas clínicas", async () => {
     const board = await readAdmissionBoard(actor, {
       candidato: `${P}-approved`,
     });
@@ -446,7 +448,16 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       .update(professionals)
       .set({ nonClinicalHelper: true })
       .where(eq(professionals.id, proId));
-    expect((await readAdmissionBoard(actor, {})).candidates).toHaveLength(0);
+    // El apoyo voluntario también se decide en Admisión, sin cotejos clínicos.
+    const volunteers = (await readAdmissionBoard(actor, {})).candidates;
+    expect(volunteers).toHaveLength(1);
+    expect(volunteers[0]).toMatchObject({
+      professionalId: proId,
+      volunteer: true,
+    });
+    expect(await saveAdmissionReview(actor, form())).toMatchObject({
+      ok: false,
+    });
     expect(
       (
         await GET(new Request("https://example.test"), {
@@ -970,7 +981,10 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
           }),
         ),
       ).toMatchObject({ ok: false });
-      expect((await readAdmissionBoard(actor, {})).candidates).toHaveLength(0);
+      // Una solicitud voluntaria pendiente sigue en el tablero; las cerradas no.
+      expect((await readAdmissionBoard(actor, {})).candidates).toHaveLength(
+        status === "pending_verification" ? 1 : 0,
+      );
     }
     await db
       .update(professionals)
@@ -983,6 +997,110 @@ describe("admisión: permisos, revisión y publicación atómica", () => {
       2,
     );
   });
+  it("acepta una solicitud voluntaria solo con el cuestionario enviado", async () => {
+    await db
+      .update(professionals)
+      .set({ nonClinicalHelper: true })
+      .where(eq(professionals.id, proId));
+    const decision = form({ confirm: "on" });
+    expect(await approveAdmissionVolunteer(actor, decision)).toMatchObject({
+      ok: false,
+      code: "blocked",
+    });
+    await submittedScreening();
+    expect(
+      await approveAdmissionVolunteer(actor, form({ confirm: "" })),
+    ).toMatchObject({ ok: false, code: "invalid" });
+    expect(await approveAdmissionVolunteer(actor, decision)).toMatchObject({
+      ok: true,
+      decided: true,
+    });
+    const pro = await db.query.professionals.findFirst({
+      where: eq(professionals.id, proId),
+    });
+    expect(pro).toMatchObject({
+      status: "approved",
+      acceptingRequests: true,
+      remoteAvailable: true,
+      // El apoyo voluntario conserva su acceso sin plan de pago.
+      accessPlan: "legacy",
+    });
+    expect((await logs()).map((log) => log.action)).toContain(
+      "admission_volunteer_approved",
+    );
+    expect((await readAdmissionBoard(actor, {})).candidates).toHaveLength(0);
+  });
+
+  it("una candidatura clínica no se acepta por la vía voluntaria", async () => {
+    await submittedScreening();
+    expect(
+      await approveAdmissionVolunteer(actor, form({ confirm: "on" })),
+    ).toMatchObject({ ok: false, code: "blocked" });
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, proId),
+        })
+      )?.status,
+    ).toBe("pending_verification");
+  });
+
+  it("no acepta una solicitud con motivo interno y la saca del tablero", async () => {
+    expect(
+      await rejectAdmissionCandidate(
+        actor,
+        form({ reference: "", confirm: "on" }),
+      ),
+    ).toMatchObject({ ok: false, code: "invalid" });
+    expect(
+      await rejectAdmissionCandidate(
+        actor,
+        form({ confirm: "on", profileRevision: "2000-01-02T00:00:00.000Z" }),
+      ),
+    ).toMatchObject({ ok: false, code: "conflict" });
+    expect(
+      await rejectAdmissionCandidate(
+        actor,
+        form({ confirm: "on", reference: "Perfil fuera del alcance de Nido" }),
+      ),
+    ).toMatchObject({ ok: true, decided: true });
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, proId),
+        })
+      )?.status,
+    ).toBe("rejected");
+    const rejection = (await logs()).find(
+      (log) => log.action === "admission_rejected",
+    );
+    expect(rejection?.actorEmail).toBe(actor.email);
+    expect(rejection?.metadata).toContain("Perfil fuera del alcance de Nido");
+    expect((await readAdmissionBoard(actor, {})).candidates).toHaveLength(0);
+    // Una decisión cerrada no se repite ni se aplica a perfiles ya decididos.
+    for (const id of [proId, `${P}-approved`])
+      expect(
+        await rejectAdmissionCandidate(
+          actor,
+          form({ professionalId: id, confirm: "on" }),
+        ),
+      ).toMatchObject({ ok: false, code: "conflict" });
+  });
+
+  it("sin rol de admisión vigente no decide ninguna solicitud", async () => {
+    vi.stubEnv("ADMISSION_REVIEWER_EMAILS", "");
+    expect(
+      await rejectAdmissionCandidate(actor, form({ confirm: "on" })),
+    ).toMatchObject({ ok: false });
+    expect(
+      (
+        await db.query.professionals.findFirst({
+          where: eq(professionals.id, proId),
+        })
+      )?.status,
+    ).toBe("pending_verification");
+  });
+
   it("conserva las evidencias anteriores, fecha y configuración en historial acotado", async () => {
     expect(await saveAdmissionReview(actor, form())).toMatchObject({
       ok: true,

@@ -27,6 +27,8 @@ const actions: AdmissionActions = {
   saveScope: action,
   moveStage: action,
   publish: action,
+  approveVolunteer: action,
+  reject: action,
   configure: action,
 };
 function detail(data: AdmissionBoardData): AdmissionDetail {
@@ -45,6 +47,7 @@ function fixture(): AdmissionBoardData {
     profileRevision: "2026-10-04T08:00:00.000Z",
     updatedAt: "2026-10-04T08:00:00.000Z",
     hasDocument: true,
+    volunteer: false,
     gates: { identity: true, credentials: true, scope: true, interview: true },
     screening: { submitted: true, score: 16, maxScore: 18, flagCount: 0 },
     canPublish: true,

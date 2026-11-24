@@ -28,8 +28,7 @@ export async function saveScreeningProgress(
   exclusions?: unknown,
 ) {
   const pro = await currentScreeningCandidate();
-  if (pro?.status !== "pending_verification" || pro.nonClinicalHelper)
-    return { ok: false };
+  if (pro?.status !== "pending_verification") return { ok: false };
   return { ok: await saveScreeningDraft(pro.id, answers, exclusions) };
 }
 
@@ -39,8 +38,7 @@ export async function sendScreening(
 ): Promise<ScreeningFormState> {
   const pro = await currentScreeningCandidate();
   if (!pro) redirect("/pro");
-  if (pro.status !== "pending_verification" || pro.nonClinicalHelper)
-    redirect("/pro/dashboard");
+  if (pro.status !== "pending_verification") redirect("/pro/dashboard");
   const result = await submitScreening(
     pro.id,
     parseAnswers(form),

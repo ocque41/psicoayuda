@@ -81,15 +81,12 @@ const professionalStateLabels: Record<string, string> = {
   deleting: "Eliminación pendiente",
 };
 
-/** Candidatura clínica pendiente: se revisa en Admisión, no en Profesionales. */
-function isAdmissionCandidate(professional: {
-  status: string;
-  nonClinicalHelper: boolean;
-}) {
-  return (
-    professional.status === "pending_verification" &&
-    !professional.nonClinicalHelper
-  );
+/**
+ * Solicitud pendiente (clínica o de apoyo voluntario): se decide en Admisión,
+ * no en Profesionales.
+ */
+function isAdmissionCandidate(professional: { status: string }) {
+  return professional.status === "pending_verification";
 }
 
 // Cap the help-request page so its cost stays flat as historical rows grow.
@@ -394,30 +391,18 @@ export async function AdminDashboard({
     }
   }
 
-  // Una candidatura clínica pendiente es una solicitud de Admisión, no un
-  // profesional: se cuenta, se avisa y se revisa allí. En Profesionales solo
-  // queda el apoyo voluntario no clínico pendiente, que se aprueba aquí.
-  const countProfessionals = (
-    status: string,
-    kind?: { nonClinicalHelper: boolean },
-  ) =>
+  // Una solicitud pendiente no es un profesional: se cuenta, se avisa y se
+  // decide en Admisión, sea clínica o de apoyo voluntario.
+  const countProfessionals = (status: string) =>
     professionalCounts
-      .filter(
-        (row) =>
-          row.status === status &&
-          (!kind || Boolean(row.nonClinicalHelper) === kind.nonClinicalHelper),
-      )
+      .filter((row) => row.status === status)
       .reduce((total, row) => total + row.total, 0);
-  const admissionRequestCount = countProfessionals("pending_verification", {
-    nonClinicalHelper: false,
-  });
-  const pendingHelperCount = countProfessionals("pending_verification", {
-    nonClinicalHelper: true,
-  });
+  const admissionRequestCount = countProfessionals("pending_verification");
   const approvedProfessionalCount = countProfessionals("approved");
   const listedProfessionals = proRows.filter(
     (professional) => !isAdmissionCandidate(professional),
   );
+  const applications = proRows.filter(isAdmissionCandidate);
 
   return (
     <AdminShell
@@ -426,7 +411,6 @@ export async function AdminDashboard({
       badges={{
         solicitudes: newRequestCount,
         contactos: contactCounts.new,
-        profesionales: pendingHelperCount,
         admision: admissionRequestCount,
       }}
       legacyNavigation
@@ -565,26 +549,76 @@ export async function AdminDashboard({
           />
         </>
       ) : null}
-      {view === "profesionales" && admissionRequestCount > 0 ? (
-        <Link
-          className={adminStyles.quickLink}
-          href="/admin/admision"
-          prefetch={false}
-          style={{ marginBottom: 16 }}
-        >
-          <div>
-            <strong>
-              {admissionRequestCount === 1
-                ? "1 solicitud nueva espera en Admisión"
-                : `${admissionRequestCount} solicitudes nuevas esperan en Admisión`}
-            </strong>
-            <p>
-              Las personas que se están inscribiendo no aparecen aquí hasta que
-              se aprueban. Allí ves su perfil y su cuestionario.
-            </p>
+      {view === "profesionales" && applications.length > 0 ? (
+        <section aria-labelledby="solicitudes-admision">
+          <Link
+            className={adminStyles.quickLink}
+            href="/admin/admision"
+            prefetch={false}
+            style={{ marginBottom: 16 }}
+          >
+            <div>
+              <strong id="solicitudes-admision">
+                {applications.length === 1
+                  ? "1 solicitud nueva espera en Admisión"
+                  : `${applications.length} solicitudes nuevas esperan en Admisión`}
+              </strong>
+              <p>
+                Las personas que se están inscribiendo no son profesionales de
+                Nido hasta que se aceptan. Allí ves su perfil y su cuestionario
+                y decides si se aceptan o no.
+              </p>
+            </div>
+            <span aria-hidden="true">→</span>
+          </Link>
+          <div className="table-wrap" style={{ marginBottom: 24 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Solicitud</th>
+                  <th>Correo</th>
+                  <th>Tipo</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((application) => (
+                  <tr key={application.id}>
+                    <td data-label="Solicitud">
+                      <strong>{application.fullName}</strong>
+                    </td>
+                    <td data-label="Correo">{application.email}</td>
+                    <td data-label="Tipo">
+                      {application.nonClinicalHelper
+                        ? "Apoyo voluntario"
+                        : "Profesional clínico"}
+                    </td>
+                    <td data-label="Acción">
+                      <p>
+                        <Link
+                          className="button secondary"
+                          href={`/admin/admision?candidato=${encodeURIComponent(application.id)}`}
+                          prefetch={false}
+                        >
+                          Revisar en Admisión
+                        </Link>
+                      </p>
+                      {!adminEmails.has(
+                        accountEmailByUserId.get(application.userId) ?? "",
+                      ) ? (
+                        <AdminDeleteAccountForm
+                          action={adminDeleteAccount}
+                          userId={application.userId}
+                          accountLabel={application.email}
+                        />
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <span aria-hidden="true">→</span>
-        </Link>
+        </section>
       ) : null}
       {view === "profesionales" ? (
         <div className="table-wrap">
@@ -721,10 +755,7 @@ export async function AdminDashboard({
                           </option>
                         ) : null}
                         <option value="pending_verification">Pendiente</option>
-                        {professional.status !== "pending_verification" ||
-                        professional.nonClinicalHelper ? (
-                          <option value="approved">Aprobar</option>
-                        ) : null}
+                        <option value="approved">Aprobar</option>
                         <option value="rejected">Rechazar</option>
                         <option value="suspended">Suspender</option>
                       </select>{" "}

@@ -146,7 +146,7 @@ export function ScreeningWizard({
     >
       <input type="hidden" name="answers" value={JSON.stringify(answers)} />
       <WizardFrame
-        name="Paso 3 de 3 · Cuestionario de admisión"
+        name="Tu solicitud · Parte 2 de 2: cuestionario"
         eyebrow={question.block}
         title={question.title}
         description={

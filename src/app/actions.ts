@@ -667,11 +667,9 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
     },
   });
   if (!existing || existing.status === "deleting") redirect("/admin");
-  if (
-    status === "approved" &&
-    existing.status === "pending_verification" &&
-    !existing.nonClinicalHelper
-  ) {
+  // Toda solicitud pendiente (clínica o voluntaria) se acepta en Admisión,
+  // donde se ven su perfil y su cuestionario y se avisa por correo.
+  if (status === "approved" && existing.status === "pending_verification") {
     redirect(`/admin/admision?candidato=${encodeURIComponent(existing.id)}`);
   }
   const timestamp = nowIso();
@@ -723,10 +721,7 @@ export async function adminUpdateProfessionalStatus(formData: FormData) {
           eq(professionals.id, professionalId),
           ne(professionals.status, "deleting"),
           status === "approved"
-            ? or(
-                ne(professionals.status, "pending_verification"),
-                eq(professionals.nonClinicalHelper, true),
-              )
+            ? ne(professionals.status, "pending_verification")
             : undefined,
         ),
       )

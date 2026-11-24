@@ -229,9 +229,21 @@ describe("cuestionario clínico: guardado y envío", () => {
     ).toEqual({ ok: true, firstSubmission: false });
     expect((await readScreening(P))?.score).toBe(17);
   });
+  it("una solicitud de apoyo voluntario también envía el cuestionario", async () => {
+    await candidate(P, "pending_verification", true);
+    expect(
+      await submitScreening(
+        P,
+        perfect(),
+        "No atendería casos clínicos: acompaño solo como voluntario.",
+      ),
+    ).toEqual({ ok: true, firstSubmission: true });
+    expect((await readScreening(P))?.submittedAt).toBeTruthy();
+  });
   it.each([
     ["aprobado", "approved", false],
-    ["apoyo no clínico", "pending_verification", true],
+    ["rechazado", "rejected", false],
+    ["voluntario aprobado", "approved", true],
   ] as const)("no guarda cuestionarios de un perfil %s", async (_label, status, helper) => {
     await candidate(P, status, helper);
     expect(await saveScreeningDraft(P, perfect())).toBe(false);

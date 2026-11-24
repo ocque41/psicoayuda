@@ -155,7 +155,7 @@ export function AdmissionBoard({
           <p>
             {data.query || data.stageFilter
               ? "Prueba otro nombre o revisa todas las etapas."
-              : "Los nuevos perfiles clínicos pendientes aparecerán aquí. Los perfiles ya publicados mantienen su estado e historial."}
+              : "Las solicitudes nuevas aparecerán aquí en cuanto alguien termine su perfil. Las ya decididas mantienen su estado e historial."}
           </p>
         </div>
       ) : null}
@@ -196,26 +196,32 @@ export function AdmissionBoard({
                         </span>
                       </div>
                       <div className={styles.checks}>
-                        {Object.entries(admissionGateLabels).map(
-                          ([gate, label]) => (
-                            <span
-                              key={gate}
-                              className={styles.badge}
-                              data-complete={
-                                candidate.gates[
-                                  gate as keyof typeof candidate.gates
-                                ]
-                              }
-                            >
-                              {candidate.gates[
+                        {candidate.volunteer ? (
+                          <span className={styles.badge} data-complete>
+                            Apoyo voluntario
+                          </span>
+                        ) : null}
+                        {(candidate.volunteer
+                          ? []
+                          : Object.entries(admissionGateLabels)
+                        ).map(([gate, label]) => (
+                          <span
+                            key={gate}
+                            className={styles.badge}
+                            data-complete={
+                              candidate.gates[
                                 gate as keyof typeof candidate.gates
                               ]
-                                ? "✓ "
-                                : "○ "}
-                              {label}
-                            </span>
-                          ),
-                        )}
+                            }
+                          >
+                            {candidate.gates[
+                              gate as keyof typeof candidate.gates
+                            ]
+                              ? "✓ "
+                              : "○ "}
+                            {label}
+                          </span>
+                        ))}
                         <span
                           className={styles.badge}
                           data-complete={candidate.screening.submitted}
@@ -231,10 +237,13 @@ export function AdmissionBoard({
                         </span>
                       </div>
                       <span className={styles.cardMeta}>
-                        {completedGates(candidate.gates)} de 4 revisiones ·{" "}
-                        {candidate.hasDocument
-                          ? "Documento disponible"
-                          : "Sin documento adjunto"}
+                        {candidate.volunteer
+                          ? "Sin credencial clínica que cotejar"
+                          : `${completedGates(candidate.gates)} de 4 revisiones · ${
+                              candidate.hasDocument
+                                ? "Documento disponible"
+                                : "Sin documento adjunto"
+                            }`}
                       </span>
                       <span className={styles.cardMeta}>
                         Actualizado {formatAdmissionDate(candidate.updatedAt)}

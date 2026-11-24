@@ -790,22 +790,16 @@ export function ProfessionalOnboardingForm({
         name={
           editing
             ? "Tu perfil profesional"
-            : answers.nonClinicalHelper
-              ? "Tu alta voluntaria"
-              : "Paso 2 de 3 · Tu perfil"
+            : "Tu solicitud · Parte 1 de 2: perfil"
         }
         title={question.title}
         description={
-          field === "review" && !editing && !answers.nonClinicalHelper
-            ? "Al enviarlo pasas al último paso: el cuestionario de admisión. Con tu perfil y el cuestionario, el equipo revisa tu solicitud."
+          field === "review" && !editing
+            ? "Al guardarlo sigues con la parte 2: el cuestionario de admisión. Con las dos partes, el equipo revisa tu solicitud y te escribe con la decisión."
             : question.description
         }
         submitLabel={
-          editing
-            ? "Guardar cambios →"
-            : answers.nonClinicalHelper
-              ? "Enviar mi solicitud →"
-              : "Enviar y seguir al cuestionario →"
+          editing ? "Guardar cambios →" : "Guardar y seguir con la parte 2 →"
         }
         step={activeStep}
         total={questions.length}

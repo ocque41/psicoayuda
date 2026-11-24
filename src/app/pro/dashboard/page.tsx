@@ -57,11 +57,11 @@ const verificationCopy: Record<string, { title: string; body: string }> = {
   },
   pending_verification: {
     title: "Recibimos tu solicitud",
-    body: "El equipo está revisando tu perfil, tu credencial y tus respuestas. Te escribiremos por correo en cuanto se apruebe, con el enlace para activar tu plan y entrar a tu panel. No necesitas hacer nada más.",
+    body: "El equipo está revisando tu perfil y tus respuestas al cuestionario. Te escribiremos por correo con la decisión y, si es positiva, con el siguiente paso para entrar a tu panel. No necesitas hacer nada más.",
   },
   rejected: {
-    title: "Aún no pudimos verificar tu perfil",
-    body: "Si crees que es un error o quieres añadir información, actualiza tus datos y lo revisamos de nuevo.",
+    title: "Tu solicitud no fue aceptada",
+    body: "Te enviamos un correo con la decisión. Si quieres más información o crees que falta algo en tu solicitud, responde a ese correo y te contestamos.",
   },
   suspended: {
     title: "Tu participación está en pausa",
@@ -191,11 +191,10 @@ export default async function ProDashboardPage({
   }
 
   if (professional.status !== "approved") {
-    // Candidatura clínica nueva: el cuestionario va justo después del perfil y
-    // es parte de la solicitud. Sin él, la revisión no puede empezar.
+    // Solicitud nueva (clínica o de apoyo voluntario): el cuestionario es la
+    // segunda parte de la solicitud. Sin él, Admisión no puede revisarla.
     if (
       professional.status === "pending_verification" &&
-      !professional.nonClinicalHelper &&
       !(await screeningSubmitted(professional.id))
     )
       redirect("/pro/cuestionario");
@@ -219,7 +218,9 @@ export default async function ProDashboardPage({
           <div className="card">
             <h2>{copy.title}</h2>
             <p>{copy.body}</p>
-            {professional.status !== "deleting" ? (
+            {/* Una solicitud no aceptada queda cerrada: editarla no la reabre. */}
+            {professional.status !== "deleting" &&
+            professional.status !== "rejected" ? (
               <Link className="button secondary" href="/pro/onboarding">
                 Actualizar mi información
               </Link>

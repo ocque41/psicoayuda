@@ -26,10 +26,17 @@ const tabs = [
   { id: "review", label: "Documentos" },
   { id: "scope", label: "Ámbitos" },
   { id: "interview", label: "Entrevista" },
-  { id: "publish", label: "Publicación" },
+  { id: "publish", label: "Decisión" },
   { id: "history", label: "Historial" },
 ] as const;
 export type AdmissionPanel = (typeof tabs)[number]["id"];
+/** El apoyo voluntario no tiene documentos, ámbitos ni entrevista clínica. */
+const volunteerPanels: readonly AdmissionPanel[] = [
+  "profile",
+  "screening",
+  "publish",
+  "history",
+];
 
 export function AdmissionDetailDialog({
   data,
@@ -51,7 +58,12 @@ export function AdmissionDetailDialog({
   const router = useRouter();
   const prefix = useId();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [tab, setTab] = useState<AdmissionPanel>(initialTab);
+  const visibleTabs = candidate.volunteer
+    ? tabs.filter((item) => volunteerPanels.includes(item.id))
+    : tabs;
+  const [tab, setTab] = useState<AdmissionPanel>(
+    visibleTabs.some((item) => item.id === initialTab) ? initialTab : "profile",
+  );
   const [saving, setBusy] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const busy = saving || refreshing;
@@ -74,6 +86,7 @@ export function AdmissionDetailDialog({
     candidate.interview.completed,
   );
   const [confirmed, setConfirmed] = useState(false);
+  const [rejectConfirmed, setRejectConfirmed] = useState(false);
   const [scopePage, setScopePage] = useState(1);
   const dirty = dirtyForms.length > 0;
   function markDirty(form: string) {
@@ -128,7 +141,7 @@ export function AdmissionDetailDialog({
         aria-label="Revisión del profesional"
         className={styles.tabs}
       >
-        {tabs.map((item, index) => (
+        {visibleTabs.map((item, index) => (
           <button
             key={item.id}
             ref={(element) => {
@@ -145,14 +158,15 @@ export function AdmissionDetailDialog({
             onClick={() => changeTab(item.id)}
             onKeyDown={(event) => {
               let next = index;
-              if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+              if (event.key === "ArrowRight")
+                next = (index + 1) % visibleTabs.length;
               else if (event.key === "ArrowLeft")
-                next = (index + tabs.length - 1) % tabs.length;
+                next = (index + visibleTabs.length - 1) % visibleTabs.length;
               else if (event.key === "Home") next = 0;
-              else if (event.key === "End") next = tabs.length - 1;
+              else if (event.key === "End") next = visibleTabs.length - 1;
               else return;
               event.preventDefault();
-              changeTab(tabs[next].id);
+              changeTab(visibleTabs[next].id);
               tabRefs.current[next]?.focus();
             }}
           >
@@ -174,7 +188,17 @@ export function AdmissionDetailDialog({
       ) : null}
 
       <section {...panelProps("profile")}>
-        <div className={styles.formGrid}>
+        {candidate.volunteer ? (
+          <div className={styles.gate}>
+            <strong>Apoyo voluntario no clínico</strong>
+            <p className={styles.muted}>
+              Se inscribió para acompañar dentro de su competencia, sin atención
+              clínica. No declara título ni registro que cotejar: la decisión se
+              toma con su perfil y su cuestionario.
+            </p>
+          </div>
+        ) : null}
+        <div className={styles.formGrid} hidden={candidate.volunteer}>
           <div className={styles.gate}>
             <strong>Formación declarada</strong>
             <p className={styles.muted}>
@@ -216,46 +240,48 @@ export function AdmissionDetailDialog({
           >
             Abrir documento privado ↗
           </a>
-        ) : (
+        ) : candidate.volunteer ? null : (
           <p className={styles.muted}>
             No hay un documento adjunto. Conserva únicamente una referencia del
             cotejo; evita copiar documentos o números de identidad en las notas.
           </p>
         )}
-        <AdmissionActionForm
-          action={actions.moveStage}
-          submit="Guardar cambio de etapa"
-          disabled={busy || dirtyForms.some((form) => form !== "move")}
-          onBusyChange={setBusy}
-          onChange={() => markDirty("move")}
-          onSaved={(state) => saved("move", state.message)}
-        >
-          {ids}
-          <label>
-            Etapa actual
-            <select name="stageId" defaultValue={candidate.stageId}>
-              {data.stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Motivo del cambio
-            <input
-              name="reference"
-              required
-              minLength={5}
-              maxLength={300}
-              placeholder="Qué se ha revisado o qué falta"
-            />
-          </label>
-          <p className={styles.muted}>
-            Avanzar requiere completar el control de la etapa que se deja.
-            Retroceder conserva las revisiones y el historial.
-          </p>
-        </AdmissionActionForm>
+        {candidate.volunteer ? null : (
+          <AdmissionActionForm
+            action={actions.moveStage}
+            submit="Guardar cambio de etapa"
+            disabled={busy || dirtyForms.some((form) => form !== "move")}
+            onBusyChange={setBusy}
+            onChange={() => markDirty("move")}
+            onSaved={(state) => saved("move", state.message)}
+          >
+            {ids}
+            <label>
+              Etapa actual
+              <select name="stageId" defaultValue={candidate.stageId}>
+                {data.stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Motivo del cambio
+              <input
+                name="reference"
+                required
+                minLength={5}
+                maxLength={300}
+                placeholder="Qué se ha revisado o qué falta"
+              />
+            </label>
+            <p className={styles.muted}>
+              Avanzar requiere completar el control de la etapa que se deja.
+              Retroceder conserva las revisiones y el historial.
+            </p>
+          </AdmissionActionForm>
+        )}
       </section>
 
       <section {...panelProps("screening")}>
@@ -331,9 +357,10 @@ export function AdmissionDetailDialog({
           </>
         ) : (
           <p className={styles.empty}>
-            La persona candidata todavía no envió el cuestionario clínico. Lo
-            verá automáticamente al entrar en su panel; la publicación queda
-            bloqueada hasta recibirlo.
+            La persona candidata todavía no envió el cuestionario de admisión.
+            Lo verá automáticamente al entrar en su panel; la aceptación queda
+            bloqueada hasta recibirlo. Puedes no aceptar la solicitud en
+            cualquier momento desde «Decisión».
           </p>
         )}
       </section>
@@ -607,13 +634,13 @@ export function AdmissionDetailDialog({
       <section {...panelProps("publish")}>
         <h3>Una decisión explícita.</h3>
         <p className={styles.muted}>
-          Publicar aprueba el perfil clínico y permite su aparición en el
-          catálogo. La revisión humana no se sustituye por el orden de las
-          tarjetas.
+          {candidate.volunteer
+            ? "Aceptar habilita su apoyo voluntario y le envía un correo con el acceso a su panel. No aceptar cierra la solicitud y se lo comunica por correo."
+            : "Aceptar aprueba el perfil clínico, permite su aparición en el catálogo y le envía un correo para activar su plan y entrar a su panel. No aceptar cierra la solicitud y se lo comunica por correo."}
         </p>
         {candidate.publishBlockers.length ? (
           <div className={styles.notice}>
-            <strong>Antes de publicar</strong>
+            <strong>Antes de aceptar</strong>
             <ul>
               {candidate.publishBlockers.map((blocker) => (
                 <li key={blocker}>{blocker}</li>
@@ -622,8 +649,8 @@ export function AdmissionDetailDialog({
           </div>
         ) : (
           <p className={styles.success}>
-            Los controles guardados permiten solicitar la publicación. Nido
-            volverá a comprobarlos al confirmar.
+            Los controles guardados permiten aceptar la solicitud. Nido volverá
+            a comprobarlos al confirmar.
           </p>
         )}
         {dirtyForms.some((form) => form !== "publish") ? (
@@ -639,8 +666,14 @@ export function AdmissionDetailDialog({
           .
         </p>
         <AdmissionActionForm
-          action={actions.publish}
-          submit="Confirmar publicación del perfil"
+          action={
+            candidate.volunteer ? actions.approveVolunteer : actions.publish
+          }
+          submit={
+            candidate.volunteer
+              ? "Aceptar la solicitud"
+              : "Aceptar y publicar el perfil"
+          }
           disabled={
             busy ||
             !candidate.canPublish ||
@@ -650,7 +683,7 @@ export function AdmissionDetailDialog({
           onBusyChange={setBusy}
           onChange={() => markDirty("publish")}
           onSaved={(state) => {
-            if (state.published) {
+            if (state.published || state.decided) {
               setDirtyForms([]);
               onSavedNotice?.(state.message);
               startRefresh(() =>
@@ -670,7 +703,7 @@ export function AdmissionDetailDialog({
               required
               minLength={5}
               maxLength={300}
-              placeholder="Motivo de la aprobación tras la revisión"
+              placeholder="Motivo de la aceptación tras la revisión"
               disabled={!candidate.canPublish}
             />
           </label>
@@ -683,10 +716,60 @@ export function AdmissionDetailDialog({
               disabled={!candidate.canPublish}
               required
             />
-            Confirmo que he revisado los requisitos y quiero publicar este
-            perfil.
+            {candidate.volunteer
+              ? "Confirmo que he revisado su perfil y su cuestionario y acepto esta solicitud."
+              : "Confirmo que he revisado los requisitos y quiero publicar este perfil."}
           </label>
         </AdmissionActionForm>
+
+        <div className={styles.rejection}>
+          <h3>No aceptar la solicitud</h3>
+          <p className={styles.muted}>
+            La solicitud se cierra y la persona recibe un correo amable que no
+            incluye el motivo. El motivo queda solo en el registro interno.
+          </p>
+          <AdmissionActionForm
+            action={actions.reject}
+            submit="No aceptar la solicitud"
+            disabled={busy || dirtyForms.some((form) => form !== "reject")}
+            submitDisabled={!rejectConfirmed}
+            onBusyChange={setBusy}
+            onChange={() => markDirty("reject")}
+            onSaved={(state) => {
+              setDirtyForms([]);
+              onSavedNotice?.(state.message);
+              startRefresh(() =>
+                router.replace(
+                  `${admissionHref(data)}${admissionHref(data).includes("?") ? "&" : "?"}decidido=1`,
+                  { scroll: false },
+                ),
+              );
+            }}
+          >
+            {ids}
+            <label>
+              Motivo interno
+              <input
+                name="reference"
+                required
+                minLength={5}
+                maxLength={300}
+                placeholder="Por qué no se acepta (no se envía a la persona)"
+              />
+            </label>
+            <label className={styles.checkbox}>
+              <input
+                name="confirm"
+                type="checkbox"
+                checked={rejectConfirmed}
+                onChange={(event) => setRejectConfirmed(event.target.checked)}
+                required
+              />
+              Confirmo que esta solicitud no se acepta. Se enviará un correo
+              para informarle.
+            </label>
+          </AdmissionActionForm>
+        </div>
       </section>
 
       <section {...panelProps("history")}>

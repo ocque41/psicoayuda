@@ -45,11 +45,12 @@ export async function readAdmissionConfiguration(actor: AdmissionReviewer) {
   return { stages, revision: row.revision };
 }
 
+/**
+ * Toda solicitud pendiente se revisa en Admisión: la clínica y la de apoyo
+ * voluntario. Lo que cambia es lo que exige su aceptación.
+ */
 export const candidateEligibility = () =>
-  and(
-    eq(professionals.status, "pending_verification"),
-    eq(professionals.nonClinicalHelper, false),
-  );
+  eq(professionals.status, "pending_verification");
 export const currentScopeGate = (
   professionalId: string | typeof professionals.id,
 ) =>
@@ -63,6 +64,7 @@ const candidateColumns = {
   createdAt: professionals.createdAt,
   professionalUpdatedAt: professionals.updatedAt,
   hasDocument: sql<boolean>`${professionals.registrationProofDoc} IS NOT NULL AND ${professionals.registrationProofDoc} <> ''`,
+  volunteer: professionals.nonClinicalHelper,
   conductAcceptedAt: professionals.conductAcceptedAt,
   candidateEmailVerified: user.emailVerified,
   stageId: admissionCases.stageId,
@@ -119,6 +121,9 @@ function candidateFromRow(
   const scope = Boolean(row.scopeValid);
   const stageId = String(row.stageId || firstStage);
   const screeningSubmitted = Boolean(row.screeningSubmittedAt);
+  const volunteer = Boolean(row.volunteer);
+  const accountReady =
+    Boolean(row.conductAcceptedAt) && Boolean(row.candidateEmailVerified);
   return {
     professionalId: String(row.professionalId),
     name: String(row.name),
@@ -133,6 +138,7 @@ function candidateFromRow(
       row.updatedAt || row.professionalUpdatedAt || row.createdAt,
     ),
     hasDocument: Boolean(row.hasDocument),
+    volunteer,
     gates: { identity, credentials, scope, interview },
     screening: {
       submitted: screeningSubmitted,
@@ -140,15 +146,15 @@ function candidateFromRow(
       maxScore: screeningSubmitted ? Number(row.screeningMaxScore ?? 0) : null,
       flagCount: screeningSubmitted ? flagList(row.screeningFlags).length : 0,
     },
-    canPublish:
-      screeningSubmitted &&
-      identity &&
-      credentials &&
-      scope &&
-      interview &&
-      stageId === "publication" &&
-      Boolean(row.conductAcceptedAt) &&
-      Boolean(row.candidateEmailVerified),
+    canPublish: volunteer
+      ? screeningSubmitted && accountReady
+      : screeningSubmitted &&
+        identity &&
+        credentials &&
+        scope &&
+        interview &&
+        stageId === "publication" &&
+        accountReady,
   };
 }
 
@@ -273,7 +279,7 @@ export async function readAdmissionBoard(
             and(
               eq(practiceCredentials.professionalId, selectedId),
               currentAdmissionReviewer(actor),
-              sql`EXISTS(SELECT 1 FROM professionals WHERE id=${selectedId} AND status='pending_verification' AND non_clinical_helper=0)`,
+              sql`EXISTS(SELECT 1 FROM professionals WHERE id=${selectedId} AND status='pending_verification')`,
             ),
           )
           .orderBy(asc(practiceCredentials.patientCountry))
@@ -296,7 +302,7 @@ export async function readAdmissionBoard(
             and(
               eq(admissionEvents.professionalId, selectedId),
               currentAdmissionReviewer(actor),
-              sql`EXISTS(SELECT 1 FROM professionals WHERE id=${selectedId} AND status='pending_verification' AND non_clinical_helper=0)`,
+              sql`EXISTS(SELECT 1 FROM professionals WHERE id=${selectedId} AND status='pending_verification')`,
             ),
           )
           .orderBy(desc(admissionEvents.revision))
@@ -305,24 +311,26 @@ export async function readAdmissionBoard(
       ]);
       const summary = candidateFromRow(detail, firstStage);
       const blockers: string[] = [];
+      const clinical = !summary.volunteer;
       if (
+        clinical &&
         detail.reviewProfileRevision &&
         detail.reviewProfileRevision !== detail.professionalUpdatedAt
       )
         blockers.push(
           "El perfil cambió desde el último cotejo. Revisa nuevamente identidad, credenciales y entrevista.",
         );
-      if (!summary.gates.identity)
+      if (clinical && !summary.gates.identity)
         blockers.push("Completar el cotejo de identidad.");
-      if (!summary.gates.credentials)
+      if (clinical && !summary.gates.credentials)
         blockers.push("Completar el cotejo documental de credenciales.");
-      if (!summary.gates.scope)
+      if (clinical && !summary.gates.scope)
         blockers.push("Registrar al menos un ámbito de atención vigente.");
-      if (!summary.gates.interview)
+      if (clinical && !summary.gates.interview)
         blockers.push(
           "Registrar una entrevista realizada con fecha y referencia.",
         );
-      if (summary.stageId !== "publication")
+      if (clinical && summary.stageId !== "publication")
         blockers.push("Llevar la candidatura a Revisión y publicación.");
       if (!detail.conductAcceptedAt)
         blockers.push(
@@ -332,7 +340,7 @@ export async function readAdmissionBoard(
         blockers.push("La cuenta candidata debe verificar su correo.");
       if (!summary.screening.submitted)
         blockers.push(
-          "La cuenta candidata debe enviar el cuestionario clínico.",
+          "La cuenta candidata debe enviar el cuestionario de admisión.",
         );
       let screeningAnswers = {};
       try {

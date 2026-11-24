@@ -10,6 +10,7 @@ import {
   professionals,
 } from "@/db/schema";
 import { newId, nowIso } from "@/lib/ids";
+import { notifyProfessionalApproved } from "@/lib/notifications";
 import { localToUtc } from "@/lib/practice/domain";
 import { suggestedMembershipCurrency } from "@/lib/practice/membership-plan";
 import { sendPlanEmail } from "@/lib/practice/plan-emails";
@@ -719,6 +720,193 @@ export async function configureAdmissionStages(
           message:
             "La configuración cambió o una etapa retirada todavía tiene candidaturas. Actualiza el tablero y mueve primero esas candidaturas.",
         };
+  } catch {
+    return unavailable();
+  }
+}
+
+/** Datos comunes de una decisión final: ficha, versión del perfil y referencia. */
+type DecisionInput =
+  | { ok: false; error: AdmissionFormState }
+  | {
+      ok: true;
+      professionalId: string;
+      profileRevision: string;
+      reference: string;
+    };
+function decisionInput(form: FormData, confirmMessage: string): DecisionInput {
+  const professionalId = value(form, "professionalId").trim();
+  const profileRevision =
+    admissionMutationSchema.shape.profileRevision.safeParse(
+      value(form, "profileRevision"),
+    );
+  const reference = requiredAdmissionReference.safeParse(
+    value(form, "reference"),
+  );
+  if (
+    !professionalId ||
+    professionalId.length > 120 ||
+    !profileRevision.success ||
+    !reference.success ||
+    form.get("confirm") !== "on"
+  )
+    return { ok: false, error: invalid(confirmMessage) };
+  return {
+    ok: true,
+    professionalId,
+    profileRevision: profileRevision.data,
+    reference: reference.data,
+  };
+}
+
+/**
+ * Acepta una solicitud de apoyo voluntario no clínico. Exige lo mismo que a
+ * cualquier solicitud (cuestionario enviado, condiciones aceptadas y correo
+ * verificado), pero no cotejo de credenciales, ámbitos ni entrevista, que son
+ * propios del perfil clínico. Mantiene su acceso como hasta ahora: sin plan de
+ * pago.
+ */
+export async function approveAdmissionVolunteer(
+  actor: AdmissionReviewer,
+  form: FormData,
+): Promise<AdmissionFormState> {
+  const input = decisionInput(
+    form,
+    "Confirma explícitamente la aceptación y añade una referencia de la revisión.",
+  );
+  if (!input.ok) return input.error;
+  try {
+    const timestamp = nowIso();
+    const [updated] = await db.batch([
+      db
+        .update(professionals)
+        .set({
+          status: "approved",
+          // Mismo criterio que la aprobación de apoyo voluntario de siempre:
+          // visible y disponible en cuanto se acepta.
+          remoteAvailable: true,
+          acceptingRequests: true,
+          updatedAt: timestamp,
+        })
+        .where(
+          and(
+            eq(professionals.id, input.professionalId),
+            eq(professionals.status, "pending_verification"),
+            eq(professionals.nonClinicalHelper, true),
+            eq(professionals.updatedAt, input.profileRevision),
+            currentAdmissionReviewer(actor),
+            sql`${professionals.conductAcceptedAt} IS NOT NULL`,
+            sql`EXISTS(SELECT 1 FROM user u WHERE u.id=${professionals.userId} AND u.email_verified=1)`,
+            sql`EXISTS(SELECT 1 FROM professional_screenings s WHERE s.professional_id=${professionals.id} AND s.submitted_at IS NOT NULL)`,
+          ),
+        )
+        .returning({
+          email: professionals.email,
+          fullName: professionals.fullName,
+          displayName: professionals.displayName,
+        }),
+      db
+        .insert(auditLogs)
+        .select(
+          sql`SELECT ${newId("audit")},${actor.email},'admission_volunteer_approved','admission',${input.professionalId},${JSON.stringify({ reference: input.reference })},${timestamp} WHERE changes()=1`,
+        ),
+    ]);
+    const [pro] = updated;
+    if (!pro)
+      return {
+        ok: false,
+        code: "blocked",
+        message:
+          "La aceptación requiere el cuestionario enviado, las condiciones aceptadas, el correo verificado y un perfil sin cambios desde que abriste la ficha.",
+      };
+    const emailed = await notifyProfessionalApproved({
+      professionalEmail: pro.email,
+      professionalName: pro.displayName || pro.fullName,
+      nonClinicalHelper: true,
+    })
+      .then((result) => Boolean(result && "ok" in result && result.ok))
+      .catch(() => false);
+    return {
+      ok: true,
+      decided: true,
+      message: emailed
+        ? "Solicitud aceptada. Le enviamos el correo con el acceso a su panel."
+        : "Solicitud aceptada. El correo no se pudo enviar; avísale de que ya puede entrar a Nido.",
+    };
+  } catch {
+    return unavailable();
+  }
+}
+
+/**
+ * Cierra una solicitud como no aceptada (clínica o voluntaria) y se lo avisa
+ * por correo. La referencia es interna: el correo no incluye el motivo.
+ */
+export async function rejectAdmissionCandidate(
+  actor: AdmissionReviewer,
+  form: FormData,
+): Promise<AdmissionFormState> {
+  const input = decisionInput(
+    form,
+    "Confirma explícitamente que la solicitud no se acepta y añade el motivo interno.",
+  );
+  if (!input.ok) return input.error;
+  try {
+    const timestamp = nowIso();
+    const [updated] = await db.batch([
+      db
+        .update(professionals)
+        .set({
+          status: "rejected",
+          acceptingRequests: false,
+          updatedAt: timestamp,
+        })
+        .where(
+          and(
+            eq(professionals.id, input.professionalId),
+            eq(professionals.status, "pending_verification"),
+            eq(professionals.updatedAt, input.profileRevision),
+            currentAdmissionReviewer(actor),
+          ),
+        )
+        .returning({
+          email: professionals.email,
+          fullName: professionals.fullName,
+          displayName: professionals.displayName,
+          country: professionals.country,
+        }),
+      db
+        .insert(auditLogs)
+        .select(
+          sql`SELECT ${newId("audit")},${actor.email},'admission_rejected','admission',${input.professionalId},${JSON.stringify({ reference: input.reference })},${timestamp} WHERE changes()=1`,
+        ),
+      // Un ámbito de atención registrado durante la revisión deja de valer.
+      db
+        .update(practiceCredentials)
+        .set({ expiresAt: timestamp })
+        .where(
+          and(
+            eq(practiceCredentials.professionalId, input.professionalId),
+            sql`EXISTS(SELECT 1 FROM professionals WHERE id=${input.professionalId} AND status='rejected' AND updated_at=${timestamp})`,
+          ),
+        ),
+    ]);
+    const [pro] = updated;
+    if (!pro) return conflict();
+    const emailed = await sendPlanEmail("rejection", {
+      email: pro.email,
+      name: pro.displayName || pro.fullName,
+      currency: suggestedMembershipCurrency(pro.country),
+    })
+      .then((result) => result.ok)
+      .catch(() => false);
+    return {
+      ok: true,
+      decided: true,
+      message: emailed
+        ? "Solicitud no aceptada. Le enviamos un correo para informarle."
+        : "Solicitud no aceptada. El correo no se pudo enviar; avísale por otro medio.",
+    };
   } catch {
     return unavailable();
   }

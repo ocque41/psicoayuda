@@ -24,6 +24,8 @@ vi.mock("@/lib/admission/access", () => ({
 vi.mock("@/lib/admission/queries", () => ({ readAdmissionBoard: mocks.board }));
 vi.mock("@/lib/auth-server", () => ({ getServerSession: mocks.session }));
 vi.mock("@/app/admin/admision/actions", () => ({
+  approveVolunteer: vi.fn(),
+  reject: vi.fn(),
   configure: vi.fn(),
   moveStage: vi.fn(),
   publish: vi.fn(),

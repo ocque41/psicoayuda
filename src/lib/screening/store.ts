@@ -13,9 +13,9 @@ import {
   scoreScreening,
 } from "./scoring";
 
-/** Solo candidaturas clínicas pendientes responden el cuestionario. */
+/** Toda solicitud pendiente (clínica o voluntaria) responde el cuestionario. */
 const candidateGate = (professionalId: string) =>
-  sql`EXISTS (SELECT 1 FROM professionals WHERE id=${professionalId} AND status='pending_verification' AND non_clinical_helper=0)`;
+  sql`EXISTS (SELECT 1 FROM professionals WHERE id=${professionalId} AND status='pending_verification')`;
 
 export async function currentScreeningCandidate() {
   const session = await getServerSession();
@@ -49,7 +49,7 @@ export async function readScreening(professionalId: string) {
   return { ...row, answers, flags };
 }
 
-/** true si la candidatura clínica pendiente ya envió el cuestionario. */
+/** true si la solicitud pendiente ya envió el cuestionario. */
 export async function screeningSubmitted(professionalId: string) {
   const row = await db.query.professionalScreenings.findFirst({
     where: eq(professionalScreenings.professionalId, professionalId),

@@ -50,7 +50,7 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
     label: "Admisión",
     href: "/admin/admision",
     description:
-      "Admisión de nuevos profesionales: identidad, credenciales, entrevista y publicación.",
+      "Solicitudes nuevas: perfil, cuestionario de admisión y la decisión de aceptarlas o no, con aviso por correo.",
   },
   {
     id: "invitaciones",

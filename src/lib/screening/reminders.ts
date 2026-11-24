@@ -52,7 +52,6 @@ export async function runScreeningReminderJobs(now = Date.now()) {
     .where(
       and(
         eq(professionals.status, "pending_verification"),
-        eq(professionals.nonClinicalHelper, false),
         lte(professionals.createdAt, cutoff),
         sql`${professionals.screeningRemindedAt} IS NULL`,
         sql`NOT EXISTS (SELECT 1 FROM professional_screenings s WHERE s.professional_id = ${professionals.id} AND s.submitted_at IS NOT NULL)`,

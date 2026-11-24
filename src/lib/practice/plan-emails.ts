@@ -78,6 +78,28 @@ export function acceptanceEmailContent(
 }
 
 /**
+ * Solicitud no aceptada. No da el motivo (la referencia de Admisión es interna)
+ * y deja una vía clara para preguntar: responder al correo.
+ */
+export function rejectionEmailContent(recipient: Recipient) {
+  return {
+    subject: "Sobre tu solicitud en Nido",
+    ...layout({
+      heading: "Gracias por tu interés en Nido",
+      greeting: `Hola${recipient.name ? `, ${recipient.name}` : ""}:`,
+      paragraphs: [
+        "El equipo revisó con cuidado tu perfil y tus respuestas al cuestionario de admisión.",
+        "Por ahora no podemos incorporarte a Nido. Esta decisión no es un juicio sobre tu valor como profesional: responde a los criterios con los que cuidamos a las personas que llegan a la plataforma.",
+        "No se ha realizado ningún cobro. Si quieres más información o crees que falta algo en tu solicitud, responde a este correo y te contestamos.",
+      ],
+      cta: "Visitar Nido",
+      url: new URL("/", SITE_URL).toString(),
+      footer: "Si no solicitaste unirte a Nido, puedes ignorar este correo.",
+    }),
+  };
+}
+
+/**
  * Paso de un perfil anterior al plan de suscripción. Con la prueba activa,
  * el panel sigue abierto hasta la fecha indicada y no se cobra nada antes.
  */
@@ -144,17 +166,19 @@ export function trialReminderEmailContent(
 }
 
 export async function sendPlanEmail(
-  kind: "acceptance" | "migration" | "trial-reminder",
+  kind: "acceptance" | "rejection" | "migration" | "trial-reminder",
   recipient: Recipient,
 ) {
   const content =
     kind === "acceptance"
       ? acceptanceEmailContent(recipient, membershipBillingReady())
-      : kind === "trial-reminder" && recipient.trialEndsAt
-        ? trialReminderEmailContent({
-            ...recipient,
-            trialEndsAt: recipient.trialEndsAt,
-          })
-        : migrationEmailContent(recipient);
+      : kind === "rejection"
+        ? rejectionEmailContent(recipient)
+        : kind === "trial-reminder" && recipient.trialEndsAt
+          ? trialReminderEmailContent({
+              ...recipient,
+              trialEndsAt: recipient.trialEndsAt,
+            })
+          : migrationEmailContent(recipient);
   return sendEmail({ to: recipient.email, ...content });
 }

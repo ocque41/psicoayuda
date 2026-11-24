@@ -493,3 +493,14 @@
     scroll-behavior: auto;
   }
 }
+/* "No aceptar la solicitud": separada de la aceptación para no confundirlas. */
+.rejection {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e6d8;
+}
+.rejection h3 {
+  margin: 0;
+}

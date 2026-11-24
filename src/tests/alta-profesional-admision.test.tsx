@@ -1,4 +1,4 @@
-import { like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
@@ -83,6 +83,18 @@ describe("alta profesional: formulario de perfil y cuestionario de admisión", (
     await expect(dashboard()).rejects.toThrow("redirect:/pro/cuestionario");
   });
 
+  it("el apoyo voluntario también responde el cuestionario antes de su revisión", async () => {
+    await db
+      .update(professionals)
+      .set({ nonClinicalHelper: true })
+      .where(eq(professionals.id, candidate.professionalId));
+    await expect(dashboard()).rejects.toThrow("redirect:/pro/cuestionario");
+    await db
+      .update(professionals)
+      .set({ nonClinicalHelper: false })
+      .where(eq(professionals.id, candidate.professionalId));
+  });
+
   it("con el cuestionario enviado espera la revisión sin herramientas de profesional aprobado", async () => {
     await db.insert(professionalScreenings).values({
       professionalId: candidate.professionalId,
@@ -98,8 +110,29 @@ describe("alta profesional: formulario de perfil y cuestionario de admisión", (
     });
     const html = renderToStaticMarkup(await dashboard());
     expect(html).toContain("Actualizar mi información");
+    expect(html).toContain("Te escribiremos por correo con la decisión");
     expect(html).not.toContain("Solicitudes para ti");
     expect(html).not.toContain("Tu disponibilidad");
     expect(html).not.toContain("Añadir método de pago");
+  });
+});
+
+describe("correo de solicitud no aceptada", () => {
+  it("informa con respeto, sin el motivo interno y sin hablar de cobros", async () => {
+    const { rejectionEmailContent } = await import(
+      "@/lib/practice/plan-emails"
+    );
+    const mail = rejectionEmailContent({
+      email: "persona@example.test",
+      name: "Persona ficticia",
+      currency: "usd",
+    });
+    expect(mail.subject).toBe("Sobre tu solicitud en Nido");
+    expect(mail.text).toContain("Hola, Persona ficticia:");
+    expect(mail.text).toContain("Por ahora no podemos incorporarte a Nido");
+    expect(mail.text).toContain("No se ha realizado ningún cobro");
+    expect(mail.text).toContain("responde a este correo");
+    expect(mail.text).not.toContain("plan");
+    expect(mail.html).not.toContain("<script");
   });
 });

@@ -3,9 +3,11 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmissionReviewer } from "@/lib/admission/access";
 import {
+  approveAdmissionVolunteer,
   configureAdmissionStages,
   moveAdmissionStage,
   publishAdmissionCandidate,
+  rejectAdmissionCandidate,
   saveAdmissionReview,
   saveAdmissionScope,
 } from "@/lib/admission/mutations";
@@ -36,6 +38,7 @@ async function reviewedMutation(
       revalidatePath("/pro", "layout");
       if (
         mutation === publishAdmissionCandidate ||
+        mutation === approveAdmissionVolunteer ||
         mutation === saveAdmissionScope
       ) {
         revalidatePath("/");
@@ -67,6 +70,15 @@ export async function moveStage(_previous: AdmissionFormState, form: FormData) {
 }
 export async function publish(_previous: AdmissionFormState, form: FormData) {
   return reviewedMutation(form, publishAdmissionCandidate);
+}
+export async function approveVolunteer(
+  _previous: AdmissionFormState,
+  form: FormData,
+) {
+  return reviewedMutation(form, approveAdmissionVolunteer);
+}
+export async function reject(_previous: AdmissionFormState, form: FormData) {
+  return reviewedMutation(form, rejectAdmissionCandidate);
 }
 export async function configure(_previous: AdmissionFormState, form: FormData) {
   return reviewedMutation(form, configureAdmissionStages);

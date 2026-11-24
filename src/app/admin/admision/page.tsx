@@ -17,9 +17,11 @@ import { readAdmissionBoard } from "@/lib/admission/queries";
 import type { AdmissionBoardData } from "@/lib/admission/types";
 import { getServerSession } from "@/lib/auth-server";
 import {
+  approveVolunteer,
   configure,
   moveStage,
   publish,
+  reject,
   saveReview,
   saveScope,
 } from "./actions";
@@ -137,7 +139,15 @@ export default async function AdmissionPage({
       ) : null}
       <AdmissionBoard
         data={boardData}
-        actions={{ saveReview, saveScope, moveStage, publish, configure }}
+        actions={{
+          saveReview,
+          saveScope,
+          moveStage,
+          publish,
+          approveVolunteer,
+          reject,
+          configure,
+        }}
       />
     </AdminShell>
   );

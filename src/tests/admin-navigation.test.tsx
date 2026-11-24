@@ -308,16 +308,27 @@ describe("administración por vistas privadas", () => {
 });
 
 describe("las solicitudes de profesionales viven en Admisión", () => {
-  it("Profesionales no muestra la candidatura como un profesional más y enlaza Admisión", async () => {
+  it("Profesionales separa las solicitudes, clínicas y voluntarias, de los profesionales", async () => {
     const html = renderToStaticMarkup(
       await AdminDashboard({ view: "profesionales", query: {} }),
     );
-    expect(html).not.toContain("Candidata ficticia en admisión");
-    expect(html).toContain("Profesional ficticia aprobada");
-    // El apoyo voluntario no clínico se sigue aprobando en Profesionales.
-    expect(html).toContain("Auxiliar ficticio pendiente");
-    expect(html).toMatch(/solicitud(es)? nuevas? esperan? en Admisión/);
-    expect(html).toContain('href="/admin/admision"');
+    const [applications, directory] = html.split(
+      '<div class="table-wrap"><table><thead><tr><th>Nombre</th>',
+    );
+    expect(directory).toBeDefined();
+    // Las solicitudes solo aparecen en su apartado, con enlace a Admisión.
+    expect(applications).toMatch(/2 solicitudes nuevas esperan en Admisión/);
+    expect(applications).toContain("Candidata ficticia en admisión");
+    expect(applications).toContain("Auxiliar ficticio pendiente");
+    expect(applications).toContain("Apoyo voluntario");
+    expect(applications).toContain(
+      'href="/admin/admision?candidato=test-admin-navigation-pro-candidata"',
+    );
+    expect(applications).not.toContain("Confirmar credencial");
+    // El directorio de profesionales ya no las presenta como profesionales.
+    expect(directory).toContain("Profesional ficticia aprobada");
+    expect(directory).not.toContain("Candidata ficticia en admisión");
+    expect(directory).not.toContain("Auxiliar ficticio pendiente");
   });
 
   it("el resumen cuenta las solicitudes y lleva a Admisión, con su aviso en el menú", async () => {

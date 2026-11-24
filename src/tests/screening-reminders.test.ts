@@ -91,10 +91,15 @@ describe("recordatorio del cuestionario clínico", () => {
       .map(([input]) => input.to)
       .filter((to) => to.startsWith(P))
       .sort();
+    // El apoyo voluntario también completa el cuestionario: recibe el aviso.
     expect(recipients).toEqual(
-      [`${due}@example.test`, `${draft}@example.test`].sort(),
+      [
+        `${due}@example.test`,
+        `${draft}@example.test`,
+        `${helper}@example.test`,
+      ].sort(),
     );
-    for (const id of [recent, sent, helper, approved])
+    for (const id of [recent, sent, approved])
       expect(await remindedAt(id)).toBeNull();
     email.send.mockClear();
     await runScreeningReminderJobs();
