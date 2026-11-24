@@ -95,7 +95,7 @@ export default async function AdmissionPage({
         items={items}
         accountEmail={actor.email}
         accountLabel={accountLabel}
-        title={actor.isAdmin && !paolaView ? "Panel de Paola" : "Admisión"}
+        title="Admisión"
       >
         <div className={styles.empty} role="status">
           <h2>El tablero no está disponible</h2>
@@ -124,7 +124,7 @@ export default async function AdmissionPage({
       items={items}
       accountEmail={actor.email}
       accountLabel={accountLabel}
-      title={actor.isAdmin && !paolaView ? "Panel de Paola" : "Admisión"}
+      title="Admisión"
       badges={{
         admision: Object.values(data.stageCounts).reduce(
           (total, count) => total + count,

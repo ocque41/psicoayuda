@@ -16,7 +16,7 @@ export function AdmissionViewSwitcher({
       aria-label="Vista del panel de admisión"
     >
       <div>
-        <strong>{paolaView ? "Vista de Paola" : "Panel de Paola"}</strong>
+        <strong>{paolaView ? "Vista de Paola" : "Vista de Superadmin"}</strong>
         <p>
           {paolaView
             ? "Ves el menú y las herramientas del rol de admisión. Sigues usando tu cuenta de Superadmin; cada cambio se registra con tu identidad."

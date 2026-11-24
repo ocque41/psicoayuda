@@ -1,14 +1,21 @@
 /**
- * Indicador "Paso X de 2" del alta de voluntarios. Los pasos con nombre y la
+ * Indicador "Paso X de 3" del alta profesional. Los pasos con nombre y la
  * expectativa clara de lo que falta suben la finalización de los flujos
  * multi-paso; nuestro embudo real perdía a más de la mitad de las cuentas
- * entre crearse y completar el perfil.
+ * entre crearse y completar el perfil. El cuestionario de admisión es parte de
+ * la solicitud: se anuncia desde el primer paso para que nadie lo pase por alto.
  */
-export function RegistroPasos({ actual }: { actual: 1 | 2 }) {
-  const pasos = ["Crea tu cuenta", "Completa tu perfil"];
+export const REGISTRO_PASOS = [
+  "Crea tu cuenta",
+  "Completa tu perfil",
+  "Responde el cuestionario",
+] as const;
+
+export function RegistroPasos({ actual }: { actual: 1 | 2 | 3 }) {
+  const total = REGISTRO_PASOS.length;
   return (
-    <ol className="registro-pasos" aria-label={`Paso ${actual} de 2`}>
-      {pasos.map((titulo, i) => {
+    <ol className="registro-pasos" aria-label={`Paso ${actual} de ${total}`}>
+      {REGISTRO_PASOS.map((titulo, i) => {
         const n = i + 1;
         const estado =
           n < actual ? "hecho" : n === actual ? "actual" : "pendiente";
@@ -22,7 +29,9 @@ export function RegistroPasos({ actual }: { actual: 1 | 2 }) {
               {n < actual ? "✓" : n}
             </span>
             <span className="registro-paso-textos">
-              <span className="registro-paso-etiqueta">Paso {n} de 2</span>
+              <span className="registro-paso-etiqueta">
+                Paso {n} de {total}
+              </span>
               <span className="registro-paso-titulo">{titulo}</span>
             </span>
           </li>

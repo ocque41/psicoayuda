@@ -47,7 +47,7 @@ export const adminNavigation: readonly AdminNavigationItem[] = [
   },
   {
     id: "admision",
-    label: "Panel de Paola",
+    label: "Admisión",
     href: "/admin/admision",
     description:
       "Admisión de nuevos profesionales: identidad, credenciales, entrevista y publicación.",

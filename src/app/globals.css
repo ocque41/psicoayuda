@@ -915,12 +915,13 @@ h2[id] {
 }
 
 /* ============================================================
-   Indicador "Paso X de 2" del alta de voluntarios: nombra los pasos y marca
-   dónde estás. Se muestra sobre el formulario de cuenta (/pro) y sobre el
-   perfil (/pro/onboarding). */
+   Indicador "Paso X de 3" del alta profesional: nombra los pasos y marca
+   dónde estás. Se muestra sobre el formulario de cuenta (/pro). Con tres
+   pasos, cada uno apila número y texto para caber en la tarjeta de acceso. */
 .registro-pasos {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   list-style: none;
   margin: 0 0 var(--space-5);
   padding: 0;
@@ -928,10 +929,11 @@ h2[id] {
 
 .registro-paso {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -980,12 +982,18 @@ h2[id] {
 
 .registro-paso-titulo {
   font-weight: 650;
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 560px) {
   .registro-pasos {
-    flex-direction: column;
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .registro-paso {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
   }
 }
 

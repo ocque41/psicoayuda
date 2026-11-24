@@ -15,7 +15,12 @@ import {
   normalizeAdminSearch,
 } from "@/components/admin/search-params";
 import { db } from "@/db";
-import { contactMessages, helpRequests } from "@/db/schema";
+import {
+  contactMessages,
+  helpRequests,
+  professionals,
+  user,
+} from "@/db/schema";
 
 const mocks = vi.hoisted(() => ({
   administrator: vi.fn(),
@@ -88,6 +93,8 @@ async function cleanup() {
     .delete(contactMessages)
     .where(like(contactMessages.id, `${prefix}%`));
   await db.delete(helpRequests).where(like(helpRequests.id, `${prefix}%`));
+  await db.delete(professionals).where(like(professionals.id, `${prefix}%`));
+  await db.delete(user).where(like(user.id, `${prefix}%`));
 }
 beforeAll(async () => {
   await cleanup();
@@ -99,6 +106,38 @@ beforeAll(async () => {
       needCategory: "apoyo_emocional",
       urgency: "baja",
       status: "new",
+      createdAt,
+      updatedAt: createdAt,
+    })),
+  );
+  const people = [
+    [
+      "candidata",
+      "Candidata ficticia en admisión",
+      "pending_verification",
+      false,
+    ],
+    ["auxiliar", "Auxiliar ficticio pendiente", "pending_verification", true],
+    ["aprobada", "Profesional ficticia aprobada", "approved", false],
+  ] as const;
+  await db.insert(user).values(
+    people.map(([key, name]) => ({
+      id: `${prefix}user-${key}`,
+      name,
+      email: `${prefix}${key}@example.test`,
+      emailVerified: true,
+    })),
+  );
+  await db.insert(professionals).values(
+    people.map(([key, name, status, nonClinicalHelper]) => ({
+      id: `${prefix}pro-${key}`,
+      userId: `${prefix}user-${key}`,
+      email: `${prefix}${key}@example.test`,
+      fullName: name,
+      languages: '["es"]',
+      supportAreas: "[]",
+      status,
+      nonClinicalHelper,
       createdAt,
       updatedAt: createdAt,
     })),
@@ -265,6 +304,33 @@ describe("administración por vistas privadas", () => {
     );
     expect(html).toContain("Registros incompletos");
     expect(html).not.toContain("Solicitud ficticia");
+  });
+});
+
+describe("las solicitudes de profesionales viven en Admisión", () => {
+  it("Profesionales no muestra la candidatura como un profesional más y enlaza Admisión", async () => {
+    const html = renderToStaticMarkup(
+      await AdminDashboard({ view: "profesionales", query: {} }),
+    );
+    expect(html).not.toContain("Candidata ficticia en admisión");
+    expect(html).toContain("Profesional ficticia aprobada");
+    // El apoyo voluntario no clínico se sigue aprobando en Profesionales.
+    expect(html).toContain("Auxiliar ficticio pendiente");
+    expect(html).toMatch(/solicitud(es)? nuevas? esperan? en Admisión/);
+    expect(html).toContain('href="/admin/admision"');
+  });
+
+  it("el resumen cuenta las solicitudes y lleva a Admisión, con su aviso en el menú", async () => {
+    const html = renderToStaticMarkup(
+      await AdminDashboard({ view: "resumen", query: {} }),
+    );
+    expect(html).toContain("Solicitudes de profesionales");
+    expect(html).toContain("Revisar en Admisión →");
+    expect(html).not.toContain("Perfiles por revisar");
+    expect(html).not.toContain("Panel de Paola");
+    expect(html).toMatch(
+      /href="\/admin\/admision"[^>]*>[\s\S]*?Solicitudes de profesionales/,
+    );
   });
 });
 

@@ -94,7 +94,7 @@ describe("panel de Paola y cuenta real del administrador", () => {
     expect(html).toContain("Ajustar etapas");
   });
 
-  it("la vista administradora ofrece Panel de Paola y el menú general", async () => {
+  it("la vista administradora se llama Admisión y ofrece la vista de Paola", async () => {
     mocks.actor.mockResolvedValue({
       userId: "admin-ficticio",
       email: "admin@example.test",
@@ -103,7 +103,10 @@ describe("panel de Paola y cuenta real del administrador", () => {
     const html = renderToStaticMarkup(
       await AdmissionPage({ searchParams: Promise.resolve({}) }),
     );
-    expect(html).toContain("Panel de Paola");
+    // Antes se llamaba "Panel de Paola" y el equipo no encontraba las
+    // solicitudes nuevas: el menú y el título dicen ahora "Admisión".
+    expect(html).not.toContain("Panel de Paola");
+    expect(html).toContain(">Admisión<");
     expect(html).toContain('href="/admin/cuentas"');
     expect(html).toContain('href="/admin/export"');
     expect(html).toContain("Vista de Paola");

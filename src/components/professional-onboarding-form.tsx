@@ -787,9 +787,26 @@ export function ProfessionalOnboardingForm({
               ],
       )}
       <WizardFrame
-        name={editing ? "Tu perfil profesional" : "Tu nueva consulta"}
+        name={
+          editing
+            ? "Tu perfil profesional"
+            : answers.nonClinicalHelper
+              ? "Tu alta voluntaria"
+              : "Paso 2 de 3 · Tu perfil"
+        }
         title={question.title}
-        description={question.description}
+        description={
+          field === "review" && !editing && !answers.nonClinicalHelper
+            ? "Al enviarlo pasas al último paso: el cuestionario de admisión. Con tu perfil y el cuestionario, el equipo revisa tu solicitud."
+            : question.description
+        }
+        submitLabel={
+          editing
+            ? "Guardar cambios →"
+            : answers.nonClinicalHelper
+              ? "Enviar mi solicitud →"
+              : "Enviar y seguir al cuestionario →"
+        }
         step={activeStep}
         total={questions.length}
         pending={pending || filePending}

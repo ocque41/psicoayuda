@@ -81,6 +81,17 @@ const professionalStateLabels: Record<string, string> = {
   deleting: "Eliminación pendiente",
 };
 
+/** Candidatura clínica pendiente: se revisa en Admisión, no en Profesionales. */
+function isAdmissionCandidate(professional: {
+  status: string;
+  nonClinicalHelper: boolean;
+}) {
+  return (
+    professional.status === "pending_verification" &&
+    !professional.nonClinicalHelper
+  );
+}
+
 // Cap the help-request page so its cost stays flat as historical rows grow.
 const REQUESTS_PAGE_SIZE = 25;
 const requestStatusOptions = [
@@ -363,9 +374,13 @@ export async function AdminDashboard({
         .from(contactMessages)
         .groupBy(contactMessages.status),
       db
-        .select({ status: professionals.status, total: count() })
+        .select({
+          status: professionals.status,
+          nonClinicalHelper: professionals.nonClinicalHelper,
+          total: count(),
+        })
         .from(professionals)
-        .groupBy(professionals.status),
+        .groupBy(professionals.status, professionals.nonClinicalHelper),
     ]);
   const newRequestCount = newRequestRows[0]?.total ?? 0;
   const contactCounts: Record<ContactStatus, number> = {
@@ -379,11 +394,30 @@ export async function AdminDashboard({
     }
   }
 
-  const pendingProfessionalCount =
-    professionalCounts.find((row) => row.status === "pending_verification")
-      ?.total || 0;
-  const approvedProfessionalCount =
-    professionalCounts.find((row) => row.status === "approved")?.total || 0;
+  // Una candidatura clínica pendiente es una solicitud de Admisión, no un
+  // profesional: se cuenta, se avisa y se revisa allí. En Profesionales solo
+  // queda el apoyo voluntario no clínico pendiente, que se aprueba aquí.
+  const countProfessionals = (
+    status: string,
+    kind?: { nonClinicalHelper: boolean },
+  ) =>
+    professionalCounts
+      .filter(
+        (row) =>
+          row.status === status &&
+          (!kind || Boolean(row.nonClinicalHelper) === kind.nonClinicalHelper),
+      )
+      .reduce((total, row) => total + row.total, 0);
+  const admissionRequestCount = countProfessionals("pending_verification", {
+    nonClinicalHelper: false,
+  });
+  const pendingHelperCount = countProfessionals("pending_verification", {
+    nonClinicalHelper: true,
+  });
+  const approvedProfessionalCount = countProfessionals("approved");
+  const listedProfessionals = proRows.filter(
+    (professional) => !isAdmissionCandidate(professional),
+  );
 
   return (
     <AdminShell
@@ -392,7 +426,8 @@ export async function AdminDashboard({
       badges={{
         solicitudes: newRequestCount,
         contactos: contactCounts.new,
-        profesionales: pendingProfessionalCount,
+        profesionales: pendingHelperCount,
+        admision: admissionRequestCount,
       }}
       legacyNavigation
     >
@@ -427,12 +462,12 @@ export async function AdminDashboard({
             </Link>
             <Link
               className={adminStyles.overviewCard}
-              href="/admin/profesionales"
+              href="/admin/admision"
               prefetch={false}
             >
-              <span>Perfiles por revisar</span>
-              <strong>{pendingProfessionalCount}</strong>
-              <small>Revisar profesionales →</small>
+              <span>Solicitudes de profesionales</span>
+              <strong>{admissionRequestCount}</strong>
+              <small>Revisar en Admisión →</small>
             </Link>
             <Link
               className={adminStyles.overviewCard}
@@ -530,6 +565,27 @@ export async function AdminDashboard({
           />
         </>
       ) : null}
+      {view === "profesionales" && admissionRequestCount > 0 ? (
+        <Link
+          className={adminStyles.quickLink}
+          href="/admin/admision"
+          prefetch={false}
+          style={{ marginBottom: 16 }}
+        >
+          <div>
+            <strong>
+              {admissionRequestCount === 1
+                ? "1 solicitud nueva espera en Admisión"
+                : `${admissionRequestCount} solicitudes nuevas esperan en Admisión`}
+            </strong>
+            <p>
+              Las personas que se están inscribiendo no aparecen aquí hasta que
+              se aprueban. Allí ves su perfil y su cuestionario.
+            </p>
+          </div>
+          <span aria-hidden="true">→</span>
+        </Link>
+      ) : null}
       {view === "profesionales" ? (
         <div className="table-wrap">
           <table>
@@ -545,7 +601,7 @@ export async function AdminDashboard({
               </tr>
             </thead>
             <tbody>
-              {proRows.map((professional) => (
+              {listedProfessionals.map((professional) => (
                 <tr key={professional.id}>
                   <td data-label="Nombre">
                     <strong>{professional.fullName}</strong>
@@ -647,18 +703,6 @@ export async function AdminDashboard({
                     </form>
                   </td>
                   <td data-label="Acción">
-                    {professional.status === "pending_verification" &&
-                    !professional.nonClinicalHelper ? (
-                      <p>
-                        <Link
-                          className="button secondary"
-                          href={`/admin/admision?candidato=${encodeURIComponent(professional.id)}`}
-                          prefetch={false}
-                        >
-                          Revisar en Admisión
-                        </Link>
-                      </p>
-                    ) : null}
                     <form action={adminUpdateProfessionalStatus}>
                       <input
                         name="professionalId"

@@ -227,7 +227,7 @@ export function AdmissionBoard({
                                   ? ` · ${candidate.screening.flagCount} alerta${candidate.screening.flagCount === 1 ? "" : "s"}`
                                   : ""
                               }`
-                            : "○ Cuestionario"}
+                            : "○ Falta el cuestionario"}
                         </span>
                       </div>
                       <span className={styles.cardMeta}>
