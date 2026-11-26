@@ -14,6 +14,7 @@ import { countryName, TIME_ZONES } from "@/lib/geography";
 import { AdmissionActionForm } from "./action-form";
 import styles from "./admission.module.css";
 import { AdmissionDialog } from "./dialog-frame";
+import { FpvCheck } from "./fpv-check";
 import {
   admissionHref,
   admissionRegistrationLabel,
@@ -82,6 +83,10 @@ export function AdmissionDetailDialog({
   const [credentialsChecked, setCredentialsChecked] = useState(
     candidate.gates.credentials,
   );
+  // Referencia propuesta por la consulta FPV; nunca marca la casilla sola.
+  const [credentialsReference, setCredentialsReference] = useState<
+    string | null
+  >(null);
   const [interviewCompleted, setInterviewCompleted] = useState(
     candidate.interview.completed,
   );
@@ -226,6 +231,17 @@ export function AdmissionDetailDialog({
             ) : null}
           </div>
         </div>
+        {!candidate.volunteer &&
+        /\d/.test(candidate.profile.fpvNumber || "") ? (
+          <FpvCheck
+            professionalId={candidate.professionalId}
+            onUseReference={(reference) => {
+              setCredentialsReference(reference);
+              markDirty("review");
+              changeTab("review");
+            }}
+          />
+        ) : null}
         {candidate.profile.fpvVerified ? (
           <p className={styles.notice}>
             Hay una coincidencia con el registro FPV. La identidad,
@@ -442,8 +458,11 @@ export function AdmissionDetailDialog({
               <label>
                 Referencia de la revisión de credenciales
                 <input
+                  key={credentialsReference ?? "guardada"}
                   name="credentialsReference"
-                  defaultValue={candidate.evidence.credentials}
+                  defaultValue={
+                    credentialsReference ?? candidate.evidence.credentials
+                  }
                   required={credentialsChecked}
                   minLength={5}
                   maxLength={300}

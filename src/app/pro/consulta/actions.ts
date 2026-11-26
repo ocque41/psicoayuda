@@ -196,7 +196,8 @@ export async function createPatient(
   refresh();
   return {
     ok: true,
-    message: "Ficha guardada. Ya puedes programar sus sesiones.",
+    message:
+      "Ficha guardada. Ábrela en la lista para escribir su historia clínica o programar sus sesiones.",
   };
 }
 export async function saveService(

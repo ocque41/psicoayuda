@@ -5582,3 +5582,14 @@ a.professional-carousel-link:focus-visible {
   outline: 3px solid var(--accent-strong);
   outline-offset: 2px;
 }
+
+/* Historia clínica y notas por sesión: separa los dos bloques de la ficha. */
+.patient-notes-heading {
+  margin-top: 24px;
+  scroll-margin-top: 96px;
+}
+.patient-notes-filter-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

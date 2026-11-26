@@ -142,7 +142,6 @@ export function rememberNoteDraft(
   if (expectedGeneration !== generation) return false;
   if (
     (scope.slot !== null && scope.slot !== draft.id) ||
-    (scope.slot === null && scope.appointmentId === null) ||
     [scope.accountId, scope.professionalId, scope.patientId, draft.id].some(
       (value) => !value || value.length > 100,
     ) ||

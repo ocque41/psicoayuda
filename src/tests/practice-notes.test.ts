@@ -216,6 +216,16 @@ describe("notas privadas con cifrado e integridad", () => {
           if (statement.trim().startsWith("CREATE TRIGGER"))
             await client.execute(statement);
         }
+        // Restaura el guard vigente: 0046 sustituye el de inserción de 0036.
+        const current = await readFile(
+          new URL(
+            "../../drizzle/0046_general_clinical_notes.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        );
+        for (const statement of current.split("--> statement-breakpoint"))
+          await client.execute(statement);
       } finally {
         client.close();
       }
@@ -372,9 +382,8 @@ describe("notas privadas con cifrado e integridad", () => {
       }),
     ).toEqual(latest);
   });
+  // Sin sesión (undefined/null) es una nota de la historia general: válida.
   it.each([
-    undefined,
-    null,
     "",
     "inexistente",
     `${P}-session-other`,
@@ -435,6 +444,42 @@ describe("notas privadas con cifrado e integridad", () => {
       )?.appointmentId,
     ).toBeNull();
   });
+  it("escribe la historia clínica general de una ficha sin sesiones ni cuenta en Nido", async () => {
+    key();
+    const id = `${P}-general`;
+    const input = {
+      patientId: `${P}-patient`,
+      id,
+      content: "Antecedentes ficticios de la historia clínica",
+    };
+    expect(await savePatientNote(input)).toMatchObject({
+      ok: true,
+      revision: 1,
+    });
+    // El reintento de la misma nota nueva no duplica ni cambia el registro.
+    expect(await savePatientNote(input)).toMatchObject({ ok: true });
+    const saved = await db.query.practiceNotes.findFirst({
+      where: eq(practiceNotes.id, id),
+    });
+    expect(saved?.appointmentId).toBeNull();
+    expect(saved?.ciphertext).not.toContain("Antecedentes");
+    expect(
+      await savePatientNote({ ...input, revision: 1, content: "Evolución" }),
+    ).toMatchObject({ ok: true, revision: 2 });
+    // Una nota general no se convierte en nota de una sesión.
+    expect(
+      (
+        await savePatientNote({
+          ...input,
+          appointmentId: `${P}-session`,
+          revision: 2,
+          content: "Traslado no permitido",
+        })
+      ).ok,
+    ).toBe(false);
+    await db.delete(practiceNotes).where(eq(practiceNotes.id, id));
+  });
+
   it("no permite mover una nota ni reutilizar su ID en otra sesión", async () => {
     key();
     const base = {
@@ -532,7 +577,7 @@ describe("notas privadas con cifrado e integridad", () => {
       );
     const html = await render({ notaSesion: `${P}-session-2`, notas: "2" });
     expect(html).toContain("Página 2 de 2");
-    expect(html).toContain("Notas anteriores sin sesión");
+    expect(html).toContain("Historia clínica general");
     expect(html).not.toContain("Nota antigua revisada");
     expect(html).toContain("Comprobando acceso…");
     expect(html).not.toContain("Nota de sesión fija");
@@ -549,9 +594,12 @@ describe("notas privadas con cifrado e integridad", () => {
     expect(await render({ notaSesion: `${P}-session-other` })).toContain(
       "Esta sesión no está disponible",
     );
-    expect(await render({ notaSesion: `${P}-session-other` })).not.toContain(
-      "Nueva nota privada",
-    );
+    // Sin una sesión válida, la única nota nueva es la de la historia general.
+    expect(
+      (await render({ notaSesion: `${P}-session-other` })).match(
+        /Nueva nota privada/g,
+      ),
+    ).toHaveLength(1);
   });
   it.each([
     "suspended",

@@ -220,7 +220,7 @@ export async function PatientNotes({
       <div className="workspace-section-heading">
         <div>
           <p className="eyebrow">Solo para ti</p>
-          <h2>Notas por sesión</h2>
+          <h2>Historia clínica y notas</h2>
         </div>
         <span className="badge">Espacio privado</span>
       </div>
@@ -235,6 +235,50 @@ export async function PatientNotes({
           endedLabel={dateLabel(reminder.endsAt, timeZone)}
         />
       ))}
+      <h3 id="historia-clinica" className="patient-notes-heading">
+        Historia clínica general
+      </h3>
+      <p className="hint">
+        Antecedentes, evaluación, evolución o cualquier apunte que no sea de una
+        sesión concreta. No hace falta programar sesiones ni que la persona use
+        Nido: sirve también para pacientes que atiendes por tu cuenta.
+      </p>
+      {!enabled ? (
+        <p role="status">
+          El almacenamiento privado de notas se está preparando. Podrás escribir
+          aquí cuando esté disponible.
+        </p>
+      ) : (
+        <NoteEditor
+          key="new-general"
+          accountId={currentSession?.user.id || ""}
+          professionalId={professionalId}
+          patientId={patientId}
+          appointmentId={null}
+        />
+      )}
+      {legacy.map((note, index) => (
+        <details key={note.id}>
+          <summary>
+            Historia clínica · {dateLabel(note.updatedAt, timeZone)}
+          </summary>
+          {decodedLegacy[index]}
+        </details>
+      ))}
+      {enabled && !legacyCount.value ? (
+        <p className="hint">
+          Todavía no hay notas generales. Las que guardes aparecerán aquí, de la
+          más reciente a la más antigua.
+        </p>
+      ) : null}
+      <PracticePagination
+        total={legacyCount.value}
+        page={legacyPage}
+        pages={pages(legacyCount.value)}
+        href={(n) => href({ anteriores: String(n) })}
+        prefetch={false}
+      />
+      <h3 className="patient-notes-heading">Notas por sesión</h3>
       <form
         className="practice-form"
         method="get"
@@ -249,6 +293,7 @@ export async function PatientNotes({
           Filtrar por fecha
         </button>
         <Link
+          className="patient-notes-filter-link"
           href={href({
             encuentro: undefined,
             notaSesion: undefined,
@@ -265,7 +310,7 @@ export async function PatientNotes({
           muestran todos los encuentros.
         </p>
       ) : null}
-      <h3>Elegir sesión</h3>
+      <h4>Elegir sesión</h4>
       <p className="hint">
         Abre un encuentro para escribir sus notas. Puedes guardar varias notas y
         consultar sesiones realizadas o canceladas.
@@ -287,8 +332,9 @@ export async function PatientNotes({
       ))}
       {!sessions.length ? (
         <p className="hint">
-          No hay sesiones para esta fecha. Programa una sesión en la ficha para
-          escribir su primera nota.
+          No hay sesiones para esta fecha. Si quieres notas por encuentro,
+          programa una sesión en la ficha; si no, usa la historia clínica
+          general.
         </p>
       ) : null}
       <PracticePagination
@@ -305,19 +351,14 @@ export async function PatientNotes({
         </p>
       ) : null}
       {appointment ? (
-        <h3>
+        <h4>
           Encuentro · {dateLabel(appointment.startsAt, timeZone)} ·{" "}
           {appointmentStateLabels[appointment.status]}
-        </h3>
+        </h4>
       ) : (
-        <h3>Notas de todos los encuentros</h3>
+        <h4>Notas de todos los encuentros</h4>
       )}
-      {!enabled ? (
-        <p role="status">
-          El almacenamiento privado de notas se está preparando. Podrás escribir
-          aquí cuando esté disponible.
-        </p>
-      ) : appointment ? (
+      {!enabled ? null : appointment ? (
         <SessionNoteEntry key={`new-${appointment.id}`}>
           <NoteEditor
             accountId={currentSession?.user.id || ""}
@@ -354,29 +395,6 @@ export async function PatientNotes({
         page={selected}
         pages={pages(noteCount.value)}
         href={(n) => href({ notas: String(n) })}
-        prefetch={false}
-      />
-      <h3>Notas anteriores sin sesión</h3>
-      <p className="hint">
-        Estas notas se guardaron antes de organizar los apuntes por sesión.
-        Conservan su contenido y no se han asignado a ningún encuentro.
-      </p>
-      {legacy.map((note, index) => (
-        <details key={note.id}>
-          <summary>
-            Nota anterior · {dateLabel(note.updatedAt, timeZone)}
-          </summary>
-          {decodedLegacy[index]}
-        </details>
-      ))}
-      {enabled && !legacyCount.value ? (
-        <p className="hint">No tienes notas anteriores sin sesión.</p>
-      ) : null}
-      <PracticePagination
-        total={legacyCount.value}
-        page={legacyPage}
-        pages={pages(legacyCount.value)}
-        href={(n) => href({ anteriores: String(n) })}
         prefetch={false}
       />
     </section>

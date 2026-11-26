@@ -95,12 +95,9 @@ export async function savePatientNote(data: {
     });
     if (!appointment)
       return { ok: false, message: "Elige una sesión propia de esta ficha." };
-  } else if (!(input.id && input.revision)) {
-    return {
-      ok: false,
-      message: "Elige una sesión antes de escribir una nota nueva.",
-    };
   }
+  // Sin sesión: nota de la historia clínica general de la ficha. Sirve para
+  // pacientes que se atienden fuera de Nido y para antecedentes o evolución.
   const id = input.id || crypto.randomUUID();
   const timestamp = new Date().toISOString();
   try {
@@ -195,10 +192,12 @@ export async function savePatientNote(data: {
               and(
                 eq(professionals.id, pro.id),
                 currentActor(pro.id, pro.userId, input.patientId, sessionId),
-                sql`EXISTS (SELECT 1 FROM practice_appointments appointment
+                appointmentId
+                  ? sql`EXISTS (SELECT 1 FROM practice_appointments appointment
               WHERE appointment.id = ${appointmentId}
                 AND appointment.patient_id = ${input.patientId}
-                AND appointment.professional_id = ${pro.id})`,
+                AND appointment.professional_id = ${pro.id})`
+                  : sql`1`,
               ),
             ),
         )

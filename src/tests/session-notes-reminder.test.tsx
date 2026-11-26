@@ -236,7 +236,7 @@ describe("pajarito pos-sesión: elegibilidad, CTA privada y límites", () => {
     expect(after).not.toContain("Tu pajarito de Nido");
     expect(after).not.toContain("Apunte exclusivamente ficticio");
     expect(after).toContain("Comprobando acceso…");
-    expect(after).toContain("Notas anteriores sin sesión");
+    expect(after).toContain("Historia clínica general");
   });
   it.each([
     "suspended",

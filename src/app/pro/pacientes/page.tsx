@@ -29,7 +29,9 @@ export default async function PracticePatientsPage({
         <p className="eyebrow">Nido · Tu consulta</p>
         <h1>Tus pacientes</h1>
         <p className="lead">
-          Una ficha para cada persona, con sus sesiones, notas y conversación.
+          Una ficha para cada persona que atiendes, esté o no en Nido: sus
+          datos, su historia clínica, sus sesiones y tus notas, en un solo
+          sitio.
         </p>
         <PracticeNav />
         <section
@@ -101,7 +103,7 @@ export default async function PracticePatientsPage({
                 <p className="hint">
                   {patients.term || patients.state
                     ? "Prueba otro nombre o seguimiento para encontrar la ficha."
-                    : "Crea una ficha o vincula una conversación para organizar el próximo encuentro."}
+                    : "Crea una ficha para cualquier paciente de tu consulta, también si no usa Nido, o vincula una conversación de Nido."}
                 </p>
                 {!patients.term && !patients.state ? (
                   <Link href="/pro/mensajes" className="link-arrow">
@@ -131,8 +133,10 @@ export default async function PracticePatientsPage({
         >
           <h2 id="patient-create-title">Crear ficha de paciente</h2>
           <p className="hint">
-            Guarda el contacto y los datos opcionales de la ficha con
-            autorización de la persona.
+            Para cualquier paciente de tu consulta, aunque no tenga cuenta en
+            Nido: no recibe ningún aviso. Guarda el contacto y los datos
+            opcionales con su autorización; después escribe su historia clínica
+            desde la ficha.
           </p>
           <PracticeForm
             action={createPatient}

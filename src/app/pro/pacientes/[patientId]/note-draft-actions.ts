@@ -36,7 +36,8 @@ export async function authorizeNoteDraft(
   const scope = parsed.data;
   const appointment = scope.appointmentId
     ? sql`EXISTS (SELECT 1 FROM practice_appointments appointment WHERE appointment.id=${scope.appointmentId} AND appointment.professional_id=p.id AND appointment.patient_id=patient.id)`
-    : sql`${!scope.isNew}`;
+    : // Historia clínica general: nota nueva o existente sin sesión.
+      sql`1`;
   const association = scope.appointmentId
     ? sql`note.appointment_id=${scope.appointmentId}`
     : sql`note.appointment_id IS NULL`;

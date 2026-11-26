@@ -186,7 +186,7 @@ export function PracticeGuide() {
         {patientPage ? (
           <>
             <Link href="#sesiones">Programar sesión →</Link>
-            <Link href="#notas">Abrir notas por sesión →</Link>
+            <Link href="#historia-clinica">Escribir su historia clínica →</Link>
           </>
         ) : (
           <>

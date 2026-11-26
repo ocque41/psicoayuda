@@ -250,7 +250,7 @@ export default async function PatientPage({
           <a href="#ficha-privada">Ficha privada</a>
           <a href="#sesiones">Sesiones y llamadas</a>
           <a href="#cobros">Cobros</a>
-          <a href="#notas">Notas privadas</a>
+          <a href="#historia-clinica">Historia clínica y notas</a>
           <a href="#seguimiento">Seguimiento</a>
           {patient.conversationId ? (
             <Link

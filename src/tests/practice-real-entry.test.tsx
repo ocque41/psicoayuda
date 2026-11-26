@@ -58,7 +58,7 @@ describe("guía de espacios reales", () => {
     route.pathname = "/pro/pacientes/ficha-propia";
     const html = renderToStaticMarkup(<PracticeGuide />);
     expect(html).toContain('href="#sesiones"');
-    expect(html).toContain('href="#notas"');
+    expect(html).toContain('href="#historia-clinica"');
     expect(html).not.toContain("notaSesion=");
   });
 

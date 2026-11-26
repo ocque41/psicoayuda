@@ -154,4 +154,16 @@ describe("0036: notas por sesión sin alterar el historial", () => {
       client.close();
     }
   });
+  it("0046: permite la historia clínica general sin relajar las notas de sesión", async () => {
+    const migration = await readFile(
+      new URL("../../drizzle/0046_general_clinical_notes.sql", import.meta.url),
+      "utf8",
+    );
+    expect(migration).not.toMatch(
+      /\b(?:DROP TABLE|DELETE FROM|UPDATE practice_notes|ALTER TABLE)\b/i,
+    );
+    expect(migration).toContain(
+      "NEW.appointment_id IS NOT NULL AND NOT EXISTS",
+    );
+  });
 });

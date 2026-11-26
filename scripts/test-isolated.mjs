@@ -59,6 +59,7 @@ try {
     "0040_professional_admission_pipeline.sql",
     "0041_patient_profile.sql",
     "0042_calendar_revision.sql",
+    "0046_general_clinical_notes.sql",
   ]) {
     const migration = await readFile(
       new URL(`../drizzle/${file}`, import.meta.url),
@@ -66,7 +67,9 @@ try {
     );
     for (const statement of migration.split("--> statement-breakpoint")) {
       const sql = statement.trim().replace(/^(?:--[^\n]*\n\s*)+/, "");
-      if (sql.startsWith("CREATE TRIGGER")) await client.execute(statement);
+      // Una migración posterior puede sustituir un trigger: DROP y CREATE.
+      if (sql.startsWith("CREATE TRIGGER") || sql.startsWith("DROP TRIGGER"))
+        await client.execute(statement);
     }
   }
   run(["exec", "vitest", "run", ...process.argv.slice(2)]);

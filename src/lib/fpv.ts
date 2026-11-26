@@ -1,4 +1,5 @@
 import "server-only";
+import type { FpvAdmissionCheck, FpvOfficial } from "./fpv-types";
 
 // Verificación contra la Federación de Psicólogos de Venezuela.
 // La consulta pública de sistema.fpv.org.ve usa esta API JSON (descubierta en su
@@ -10,17 +11,8 @@ const FPV_ENDPOINT = "https://api.sistema.fpv.org.ve/api/v1/psicologos_public";
 const TIMEOUT_MS = 6000;
 
 // Subconjunto del registro oficial que SÍ guardamos (nunca la cédula, ni PII de
-// más): sirve para el badge del admin y para re-verificar en la Fase 2.
-export type FpvOfficial = {
-  fpv: string | null;
-  nombreCompleto: string;
-  universidad: string | null;
-  denominacionTitulo: string | null;
-  colegios: { colegio: string; solvencia: boolean }[];
-  solvenciaColegio: boolean | null;
-  statusGeneral: boolean | null;
-  deletedAt: string | null;
-};
+// más): `FpvOfficial`, en fpv-types para que el cliente pueda tiparlo.
+export type { FpvAdmissionCheck, FpvOfficial };
 
 export type FpvVerification = {
   found: boolean;
@@ -105,16 +97,18 @@ export function crossCheck(
     digits(str(input.fpvNumber)) !== "" &&
     digits(str(input.fpvNumber)) === digits(official.fpv);
 
-  // Nombre: exigimos que el primer nombre Y el primer apellido oficiales
-  // aparezcan en el nombre que declaró el profesional (tolerante a segundos
-  // nombres/apellidos omitidos y a orden distinto).
+  // Nombre: algún nombre oficial (primero o segundo) Y algún apellido oficial
+  // (primero o segundo) aparecen en el nombre declarado. Tolera que se use el
+  // segundo nombre, que se omita un apellido y el orden distinto; los nombres
+  // compuestos («De la Rosa») cuentan por cualquiera de sus palabras.
   const entered = nameTokens(input.fullName);
-  const primerNombre = normalize(str(item.primerNombre));
-  const primerApellido = normalize(str(item.primerApellido));
-  const core = [primerNombre, primerApellido].filter(
-    (token) => token.length >= 2,
-  );
-  const nameMatch = core.length === 2 && core.every((t) => entered.has(t));
+  const anyIn = (...values: unknown[]) =>
+    values.some((value) =>
+      [...nameTokens(str(value))].some((token) => entered.has(token)),
+    );
+  const nameMatch =
+    anyIn(item.primerNombre, item.segundoNombre) &&
+    anyIn(item.primerApellido, item.segundoApellido);
 
   let universityMatch: boolean | null = null;
   if (input.university && official.universidad) {
@@ -141,7 +135,8 @@ async function fetchItems(query: string): Promise<FpvItem[]> {
       headers: { accept: "application/json" },
       signal: controller.signal,
     });
-    if (!response.ok) return [];
+    // Un error de la FPV no es «no está registrado»: se informa como fallo.
+    if (!response.ok) throw new Error(`fpv_http_${response.status}`);
     const body = (await response.json()) as {
       data?: { items?: unknown };
     };
@@ -174,7 +169,7 @@ export async function verifyFpvByCedula(
   if (!cedula) return notFound(checkedAt);
   try {
     const items = await fetchItems(
-      `cedula=${encodeURIComponent(cedula)}&page=1&perPage=5`,
+      `cedula=${encodeURIComponent(cedula)}&page=1&per_page=5`,
     );
     const item = items.find((i) => digits(str(i.cedula)) === cedula);
     if (!item) return notFound(checkedAt);
@@ -195,8 +190,54 @@ export async function fetchFpvByNumber(
   const fpv = digits(fpvNumber);
   if (!fpv) return null;
   const items = await fetchItems(
-    `fpv=${encodeURIComponent(fpv)}&page=1&perPage=5`,
+    `fpv=${encodeURIComponent(fpv)}&page=1&per_page=5`,
   );
   const item = items.find((i) => digits(str(i.fpv)) === fpv);
   return item ? toOfficial(item) : null;
+}
+
+/**
+ * Número FPV de un texto libre («FPV 1.177», «12345 Colegio de Miranda»):
+ * el primer número, sin puntos de millar. null si no hay ninguno.
+ */
+export function extractFpvNumber(text: string | null | undefined) {
+  const found = str(text).match(/\d{1,3}(?:\.\d{3})+|\d+/);
+  return found ? found[0].replace(/\./g, "") : null;
+}
+
+/**
+ * Comprobación para Admisión por Nº FPV (el dato que guardamos). No usa ni
+ * devuelve la cédula: `toOfficial` la descarta. La decisión sigue siendo
+ * humana; esto solo trae el registro oficial al lado de lo declarado.
+ */
+export async function checkFpvNumber(
+  input: CrossCheckInput & { fpvNumber: string },
+): Promise<FpvAdmissionCheck> {
+  const checkedAt = new Date().toISOString();
+  const fpv = digits(input.fpvNumber);
+  const empty = {
+    fpv,
+    official: null,
+    nameMatch: false,
+    universityMatch: null,
+    checkedAt,
+  };
+  try {
+    const items = await fetchItems(
+      `fpv=${encodeURIComponent(fpv)}&page=1&per_page=5`,
+    );
+    const item = items.find((entry) => digits(str(entry.fpv)) === fpv);
+    if (!item) return { ...empty, status: "not_found" };
+    const result = crossCheck(item, input);
+    return {
+      status: result.nameMatch ? "match" : "name_mismatch",
+      fpv,
+      official: result.official,
+      nameMatch: result.nameMatch,
+      universityMatch: result.universityMatch,
+      checkedAt,
+    };
+  } catch {
+    return { ...empty, status: "unavailable" };
+  }
 }

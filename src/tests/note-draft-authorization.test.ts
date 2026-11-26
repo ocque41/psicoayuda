@@ -198,6 +198,16 @@ describe("autorización fresca para abrir draft RAM, sólo booleanos", () => {
       for (const statement of migration.split("--> statement-breakpoint"))
         if (statement.trim().startsWith("CREATE TRIGGER"))
           await client.execute(statement);
+      // Restaura el guard vigente: 0046 sustituye el de inserción de 0036.
+      const current = await readFile(
+        new URL(
+          "../../drizzle/0046_general_clinical_notes.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      );
+      for (const statement of current.split("--> statement-breakpoint"))
+        await client.execute(statement);
       client.close();
     }
   });
@@ -258,7 +268,7 @@ describe("autorización fresca para abrir draft RAM, sólo booleanos", () => {
     });
     expect(after).toEqual({ ...before, revision: 4 });
   });
-  it("permite nueva nota sólo en una sesión propia; permite reintento de un ID propio ya guardado", async () => {
+  it("permite nueva nota en una sesión propia o en la historia general; permite reintento de un ID propio", async () => {
     expect(
       (await authorizeNoteDraft({ ...input, isNew: true, noteId: id("new") }))
         .scopeAllowed,
@@ -267,9 +277,15 @@ describe("autorización fresca para abrir draft RAM, sólo booleanos", () => {
       (await authorizeNoteDraft({ ...input, isNew: true })).scopeAllowed,
     ).toBe(true);
     expect(
-      (await authorizeNoteDraft({ ...input, isNew: true, appointmentId: null }))
-        .scopeAllowed,
-    ).toBe(false);
+      (
+        await authorizeNoteDraft({
+          ...input,
+          isNew: true,
+          noteId: id("new-general"),
+          appointmentId: null,
+        })
+      ).scopeAllowed,
+    ).toBe(true);
     expect(
       (
         await authorizeNoteDraft({
